@@ -18,8 +18,8 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
         conversation_id: nil,
         turn_id: nil,
         workflow_node_key: nil,
-        agent_program_id: nil,
-        agent_program_version_id: nil,
+        agent_id: nil,
+        agent_snapshot_id: nil,
         provider_handle: "codex_subscription",
         model_ref: "gpt-5.4",
         operation_kind: "text_generation"
@@ -50,8 +50,8 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
         conversation_id: nil,
         turn_id: nil,
         workflow_node_key: nil,
-        agent_program_id: nil,
-        agent_program_version_id: nil,
+        agent_id: nil,
+        agent_snapshot_id: nil,
         provider_handle: "codex_subscription",
         model_ref: "gpt-5.4-mini",
         operation_kind: "text_generation"
@@ -106,27 +106,27 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
   test "aggregates rolling-window usage across dimension rollups for the same provider model and operation" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    agent_program = create_agent_program!(installation: installation)
-    first_binding = create_user_program_binding!(
+    agent = create_agent!(installation: installation)
+    first_binding = create_user_agent_binding!(
       installation: installation,
       user: user,
-      agent_program: agent_program
+      agent: agent
     )
-    second_binding = create_user_program_binding!(
+    second_binding = create_user_agent_binding!(
       installation: installation,
       user: user,
-      agent_program: create_agent_program!(installation: installation)
+      agent: create_agent!(installation: installation)
     )
     first_workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_program_binding: first_binding,
+      user_agent_binding: first_binding,
       name: "First Workspace"
     )
     second_workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_program_binding: second_binding,
+      user_agent_binding: second_binding,
       name: "Second Workspace"
     )
     window_key = "codex:2026-03-24T10"

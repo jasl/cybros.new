@@ -3,7 +3,7 @@
 # rubocop:disable Metrics/ClassLength, Metrics/MethodLength, Metrics/AbcSize, Metrics/ParameterLists
 module Acceptance
   module Perf
-    # Immutable mapping of runtime slots to registered external Fenix deployments.
+    # Immutable mapping of runtime slots to registered external Fenix agent snapshots.
     class RuntimeRegistrationMatrix
       # Immutable registration descriptor for one runtime slot.
       Registration = Struct.new(
@@ -12,16 +12,18 @@ module Acceptance
         :event_output_path,
         :runtime_registration,
         :runtime_task_env,
-        :agent_program,
-        :agent_program_version,
-        :deployment,
-        :machine_credential,
-        :executor_machine_credential,
+        :agent,
+        :agent_snapshot,
+        :agent_connection_credential,
+        :execution_runtime_connection_credential,
         :boot_status,
         :boot_error,
         keyword_init: true
       ) do
         def initialize(**attributes)
+          if attributes.key?(:execution_runtime_connection_credential) && !attributes.key?(:execution_runtime_connection_credential)
+            attributes[:execution_runtime_connection_credential] = attributes.delete(:execution_runtime_connection_credential)
+          end
           attributes[:runtime_task_env] = attributes.fetch(:runtime_task_env).freeze
           attributes[:boot_status] ||= 'ready'
           super(**attributes)
@@ -55,7 +57,7 @@ module Acceptance
           build(...)
         end
 
-        def build(installation:, actor:, topology:, create_external_agent_program:, register_external_runtime:)
+        def build(installation:, actor:, topology:, create_external_agent:, register_external_runtime:)
           new(
             runtime_count: topology.runtime_count,
             core_matrix_events_path: topology.artifact_root.join('evidence', 'core-matrix-events.ndjson').to_s,
@@ -65,7 +67,7 @@ module Acceptance
                 actor: actor,
                 slot: slot,
                 index: index + 1,
-                create_external_agent_program: create_external_agent_program,
+                create_external_agent: create_external_agent,
                 register_external_runtime: register_external_runtime
               )
             end
@@ -79,10 +81,10 @@ module Acceptance
           actor:,
           slot:,
           index:,
-          create_external_agent_program:,
+          create_external_agent:,
           register_external_runtime:
         )
-          external_program = create_external_agent_program.call(
+          external_program = create_external_agent.call(
             installation: installation,
             actor: actor,
             key: "multi-fenix-load-#{slot.label}",
@@ -91,7 +93,7 @@ module Acceptance
           registration = register_external_runtime.call(
             enrollment_token: external_program.fetch(:enrollment_token),
             runtime_base_url: slot.runtime_base_url,
-            executor_fingerprint: "#{slot.label}-executor",
+            execution_runtime_fingerprint: "#{slot.label}-executor",
             fingerprint: slot.label
           )
 
@@ -106,11 +108,10 @@ module Acceptance
               'CYBROS_PERF_EVENTS_PATH' => slot.event_output_path.to_s,
               'CYBROS_PERF_INSTANCE_LABEL' => slot.label
             },
-            agent_program: external_program.fetch(:agent_program),
-            agent_program_version: registration.agent_program_version,
-            deployment: registration.deployment,
-            machine_credential: registration.machine_credential,
-            executor_machine_credential: registration.executor_machine_credential
+            agent: external_program.fetch(:agent),
+            agent_snapshot: registration.agent_snapshot,
+            agent_connection_credential: registration.agent_connection_credential,
+            execution_runtime_connection_credential: registration.execution_runtime_connection_credential
           )
         end
       end

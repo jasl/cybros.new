@@ -6,7 +6,7 @@ module ConversationRuntime
       new(...).call
     end
 
-    def initialize(conversation_id:, turn_id:, phase_events:, workflow_node_events:, usage_events:, tool_invocations:, command_runs:, process_runs:, subagent_sessions:, subagent_runtime_snapshots: [], agent_task_runs:, supervision_trace:, summary:)
+    def initialize(conversation_id:, turn_id:, phase_events:, workflow_node_events:, usage_events:, tool_invocations:, command_runs:, process_runs:, subagent_connections:, subagent_runtime_snapshots: [], agent_task_runs:, supervision_trace:, summary:)
       @conversation_id = conversation_id
       @turn_id = turn_id
       @phase_events = Array(phase_events)
@@ -15,7 +15,7 @@ module ConversationRuntime
       @tool_invocations = Array(tool_invocations)
       @command_runs = Array(command_runs)
       @process_runs = Array(process_runs)
-      @subagent_sessions = Array(subagent_sessions)
+      @subagent_connections = Array(subagent_connections)
       @subagent_runtime_snapshots = Array(subagent_runtime_snapshots)
       @agent_task_runs = Array(agent_task_runs)
       @supervision_trace = supervision_trace || {}
@@ -45,7 +45,7 @@ module ConversationRuntime
     private
 
     def build_timeline
-      subagent_labels = build_subagent_labels(@subagent_sessions)
+      subagent_labels = build_subagent_labels(@subagent_connections)
       agent_task_runs_by_id = @agent_task_runs.each_with_object({}) do |task_run, memo|
         memo[task_run["agent_task_run_id"]] = task_run
       end
@@ -266,22 +266,22 @@ module ConversationRuntime
     end
 
     def build_subagent_events(subagent_labels:)
-      @subagent_sessions.flat_map do |session|
-        actor_label = subagent_labels.fetch(session["subagent_session_id"], "subagent")
+      @subagent_connections.flat_map do |session|
+        actor_label = subagent_labels.fetch(session["subagent_connection_id"], "subagent")
         [
           {
             "timestamp" => session["created_at"],
             "actor_type" => "subagent",
             "actor_label" => actor_label,
-            "actor_public_id" => session["subagent_session_id"],
+            "actor_public_id" => session["subagent_connection_id"],
             "phase" => "build",
             "family" => "subagent_progress",
             "kind" => "subagent_started",
             "status" => "started",
             "summary" => "#{actor_label} started delegated work",
             "detail" => nil,
-            "subagent_session_public_id" => session["subagent_session_id"],
-            "source_refs" => ["subagent_sessions.json"],
+            "subagent_connection_public_id" => session["subagent_connection_id"],
+            "source_refs" => ["subagent_connections.json"],
             "sort_order" => 60,
           },
           if session["observed_status"].present?
@@ -289,15 +289,15 @@ module ConversationRuntime
               "timestamp" => session["updated_at"] || session["created_at"],
               "actor_type" => "subagent",
               "actor_label" => actor_label,
-              "actor_public_id" => session["subagent_session_id"],
+              "actor_public_id" => session["subagent_connection_id"],
               "phase" => "build",
               "family" => "subagent_progress",
               "kind" => "subagent_completed",
               "status" => session["observed_status"],
               "summary" => "#{actor_label} completed its assigned work",
               "detail" => nil,
-              "subagent_session_public_id" => session["subagent_session_id"],
-              "source_refs" => ["subagent_sessions.json"],
+              "subagent_connection_public_id" => session["subagent_connection_id"],
+              "source_refs" => ["subagent_connections.json"],
               "sort_order" => 70,
             }
           end,
@@ -307,8 +307,8 @@ module ConversationRuntime
 
     def build_subagent_runtime_snapshot_events(subagent_labels:)
       @subagent_runtime_snapshots.flat_map do |snapshot|
-        actor_label = subagent_labels.fetch(snapshot["subagent_session_id"], snapshot["profile_key"].presence || "subagent")
-        actor_public_id = snapshot["subagent_session_id"]
+        actor_label = subagent_labels.fetch(snapshot["subagent_connection_id"], snapshot["profile_key"].presence || "subagent")
+        actor_public_id = snapshot["subagent_connection_id"]
         snapshot_command_runs_by_id = snapshot.fetch("command_runs", []).each_with_object({}) do |command_run, memo|
           command_id = command_run["command_run_public_id"] || command_run["command_run_id"]
           memo[command_id] = command_run if command_id.present?
@@ -332,7 +332,7 @@ module ConversationRuntime
               "summary" => "Prepared the next implementation step",
               "detail" => "#{event["provider_handle"]}/#{event["model_ref"]} produced #{event["output_tokens"] || 0} output tokens.",
               "workflow_node_key" => workflow_node_key,
-              "subagent_session_public_id" => actor_public_id,
+              "subagent_connection_public_id" => actor_public_id,
               "source_refs" => ["subagent-runtime-snapshots.json"],
               "sort_order" => 80,
             }
@@ -352,7 +352,7 @@ module ConversationRuntime
               "kind" => "tool_completed",
               "status" => tool_invocation["status"],
               "tool_invocation_public_id" => tool_invocation["tool_invocation_public_id"] || tool_invocation["tool_invocation_id"],
-              "subagent_session_public_id" => actor_public_id,
+              "subagent_connection_public_id" => actor_public_id,
               "source_refs" => ["subagent-runtime-snapshots.json"],
               "sort_order" => 85,
             )
@@ -375,7 +375,7 @@ module ConversationRuntime
               "kind" => "command_#{normalize_state(command_run["lifecycle_state"])}",
               "status" => normalize_state(command_run["lifecycle_state"]),
               "command_run_public_id" => command_run["command_run_public_id"] || command_run["command_run_id"],
-              "subagent_session_public_id" => actor_public_id,
+              "subagent_connection_public_id" => actor_public_id,
               "source_refs" => ["subagent-runtime-snapshots.json"],
               "sort_order" => 90,
             )
@@ -481,20 +481,20 @@ module ConversationRuntime
       return { "actor_type" => "main_agent", "actor_label" => "main", "actor_public_id" => nil } if entry.blank?
 
       task_run = agent_task_runs_by_id[entry["agent_task_run_id"]]
-      subagent_session_id = task_run&.fetch("subagent_session_id", nil)
-      subagent_label = subagent_labels[subagent_session_id]
-      return { "actor_type" => "subagent", "actor_label" => subagent_label, "actor_public_id" => subagent_session_id } if subagent_label.present?
+      subagent_connection_id = task_run&.fetch("subagent_connection_id", nil)
+      subagent_label = subagent_labels[subagent_connection_id]
+      return { "actor_type" => "subagent", "actor_label" => subagent_label, "actor_public_id" => subagent_connection_id } if subagent_label.present?
 
       { "actor_type" => "main_agent", "actor_label" => "main", "actor_public_id" => nil }
     end
 
-    def build_subagent_labels(subagent_sessions)
+    def build_subagent_labels(subagent_connections)
       counts = Hash.new(0)
 
-      subagent_sessions.sort_by { |session| parse_time(session["created_at"]) || Time.at(0).utc }.each_with_object({}) do |session, memo|
+      subagent_connections.sort_by { |session| parse_time(session["created_at"]) || Time.at(0).utc }.each_with_object({}) do |session, memo|
         profile_key = session["profile_key"].presence || "subagent"
         counts[profile_key] += 1
-        memo[session["subagent_session_id"]] = "#{profile_key}##{counts[profile_key]}"
+        memo[session["subagent_connection_id"]] = "#{profile_key}##{counts[profile_key]}"
       end
     end
 

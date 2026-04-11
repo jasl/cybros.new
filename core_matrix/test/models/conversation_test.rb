@@ -12,16 +12,16 @@ class ConversationTest < ActiveSupport::TestCase
     assert_equal conversation, Conversation.find_by_public_id!(conversation.public_id)
   end
 
-  test "binds to an agent program and not directly to runtime rows" do
+  test "binds to an agent and not directly to runtime rows" do
     conversation = build_conversation
 
     assert conversation.valid?
     assert_equal :belongs_to, Conversation.reflect_on_association(:workspace).macro
-    assert_equal :belongs_to, Conversation.reflect_on_association(:agent_program).macro
-    assert_nil Conversation.reflect_on_association(:agent_program_version)
-    assert_nil Conversation.reflect_on_association(:executor_program)
-    assert_not_includes Conversation.column_names, "agent_program_version_id"
-    assert_not_includes Conversation.column_names, "executor_program_id"
+    assert_equal :belongs_to, Conversation.reflect_on_association(:agent).macro
+    assert_nil Conversation.reflect_on_association(:agent_snapshot)
+    assert_nil Conversation.reflect_on_association(:execution_runtime)
+    assert_not_includes Conversation.column_names, "agent_snapshot_id"
+    assert_not_includes Conversation.column_names, "execution_runtime_id"
   end
 
   test "exposes inline metadata fields on conversation" do
@@ -125,7 +125,7 @@ class ConversationTest < ActiveSupport::TestCase
       {
         installation: context[:installation],
         workspace: context[:workspace],
-        agent_program: context[:agent_program],
+        agent: context[:agent],
         kind: "root",
         purpose: "interactive",
         lifecycle_state: "active",
@@ -136,23 +136,23 @@ class ConversationTest < ActiveSupport::TestCase
   def conversation_context
     @conversation_context ||= begin
       installation = create_installation!
-      agent_program = create_agent_program!(installation: installation)
+      agent = create_agent!(installation: installation)
       user = create_user!(installation: installation)
-      user_program_binding = create_user_program_binding!(
+      user_agent_binding = create_user_agent_binding!(
         installation: installation,
         user: user,
-        agent_program: agent_program
+        agent: agent
       )
       workspace = create_workspace!(
         installation: installation,
         user: user,
-        user_program_binding: user_program_binding
+        user_agent_binding: user_agent_binding
       )
 
       {
         installation: installation,
         workspace: workspace,
-        agent_program: agent_program,
+        agent: agent,
       }
     end
   end

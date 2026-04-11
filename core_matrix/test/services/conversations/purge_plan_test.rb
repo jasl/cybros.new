@@ -5,13 +5,13 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Purge plan input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -34,13 +34,13 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Derived cleanup input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -115,13 +115,13 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Derived query budget input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -217,7 +217,7 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
       anchor_turn_public_id: turn.public_id,
       anchor_turn_sequence_snapshot: turn.sequence,
       conversation_event_projection_sequence_snapshot: 1,
-      active_subagent_session_public_ids: [],
+      active_subagent_connection_public_ids: [],
       bundle_payload: {},
       machine_status_payload: {}
     )

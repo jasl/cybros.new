@@ -27,7 +27,7 @@ module Workflows
         "workspace_public_id" => workflow_node.workspace.public_id,
         "conversation_public_id" => workflow_node.conversation.public_id,
         "turn_public_id" => workflow_node.turn.public_id,
-        "agent_program_public_id" => workflow_node.conversation.agent_program.public_id,
+        "agent_public_id" => workflow_node.conversation.agent.public_id,
         "queue_name" => queue_name.presence || self.queue_name,
         "queue_delay_ms" => ((Time.current - enqueued_at) * 1000.0).round(3),
         "success" => true,

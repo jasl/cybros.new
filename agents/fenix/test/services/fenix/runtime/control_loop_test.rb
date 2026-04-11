@@ -2,7 +2,7 @@ require "test_helper"
 
 class Fenix::Runtime::ControlLoopTest < ActiveSupport::TestCase
   test "falls back to poll when realtime receives no mailbox items" do
-    realtime_result = Fenix::Runtime::RealtimeSession::Result.new(
+    realtime_result = Fenix::Runtime::RealtimeConnection::Result.new(
       status: "timed_out",
       processed_count: 0,
       subscription_confirmed: false
@@ -23,7 +23,7 @@ class Fenix::Runtime::ControlLoopTest < ActiveSupport::TestCase
 
   test "keeps realtime as the transport when realtime already processed mailbox items" do
     realtime_mailbox_results = ["realtime-result"]
-    realtime_result = Fenix::Runtime::RealtimeSession::Result.new(
+    realtime_result = Fenix::Runtime::RealtimeConnection::Result.new(
       status: "disconnected",
       processed_count: 1,
       subscription_confirmed: true,
@@ -44,7 +44,7 @@ class Fenix::Runtime::ControlLoopTest < ActiveSupport::TestCase
 
   test "polls after realtime work so a missed broadcast can still be recovered in the same loop" do
     realtime_mailbox_results = ["realtime-result"]
-    realtime_result = Fenix::Runtime::RealtimeSession::Result.new(
+    realtime_result = Fenix::Runtime::RealtimeConnection::Result.new(
       status: "timed_out",
       processed_count: 1,
       subscription_confirmed: true,

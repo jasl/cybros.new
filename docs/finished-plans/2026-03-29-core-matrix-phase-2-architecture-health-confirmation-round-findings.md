@@ -19,7 +19,7 @@ runtime capability preservation, subagent close control, and the
 - Archived confirmed findings:
   deployment recovery still has duplicate rebinding authority; capability
   preservation checks are narrower than the runtime contract they claim to
-  protect; `SubagentSession` close progression is split across two state
+  protect; `SubagentConnection` close progression is split across two state
   machines; the `core_matrix <-> fenix` execution-context contract drops real
   model hints on the floor.
 - Archived risk smells most likely to hide adjacent undiscovered work:
@@ -29,14 +29,14 @@ runtime capability preservation, subagent close control, and the
   too many wrapper families.
 - Archived top structural priorities:
   unify runtime capability preservation and reuse rules; collapse
-  `SubagentSession` close progression onto one canonical state model; repair the
+  `SubagentConnection` close progression onto one canonical state model; repair the
   `core_matrix <-> fenix` execution-context contract and lock it down with
   cross-project contract tests.
 
 ## Confirmation Passes
 
 - [x] Runtime capability preservation and reuse rules
-- [x] `SubagentSession` close progression and neighboring close-control readers
+- [x] `SubagentConnection` close progression and neighboring close-control readers
 - [x] `core_matrix <-> fenix` execution-context contract, including model hints
   and visible-tool semantics
 - [x] Wrapper and payload drift around the archived hotspots
@@ -75,11 +75,11 @@ runtime capability preservation, subagent close control, and the
   identity, so this confirmation pass did not surface a separate adjacent
   structural leak.
 
-### `SubagentSession` close progression and adjacent readers
+### `SubagentConnection` close progression and adjacent readers
 
 - Files reviewed:
   `core_matrix/app/models/concerns/closable_runtime_resource.rb`,
-  `core_matrix/app/models/subagent_session.rb`,
+  `core_matrix/app/models/subagent_connection.rb`,
   `core_matrix/app/queries/conversations/blocker_snapshot_query.rb`,
   `core_matrix/app/queries/conversations/close_summary_query.rb`,
   `core_matrix/app/services/agent_control/apply_close_outcome.rb`,
@@ -92,20 +92,20 @@ runtime capability preservation, subagent close control, and the
   `core_matrix/app/services/conversations/request_close.rb`,
   `core_matrix/app/services/conversations/request_turn_interrupt.rb`,
   `core_matrix/app/services/conversations/validate_quiescence.rb`,
-  `core_matrix/app/services/subagent_sessions/list_for_conversation.rb`,
-  `core_matrix/app/services/subagent_sessions/owned_tree.rb`,
-  `core_matrix/app/services/subagent_sessions/request_close.rb`,
-  `core_matrix/app/services/subagent_sessions/wait.rb`,
-  `core_matrix/test/models/subagent_session_test.rb`,
+  `core_matrix/app/services/subagent_connections/list_for_conversation.rb`,
+  `core_matrix/app/services/subagent_connections/owned_tree.rb`,
+  `core_matrix/app/services/subagent_connections/request_close.rb`,
+  `core_matrix/app/services/subagent_connections/wait.rb`,
+  `core_matrix/test/models/subagent_connection_test.rb`,
   `core_matrix/test/queries/conversations/blocker_snapshot_query_test.rb`,
   `core_matrix/test/queries/conversations/close_summary_query_test.rb`,
   `core_matrix/test/services/agent_control/report_test.rb`,
   `core_matrix/test/services/conversations/request_turn_interrupt_test.rb`,
   `core_matrix/test/services/conversations/validate_quiescence_test.rb`,
-  and `core_matrix/test/services/subagent_sessions/request_close_test.rb`.
+  and `core_matrix/test/services/subagent_connections/request_close_test.rb`.
 - Result:
   no additional high-confidence issue found beyond the archived
-  `SubagentSession` split-state-machine finding. The adjacent readers and
+  `SubagentConnection` split-state-machine finding. The adjacent readers and
   close-control helpers still compensate by consulting `close_state` and
   `last_known_status`, but in the current code those checks reinforce the
   already-archived split-authority problem instead of exposing a second,
@@ -150,7 +150,7 @@ runtime capability preservation, subagent close control, and the
   `allowed_tool_names|likely_model|model_context|agent_context|profile`.
 - Result:
   the sweep did not surface a second new high-confidence structural issue. It
-  reinforced the archived capability-preservation and `SubagentSession`
+  reinforced the archived capability-preservation and `SubagentConnection`
   hotspots, confirmed that current Fenix runtime code now treats
   `allowed_tool_names` as an execution-time constraint, and re-confirmed that
   the only newly promoted issue in this round is the retry-assignment drift
@@ -211,7 +211,7 @@ wrapper instead of bypassing the contract.
 - The archived iterative findings and the archived iterative plan were re-read
   before looking for anything new.
 - All three targeted confirmation passes ran:
-  runtime capability preservation and reuse, `SubagentSession` close
+  runtime capability preservation and reuse, `SubagentConnection` close
   progression and adjacent readers, and the `core_matrix <-> fenix`
   execution-context boundary.
 - One adjacent anti-pattern sweep ran across neighboring wrapper and payload

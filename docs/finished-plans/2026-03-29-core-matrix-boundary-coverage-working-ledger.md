@@ -40,7 +40,7 @@
 - Status: `completed`
 - Scope:
   - `app/services/agent_control/**/*`
-  - `app/services/subagent_sessions/**/*`
+  - `app/services/subagent_connections/**/*`
   - `app/services/installations/**/*`
   - `app/services/execution_environments/**/*`
   - `app/services/leases/**/*`
@@ -85,7 +85,7 @@
 
 ### app/channels
 
-- keep_watch | app/channels/agent_control_channel.rb
+- keep_watch | app/channels/control_plane_channel.rb
 
 ### app/channels/application_cable
 
@@ -182,7 +182,7 @@
 - done | app/models/publication_access_event.rb
 - done | app/models/runtime_capability_contract.rb
 - done | app/models/session.rb
-- done | app/models/subagent_session.rb
+- done | app/models/subagent_connection.rb
 - done | app/models/turn.rb
 - done | app/models/turn_execution_snapshot.rb
 - done | app/models/usage_event.rb
@@ -461,15 +461,15 @@
 - done | app/services/runtime_capabilities/compose_effective_tool_catalog.rb
 - done | app/services/runtime_capabilities/compose_for_conversation.rb
 
-### app/services/subagent_sessions
+### app/services/subagent_connections
 
-- keep_watch | app/services/subagent_sessions/list_for_conversation.rb
-- keep_watch | app/services/subagent_sessions/owned_tree.rb
-- done | app/services/subagent_sessions/request_close.rb
-- done | app/services/subagent_sessions/send_message.rb
-- done | app/services/subagent_sessions/spawn.rb
-- done | app/services/subagent_sessions/validate_addressability.rb
-- done | app/services/subagent_sessions/wait.rb
+- keep_watch | app/services/subagent_connections/list_for_conversation.rb
+- keep_watch | app/services/subagent_connections/owned_tree.rb
+- done | app/services/subagent_connections/request_close.rb
+- done | app/services/subagent_connections/send_message.rb
+- done | app/services/subagent_connections/spawn.rb
+- done | app/services/subagent_connections/validate_addressability.rb
+- done | app/services/subagent_connections/wait.rb
 
 ### app/services/turns
 

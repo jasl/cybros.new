@@ -6,7 +6,7 @@ require "time"
 module Perf
   class EventSink
     EVENT_PATTERN = /\Aperf\./.freeze
-    GENERIC_STRING_ID_KEYS = %w[executor_session_id].freeze
+    GENERIC_STRING_ID_KEYS = %w[execution_runtime_connection_id].freeze
     RESERVED_KEYS = %w[recorded_at source_app instance_label event_name duration_ms].freeze
 
     class << self

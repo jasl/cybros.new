@@ -4,7 +4,7 @@
 
 **Goal:** Turn `agents/fenix` from the current validated runtime into a distributable Ubuntu 24.04 runtime appliance with pluggable environment tools, `.fenix` workspace state, Firecrawl-backed web capabilities, browser automation, and `ProcessRun`-aligned long-lived service support.
 
-**Architecture:** Keep the shipped product as one default Fenix runtime service while separating program-plane logic from execution-plane logic inside the implementation. Replace the current hardcoded tool catalog with a registry-backed composition model, keep Core Matrix reserved tools outside the plugin collision domain, and split attached command execution from long-lived process execution.
+**Architecture:** Keep the shipped product as one default Fenix runtime service while separating agent-plane logic from execution-plane logic inside the implementation. Replace the current hardcoded tool catalog with a registry-backed composition model, keep Core Matrix reserved tools outside the plugin collision domain, and split attached command execution from long-lived process execution.
 
 **Tech Stack:** Ruby on Rails, Ubuntu 24.04, Ruby 4.0.x, Node.js LTS, npm, pnpm, Python, uv, Chromium, Playwright, Caddy, Firecrawl, Core Matrix runtime capability contract, Rails integration tests.
 

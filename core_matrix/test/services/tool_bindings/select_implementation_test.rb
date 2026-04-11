@@ -5,11 +5,11 @@ class ToolBindings::SelectImplementationTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_program_version: context.fetch(:capability_snapshot),
+      agent_snapshot: context.fetch(:capability_snapshot),
       tool_name: "subagent_spawn"
     )
     runtime_override = definition.tool_implementations.find_by!(
@@ -30,11 +30,11 @@ class ToolBindings::SelectImplementationTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_program_version: context.fetch(:capability_snapshot),
+      agent_snapshot: context.fetch(:capability_snapshot),
       tool_name: "exec_command"
     )
     runtime_override = definition.tool_implementations.find_by!(
@@ -55,11 +55,11 @@ class ToolBindings::SelectImplementationTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_program_version: context.fetch(:capability_snapshot),
+      agent_snapshot: context.fetch(:capability_snapshot),
       tool_name: "compact_context"
     )
     alternate = definition.tool_implementations.create!(

@@ -16,7 +16,7 @@ and the retained acceptance operator path.
   started changing too frequently to keep a static reset list reliable.
 - `script/manual/dummy_agent_runtime.rb register` is part of the supported
   registry validation path and must send the enrollment token plus a stable
-  `executor_fingerprint`. The manual checklist currently drives that through
+  `execution_runtime_fingerprint`. The manual checklist currently drives that through
   `CORE_MATRIX_RUNTIME_FINGERPRINT`.
 - Publication validation in phase 1 is intentionally service-level.
   `Publications::PublishLive`, `Publications::RecordAccess`,
@@ -56,7 +56,7 @@ and the retained acceptance operator path.
   - `process_run` close handling
   - governed tool invocation
   - governed Streamable HTTP MCP invocation
-  - bundled deployment rotation upgrade and downgrade
+  - bundled agent snapshot rotation upgrade and downgrade
   - independent external `Fenix`
   - built-in system skill and third-party skill activation flows
   - workflow proof export
@@ -78,6 +78,6 @@ and the retained acceptance operator path.
   and publication access logging through Rails runner scripts.
 - The `2026-03-30` acceptance run exercised real bundled/external
   `Fenix`, real provider-backed OpenRouter execution, wait/resume and
-  subagent orchestration, governed tool/MCP paths, deployment rotation,
+  subagent orchestration, governed tool/MCP paths, agent snapshot rotation,
   skill activation, and proof export. Current runs keep their generated
   evidence under `../../acceptance/artifacts/` instead of committing it.

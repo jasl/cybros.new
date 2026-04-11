@@ -7,7 +7,7 @@ delivery_mode = ENV.fetch("FENIX_DELIVERY_MODE", "realtime")
 
 Acceptance::ManualSupport.reset_backend_state!
 bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
-external = Acceptance::ManualSupport.create_external_agent_program!(
+external = Acceptance::ManualSupport.create_external_agent!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: "fenix-external",
@@ -16,13 +16,13 @@ external = Acceptance::ManualSupport.create_external_agent_program!(
 registration = Acceptance::ManualSupport.register_external_runtime!(
   enrollment_token: external.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
-  executor_fingerprint: "acceptance-external-fenix-environment",
+  execution_runtime_fingerprint: "acceptance-external-fenix-environment",
   fingerprint: "acceptance-external-fenix-v1"
 )
 run = Acceptance::ManualSupport.run_fenix_mailbox_task!(
-  agent_program_version: registration.agent_program_version,
-  machine_credential: registration.machine_credential,
-  executor_machine_credential: registration.executor_machine_credential,
+  agent_snapshot: registration.agent_snapshot,
+  agent_connection_credential: registration.agent_connection_credential,
+  execution_runtime_connection_credential: registration.execution_runtime_connection_credential,
   runtime_base_url: runtime_base_url,
   content: "External Fenix deterministic tool turn",
   mode: "deterministic_tool",
@@ -54,11 +54,11 @@ Acceptance::ManualSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      "agent_program_version_id" => registration.agent_program_version.public_id,
+      "agent_snapshot_id" => registration.agent_snapshot.public_id,
       "delivery_mode" => delivery_mode,
-      "executor_program_id" => registration.executor_program&.public_id,
-      "agent_session_id" => registration.agent_session_id,
-      "executor_session_id" => registration.executor_session_id,
+      "execution_runtime_id" => registration.execution_runtime&.public_id,
+      "agent_connection_id" => registration.agent_connection_id,
+      "execution_runtime_connection_id" => registration.execution_runtime_connection_id,
       "heartbeat_lifecycle_state" => registration.heartbeat.fetch("lifecycle_state"),
       "heartbeat_health_status" => registration.heartbeat.fetch("health_status"),
       "conversation_id" => run.fetch(:conversation).public_id,

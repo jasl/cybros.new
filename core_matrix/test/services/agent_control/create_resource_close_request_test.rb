@@ -1,12 +1,12 @@
 require "test_helper"
 
 class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
-  test "creates an executor-plane close request with durable executor program targeting" do
+  test "creates an execution-runtime-plane close request with durable execution runtime targeting" do
     context = build_agent_control_context!
     occurred_at = Time.zone.parse("2026-03-29 18:00:00 UTC")
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program]
+      execution_runtime: context[:execution_runtime]
     )
 
     mailbox_item = travel_to(occurred_at) do
@@ -21,9 +21,9 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
     end
 
     assert_equal "resource_close_request", mailbox_item.item_type
-    assert mailbox_item.executor_plane?
-    assert_equal context[:executor_program], mailbox_item.target_executor_program
-    assert_nil mailbox_item.target_agent_program_version
+    assert mailbox_item.execution_runtime_plane?
+    assert_equal context[:execution_runtime], mailbox_item.target_execution_runtime
+    assert_nil mailbox_item.target_agent_snapshot
     refute_respond_to mailbox_item, :target_ref
     assert_equal mailbox_item.public_id, mailbox_item.payload["close_request_id"]
     assert_equal "ProcessRun", mailbox_item.payload["resource_type"]
@@ -36,7 +36,7 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      agent_program: context[:agent_program]
+      agent: context[:agent]
     )
 
     error = assert_raises(ArgumentError) do
@@ -53,17 +53,17 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
     assert_includes error.message, "unsupported close resource Conversation"
   end
 
-  test "materializes the active deployment for program-plane close requests without a direct lease holder" do
+  test "materializes the active agent_snapshot for agent-plane close requests without a direct lease holder" do
     context = build_agent_control_context!
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      agent_program: context[:agent_program],
+      agent: context[:agent],
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: child_conversation,
@@ -74,7 +74,7 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
     )
 
     mailbox_item = AgentControl::CreateResourceCloseRequest.call(
-      resource: subagent_session,
+      resource: subagent_connection,
       request_kind: "turn_interrupt",
       reason_kind: "operator_stop",
       strictness: "graceful",
@@ -82,8 +82,8 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
       force_deadline_at: 60.seconds.from_now
     )
 
-    assert_equal "program", mailbox_item.control_plane
-    assert_equal context[:deployment], mailbox_item.target_agent_program_version
-    assert_equal context[:agent_program], mailbox_item.target_agent_program
+    assert_equal "agent", mailbox_item.control_plane
+    assert_equal context[:agent_snapshot], mailbox_item.target_agent_snapshot
+    assert_equal context[:agent], mailbox_item.target_agent
   end
 end

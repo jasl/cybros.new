@@ -26,27 +26,27 @@ module AgentControl
         records: @mailbox_items,
         associations: [
           :payload_document,
-          :target_agent_program,
-          :target_agent_program_version,
+          :target_agent,
+          :target_agent_snapshot,
           {
             agent_task_run: [
               :workflow_run,
               :workflow_node,
               :conversation,
-              { turn: [{ conversation: { workspace: :user } }, { agent_program_version: :agent_program }] },
+              { turn: [{ conversation: { workspace: :user } }, { agent_snapshot: :agent }] },
             ],
           },
           { workflow_node: [:workflow_run, :conversation, :turn] },
           {
             execution_contract: [
-              :agent_program_version,
+              :agent_snapshot,
               :execution_context_snapshot,
               :execution_capability_snapshot,
               {
                 turn: [
                   { conversation: { workspace: :user } },
-                  { agent_program_version: :agent_program },
-                  :executor_program,
+                  { agent_snapshot: :agent },
+                  :execution_runtime,
                   :selected_input_message,
                   :selected_output_message,
                 ],
@@ -64,7 +64,7 @@ module AgentControl
         turn =
           if mailbox_item.execution_assignment?
             mailbox_item.agent_task_run&.turn
-          elsif mailbox_item.agent_program_request?
+          elsif mailbox_item.agent_request?
             mailbox_item.execution_contract&.turn
           end
         next if turn.blank? || turns_by_id.key?(turn.id)
@@ -76,7 +76,7 @@ module AgentControl
         records: turns_by_id.values,
         associations: [
           { conversation: { workspace: :user } },
-          { agent_program_version: :agent_program },
+          { agent_snapshot: :agent },
         ]
       ).call
 

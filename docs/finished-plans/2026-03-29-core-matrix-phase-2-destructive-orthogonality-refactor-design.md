@@ -7,9 +7,9 @@ Read together with:
 3. `docs/finished-plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
 4. `docs/finished-plans/2026-03-28-core-matrix-phase-2-architecture-health-audit-follow-up-findings.md`
 5. `docs/finished-plans/2026-03-28-core-matrix-phase-2-iterative-architecture-health-refresh-findings.md`
-6. `core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md`
+6. `core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md`
 7. `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
-8. `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
+8. `core_matrix/docs/behavior/subagent-connections-and-execution-leases.md`
 9. `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
 10. `core_matrix/docs/behavior/publication-and-live-projection.md`
 
@@ -145,7 +145,7 @@ centralize the owner, not silently invent a second hidden compatibility rule.
 
 #### Behavior Docs To Update
 
-- `core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md`
+- `core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md`
 - `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
 - `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
 

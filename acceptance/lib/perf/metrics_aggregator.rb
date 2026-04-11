@@ -22,7 +22,7 @@ module Acceptance
             "core_matrix_control_plane" => percentile_summary(events_named("perf.agent_control.poll").map { |event| event.fetch("duration_ms").to_f }),
           },
           "mailbox_lease_latency" => percentile_summary(events_named("perf.agent_control.mailbox_item_leased").filter_map { |event| float_or_nil(event["lease_latency_ms"]) }),
-          "mailbox_exchange_wait" => percentile_summary(events_named("perf.provider_execution.program_mailbox_exchange_wait").map { |event| event.fetch("duration_ms").to_f }),
+          "mailbox_exchange_wait" => percentile_summary(events_named("perf.provider_execution.agent_request_exchange_wait").map { |event| event.fetch("duration_ms").to_f }),
           "queue_pressure" => {
             "max_queue_delay_ms" => queue_delay_values.max,
             "total_sample_count" => queue_delay_values.count,

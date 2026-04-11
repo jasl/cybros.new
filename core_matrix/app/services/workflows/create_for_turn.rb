@@ -4,7 +4,7 @@ module Workflows
       new(...).call
     end
 
-    def initialize(turn:, root_node_key:, root_node_type:, decision_source:, metadata:, presentation_policy: "internal_only", selector_source: "conversation", selector: nil, initial_kind: nil, initial_payload: {}, origin_turn: nil, subagent_session: nil, dispatch_deadline_at: 5.minutes.from_now, execution_hard_deadline_at: 10.minutes.from_now, assignment_priority: 1)
+    def initialize(turn:, root_node_key:, root_node_type:, decision_source:, metadata:, presentation_policy: "internal_only", selector_source: "conversation", selector: nil, initial_kind: nil, initial_payload: {}, origin_turn: nil, subagent_connection: nil, dispatch_deadline_at: 5.minutes.from_now, execution_hard_deadline_at: 10.minutes.from_now, assignment_priority: 1)
       @turn = turn
       @root_node_key = root_node_key
       @root_node_type = root_node_type
@@ -16,7 +16,7 @@ module Workflows
       @initial_kind = initial_kind
       @initial_payload = initial_payload.deep_stringify_keys
       @origin_turn = origin_turn
-      @subagent_session = subagent_session
+      @subagent_connection = subagent_connection
       @dispatch_deadline_at = dispatch_deadline_at
       @execution_hard_deadline_at = execution_hard_deadline_at
       @assignment_priority = assignment_priority
@@ -65,7 +65,7 @@ module Workflows
 
       agent_task_run = AgentTaskRun.create!(
         installation: @turn.installation,
-        agent_program: @turn.agent_program_version.agent_program,
+        agent: @turn.agent_snapshot.agent,
         workflow_run: workflow_run,
         workflow_node: workflow_node,
         conversation: @turn.conversation,
@@ -78,7 +78,7 @@ module Workflows
         progress_payload: {},
         terminal_payload: {},
         origin_turn: @origin_turn,
-        subagent_session: @subagent_session
+        subagent_connection: @subagent_connection
       )
 
       AgentControl::CreateExecutionAssignment.call(
@@ -93,7 +93,7 @@ module Workflows
     end
 
     def logical_work_id
-      return "subagent-step:#{@subagent_session.public_id}:#{@turn.public_id}" if @subagent_session.present?
+      return "subagent-step:#{@subagent_connection.public_id}:#{@turn.public_id}" if @subagent_connection.present?
 
       "turn-step:#{@turn.public_id}"
     end

@@ -3,13 +3,13 @@ module WorkflowProofExportTestSupport
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Proof export input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {
         "normalized_selector" => "candidate:dev/mock-model",
@@ -22,7 +22,7 @@ module WorkflowProofExportTestSupport
       turn: turn,
       root_node_key: "agent_step_1",
       root_node_type: "turn_step",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
 
@@ -50,7 +50,7 @@ module WorkflowProofExportTestSupport
       ordinal: 2,
       node_key: "agent_step_2",
       node_type: "turn_step",
-      decision_source: "agent_program",
+      decision_source: "agent",
       presentation_policy: "internal_only",
       provider_round_index: 2,
       prior_tool_node_keys: ["governed_tool"],

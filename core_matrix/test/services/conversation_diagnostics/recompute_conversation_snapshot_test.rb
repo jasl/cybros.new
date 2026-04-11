@@ -13,8 +13,8 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
       conversation_id: conversation.id,
       turn_id: first_turn.id,
       workflow_node_key: "turn_step",
-      agent_program: context[:agent_program],
-      agent_program_version: context[:agent_program_version],
+      agent: context[:agent],
+      agent_snapshot: context[:agent_snapshot],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",
@@ -32,7 +32,7 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Second question",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -45,7 +45,7 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
       started_at: 2.minutes.ago,
       finished_at: 1.minute.ago,
       presentation_policy: "internal_only",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
     Turns::SteerCurrentInput.call(turn: second_turn, content: "Second question refined")
@@ -56,8 +56,8 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
       conversation_id: conversation.id,
       turn_id: second_turn.id,
       workflow_node_key: "turn_step",
-      agent_program: context[:agent_program],
-      agent_program_version: context[:agent_program_version],
+      agent: context[:agent],
+      agent_snapshot: context[:agent_snapshot],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",

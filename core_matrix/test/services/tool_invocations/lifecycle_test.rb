@@ -5,7 +5,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
@@ -27,7 +27,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     )
     ToolInvocations::Complete.call(
       tool_invocation: subagent_invocation,
-      response_payload: { "subagent_session_id" => "subagent-session-public-id" }
+      response_payload: { "subagent_connection_id" => "subagent-connection-public-id" }
     )
 
     assert_equal "succeeded", compact_invocation.reload.status
@@ -40,7 +40,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
@@ -58,7 +58,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     binding = ToolBindings::FreezeForWorkflowNode.call(
@@ -86,7 +86,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
@@ -132,7 +132,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))

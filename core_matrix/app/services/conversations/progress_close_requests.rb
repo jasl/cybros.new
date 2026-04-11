@@ -6,10 +6,10 @@ module Conversations
       new(...).call
     end
 
-    def initialize(conversation:, occurred_at: Time.current, owned_subagent_session_ids: nil)
+    def initialize(conversation:, occurred_at: Time.current, owned_subagent_connection_ids: nil)
       @conversation = conversation
       @occurred_at = occurred_at
-      @owned_subagent_session_ids = owned_subagent_session_ids
+      @owned_subagent_connection_ids = owned_subagent_connection_ids
     end
 
     def call
@@ -40,18 +40,18 @@ module Conversations
       [
         AgentTaskRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES).to_a,
         ProcessRun.where(conversation: @conversation, close_state: CLOSE_PENDING_STATES).to_a,
-        pending_subagent_sessions,
+        pending_subagent_connections,
       ]
     end
 
-    def pending_subagent_sessions
-      SubagentSession
-        .where(id: owned_subagent_session_ids, close_state: CLOSE_PENDING_STATES)
+    def pending_subagent_connections
+      SubagentConnection
+        .where(id: owned_subagent_connection_ids, close_state: CLOSE_PENDING_STATES)
         .to_a
     end
 
-    def owned_subagent_session_ids
-      @owned_subagent_session_ids ||= SubagentSessions::OwnedTree.session_ids_for(owner_conversation: @conversation)
+    def owned_subagent_connection_ids
+      @owned_subagent_connection_ids ||= SubagentConnections::OwnedTree.connection_ids_for(owner_conversation: @conversation)
     end
 
     def open_close_requests_for(resource_type:, resource_public_ids:)

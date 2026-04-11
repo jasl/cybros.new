@@ -8,7 +8,7 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
   test "builds a debug payload with diagnostics workflow traces and usage data" do
     fixture = build_debug_export_fixture!
     conversation = fixture.fetch(:conversation)
-    subagent_session = fixture.fetch(:subagent_session)
+    subagent_connection = fixture.fetch(:subagent_connection)
 
     payload = ConversationDebugExports::BuildPayload.call(conversation: conversation)
 
@@ -21,15 +21,15 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     intent_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "debug_intent_1" }
     assert_equal "batch-debug-1", intent_node_payload.fetch("intent_batch_id")
     assert_equal({ "summary" => "debug intent" }, intent_node_payload.fetch("intent_payload"))
-    assert_equal subagent_session.public_id, intent_node_payload.fetch("spawned_subagent_session_id")
+    assert_equal subagent_connection.public_id, intent_node_payload.fetch("spawned_subagent_connection_id")
     assert_equal "provider_rate_limited", intent_node_payload.fetch("blocked_retry_failure_kind")
     assert_equal 2, intent_node_payload.fetch("blocked_retry_attempt_no")
     round_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "provider_round_1" }
     assert_equal 1, round_node_payload.fetch("provider_round_index")
     assert_equal true, round_node_payload.fetch("transcript_side_effect_committed")
     assert_equal 1, payload.fetch("workflow_node_events").length
-    assert_equal subagent_session.public_id, payload.fetch("subagent_sessions").first.fetch("subagent_session_id")
-    assert_not payload.fetch("subagent_sessions").first.key?("summary")
+    assert_equal subagent_connection.public_id, payload.fetch("subagent_connections").first.fetch("subagent_connection_id")
+    assert_not payload.fetch("subagent_connections").first.key?("summary")
     assert_equal 120, payload.fetch("usage_events").first.fetch("input_tokens")
     assert_equal "available", payload.fetch("usage_events").first.fetch("prompt_cache_status")
     assert_equal 60, payload.fetch("usage_events").first.fetch("cached_input_tokens")
@@ -59,13 +59,13 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Debug input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -88,12 +88,12 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: conversation,
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: conversation,
       conversation: child_conversation,
@@ -124,7 +124,7 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       intent_conflict_scope: "debug",
       intent_idempotency_key: "intent-debug-1",
       yielding_workflow_node: yielding_node,
-      spawned_subagent_session: subagent_session,
+      spawned_subagent_connection: subagent_connection,
       blocked_retry_failure_kind: "provider_rate_limited",
       blocked_retry_attempt_no: 2,
       lifecycle_state: "completed",
@@ -171,8 +171,8 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       turn_id: turn.id,
       user: context[:user],
       workspace: context[:workspace],
-      agent_program: context[:agent_program_version].agent_program,
-      agent_program_version: context[:agent_program_version],
+      agent: context[:agent_snapshot].agent,
+      agent_snapshot: context[:agent_snapshot],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",
@@ -190,7 +190,7 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       conversation: conversation,
       turn: turn,
       workflow_run: workflow_run,
-      subagent_session: subagent_session,
+      subagent_connection: subagent_connection,
     }
   end
 end

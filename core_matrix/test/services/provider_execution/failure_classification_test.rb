@@ -80,7 +80,7 @@ class ProviderExecution::FailureClassificationTest < ActiveSupport::TestCase
   end
 
   test "classifies invalid program responses as retryable contract errors" do
-    error = ProviderExecution::ProgramMailboxExchange::ProtocolError.new(
+    error = ProviderExecution::AgentRequestExchange::ProtocolError.new(
       code: "invalid_prepare_round_response",
       message: "prepare_round response must include messages"
     )

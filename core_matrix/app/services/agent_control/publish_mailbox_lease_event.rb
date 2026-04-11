@@ -8,15 +8,15 @@ module AgentControl
 
     def initialize(
       mailbox_item:,
-      agent_program_public_id: nil,
-      agent_session_public_id: nil,
-      executor_session_public_id: nil,
+      agent_public_id: nil,
+      agent_connection_public_id: nil,
+      execution_runtime_connection_public_id: nil,
       notifier: ActiveSupport::Notifications
     )
       @mailbox_item = mailbox_item
-      @agent_program_public_id = agent_program_public_id
-      @agent_session_public_id = agent_session_public_id
-      @executor_session_public_id = executor_session_public_id
+      @agent_public_id = agent_public_id
+      @agent_connection_public_id = agent_connection_public_id
+      @execution_runtime_connection_public_id = execution_runtime_connection_public_id
       @notifier = notifier
     end
 
@@ -33,11 +33,11 @@ module AgentControl
         "control_plane" => @mailbox_item.control_plane,
         "success" => true,
       }.tap do |payload|
-        if @mailbox_item.executor_plane?
-          payload["executor_session_public_id"] = @executor_session_public_id
+        if @mailbox_item.execution_runtime_plane?
+          payload["execution_runtime_connection_public_id"] = @execution_runtime_connection_public_id
         else
-          payload["agent_program_public_id"] = @agent_program_public_id
-          payload["agent_session_public_id"] = @agent_session_public_id
+          payload["agent_public_id"] = @agent_public_id
+          payload["agent_connection_public_id"] = @agent_connection_public_id
         end
 
         if @mailbox_item.available_at.present? && @mailbox_item.leased_at.present?

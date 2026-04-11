@@ -134,28 +134,28 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
     helper = Rails.root.join("../acceptance/lib/capstone_app_api_roundtrip.rb").read
 
-    assert_includes scenario, '"executor_machine_credential"'
-    assert_includes scenario, '"executor_program_id"'
-    assert_includes helper, "'executor_program_display_name'"
-    assert_includes scenario, '"executor_session_id"'
-    assert_includes helper, "'executor_fingerprint'"
-    assert_includes scenario, "ExecutorProgram.find_by_public_id!"
-    assert_includes scenario, "ExecutorSession.find_by_public_id!"
+    assert_includes scenario, '"execution_runtime_connection_credential"'
+    assert_includes scenario, '"execution_runtime_id"'
+    assert_includes helper, "'execution_runtime_display_name'"
+    assert_includes scenario, '"execution_runtime_connection_id"'
+    assert_includes helper, "'execution_runtime_fingerprint'"
+    assert_includes scenario, "ExecutionRuntime.find_by_public_id!"
+    assert_includes scenario, "ExecutionRuntimeConnection.find_by_public_id!"
   end
 
-  test "acceptance registration artifact redacts machine credentials with a non-reversible fingerprint" do
+  test "acceptance registration artifact redacts connection credentials with a non-reversible fingerprint" do
     require Rails.root.join("../acceptance/lib/credential_redaction")
     require Rails.root.join("../acceptance/lib/capstone_app_api_roundtrip")
 
     artifact = Acceptance::CapstoneAppApiRoundtrip.registration_artifact(
-      agent_program: Struct.new(:public_id, :display_name).new("agent_123", "Fenix"),
-      agent_program_version: Struct.new(:public_id, :fingerprint).new("agent_version_123", "program-fingerprint"),
-      executor_program: Struct.new(:public_id, :display_name, :executor_fingerprint).new("executor_123", "Executor", "executor-fingerprint"),
-      machine_credential: "0123456789abcdef"
+      agent: Struct.new(:public_id, :display_name).new("agent_123", "Fenix"),
+      agent_snapshot: Struct.new(:public_id, :fingerprint).new("agent_version_123", "program-fingerprint"),
+      execution_runtime: Struct.new(:public_id, :display_name, :execution_runtime_fingerprint).new("executor_123", "Executor", "executor-fingerprint"),
+      agent_connection_credential: "0123456789abcdef"
     )
 
-    assert_equal "sha256:9f9f5111f7b2:REDACTED", artifact.fetch("machine_credential_redacted")
-    refute_equal "0123456789abcdef", artifact.fetch("machine_credential_redacted")
+    assert_equal "sha256:9f9f5111f7b2:REDACTED", artifact.fetch("agent_connection_credential_redacted")
+    refute_equal "0123456789abcdef", artifact.fetch("agent_connection_credential_redacted")
   end
 
   test "acceptance gate requires plan-first supervision replay bundles and runtime evidence" do
@@ -244,7 +244,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "'agent_task_run_state' => 'failed'"
   end
 
-  test "acceptance scenarios do not pass removed agent program version arguments into start turn workflow helper" do
+  test "acceptance scenarios do not pass removed agent snapshot arguments into start turn workflow helper" do
     skills = Rails.root.join("../acceptance/scenarios/fenix_skills_validation.rb").read
     capstone = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
     removed_argument_pattern = /
@@ -253,7 +253,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
         [^)]|
         \)(?!\s*do)
       ){0,240}
-      agent_program_version:
+      agent_snapshot:
     /mx
 
     refute_match removed_argument_pattern, skills
@@ -268,12 +268,12 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     refute_includes readme, "dedicated `3102` runtime"
   end
 
-  test "process run close validation uses the real program tool mailbox exchange path" do
+  test "process run close validation uses the real agent tool mailbox exchange path" do
     scenario = Rails.root.join("../acceptance/scenarios/process_run_close_validation.rb").read
 
     assert_includes scenario, "Acceptance::ManualSupport.with_fenix_control_worker_for_registration!("
     assert_includes scenario, "registration: bundled"
-    assert_includes scenario, "Acceptance::ManualSupport.execute_program_tool_call!("
+    assert_includes scenario, "Acceptance::ManualSupport.execute_tool_call!("
     assert_includes scenario, '"tool_name" => "process_exec"'
     refute_includes scenario, '"mode" => "deterministic_tool"'
   end
@@ -289,8 +289,8 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   test "bundled fast terminal validation passes both agent and executor credentials" do
     scenario = Rails.root.join("../acceptance/scenarios/bundled_fast_terminal_validation.rb").read
 
-    assert_includes scenario, "machine_credential: bundled.machine_credential"
-    assert_includes scenario, "executor_machine_credential: bundled.executor_machine_credential"
+    assert_includes scenario, "agent_connection_credential: bundled.agent_connection_credential"
+    assert_includes scenario, "execution_runtime_connection_credential: bundled.execution_runtime_connection_credential"
   end
 
   test "acceptance scenario uses shared review artifacts helper" do
@@ -319,8 +319,8 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     write_turns_call = scenario[/Acceptance::ReviewArtifacts\.write_turns!\([\s\S]*?\n\)\nAcceptance::ReviewArtifacts\.write_collaboration_notes!/m]
     runtime_bindings_call = scenario[/Acceptance::ReviewArtifacts\.write_runtime_and_bindings!\([\s\S]*?\n\)\nAcceptance::ReviewArtifacts\.write_workspace_artifacts!/m]
 
-    assert_includes runtime_bindings_call, "executor_machine_credential: executor_machine_credential"
-    refute_includes write_turns_call, "executor_machine_credential: executor_machine_credential"
+    assert_includes runtime_bindings_call, "execution_runtime_connection_credential: execution_runtime_connection_credential"
+    refute_includes write_turns_call, "execution_runtime_connection_credential: execution_runtime_connection_credential"
   end
 
   test "review artifacts drop staged skill-source bookkeeping" do
@@ -341,11 +341,11 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
       Acceptance::ReviewArtifacts.write_runtime_and_bindings!(
         path: artifact_path,
         workspace_root: Pathname.new("/tmp/fenix-workspace"),
-        machine_credential: "0123456789abcdef",
-        executor_machine_credential: "fedcba9876543210",
-        agent_program: Struct.new(:public_id).new("agent_123"),
-        agent_program_version: Struct.new(:public_id).new("agent_version_123"),
-        executor_program: Struct.new(:public_id).new("executor_123"),
+        agent_connection_credential: "0123456789abcdef",
+        execution_runtime_connection_credential: "fedcba9876543210",
+        agent: Struct.new(:public_id).new("agent_123"),
+        agent_snapshot: Struct.new(:public_id).new("agent_version_123"),
+        execution_runtime: Struct.new(:public_id).new("executor_123"),
         docker_container: "fenix-capstone",
         runtime_base_url: "http://127.0.0.1:3101",
         runtime_worker_boot: nil
@@ -353,8 +353,8 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
       artifact = artifact_path.read
 
-      assert_includes artifact, "FENIX_MACHINE_CREDENTIAL=sha256:9f9f5111f7b2:REDACTED"
-      assert_includes artifact, "FENIX_EXECUTION_MACHINE_CREDENTIAL=sha256:3465f6e6975b:REDACTED"
+      assert_includes artifact, "FENIX_AGENT_CONNECTION_CREDENTIAL=sha256:9f9f5111f7b2:REDACTED"
+      assert_includes artifact, "FENIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL=sha256:3465f6e6975b:REDACTED"
       refute_includes artifact, "0123456789abcdef"
       refute_includes artifact, "fedcba9876543210"
     end
@@ -395,7 +395,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes rotation, 'sdk_version: "fenix-0.2.0"'
     assert_includes rotation, 'sdk_version: "fenix-0.0.9"'
     assert_includes rotation, "Acceptance::ManualSupport.with_fenix_control_worker_for_registration!("
-    refute_includes rotation, "Conversations::SwitchAgentProgramVersion"
+    refute_includes rotation, "Conversations::SwitchAgentSnapshot"
   end
 
   test "acceptance docs no longer prescribe staged workflow skills for the fenix capstone" do

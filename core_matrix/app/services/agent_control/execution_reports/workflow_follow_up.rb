@@ -9,7 +9,7 @@ module AgentControl
       def apply!(lifecycle_state:)
         apply_wait_transition! if lifecycle_state == "completed"
         apply_retry_gate! if lifecycle_state == "failed"
-        sync_subagent_session!(lifecycle_state: lifecycle_state)
+        sync_subagent_connection!(lifecycle_state: lifecycle_state)
         resume_parent_workflow_if_subagent_wait_resolved!
         refresh_workflow_after_terminal!(lifecycle_state: lifecycle_state)
       end
@@ -48,8 +48,8 @@ module AgentControl
         )
       end
 
-      def sync_subagent_session!(lifecycle_state:)
-        session = @agent_task_run.subagent_session
+      def sync_subagent_connection!(lifecycle_state:)
+        session = @agent_task_run.subagent_connection
         return if session.blank?
 
         observed_status =
@@ -81,7 +81,7 @@ module AgentControl
       end
 
       def resume_parent_workflow_if_subagent_wait_resolved!
-        return if @agent_task_run.subagent_session.blank?
+        return if @agent_task_run.subagent_connection.blank?
         return if @agent_task_run.origin_turn.blank?
 
         parent_workflow_run = WorkflowRun.find_by(turn: @agent_task_run.origin_turn)

@@ -21,5 +21,5 @@ it matches the current code. For current implementation truth, use:
 - [2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md)
 - [2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-proof-and-mermaid-export-design.md)
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
-- [2026-04-01-agent-program-runtime-contract.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-04-01-agent-program-runtime-contract.md)
+- [2026-04-01-agent-runtime-contract.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-04-01-agent-runtime-contract.md)
 - [2026-04-04-core-matrix-conversation-observation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-04-04-core-matrix-conversation-observation-design.md)

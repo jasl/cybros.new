@@ -12,14 +12,14 @@ bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
 bundled = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  executor_fingerprint: 'acceptance-bundled-fast-terminal-environment',
+  execution_runtime_fingerprint: 'acceptance-bundled-fast-terminal-environment',
   fingerprint: fingerprint
 )
 
 run = Acceptance::ManualSupport.run_fenix_mailbox_task!(
-  deployment: bundled.deployment,
-  machine_credential: bundled.machine_credential,
-  executor_machine_credential: bundled.executor_machine_credential,
+  agent_snapshot: bundled.agent_snapshot,
+  agent_connection_credential: bundled.agent_connection_credential,
+  execution_runtime_connection_credential: bundled.execution_runtime_connection_credential,
   runtime_base_url: runtime_base_url,
   content: 'Bundled Fenix deterministic tool turn',
   mode: 'deterministic_tool',
@@ -51,9 +51,9 @@ Acceptance::ManualSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      'deployment_id' => bundled.deployment.public_id,
+      'agent_snapshot_id' => bundled.agent_snapshot.public_id,
       'delivery_mode' => delivery_mode,
-      'executor_program_id' => bundled.executor_program.public_id,
+      'execution_runtime_id' => bundled.execution_runtime.public_id,
       'conversation_id' => run.fetch(:conversation).public_id,
       'turn_id' => run.fetch(:turn).public_id,
       'workflow_run_id' => run.fetch(:workflow_run).public_id,

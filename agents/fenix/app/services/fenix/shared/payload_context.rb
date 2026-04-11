@@ -14,7 +14,7 @@ module Fenix
       def call
         {
           "task" => task,
-          "conversation_id" => task["conversation_id"],
+          "conversation_id" => conversation_id,
           "workflow_node_id" => task["workflow_node_id"],
           "turn_id" => task["turn_id"],
           "kind" => task["kind"],
@@ -36,6 +36,10 @@ module Fenix
         @task ||= @payload.fetch("task").deep_stringify_keys
       end
 
+      def conversation_id
+        task.fetch("conversation_id")
+      end
+
       def round_context
         @round_context ||= @payload.fetch("round_context", {}).deep_stringify_keys
       end
@@ -46,8 +50,8 @@ module Fenix
         {
           "profile" => projected["profile"] || "main",
           "is_subagent" => projected["is_subagent"] == true,
-          "subagent_session_id" => projected["subagent_session_id"],
-          "parent_subagent_session_id" => projected["parent_subagent_session_id"],
+          "subagent_connection_id" => projected["subagent_connection_id"],
+          "parent_subagent_connection_id" => projected["parent_subagent_connection_id"],
           "subagent_depth" => projected["subagent_depth"],
           "owner_conversation_id" => projected["owner_conversation_id"],
           "allowed_tool_names" => Array(projected["allowed_tool_names"]).map(&:to_s),

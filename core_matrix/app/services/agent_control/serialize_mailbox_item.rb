@@ -31,7 +31,7 @@ module AgentControl
       payload = compact_payload.deep_stringify_keys
 
       {
-        "protocol_version" => "agent-program/2026-04-01",
+        "protocol_version" => "agent-runtime/2026-04-01",
         "request_kind" => "execution_assignment",
         "task" => {
           "agent_task_run_id" => mailbox_item.agent_task_run&.public_id,
@@ -47,9 +47,10 @@ module AgentControl
         "capability_projection" => snapshot.capability_projection,
         "provider_context" => snapshot.provider_context,
         "runtime_context" => snapshot.runtime_context.merge(
+          "control_plane" => mailbox_item.control_plane,
           "logical_work_id" => mailbox_item.logical_work_id,
           "attempt_no" => mailbox_item.attempt_no,
-          "agent_program_version_id" => mailbox_item.execution_contract.agent_program_version.public_id
+          "agent_snapshot_id" => mailbox_item.execution_contract.agent_snapshot.public_id
         ),
         "task_payload" => payload["task_payload"] || mailbox_item.agent_task_run&.task_payload || {},
       }.merge(payload.except("task_payload", "prior_tool_results"))
@@ -61,7 +62,7 @@ module AgentControl
       turn_id =
         if mailbox_item.execution_assignment?
           mailbox_item.agent_task_run&.turn_id
-        elsif mailbox_item.agent_program_request?
+        elsif mailbox_item.agent_request?
           mailbox_item.execution_contract&.turn_id
         end
 

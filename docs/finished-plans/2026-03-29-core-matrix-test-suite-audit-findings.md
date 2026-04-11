@@ -132,7 +132,7 @@
 - `agent_deployments`
   - Result: `keep_and_strengthen`
   - Notes: bootstrap, registration, handshake, and recovery tests all encode real deployment lifecycle behavior. Bootstrap specifically needed a stronger failure-path assertion.
-- `subagent_sessions`
+- `subagent_connections`
   - Result: `keep_and_strengthen`
   - Notes: spawn and listing tests protect ownership scoping, nested depth, and public-id-only boundaries. The legacy naming rejection remains valuable because it guards an agent-facing input contract, not an internal alias.
 - `installations`
@@ -167,7 +167,7 @@
 - Closed In Current Batch:
   - fingerprint-change supersession of the previous active deployment
   - endpoint and environment connection metadata refresh
-  - machine credential digest rotation for the new bundled fingerprint
+  - connection credential digest rotation for the new bundled fingerprint
 - Remaining:
   - no multi-revision stress case yet for large profile and tool catalog diffs across successive bundled runtime updates
 

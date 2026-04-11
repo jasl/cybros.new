@@ -6,8 +6,8 @@ class ExecutionCapabilitySnapshot < ApplicationRecord
 
   belongs_to :installation
   belongs_to :tool_surface_document, class_name: "JsonDocument"
-  belongs_to :subagent_session, optional: true
-  belongs_to :parent_subagent_session, class_name: "SubagentSession", optional: true
+  belongs_to :subagent_connection, optional: true
+  belongs_to :parent_subagent_connection, class_name: "SubagentConnection", optional: true
   belongs_to :owner_conversation, class_name: "Conversation", optional: true
 
   validates :fingerprint, presence: true, uniqueness: { scope: :installation_id }

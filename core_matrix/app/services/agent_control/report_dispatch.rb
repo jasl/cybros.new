@@ -18,19 +18,19 @@ module AgentControl
       resource_close_failed
     ].freeze
     AGENT_PROGRAM_METHODS = %w[
-      agent_program_completed
-      agent_program_failed
+      agent_completed
+      agent_failed
     ].freeze
-    HEALTH_METHODS = %w[deployment_health_report].freeze
+    HEALTH_METHODS = %w[agent_health_report].freeze
 
     def self.call(...)
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, executor_session: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
-      @deployment = deployment
-      @agent_session = agent_session
-      @executor_session = executor_session
+    def initialize(agent_snapshot:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
+      @agent_snapshot = agent_snapshot
+      @agent_connection = agent_connection
+      @execution_runtime_connection = execution_runtime_connection
       @resource = resource
       @method_id = method_id
       @payload = payload
@@ -39,9 +39,9 @@ module AgentControl
 
     def call
       handler_class.new(
-        deployment: @deployment,
-        agent_session: @agent_session,
-        executor_session: @executor_session,
+        agent_snapshot: @agent_snapshot,
+        agent_connection: @agent_connection,
+        execution_runtime_connection: @execution_runtime_connection,
         resource: @resource,
         method_id: @method_id,
         payload: @payload,
@@ -55,7 +55,7 @@ module AgentControl
       return HandleExecutionReport if EXECUTION_METHODS.include?(@method_id)
       return HandleRuntimeResourceReport if RUNTIME_RESOURCE_METHODS.include?(@method_id)
       return HandleCloseReport if CLOSE_METHODS.include?(@method_id)
-      return HandleAgentProgramReport if AGENT_PROGRAM_METHODS.include?(@method_id)
+      return HandleAgentReport if AGENT_PROGRAM_METHODS.include?(@method_id)
       return HandleHealthReport if HEALTH_METHODS.include?(@method_id)
 
       raise ArgumentError, "unknown control report #{@method_id}"

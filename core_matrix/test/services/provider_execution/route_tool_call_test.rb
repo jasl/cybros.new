@@ -27,8 +27,8 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
       workflow_node: workflow_node,
       tool_catalog: [calculator_tool_entry]
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
-      program_tool_results: {
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      tool_results: {
         "call-calculator-1" => {
           "status" => "ok",
           "result" => { "value" => 4 },
@@ -47,7 +47,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_exchange: program_exchange
+      agent_request_exchange: agent_request_exchange
     )
 
     invocation = result.tool_invocation.reload
@@ -66,19 +66,19 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
       },
       invocation.trace_payload
     )
-    assert_equal "call-calculator-1", program_exchange.execute_program_tool_requests.first.fetch("program_tool_call").fetch("call_id")
-    assert_equal workflow_node.public_id, program_exchange.execute_program_tool_requests.first.fetch("task").fetch("workflow_node_id")
+    assert_equal "call-calculator-1", agent_request_exchange.execute_tool_requests.first.fetch("tool_call").fetch("call_id")
+    assert_equal workflow_node.public_id, agent_request_exchange.execute_tool_requests.first.fetch("task").fetch("workflow_node_id")
     assert_equal(
-      { "agent_program_version_id" => context.fetch(:deployment).public_id },
-      program_exchange.execute_program_tool_requests.first.fetch("runtime_context").slice("agent_program_version_id")
+      { "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id },
+      agent_request_exchange.execute_tool_requests.first.fetch("runtime_context").slice("agent_snapshot_id")
     )
   end
 
   test "routes execution-environment round tools back through the program mailbox exchange" do
     environment_tool = {
       "tool_name" => "memory_search",
-      "tool_kind" => "executor_program",
-      "implementation_source" => "executor_program",
+      "tool_kind" => "execution_runtime",
+      "implementation_source" => "execution_runtime",
       "implementation_ref" => "env/memory_search",
       "input_schema" => {
         "type" => "object",
@@ -97,7 +97,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
       "idempotency_policy" => "best_effort",
     }
     context = build_governed_tool_context!(
-      executor_tool_catalog: [environment_tool],
+      execution_runtime_tool_catalog: [environment_tool],
       profile_catalog: {
         "main" => {
           "label" => "Main",
@@ -111,8 +111,8 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
       workflow_node: workflow_node,
       tool_catalog: [environment_tool]
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
-      program_tool_results: {
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      tool_results: {
         "call-memory-search-1" => {
           "status" => "ok",
           "result" => {
@@ -135,7 +135,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_exchange: program_exchange
+      agent_request_exchange: agent_request_exchange
     )
 
     invocation = result.tool_invocation.reload
@@ -147,18 +147,18 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal "succeeded", invocation.status
     assert_equal workflow_node, invocation.workflow_node
     assert_equal "memory_search", invocation.tool_definition.tool_name
-    assert_equal "call-memory-search-1", program_exchange.execute_program_tool_requests.first.fetch("program_tool_call").fetch("call_id")
-    assert_equal "memory_search", program_exchange.execute_program_tool_requests.first.fetch("program_tool_call").fetch("tool_name")
+    assert_equal "call-memory-search-1", agent_request_exchange.execute_tool_requests.first.fetch("tool_call").fetch("call_id")
+    assert_equal "memory_search", agent_request_exchange.execute_tool_requests.first.fetch("tool_call").fetch("tool_name")
   end
 
-  test "provisions durable command runs for exec_command program tools" do
+  test "provisions durable command runs for exec_command agent tools" do
     context = build_governed_tool_context!
     workflow_node = context.fetch(:workflow_node)
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
-      program_tool_results: {
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      tool_results: {
         "call-exec-command-1" => lambda { |payload:|
           {
             "status" => "ok",
@@ -187,11 +187,11 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_exchange: program_exchange
+      agent_request_exchange: agent_request_exchange
     )
 
     invocation = result.tool_invocation.reload
-    request_payload = program_exchange.execute_program_tool_requests.first
+    request_payload = agent_request_exchange.execute_tool_requests.first
     command_run_id = request_payload.dig("runtime_resource_refs", "command_run", "command_run_id")
     command_run = CommandRun.find_by_public_id!(command_run_id)
 
@@ -201,14 +201,14 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert command_run.running?
   end
 
-  test "terminalizes one-shot exec_command program tools as completed command runs" do
+  test "terminalizes one-shot exec_command agent tools as completed command runs" do
     context = build_governed_tool_context!
     workflow_node = context.fetch(:workflow_node)
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
-      program_tool_results: {
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      tool_results: {
         "call-exec-command-oneshot-1" => lambda { |payload:|
           {
             "status" => "ok",
@@ -238,10 +238,10 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_exchange: program_exchange
+      agent_request_exchange: agent_request_exchange
     )
 
-    request_payload = program_exchange.execute_program_tool_requests.first
+    request_payload = agent_request_exchange.execute_tool_requests.first
     command_run_id = request_payload.dig("runtime_resource_refs", "command_run", "command_run_id")
     command_run = CommandRun.find_by_public_id!(command_run_id)
 
@@ -274,8 +274,8 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
-      program_tool_results: {
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      tool_results: {
         "call-exec-command-attached-1" => lambda { |payload:|
           {
             "status" => "ok",
@@ -317,12 +317,12 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_exchange: program_exchange
+      agent_request_exchange: agent_request_exchange
     )
 
     command_run_id = exec_result.result.fetch("command_run_id")
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
-      program_tool_results: {
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      tool_results: {
         "call-command-run-wait-1" => {
           "status" => "ok",
           "result" => {
@@ -351,7 +351,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_exchange: program_exchange
+      agent_request_exchange: agent_request_exchange
     )
 
     command_run = CommandRun.find_by_public_id!(command_run_id)
@@ -360,7 +360,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal 12, command_run.metadata.fetch("stdout_bytes")
   end
 
-  test "provisions durable process runs for process_exec program tools" do
+  test "provisions durable process runs for process_exec agent tools" do
     process_exec_tool = {
       "tool_name" => "process_exec",
       "tool_kind" => "agent_observation",
@@ -383,8 +383,8 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
-      program_tool_results: {
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      tool_results: {
         "call-process-exec-1" => lambda { |payload:|
           {
             "status" => "ok",
@@ -412,10 +412,10 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_exchange: program_exchange
+      agent_request_exchange: agent_request_exchange
     )
 
-    request_payload = program_exchange.execute_program_tool_requests.first
+    request_payload = agent_request_exchange.execute_tool_requests.first
     process_run_id = request_payload.dig("runtime_resource_refs", "process_run", "process_run_id")
     process_run = ProcessRun.find_by_public_id!(process_run_id)
 
@@ -449,8 +449,8 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
-      program_tool_results: {
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      tool_results: {
         "process_exec" => lambda { |payload:|
           {
             "status" => "ok",
@@ -479,7 +479,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
           "provider_format" => "chat_completions",
         },
         round_bindings: round_bindings,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
 
       process_run = ProcessRun.find_by_public_id!(result.result.fetch("process_run_id"))
@@ -525,7 +525,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
           "provider_format" => "chat_completions",
         },
         round_bindings: round_bindings,
-        program_exchange: ProviderExecutionTestSupport::FakeProgramExchange.new
+        agent_request_exchange: ProviderExecutionTestSupport::FakeAgentRequestExchange.new
       )
     end
 
@@ -576,7 +576,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     result = ProviderExecution::RouteToolCall.call(
       workflow_node: workflow_node,
@@ -587,7 +587,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_exchange: program_exchange
+      agent_request_exchange: agent_request_exchange
     )
 
     invocation = result.tool_invocation.reload
@@ -596,7 +596,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal "succeeded", invocation.status
     assert_equal workflow_node, invocation.workflow_node
     assert_equal "subagent_list", invocation.tool_definition.tool_name
-    assert_equal [], program_exchange.execute_program_tool_requests
+    assert_equal [], agent_request_exchange.execute_tool_requests
   end
 
   test "routes conversation metadata updates without delegating back to the program mailbox exchange" do
@@ -611,7 +611,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     result = ProviderExecution::RouteToolCall.call(
       workflow_node: workflow_node,
@@ -625,7 +625,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      program_exchange: program_exchange
+      agent_request_exchange: agent_request_exchange
     )
 
     invocation = result.tool_invocation.reload
@@ -643,7 +643,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal "succeeded", invocation.status
     assert_equal workflow_node, invocation.workflow_node
     assert_equal "conversation_metadata_update", invocation.tool_definition.tool_name
-    assert_equal [], program_exchange.execute_program_tool_requests
+    assert_equal [], agent_request_exchange.execute_tool_requests
   end
 
   private

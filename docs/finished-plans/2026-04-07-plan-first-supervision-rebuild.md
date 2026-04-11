@@ -4,7 +4,7 @@
 
 **Goal:** Rebuild runtime and supervision so human-visible progress is anchored to persisted turn todo plans, with optional coarse fallback when no plan update exists, and add replayable supervision evaluation dumps to avoid full `2048` reruns during every iteration.
 
-**Architecture:** Treat this as breaking cleanup. Remove the current heuristic path that infers product semantics from runtime details. `Core Matrix` should own safe reusable conversation context, generic runtime evidence, prompt payload construction, and replay dumps, while the `Agent Program` remains responsible only for the optional `turn_todo_plan_update` interface.
+**Architecture:** Treat this as breaking cleanup. Remove the current heuristic path that infers product semantics from runtime details. `Core Matrix` should own safe reusable conversation context, generic runtime evidence, prompt payload construction, and replay dumps, while the `Agent` remains responsible only for the optional `turn_todo_plan_update` interface.
 
 **Tech Stack:** Ruby, Rails service objects, Active Record, Minitest, JSON/public-id payloads, acceptance helpers, replayable artifact dumps
 

@@ -8,8 +8,9 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential],
+      execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(
       context: context,
@@ -23,9 +24,7 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
 
     assert_equal scenario.fetch(:mailbox_item).public_id, assignment.fetch("item_id")
     assert_equal "execution_assignment", assignment.fetch("item_type")
-    assert_equal "program", assignment.fetch("control_plane")
-    refute assignment.key?("target_kind")
-    refute assignment.key?("target_ref")
+    assert_equal "execution_runtime", assignment.fetch("control_plane")
     refute assignment.fetch("payload").key?("control_plane")
 
     started = report_execution_started(
@@ -62,15 +61,16 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     assert_equal "completed", scenario.fetch(:mailbox_item).reload.status
     assert_equal "completed", scenario.fetch(:agent_task_run).reload.lifecycle_state
     assert_equal "poll completed", scenario.fetch(:agent_task_run).terminal_payload.fetch("output")
-    assert_equal "active_control", context[:deployment].reload.control_activity_state
+    assert_equal "active_control", context[:agent_snapshot].reload.control_activity_state
   end
 
   test "websocket delivery and poll fallback expose the same mailbox envelope" do
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential],
+      execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
     scenario_builder = MailboxScenarioBuilder.new(self)
 
@@ -89,8 +89,8 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = harness.poll!.fetch("mailbox_items").fetch(0)
@@ -136,8 +136,8 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential]
     )
 
     harness.connect_websocket!
@@ -147,17 +147,17 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     poll_response = harness.poll!
 
     assert_equal 1, poll_response.fetch("mailbox_items").size
-    assert_equal "disconnected", context[:deployment].reload.realtime_link_state
-    assert_equal "active_control", context[:deployment].reload.control_activity_state
+    assert_equal "disconnected", context[:agent_snapshot].reload.realtime_link_state
+    assert_equal "active_control", context[:agent_snapshot].reload.control_activity_state
   end
 
-  test "program report responses leave executor-plane close work for executor polling" do
+  test "execution-runtime report responses can piggyback execution-runtime close work" do
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential],
-      executor_machine_credential: context[:executor_machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential],
+      execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
     scenario_builder = MailboxScenarioBuilder.new(self)
     scenario = scenario_builder.execution_assignment!(context: context)
@@ -174,11 +174,11 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
 
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program]
+      execution_runtime: context[:execution_runtime]
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:executor_session].public_id,
+      holder_key: context[:execution_runtime_connection].public_id,
       heartbeat_timeout_seconds: 30
     )
     close_request = scenario_builder.close_request!(context: context, resource: process_run).fetch(:mailbox_item)
@@ -194,13 +194,11 @@ class MailboxDeliveryE2ETest < ActionDispatch::IntegrationTest
     )
 
     assert_equal 200, report_response.fetch("http_status")
-    assert_empty report_response.fetch("mailbox_items")
-
-    execution_delivery = harness.poll!.fetch("mailbox_items").find do |mailbox_item|
+    execution_delivery = report_response.fetch("mailbox_items").find do |mailbox_item|
       mailbox_item.fetch("item_id") == close_request.public_id
     end
 
-    assert_equal "executor", execution_delivery.fetch("control_plane")
+    assert_equal "execution_runtime", execution_delivery.fetch("control_plane")
   end
 
   private

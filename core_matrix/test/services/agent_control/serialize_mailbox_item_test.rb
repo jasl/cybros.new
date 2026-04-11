@@ -6,8 +6,8 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     available_at = Time.zone.parse("2026-03-29 19:30:00 UTC")
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
-      target_agent_program: context[:agent_program],
-      target_agent_program_version: context[:deployment],
+      target_agent: context[:agent],
+      target_agent_snapshot: context[:agent_snapshot],
       available_at: available_at,
       execution_hard_deadline_at: available_at + 5.minutes,
       payload: { "step" => "execute" }
@@ -23,10 +23,10 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     refute serialized.key?("id")
   end
 
-  test "serializes full payload documents for agent program requests" do
+  test "serializes full payload documents for agent requests" do
     context = build_agent_control_context!
-    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
-      agent_program_version: context.fetch(:deployment),
+    mailbox_item = AgentControl::CreateAgentRequest.call(
+      agent_snapshot: context.fetch(:agent_snapshot),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -47,7 +47,7 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     assert_equal "prepare_round", serialized.dig("payload", "request_kind")
     assert_equal context.fetch(:workflow_node).public_id, serialized.dig("payload", "task", "workflow_node_id")
     assert_equal context.fetch(:turn).public_id, serialized.dig("payload", "task", "turn_id")
-    assert_equal context.fetch(:agent_program).public_id, serialized.dig("payload", "runtime_context", "agent_program_id")
+    assert_equal context.fetch(:agent).public_id, serialized.dig("payload", "runtime_context", "agent_id")
     assert_equal context.fetch(:user).public_id, serialized.dig("payload", "runtime_context", "user_id")
   end
 
@@ -67,19 +67,19 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
       conversation_supervision_session: supervision_session,
       target_conversation: context[:conversation],
       request_kind: "send_guidance_to_subagent",
-      target_kind: "subagent_session",
-      target_public_id: "subagent-session-1",
+      target_kind: "subagent_connection",
+      target_public_id: "subagent-connection-1",
       lifecycle_state: "queued",
-      request_payload: { "content" => "Stop and summarize.", "subagent_session_id" => "subagent-session-1" },
+      request_payload: { "content" => "Stop and summarize.", "subagent_connection_id" => "subagent-connection-1" },
       result_payload: {}
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_program_version: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       request_kind: "supervision_guidance",
       payload: {
         "content" => "Stop and summarize.",
-        "subagent_session_id" => "subagent-session-1",
+        "subagent_connection_id" => "subagent-connection-1",
       },
       dispatch_deadline_at: 5.minutes.from_now
     )
@@ -88,10 +88,10 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
 
     assert_equal "supervision_guidance", serialized.dig("payload", "request_kind")
     assert_equal "send_guidance_to_subagent", serialized.dig("payload", "conversation_control", "request_kind")
-    assert_equal "subagent_session", serialized.dig("payload", "conversation_control", "target_kind")
-    assert_equal "subagent-session-1", serialized.dig("payload", "conversation_control", "target_public_id")
-    assert_equal "subagent-session-1", serialized.dig("payload", "subagent_session_id")
-    assert_equal context.fetch(:agent_program).public_id, serialized.dig("payload", "runtime_context", "agent_program_id")
+    assert_equal "subagent_connection", serialized.dig("payload", "conversation_control", "target_kind")
+    assert_equal "subagent-connection-1", serialized.dig("payload", "conversation_control", "target_public_id")
+    assert_equal "subagent-connection-1", serialized.dig("payload", "subagent_connection_id")
+    assert_equal context.fetch(:agent).public_id, serialized.dig("payload", "runtime_context", "agent_id")
     assert_equal context.fetch(:user).public_id, serialized.dig("payload", "runtime_context", "user_id")
     refute serialized.fetch("payload").key?("task")
   end
@@ -122,7 +122,7 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     mailbox_item = travel_to(Time.zone.parse("2026-04-10 08:00:00 UTC")) do
       AgentControl::CreateConversationControlRequest.call(
         conversation_control_request: control_request,
-        agent_program_version: context.fetch(:deployment),
+        agent_snapshot: context.fetch(:agent_snapshot),
         request_kind: "supervision_guidance",
         payload: { "content" => "Stop and summarize." },
         dispatch_deadline_at: Time.zone.parse("2026-04-10 08:05:00 UTC")
@@ -134,11 +134,11 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     assert_equal supervision_guidance_mailbox_contract_fixture, normalize_supervision_guidance_for_contract(serialized)
   end
 
-  test "serializes execute_program_tool mailbox requests with the full tool envelope and scoped runtime context" do
+  test "serializes execute_tool mailbox requests with the full tool envelope and scoped runtime context" do
     context = build_agent_control_context!
-    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
-      agent_program_version: context.fetch(:deployment),
-      request_kind: "execute_program_tool",
+    mailbox_item = AgentControl::CreateAgentRequest.call(
+      agent_snapshot: context.fetch(:agent_snapshot),
+      request_kind: "execute_tool",
       payload: {
         "task" => {
           "kind" => "turn_step",
@@ -147,25 +147,25 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
           "workflow_run_id" => context.fetch(:workflow_run).public_id,
           "workflow_node_id" => context.fetch(:workflow_node).public_id,
         },
-        "program_tool_call" => {
+        "tool_call" => {
           "call_id" => "call-serialize",
           "tool_name" => "exec_command",
           "arguments" => { "cmd" => "pwd" },
         },
       },
-      logical_work_id: "program-tool:#{context.fetch(:workflow_node).public_id}:call-serialize",
+      logical_work_id: "tool-call:#{context.fetch(:workflow_node).public_id}:call-serialize",
       attempt_no: 1,
       dispatch_deadline_at: 5.minutes.from_now
     )
 
     serialized = AgentControl::SerializeMailboxItem.call(mailbox_item)
 
-    assert_equal "execute_program_tool", serialized.dig("payload", "request_kind")
-    assert_equal "call-serialize", serialized.dig("payload", "program_tool_call", "call_id")
-    assert_equal "exec_command", serialized.dig("payload", "program_tool_call", "tool_name")
-    assert_equal "pwd", serialized.dig("payload", "program_tool_call", "arguments", "cmd")
+    assert_equal "execute_tool", serialized.dig("payload", "request_kind")
+    assert_equal "call-serialize", serialized.dig("payload", "tool_call", "call_id")
+    assert_equal "exec_command", serialized.dig("payload", "tool_call", "tool_name")
+    assert_equal "pwd", serialized.dig("payload", "tool_call", "arguments", "cmd")
     assert_equal context.fetch(:workflow_node).public_id, serialized.dig("payload", "task", "workflow_node_id")
-    assert_equal context.fetch(:agent_program).public_id, serialized.dig("payload", "runtime_context", "agent_program_id")
+    assert_equal context.fetch(:agent).public_id, serialized.dig("payload", "runtime_context", "agent_id")
     assert_equal context.fetch(:user).public_id, serialized.dig("payload", "runtime_context", "user_id")
   end
 
@@ -174,7 +174,7 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     occurred_at = Time.zone.parse("2026-04-10 09:00:00 UTC")
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program]
+      execution_runtime: context[:execution_runtime]
     )
 
     mailbox_item = travel_to(occurred_at) do
@@ -220,10 +220,10 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
       "target_public_id" => "conversation-public-id"
     )
     payload["runtime_context"] = payload.fetch("runtime_context").merge(
-      "agent_program_id" => "agent-program-public-id",
+      "agent_id" => "agent-public-id",
       "user_id" => "user-public-id",
       "logical_work_id" => "conversation-control:conversation-control-request-public-id:supervision_guidance",
-      "agent_program_version_id" => "agent-program-version-public-id"
+      "agent_snapshot_id" => "agent-snapshot-public-id"
     )
 
     serialized.merge(

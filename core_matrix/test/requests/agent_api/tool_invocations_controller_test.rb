@@ -19,7 +19,7 @@ class AgentApiToolInvocationsControllerTest < ActionDispatch::IntegrationTest
           transport: "mailbox_runtime",
         },
       },
-      headers: agent_api_headers(context[:machine_credential]),
+      headers: agent_api_headers(context[:agent_connection_credential]),
       as: :json
 
     assert_response :created
@@ -58,7 +58,7 @@ class AgentApiToolInvocationsControllerTest < ActionDispatch::IntegrationTest
 
     post "/agent_api/tool_invocations",
       params: request_params,
-      headers: agent_api_headers(context[:machine_credential]),
+      headers: agent_api_headers(context[:agent_connection_credential]),
       as: :json
 
     assert_response :created
@@ -66,7 +66,7 @@ class AgentApiToolInvocationsControllerTest < ActionDispatch::IntegrationTest
 
     post "/agent_api/tool_invocations",
       params: request_params,
-      headers: agent_api_headers(context[:machine_credential]),
+      headers: agent_api_headers(context[:agent_connection_credential]),
       as: :json
 
     assert_response :ok
@@ -88,7 +88,7 @@ class AgentApiToolInvocationsControllerTest < ActionDispatch::IntegrationTest
           command_line: "printf 'hello\\n'",
         },
       },
-      headers: agent_api_headers(context[:machine_credential]),
+      headers: agent_api_headers(context[:agent_connection_credential]),
       as: :json
 
     assert_response :not_found
@@ -110,7 +110,7 @@ class AgentApiToolInvocationsControllerTest < ActionDispatch::IntegrationTest
           command_line: "printf 'hello\\n'",
         },
       },
-      headers: agent_api_headers(context[:machine_credential]),
+      headers: agent_api_headers(context[:agent_connection_credential]),
       as: :json
 
     assert_response :not_found
@@ -120,13 +120,13 @@ class AgentApiToolInvocationsControllerTest < ActionDispatch::IntegrationTest
 
   def build_runtime_command_context!
     context = build_governed_tool_context!(
-      executor_tool_catalog: [],
+      execution_runtime_tool_catalog: [],
       agent_tool_catalog: runtime_command_tool_catalog,
       profile_catalog: runtime_command_profile_catalog
     )
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     agent_task_run = create_agent_task_run!(

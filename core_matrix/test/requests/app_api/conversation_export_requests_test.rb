@@ -11,7 +11,7 @@ class AppApiConversationExportRequestsTest < ActionDispatch::IntegrationTest
           params: {
             conversation_id: context[:conversation].public_id,
           },
-          headers: app_api_headers(registration[:machine_credential]),
+          headers: app_api_headers(registration[:agent_connection_credential]),
           as: :json
       end
     end
@@ -27,7 +27,7 @@ class AppApiConversationExportRequestsTest < ActionDispatch::IntegrationTest
     refute_includes response.body, %("#{context[:conversation].id}")
 
     get "/app_api/conversation_export_requests/#{request_id}",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -52,7 +52,7 @@ class AppApiConversationExportRequestsTest < ActionDispatch::IntegrationTest
     ConversationExports::ExecuteRequest.call(request: request)
 
     get "/app_api/conversation_export_requests/#{request.public_id}/download",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     assert_equal "application/zip", response.media_type
@@ -77,13 +77,13 @@ class AppApiConversationExportRequestsTest < ActionDispatch::IntegrationTest
     request.bundle_file.purge
 
     get "/app_api/conversation_export_requests/#{request.public_id}",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     assert_equal false, JSON.parse(response.body).dig("export_request", "bundle_available")
 
     get "/app_api/conversation_export_requests/#{request.public_id}/download",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :gone
   end
@@ -104,13 +104,13 @@ class AppApiConversationExportRequestsTest < ActionDispatch::IntegrationTest
     ConversationExports::ExecuteRequest.call(request: request)
 
     get "/app_api/conversation_export_requests/#{request.public_id}",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     assert_equal false, JSON.parse(response.body).dig("export_request", "bundle_available")
 
     get "/app_api/conversation_export_requests/#{request.public_id}/download",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :gone
   end
@@ -132,18 +132,18 @@ class AppApiConversationExportRequestsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].id,
       },
-      headers: app_api_headers(registration[:machine_credential]),
+      headers: app_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :not_found
 
     get "/app_api/conversation_export_requests/#{request.id}",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :not_found
 
     get "/app_api/conversation_export_requests/#{request.id}/download",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :not_found
   end

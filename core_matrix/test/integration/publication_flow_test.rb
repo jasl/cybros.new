@@ -6,13 +6,13 @@ class PublicationFlowTest < ActionDispatch::IntegrationTest
     viewer = create_user!(installation: context[:installation])
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Share this conversation",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

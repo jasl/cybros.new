@@ -21,7 +21,7 @@ class CreateConversationDiagnosticsSnapshots < ActiveRecord::Migration[8.0]
       t.integer :command_failure_count, null: false, default: 0
       t.integer :process_run_count, null: false, default: 0
       t.integer :process_failure_count, null: false, default: 0
-      t.integer :subagent_session_count, null: false, default: 0
+      t.integer :subagent_connection_count, null: false, default: 0
       t.integer :input_variant_count, null: false, default: 0
       t.integer :output_variant_count, null: false, default: 0
       t.integer :resume_attempt_count, null: false, default: 0
@@ -65,7 +65,7 @@ class CreateConversationDiagnosticsSnapshots < ActiveRecord::Migration[8.0]
       t.integer :command_failure_count, null: false, default: 0
       t.integer :process_run_count, null: false, default: 0
       t.integer :process_failure_count, null: false, default: 0
-      t.integer :subagent_session_count, null: false, default: 0
+      t.integer :subagent_connection_count, null: false, default: 0
       t.integer :input_variant_count, null: false, default: 0
       t.integer :output_variant_count, null: false, default: 0
       t.integer :resume_attempt_count, null: false, default: 0

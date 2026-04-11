@@ -42,8 +42,8 @@ workspace_source_bundle_path = artifact_dir.join("exports", "game-2048-source.zi
 runtime_workspace_root = Pathname.new(ENV.fetch("FENIX_DOCKER_MOUNT_WORKSPACE_ROOT", "/workspace"))
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 docker_container = ENV.fetch("FENIX_DOCKER_CONTAINER", "fenix-capstone")
-executor_fingerprint = ENV.fetch("CAPSTONE_EXECUTOR_FINGERPRINT", "capstone-fenix-executor-program-v1")
-program_fingerprint = ENV.fetch("CAPSTONE_PROGRAM_FINGERPRINT", "capstone-fenix-agent-program-v1")
+execution_runtime_fingerprint = ENV.fetch("CAPSTONE_EXECUTION_RUNTIME_FINGERPRINT", "capstone-fenix-execution-runtime-v1")
+agent_fingerprint = ENV.fetch("CAPSTONE_AGENT_FINGERPRINT", "capstone-fenix-agent-v1")
 selector = ENV.fetch("CAPSTONE_SELECTOR", "candidate:openrouter/openai-gpt-5.4")
 preview_port = Integer(ENV.fetch("CAPSTONE_HOST_PREVIEW_PORT", "4174"))
 scenario_date = Date.current.iso8601
@@ -365,7 +365,7 @@ def supervise_conversation_progress!(
       machine_status["current_focus_summary"],
       machine_status["recent_progress_summary"],
       Array(machine_status["active_subagent_turn_todo_plan_views"]).map do |entry|
-        [entry["subagent_session_id"], entry["current_item_key"], entry.dig("current_item", "status")]
+        [entry["subagent_connection_id"], entry["current_item_key"], entry.dig("current_item", "status")]
       end,
     ]
     if progress_signature != last_progress_signature
@@ -621,31 +621,31 @@ when "bootstrap"
   bundled = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
     installation: bootstrap.installation,
     runtime_base_url: runtime_base_url,
-    executor_fingerprint: executor_fingerprint,
-    fingerprint: program_fingerprint
+    execution_runtime_fingerprint: execution_runtime_fingerprint,
+    fingerprint: agent_fingerprint
   )
 
-  machine_credential = bundled.machine_credential
-  executor_machine_credential = bundled.executor_machine_credential
-  agent_program = bundled.agent_program
-  agent_program_version = bundled.deployment
-  executor_program = bundled.executor_program
-  agent_session = bundled.agent_session
-  executor_session = bundled.executor_session
+  agent_connection_credential = bundled.agent_connection_credential
+  execution_runtime_connection_credential = bundled.execution_runtime_connection_credential
+  agent = bundled.agent
+  agent_snapshot = bundled.agent_snapshot
+  execution_runtime = bundled.execution_runtime
+  agent_connection = bundled.agent_connection
+  execution_runtime_connection = bundled.execution_runtime_connection
 
   bootstrap_state = Acceptance::CapstoneAppApiRoundtrip.bootstrap_state(
     scenario_date: scenario_date,
-    machine_credential: machine_credential,
-    executor_machine_credential: executor_machine_credential,
-    agent_program: agent_program,
-    agent_program_version: agent_program_version,
-    executor_program: executor_program,
-    agent_session: agent_session,
-    executor_session: executor_session,
+    agent_connection_credential: agent_connection_credential,
+    execution_runtime_connection_credential: execution_runtime_connection_credential,
+    agent: agent,
+    agent_snapshot: agent_snapshot,
+    execution_runtime: execution_runtime,
+    agent_connection: agent_connection,
+    execution_runtime_connection: execution_runtime_connection,
     runtime_base_url: runtime_base_url,
     docker_container: docker_container,
-    executor_fingerprint: executor_fingerprint,
-    program_fingerprint: program_fingerprint
+    execution_runtime_fingerprint: execution_runtime_fingerprint,
+    agent_fingerprint: agent_fingerprint
   )
 
   write_json(bootstrap_state_path, bootstrap_state)
@@ -657,26 +657,26 @@ when "execute"
   bootstrap_state = read_json(bootstrap_state_path)
   FileUtils.mkdir_p(artifact_dir)
 
-  machine_credential = bootstrap_state.fetch("machine_credential")
-  executor_machine_credential = bootstrap_state.fetch("executor_machine_credential")
-  agent_program = AgentProgram.find_by_public_id!(bootstrap_state.fetch("agent_program_id"))
-  agent_program_version = AgentProgramVersion.find_by_public_id!(bootstrap_state.fetch("agent_program_version_id"))
-  executor_program = ExecutorProgram.find_by_public_id!(bootstrap_state.fetch("executor_program_id"))
-  agent_session = AgentSession.find_by_public_id!(bootstrap_state.fetch("agent_session_id"))
-  executor_session = ExecutorSession.find_by_public_id!(bootstrap_state.fetch("executor_session_id"))
+  agent_connection_credential = bootstrap_state.fetch("agent_connection_credential")
+  execution_runtime_connection_credential = bootstrap_state.fetch("execution_runtime_connection_credential")
+  agent = Agent.find_by_public_id!(bootstrap_state.fetch("agent_id"))
+  agent_snapshot = AgentSnapshot.find_by_public_id!(bootstrap_state.fetch("agent_snapshot_id"))
+  execution_runtime = ExecutionRuntime.find_by_public_id!(bootstrap_state.fetch("execution_runtime_id"))
+  agent_connection = AgentConnection.find_by_public_id!(bootstrap_state.fetch("agent_connection_id"))
+  execution_runtime_connection = ExecutionRuntimeConnection.find_by_public_id!(bootstrap_state.fetch("execution_runtime_connection_id"))
   runtime_worker_boot = runtime_worker_boot_path.exist? ? read_json(runtime_worker_boot_path) : nil
 else
   raise "unsupported CAPSTONE_PHASE: #{capstone_phase}"
 end
 
 write_json(artifact_dir.join("evidence", "acceptance-registration.json"), Acceptance::CapstoneAppApiRoundtrip.registration_artifact(
-  agent_program: agent_program,
-  agent_program_version: agent_program_version,
-  executor_program: executor_program,
-  machine_credential: machine_credential
+  agent: agent,
+  agent_snapshot: agent_snapshot,
+  execution_runtime: execution_runtime,
+  agent_connection_credential: agent_connection_credential
 ).merge(
-  "agent_session_id" => agent_session.public_id,
-  "executor_session_id" => executor_session.public_id
+  "agent_connection_id" => agent_connection.public_id,
+  "execution_runtime_connection_id" => execution_runtime_connection.public_id
 ))
 write_json(artifact_dir.join("evidence", "capstone-run-bootstrap.json"), Acceptance::CapstoneAppApiRoundtrip.run_bootstrap_artifact(
   scenario_date: scenario_date,
@@ -689,7 +689,7 @@ write_json(artifact_dir.join("evidence", "capstone-run-bootstrap.json"), Accepta
 write_json(artifact_dir.join("evidence", "attempt-history.json"), [])
 write_json(artifact_dir.join("evidence", "rescue-history.json"), [])
 
-conversation_context = Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version)
+conversation_context = Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot)
 conversation = conversation_context.fetch(:conversation).reload
 log_capstone_phase(
   artifact_dir: artifact_dir,
@@ -900,7 +900,7 @@ log_capstone_phase(
 conversation_artifacts = Acceptance::ConversationArtifacts.capture_export_roundtrip!(
   artifact_dir: artifact_dir,
   conversation: conversation,
-  machine_credential: machine_credential,
+  agent_connection_credential: agent_connection_credential,
   supervision_trace: supervision_trace,
   prompt: SUPERVISION_PROMPT
 )
@@ -925,7 +925,7 @@ usage_events = Array(parsed_debug["usage_events.json"])
 command_runs = Array(parsed_debug["command_runs.json"])
 process_runs = Array(parsed_debug["process_runs.json"])
 tool_invocations = Array(parsed_debug["tool_invocations.json"])
-subagent_sessions = Array(parsed_debug["subagent_sessions.json"])
+subagent_connections = Array(parsed_debug["subagent_connections.json"])
 workflow_nodes = Array(parsed_debug["workflow_nodes.json"])
 workflow_node_events = Array(parsed_debug["workflow_node_events.json"])
 agent_task_runs = Array(parsed_debug["agent_task_runs.json"])
@@ -969,8 +969,8 @@ end
 
 subagent_runtime_snapshots = Acceptance::ConversationArtifacts.capture_subagent_runtime_snapshots!(
   artifact_dir: artifact_dir,
-  subagent_sessions: subagent_sessions,
-  machine_credential: machine_credential
+  subagent_connections: subagent_connections,
+  agent_connection_credential: agent_connection_credential
 )
 
 main_diagnostics_turn = source_diagnostics_turns.fetch("items").fetch(0)
@@ -983,7 +983,7 @@ turn_runtime_report = Acceptance::TurnRuntimeTranscript.build(
   tool_invocations: tool_invocations,
   command_runs: command_runs,
   process_runs: process_runs,
-  subagent_sessions: subagent_sessions,
+  subagent_connections: subagent_connections,
   subagent_runtime_snapshots: subagent_runtime_snapshots,
   agent_task_runs: agent_task_runs,
   supervision_trace: supervision_trace,
@@ -1013,13 +1013,13 @@ Acceptance::ReviewArtifacts.write_turns!(
   conversation: conversation,
   turn: turn,
   workflow_run: workflow_run,
-  agent_program_version: agent_program_version,
-  executor_program: executor_program,
+  agent_snapshot: agent_snapshot,
+  execution_runtime: execution_runtime,
   selector: selector,
   diagnostics_turn: main_diagnostics_turn,
   source_transcript: source_transcript,
   provider_breakdown: provider_breakdown,
-  subagent_sessions: subagent_sessions,
+  subagent_connections: subagent_connections,
   proof_artifacts: [
     "review/conversation-transcript.md",
     "review/turn-runtime-transcript.md",
@@ -1057,7 +1057,7 @@ Acceptance::ReviewArtifacts.write_collaboration_notes!(
   path: artifact_dir.join("review", "collaboration-notes.md"),
   selector: selector,
   host_validation_notes: host_validation_notes,
-  subagent_sessions: subagent_sessions
+  subagent_connections: subagent_connections
 )
 
 log_capstone_phase(
@@ -1065,17 +1065,17 @@ log_capstone_phase(
   phase: "benchmark_reporting_started",
   details: {
     "tool_call_count" => tool_invocations.length,
-    "subagent_session_count" => subagent_sessions.length,
+    "subagent_connection_count" => subagent_connections.length,
   }
 )
 Acceptance::ReviewArtifacts.write_runtime_and_bindings!(
   path: artifact_dir.join("review", "runtime-and-bindings.md"),
   workspace_root: workspace_root,
-  machine_credential: machine_credential,
-  executor_machine_credential: executor_machine_credential,
-  agent_program: agent_program,
-  agent_program_version: agent_program_version,
-  executor_program: executor_program,
+  agent_connection_credential: agent_connection_credential,
+  execution_runtime_connection_credential: execution_runtime_connection_credential,
+  agent: agent,
+  agent_snapshot: agent_snapshot,
+  execution_runtime: execution_runtime,
   docker_container: docker_container,
   runtime_base_url: runtime_base_url,
   runtime_worker_boot: runtime_worker_boot
@@ -1110,7 +1110,7 @@ capability_report = Acceptance::CapabilityActivation.build(
   contract: CAPABILITY_CONTRACT,
   tool_invocations: tool_invocations,
   command_runs: command_runs,
-  subagent_sessions: subagent_sessions,
+  subagent_connections: subagent_connections,
   artifact_paths: {
     "workspace_validation" => artifact_dir.join("review", "workspace-validation.md"),
     "supervision_session" => artifact_dir.join("logs", "supervision-session.json"),
@@ -1191,9 +1191,9 @@ summary = {
   "workspace_id" => conversation.workspace.public_id,
   "turn_id" => turn.public_id,
   "workflow_run_id" => workflow_run.public_id,
-  "agent_program_id" => agent_program.public_id,
-  "agent_program_version_id" => agent_program_version.public_id,
-  "executor_program_id" => executor_program.public_id,
+  "agent_id" => agent.public_id,
+  "agent_snapshot_id" => agent_snapshot.public_id,
+  "execution_runtime_id" => execution_runtime.public_id,
   "selector" => selector,
   "workflow_state" => workflow_run.lifecycle_state,
   "turn_state" => turn.lifecycle_state,
@@ -1212,7 +1212,7 @@ summary = {
   "command_run_count" => command_runs.length,
   "process_run_count" => process_runs.length,
   "tool_call_count" => tool_invocations.length,
-  "subagent_session_count" => subagent_sessions.length,
+  "subagent_connection_count" => subagent_connections.length,
   "subagent_runtime_snapshot_count" => subagent_runtime_snapshots.length,
   "capability_activation_path" => artifact_dir.join("evidence", "capability-activation.json").to_s,
   "failure_classification_path" => artifact_dir.join("evidence", "failure-classification.json").to_s,

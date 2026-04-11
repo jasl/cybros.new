@@ -80,8 +80,8 @@ module Conversations
         AgentControlMailboxItem.where(agent_task_run: task_run, status: %w[queued leased]).update_all(
           status: "canceled",
           completed_at: @occurred_at,
-          leased_to_agent_session_id: nil,
-          leased_to_executor_session_id: nil,
+          leased_to_agent_connection_id: nil,
+          leased_to_execution_runtime_connection_id: nil,
           leased_at: nil,
           lease_expires_at: nil,
           updated_at: @occurred_at
@@ -93,7 +93,7 @@ module Conversations
       relations = [
         AgentTaskRun.where(turn: turn, lifecycle_state: "running"),
         reusable_subagent_step_scope(turn:),
-        turn_scoped_subagent_session_scope(turn:),
+        turn_scoped_subagent_connection_scope(turn:),
       ]
 
       Conversations::RequestResourceCloses.call(
@@ -119,22 +119,22 @@ module Conversations
       AgentTaskRun.where(turn: turn, lifecycle_state: "running").none? &&
         HumanInteractionRequest.where(conversation: turn.conversation, turn: turn, lifecycle_state: "open", blocking: true).none? &&
         reusable_subagent_step_scope(turn:).none? &&
-        turn_scoped_subagent_session_scope(turn:).merge(SubagentSession.close_pending_or_open).none?
+        turn_scoped_subagent_connection_scope(turn:).merge(SubagentConnection.close_pending_or_open).none?
     end
 
     def reusable_subagent_step_scope(turn:)
       AgentTaskRun
-        .joins(:subagent_session)
+        .joins(:subagent_connection)
         .where(
           origin_turn: turn,
           kind: "subagent_step",
           lifecycle_state: "running",
-          subagent_sessions: { scope: "conversation" }
+          subagent_connections: { scope: "conversation" }
         )
     end
 
-    def turn_scoped_subagent_session_scope(turn:)
-      SubagentSession.where(
+    def turn_scoped_subagent_connection_scope(turn:)
+      SubagentConnection.where(
         owner_conversation: turn.conversation,
         origin_turn: turn
       )

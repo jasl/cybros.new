@@ -31,13 +31,13 @@ module Conversations
 
       ApplicationRecord.transaction do
         with_close_lock(conversation) do |locked_conversation|
-          owned_subagent_tree = SubagentSessions::OwnedTree.new(owner_conversation: locked_conversation)
-          publish_delivery_endpoint = active_agent_session_for(locked_conversation)
+          owned_subagent_tree = SubagentConnections::OwnedTree.new(owner_conversation: locked_conversation)
+          publish_delivery_endpoint = active_agent_connection_for(locked_conversation)
           find_or_create_close_operation!(locked_conversation)
           apply_immediate_state!(locked_conversation)
           cancel_queued_turns!(locked_conversation, reason_kind: config.fetch(:queued_turn_reason))
           request_turn_interrupts!(locked_conversation)
-          request_owned_subagent_session_closes!(
+          request_owned_subagent_connection_closes!(
             owned_subagent_tree,
             publish_delivery_endpoint: publish_delivery_endpoint,
             request_kind: config.fetch(:background_request_kind),
@@ -53,7 +53,7 @@ module Conversations
         Conversations::ReconcileCloseOperation.call(
           conversation: conversation,
           occurred_at: @occurred_at,
-          owned_subagent_session_ids: owned_subagent_tree.session_ids,
+          owned_subagent_connection_ids: owned_subagent_tree.connection_ids,
           owned_subagent_conversation_ids: owned_subagent_tree.conversation_ids
         )
       end
@@ -142,12 +142,12 @@ module Conversations
       )
     end
 
-    def request_owned_subagent_session_closes!(owned_subagent_tree, publish_delivery_endpoint:, request_kind:, reason_kind:)
-      closeable_owned_subagent_sessions(owned_subagent_tree).each do |session|
+    def request_owned_subagent_connection_closes!(owned_subagent_tree, publish_delivery_endpoint:, request_kind:, reason_kind:)
+      closeable_owned_subagent_connections(owned_subagent_tree).each do |session|
         next unless session.close_open?
 
-        SubagentSessions::RequestClose.call(
-          subagent_session: session,
+        SubagentConnections::RequestClose.call(
+          subagent_connection: session,
           request_kind: request_kind,
           reason_kind: reason_kind,
           strictness: "graceful",
@@ -157,18 +157,18 @@ module Conversations
       end
     end
 
-    def closeable_owned_subagent_sessions(owned_subagent_tree)
-      return [] if owned_subagent_tree.session_ids.empty?
+    def closeable_owned_subagent_connections(owned_subagent_tree)
+      return [] if owned_subagent_tree.connection_ids.empty?
 
-      SubagentSession
-        .where(id: owned_subagent_tree.session_ids)
-        .includes(:installation, :conversation, :execution_lease, owner_conversation: :agent_program)
+      SubagentConnection
+        .where(id: owned_subagent_tree.connection_ids)
+        .includes(:installation, :conversation, :execution_lease, owner_conversation: :agent)
         .order(:created_at, :id)
     end
 
-    def active_agent_session_for(conversation)
-      AgentSession.find_by(
-        agent_program: conversation.agent_program,
+    def active_agent_connection_for(conversation)
+      AgentConnection.find_by(
+        agent: conversation.agent,
         lifecycle_state: "active"
       )
     end

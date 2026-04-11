@@ -57,7 +57,7 @@ module Workflows
           stage_position: intent.fetch("stage_position"),
           yielding_node_key: @yielding_node.node_key,
           presentation_policy: intent.fetch("presentation_policy"),
-          decision_source: "agent_program",
+          decision_source: "agent",
           metadata: {},
         }
 

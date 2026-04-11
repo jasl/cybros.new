@@ -66,7 +66,7 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
       kind: "fork",
       addressability: "agent_addressable"
     )
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: context[:installation],
       conversation: child_conversation,
       owner_conversation: owner_conversation,

@@ -1,24 +1,33 @@
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
-    identified_by :current_deployment, :current_executor_program, :current_publication
+    identified_by :current_agent_connection, :current_execution_runtime_connection, :current_agent_snapshot, :current_execution_runtime, :current_publication
 
     def connect
-      agent_session = find_verified_agent_session
-      self.current_deployment = agent_session&.agent_program_version
-      self.current_executor_program = agent_session&.agent_program&.default_executor_program
+      self.current_agent_connection = find_verified_agent_connection
+      self.current_execution_runtime_connection = find_verified_execution_runtime_connection
+      self.current_agent_snapshot = current_agent_connection&.agent_snapshot
+      self.current_execution_runtime =
+        current_execution_runtime_connection&.execution_runtime ||
+        current_agent_connection&.agent&.default_execution_runtime
       self.current_publication = find_verified_publication
-      reject_unauthorized_connection if current_deployment.blank? && current_publication.blank?
+      reject_unauthorized_connection if current_agent_snapshot.blank? && current_execution_runtime.blank? && current_publication.blank?
     end
 
     private
 
-    def find_verified_agent_session
-      return if machine_credential.blank?
+    def find_verified_agent_connection
+      return if token_credential.blank?
 
-      AgentSession.find_by_plaintext_session_credential(machine_credential)
+      AgentConnection.find_by_plaintext_connection_credential(token_credential)
     end
 
-    def machine_credential
+    def find_verified_execution_runtime_connection
+      return if token_credential.blank?
+
+      ExecutionRuntimeConnection.find_by_plaintext_connection_credential(token_credential)
+    end
+
+    def token_credential
       request.params[:token].presence || token_from_authorization_header
     end
 

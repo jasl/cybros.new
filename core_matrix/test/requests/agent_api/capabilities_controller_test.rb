@@ -4,7 +4,7 @@ class AgentApiCapabilitiesControllerTest < ActionDispatch::IntegrationTest
   test "capabilities refresh exposes governed effective tool metadata with public ids" do
     context = build_governed_tool_context!
 
-    get "/agent_api/capabilities", headers: agent_api_headers(context.fetch(:machine_credential))
+    get "/agent_api/capabilities", headers: agent_api_headers(context.fetch(:agent_connection_credential))
 
     assert_response :success
 
@@ -28,9 +28,9 @@ class AgentApiCapabilitiesControllerTest < ActionDispatch::IntegrationTest
 
     post "/agent_api/capabilities",
       params: {
-        fingerprint: registration.fetch(:deployment).fingerprint,
-        protocol_version: registration.fetch(:deployment).protocol_version,
-        sdk_version: registration.fetch(:deployment).sdk_version,
+        fingerprint: registration.fetch(:agent_snapshot).fingerprint,
+        protocol_version: registration.fetch(:agent_snapshot).protocol_version,
+        sdk_version: registration.fetch(:agent_snapshot).sdk_version,
         protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
         tool_catalog: [
           {
@@ -49,7 +49,7 @@ class AgentApiCapabilitiesControllerTest < ActionDispatch::IntegrationTest
         conversation_override_schema_snapshot: { "type" => "object", "properties" => {} },
         default_config_snapshot: default_default_config_snapshot,
       },
-      headers: agent_api_headers(registration.fetch(:machine_credential)),
+      headers: agent_api_headers(registration.fetch(:agent_connection_credential)),
       as: :json
 
     assert_response :unprocessable_entity

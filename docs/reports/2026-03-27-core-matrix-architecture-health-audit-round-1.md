@@ -159,7 +159,7 @@
   - `core_matrix/app/services/workflows/manual_retry.rb`
   - `core_matrix/test/services/workflows/manual_resume_test.rb`
   - `core_matrix/test/services/workflows/manual_retry_test.rb`
-  - `core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md`
+  - `core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md`
 - Counterpoint: the final side effects are materially different, so these
   should not be collapsed into one opaque service.
 - Related concepts: paused recovery, mutable workflow context, deployment

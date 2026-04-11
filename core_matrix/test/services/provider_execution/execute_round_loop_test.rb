@@ -48,7 +48,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     end
 
     transcript = turn_step_messages_for(workflow_run)
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       prepared_rounds: [
         {
           "messages" => transcript,
@@ -57,7 +57,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
           "trace" => [],
         },
       ],
-      program_tool_results: {
+      tool_results: {
         "call-calculator-1" => {
           "status" => "ok",
           "result" => { "value" => 4 },
@@ -74,7 +74,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
           transcript: transcript,
           adapter: adapter,
           effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
-          program_exchange: program_exchange
+          agent_request_exchange: agent_request_exchange
         )
       end
     end
@@ -83,7 +83,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     assert_equal 2, error.attempted_rounds
     assert_equal transcript.length, error.messages_count
     assert_equal 1, adapter.requests.length
-    assert_equal 1, program_exchange.prepare_round_requests.length
+    assert_equal 1, agent_request_exchange.prepare_round_requests.length
   end
 
   test "ignores legacy loop_settings when loop_policy is absent" do
@@ -144,7 +144,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     workflow_run.define_singleton_method(:execution_snapshot) { legacy_snapshot }
     workflow_node.define_singleton_method(:workflow_run) { workflow_run }
     transcript = turn_step_messages_for(workflow_run)
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       prepared_rounds: [
         {
           "messages" => transcript,
@@ -163,16 +163,16 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
         transcript: transcript,
         adapter: adapter,
         effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
     assert result.yielded_tool_batch?
     assert_equal 1, adapter.requests.length
-    assert_equal 1, program_exchange.prepare_round_requests.length
+    assert_equal 1, agent_request_exchange.prepare_round_requests.length
   end
 
-  test "exposes visible core matrix tools even when fenix returns no program tools for the round" do
+  test "exposes visible core matrix tools even when fenix returns no agent tools for the round" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
       response_body: {
@@ -213,7 +213,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
         transcript: transcript,
         adapter: adapter,
         effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_node.installation, catalog: catalog),
-        program_exchange: ProviderExecutionTestSupport::FakeProgramExchange.new(
+        agent_request_exchange: ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
           prepared_rounds: [
             {
               "messages" => transcript,
@@ -234,7 +234,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     assert_equal ["content"], subagent_spawn.dig("function", "parameters", "required")
   end
 
-  test "keeps visible core matrix tools available when the agent program echoes them in prepare_round" do
+  test "keeps visible core matrix tools available when the agent echoes them in prepare_round" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
       response_body: {
@@ -275,7 +275,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
         transcript: transcript,
         adapter: adapter,
         effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_node.installation, catalog: catalog),
-        program_exchange: ProviderExecutionTestSupport::FakeProgramExchange.new(
+        agent_request_exchange: ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
           prepared_rounds: [
             {
               "messages" => transcript,
@@ -337,7 +337,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     end
 
     transcript = turn_step_messages_for(workflow_run)
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       prepared_rounds: [
         {
           "messages" => transcript,
@@ -356,13 +356,13 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
         transcript: transcript,
         adapter: adapter,
         effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
     assert result.yielded_tool_batch?
     assert_equal 1, adapter.requests.length
-    assert_equal [], program_exchange.execute_program_tool_requests
+    assert_equal [], agent_request_exchange.execute_tool_requests
     assert_equal %w[provider_round_1_tool_1], result.tool_batch_result.fetch("ordered_tool_node_keys")
     assert_equal "provider_round_2", result.tool_batch_result.fetch("successor").fetch("node_key")
   end
@@ -454,7 +454,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     )
 
     transcript = turn_step_messages_for(root_node.workflow_run)
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       prepared_rounds: [
         {
           "messages" => transcript,
@@ -471,7 +471,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
         transcript: transcript,
         adapter: adapter,
         effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: successor.installation, catalog: catalog),
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
 
       assert result.final?

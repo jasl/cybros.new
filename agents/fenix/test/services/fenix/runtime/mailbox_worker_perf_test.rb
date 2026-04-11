@@ -8,11 +8,13 @@ class Fenix::Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
     ActiveJob::Base.queue_adapter = :test
     clear_enqueued_jobs
     clear_performed_jobs
+    Fenix::Shared::Values::MailboxDeliveryTracker.reset!
   end
 
   teardown do
     clear_enqueued_jobs
     clear_performed_jobs
+    Fenix::Shared::Values::MailboxDeliveryTracker.reset!
   end
 
   test "publishes mailbox execution perf event for inline execution" do
@@ -37,10 +39,10 @@ class Fenix::Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
     assert_equal 1, events.length
     assert_equal true, events.first.fetch("success")
     assert_equal "mailbox-item-1", events.first.fetch("mailbox_item_public_id")
-    assert_equal "program", events.first.fetch("control_plane")
+    assert_equal "agent", events.first.fetch("control_plane")
     assert_equal "conversation-1", events.first.fetch("conversation_public_id")
     assert_equal "turn-1", events.first.fetch("turn_public_id")
-    assert_equal "agent-program-1", events.first.fetch("agent_program_public_id")
+    assert_equal "agent-1", events.first.fetch("agent_public_id")
     assert_equal "user-1", events.first.fetch("user_public_id")
   ensure
     Fenix::Runtime::ExecuteMailboxItem.singleton_class.define_method(:call, original_execute)
@@ -103,10 +105,10 @@ class Fenix::Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-1",
       "logical_work_id" => "logical-work-1",
       "attempt_no" => 1,
-      "control_plane" => "program",
+      "control_plane" => "agent",
       "payload" => {
         "runtime_context" => {
-          "agent_program_id" => "agent-program-1",
+          "agent_id" => "agent-1",
           "user_id" => "user-1",
         },
         "task" => {

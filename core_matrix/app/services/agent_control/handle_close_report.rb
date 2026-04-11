@@ -4,10 +4,10 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, executor_session: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
-      @deployment = deployment
-      @agent_session = agent_session
-      @executor_session = executor_session
+    def initialize(agent_snapshot:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
+      @agent_snapshot = agent_snapshot
+      @agent_connection = agent_connection
+      @execution_runtime_connection = execution_runtime_connection
       @resource = resource
       @method_id = method_id
       @payload = payload
@@ -24,8 +24,8 @@ module AgentControl
 
         resource.with_lock do
           ValidateCloseReportFreshness.call(
-            deployment: @deployment,
-            executor_session: @executor_session,
+            agent_snapshot: @agent_snapshot,
+            execution_runtime_connection: @execution_runtime_connection,
             payload: @payload,
             mailbox_item: mailbox_item,
             resource: resource,
@@ -79,14 +79,14 @@ module AgentControl
 
     def mailbox_item
       @mailbox_item ||= AgentControlMailboxItem.find_by!(
-        installation_id: @deployment.installation_id,
+        installation_id: @agent_snapshot.installation_id,
         public_id: @payload.fetch("mailbox_item_id")
       )
     end
 
     def closable_resource
       @resource ||= ClosableResourceRegistry.find!(
-        installation_id: @deployment.installation_id,
+        installation_id: @agent_snapshot.installation_id,
         resource_type: @payload.fetch("resource_type"),
         public_id: @payload.fetch("resource_id")
       )
@@ -104,8 +104,8 @@ module AgentControl
     def related_conversations_for(resource)
       case resource
       when AgentTaskRun
-        [resource.conversation, resource.subagent_session&.owner_conversation].compact.uniq
-      when SubagentSession
+        [resource.conversation, resource.subagent_connection&.owner_conversation].compact.uniq
+      when SubagentConnection
         [resource.conversation, resource.owner_conversation].compact.uniq
       else
         []

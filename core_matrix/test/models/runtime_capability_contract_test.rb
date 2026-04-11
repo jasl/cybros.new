@@ -4,12 +4,12 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
   test "renders executor, agent, and effective projections from one contract" do
     registration = register_agent_runtime!(
       profile_catalog: default_profile_catalog,
-      executor_capability_payload: { shell_access: true },
-      executor_tool_catalog: [
+      execution_runtime_capability_payload: { shell_access: true },
+      execution_runtime_tool_catalog: [
         {
           tool_name: "exec_command",
-          tool_kind: "executor_program",
-          implementation_source: "executor_program",
+          tool_kind: "execution_runtime",
+          implementation_source: "execution_runtime",
           implementation_ref: "env/exec_command",
           input_schema: { type: "object", properties: {} },
           result_schema: { type: "object", properties: {} },
@@ -44,29 +44,29 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
       ]
     )
     contract = RuntimeCapabilityContract.build(
-      executor_program: registration[:executor_program],
-      agent_program_version: registration[:deployment]
+      execution_runtime: registration[:execution_runtime],
+      agent_snapshot: registration[:agent_snapshot]
     )
 
-    assert_equal "executor", contract.executor_plane.fetch("control_plane")
-    assert_equal "program", contract.program_plane.fetch("control_plane")
-    assert_equal default_profile_catalog, contract.program_plane.fetch("profile_catalog")
+    assert_equal "execution_runtime", contract.execution_runtime_plane.fetch("control_plane")
+    assert_equal "agent", contract.agent_plane.fetch("control_plane")
+    assert_equal default_profile_catalog, contract.agent_plane.fetch("profile_catalog")
     assert_equal default_profile_catalog, contract.contract_payload.fetch("profile_catalog")
     assert_equal "main", contract.default_config_snapshot.dig("interactive", "profile")
     assert_equal 3, contract.default_config_snapshot.dig("subagents", "max_depth")
     assert_nil contract.conversation_override_schema_snapshot.dig("properties", "interactive")
     assert_equal "boolean", contract.conversation_override_schema_snapshot.dig("properties", "subagents", "properties", "enabled", "type")
-    assert_equal ["exec_command"], contract.executor_plane.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command"], contract.execution_runtime_plane.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert_equal ["exec_command", "compact_context"], contract.effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
-    assert contract.executor_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
-    assert contract.program_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
+    assert contract.execution_runtime_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
+    assert contract.agent_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
     assert contract.effective_tool_catalog.all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
     response = contract.capability_response(
       method_id: "capabilities_handshake",
-      executor_program_id: registration[:executor_program].public_id,
-      executor_fingerprint: registration[:executor_program].executor_fingerprint
+      execution_runtime_id: registration[:execution_runtime].public_id,
+      execution_runtime_fingerprint: registration[:execution_runtime].execution_runtime_fingerprint
     )
-    assert_equal registration[:executor_program].public_id, response.fetch("executor_program_id")
-    assert_equal registration[:executor_program].executor_fingerprint, response.fetch("executor_fingerprint")
+    assert_equal registration[:execution_runtime].public_id, response.fetch("execution_runtime_id")
+    assert_equal registration[:execution_runtime].execution_runtime_fingerprint, response.fetch("execution_runtime_fingerprint")
   end
 end

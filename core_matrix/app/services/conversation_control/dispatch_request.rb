@@ -26,15 +26,15 @@ module ConversationControl
         )
       when "send_guidance_to_subagent"
         content = @conversation_control_request.request_payload["content"].to_s.strip
-        subagent_session = resolved_target.subagent_session
+        subagent_connection = resolved_target.subagent_connection
         return reject!("control guidance content is required") if content.blank?
-        return reject!("conversation has no active subagent for guidance") if subagent_session.blank?
+        return reject!("conversation has no active subagent for guidance") if subagent_connection.blank?
 
         dispatch_mailbox_request!(
           mailbox_request_kind: "supervision_guidance",
           payload: {
             "content" => content,
-            "subagent_session_id" => subagent_session.public_id,
+            "subagent_connection_id" => subagent_connection.public_id,
           }
         )
       when "request_turn_interrupt"
@@ -54,11 +54,11 @@ module ConversationControl
           conversation_control_request: @conversation_control_request
         )
       when "request_subagent_close"
-        subagent_session = resolved_target.subagent_session
-        return reject!("conversation has no active subagent to close") if subagent_session.blank?
+        subagent_connection = resolved_target.subagent_connection
+        return reject!("conversation has no active subagent to close") if subagent_connection.blank?
 
-        SubagentSessions::RequestClose.call(
-          subagent_session: subagent_session,
+        SubagentConnections::RequestClose.call(
+          subagent_connection: subagent_connection,
           request_kind: "request_subagent_close",
           reason_kind: "supervision_subagent_close_requested",
           strictness: @conversation_control_request.request_payload["strictness"].presence || "graceful",
@@ -68,11 +68,11 @@ module ConversationControl
       when "resume_waiting_workflow"
         workflow_run = resolved_target.workflow_run
         return reject!("workflow is not paused for manual recovery") unless workflow_run&.paused_agent_unavailable?
-        return reject!("conversation has no active agent runtime for control dispatch") if resolved_target.agent_program_version.blank?
+        return reject!("conversation has no active agent runtime for control dispatch") if resolved_target.agent_snapshot.blank?
 
         Workflows::ManualResume.call(
           workflow_run: workflow_run,
-          deployment: resolved_target.agent_program_version,
+          agent_snapshot: resolved_target.agent_snapshot,
           actor: request_actor,
           conversation_control_request: @conversation_control_request
         )
@@ -108,11 +108,11 @@ module ConversationControl
     end
 
     def dispatch_mailbox_request!(mailbox_request_kind:, payload:)
-      return reject!("conversation has no active agent runtime for control dispatch") if resolved_target.agent_program_version.blank?
+      return reject!("conversation has no active agent runtime for control dispatch") if resolved_target.agent_snapshot.blank?
 
       AgentControl::CreateConversationControlRequest.call(
         conversation_control_request: @conversation_control_request,
-        agent_program_version: resolved_target.agent_program_version,
+        agent_snapshot: resolved_target.agent_snapshot,
         request_kind: mailbox_request_kind,
         payload: payload,
         dispatch_deadline_at: @occurred_at + 5.minutes

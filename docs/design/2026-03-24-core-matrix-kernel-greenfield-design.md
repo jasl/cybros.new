@@ -16,7 +16,7 @@ The platform must support:
 - many users
 - personal and global resource scopes only
 - multiple admins
-- agent programs deployed as independent services
+- agents deployed as independent services
 - a stable public contract between Core Matrix and external agents
 - user-private workspaces
 - live read-only publication of conversations
@@ -37,7 +37,7 @@ Human-facing UI should be tracked separately as a follow-up document and should 
 
 ## Product Definition
 
-Core Matrix is a general-purpose agent kernel in the same sense that a JVM is a general-purpose program runtime. It hosts shared infrastructure that many agent programs can rely on, while leaving business behavior to the agent programs themselves.
+Core Matrix is a general-purpose agent kernel in the same sense that a JVM is a general-purpose program runtime. It hosts shared infrastructure that many agents can rely on, while leaving business behavior to the agents themselves.
 
 The bundled `agents/fenix` service is the default reference agent. It is not the defining shape of the kernel, and the kernel must not hardcode Fenix-specific behavior into its domain model.
 
@@ -159,10 +159,10 @@ Primary objects:
 
 Responsibilities:
 
-- represent the stable logical identity of an agent program
+- represent the stable logical identity of an agent
 - represent a concrete deployed runtime instance
 - support agent-driven registration
-- store machine credentials and rotation metadata
+- store connection credentials and rotation metadata
 - store health and heartbeat state
 - negotiate runtime identity, supported protocol methods, capability snapshots, and config schemas
 
@@ -211,7 +211,7 @@ Primary objects:
 - `WorkflowArtifact`
 - `ProcessRun`
 - `HumanInteractionRequest`
-- `SubagentSession`
+- `SubagentConnection`
 - `ApprovalRequest`
 - `ExecutionLease`
 - `CanonicalVariable`
@@ -326,7 +326,7 @@ Rules:
 
 ### AgentInstallation
 
-`AgentInstallation` is the stable logical identity of an agent program.
+`AgentInstallation` is the stable logical identity of an agent.
 
 It should include:
 
@@ -347,7 +347,7 @@ It should include:
 
 - deployment fingerprint
 - endpoint and transport details
-- machine credential metadata
+- connection credential metadata
 - health state
 - heartbeat timestamps
 - protocol and SDK version
@@ -371,7 +371,7 @@ It should represent:
 
 - local machine, container, or future remote execution target
 - environment identity and connection metadata
-- future split point for separating agent programs from code executor programs
+- future split point for separating agents from code execution runtimes
 
 This is the durable owner boundary for environment-backed runtime resources,
 while delivery may still reuse the currently active deployment endpoint.
@@ -441,7 +441,7 @@ Rules:
 - a workspace has many conversations
 - a conversation is branchable and tree-navigable
 - a turn owns one workflow run plus selected input and output transcript pointers
-- a workflow run owns nodes, artifacts, human-interaction requests including approvals, processes, and subagent sessions
+- a workflow run owns nodes, artifacts, human-interaction requests including approvals, processes, and subagent connections
 - a workflow run is a turn-scoped dynamic DAG, not a fixed template and not a conversation-wide graph
 - workflow mutation may append nodes and edges at runtime, but the graph must remain acyclic at every step
 - a conversation may project visible runtime state through append-only `ConversationEvent` rows without changing transcript ownership
@@ -677,20 +677,20 @@ Subclass rules:
 
 ## Subagent Orchestration Model
 
-`SubagentSession` is the subagent control resource, not a second
+`SubagentConnection` is the subagent control resource, not a second
 orchestration system.
 
 Rules:
 
-- every `SubagentSession` belongs to one owner `Conversation` and one child
+- every `SubagentConnection` belongs to one owner `Conversation` and one child
   `Conversation`
 - turn-scoped delegated execution still re-enters parent workflow scheduling
   through the originating turn when needed
 - swarm or multi-agent behavior is expressed as child-conversation fan-out,
   fan-in, and join scheduling inside the parent turn's workflow
 - do not introduce a separate `SwarmRun` or `SwarmPlan` aggregate in v1
-- `SubagentSession` should retain lightweight coordination metadata for later orchestration growth, including at minimum:
-  - `parent_subagent_session_id` when the run descends from another subagent
+- `SubagentConnection` should retain lightweight coordination metadata for later orchestration growth, including at minimum:
+  - `parent_subagent_connection_id` when the run descends from another subagent
   - `depth`
   - `batch_key`
   - `coordination_key`
@@ -874,7 +874,7 @@ Use a simpler trusted machine-to-machine protocol:
 
 1. `AgentEnrollment` token is minted by Core Matrix.
 2. Agent runtime starts and calls a registration endpoint.
-3. Registration exchanges the one-time token for a durable machine credential.
+3. Registration exchanges the one-time token for a durable connection credential.
 4. Future calls authenticate with deployment identity plus a long-lived bearer secret.
 5. Credential rotation and revocation are first-class control-plane actions.
 
@@ -953,7 +953,7 @@ This contract boundary is part of the public API and must be stabilized now, eve
 
 ## Agent Runtime Resource APIs
 
-The machine-facing contract should expose stable resource APIs for agent program code, not only health and registration endpoints.
+The machine-facing contract should expose stable resource APIs for agent code, not only health and registration endpoints.
 
 The runtime execution context sent to agents should include enough identity to let agent code reason about ownership safely, including at minimum:
 
@@ -1025,7 +1025,7 @@ Model-selection rules:
 - `main` is the reserved default role for top-level interactive generation
 - deployment config should expose one reserved slot name: `interactive`
 - `interactive` defaults to `role:main`
-- agent programs may define additional named model slots through deployment config schema
+- agents may define additional named model slots through deployment config schema
 - slot definitions should be able to carry at least:
   - `selector`
   - `allowed_selector_kinds`
@@ -1186,7 +1186,7 @@ Workflow nodes should record where a decision came from.
 Suggested values:
 
 - `llm`
-- `agent_program`
+- `agent`
 - `system`
 - `user`
 
@@ -1474,7 +1474,7 @@ The following topics are intentionally deferred:
 
 The major product decisions are now resolved. The remaining open items are implementation details rather than boundary questions:
 
-- exact machine credential format and rotation cadence
+- exact connection credential format and rotation cadence
 - exact bootstrap artifact manifest format
 - exact health check intervals and outage thresholds
 - exact retention periods for detailed usage events

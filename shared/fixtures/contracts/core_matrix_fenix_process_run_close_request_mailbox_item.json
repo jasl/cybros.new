@@ -1,7 +1,7 @@
 {
   "item_id": "mailbox-item-close-public-id",
   "item_type": "resource_close_request",
-  "control_plane": "executor",
+  "control_plane": "execution_runtime",
   "logical_work_id": "close:ProcessRun:process-run-public-id",
   "attempt_no": 1,
   "delivery_no": 0,

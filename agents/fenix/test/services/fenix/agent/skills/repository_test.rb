@@ -1,19 +1,19 @@
 require "test_helper"
 
 class Fenix::Agent::Skills::RepositoryTest < ActiveSupport::TestCase
-  test "scopes writable roots under the fenix home root by agent program and user" do
+  test "scopes writable roots under the fenix home root by agent and user" do
     with_skill_fixture_roots do |roots|
       repository = Fenix::Agent::Skills::Repository.new(
-        agent_program_id: "agent-program-1",
+        agent_id: "agent-1",
         user_id: "user-1",
         home_root: roots.fetch(:home_root),
         system_root: roots.fetch(:system_root),
         curated_root: roots.fetch(:curated_root)
       )
 
-      assert_equal roots.fetch(:home_root).join("skills-scopes", "agent-program-1", "user-1", "live"), repository.live_root
-      assert_equal roots.fetch(:home_root).join("skills-scopes", "agent-program-1", "user-1", "staging"), repository.staging_root
-      assert_equal roots.fetch(:home_root).join("skills-scopes", "agent-program-1", "user-1", "backups"), repository.backup_root
+      assert_equal roots.fetch(:home_root).join("skills-scopes", "agent-1", "user-1", "live"), repository.live_root
+      assert_equal roots.fetch(:home_root).join("skills-scopes", "agent-1", "user-1", "staging"), repository.staging_root
+      assert_equal roots.fetch(:home_root).join("skills-scopes", "agent-1", "user-1", "backups"), repository.backup_root
     end
   end
 
@@ -29,7 +29,7 @@ class Fenix::Agent::Skills::RepositoryTest < ActiveSupport::TestCase
       )
 
       repository = Fenix::Agent::Skills::Repository.new(
-        agent_program_id: "agent-program-1",
+        agent_id: "agent-1",
         user_id: "user-1",
         home_root: roots.fetch(:home_root),
         system_root: roots.fetch(:system_root),
@@ -53,21 +53,21 @@ class Fenix::Agent::Skills::RepositoryTest < ActiveSupport::TestCase
       write_skill(root: source_root, name: "portable-notes", description: "Capture notes.", body: "Capture notes safely.")
 
       repository_a1 = Fenix::Agent::Skills::Repository.new(
-        agent_program_id: "agent-program-1",
+        agent_id: "agent-1",
         user_id: "user-1",
         home_root: roots.fetch(:home_root),
         system_root: roots.fetch(:system_root),
         curated_root: roots.fetch(:curated_root)
       )
       repository_a2 = Fenix::Agent::Skills::Repository.new(
-        agent_program_id: "agent-program-1",
+        agent_id: "agent-1",
         user_id: "user-1",
         home_root: roots.fetch(:home_root),
         system_root: roots.fetch(:system_root),
         curated_root: roots.fetch(:curated_root)
       )
       repository_b = Fenix::Agent::Skills::Repository.new(
-        agent_program_id: "agent-program-2",
+        agent_id: "agent-2",
         user_id: "user-1",
         home_root: roots.fetch(:home_root),
         system_root: roots.fetch(:system_root),
@@ -91,7 +91,7 @@ class Fenix::Agent::Skills::RepositoryTest < ActiveSupport::TestCase
       write_skill(root: source_root, name: "deploy-agent", description: "Override the system skill.")
 
       repository = Fenix::Agent::Skills::Repository.new(
-        agent_program_id: "agent-program-1",
+        agent_id: "agent-1",
         user_id: "user-1",
         home_root: roots.fetch(:home_root),
         system_root: roots.fetch(:system_root),
@@ -104,11 +104,11 @@ class Fenix::Agent::Skills::RepositoryTest < ActiveSupport::TestCase
     end
   end
 
-  test "requires non-blank and path-safe agent program and user scope ids" do
+  test "requires non-blank and path-safe agent and user scope ids" do
     with_skill_fixture_roots do |roots|
       error = assert_raises(ArgumentError) do
         Fenix::Agent::Skills::Repository.new(
-          agent_program_id: "",
+          agent_id: "",
           user_id: "user-1",
           home_root: roots.fetch(:home_root),
           system_root: roots.fetch(:system_root),
@@ -116,11 +116,11 @@ class Fenix::Agent::Skills::RepositoryTest < ActiveSupport::TestCase
         )
       end
 
-      assert_includes error.message, "agent_program_id"
+      assert_includes error.message, "agent_id"
 
       error = assert_raises(ArgumentError) do
         Fenix::Agent::Skills::Repository.new(
-          agent_program_id: "agent-program-1",
+          agent_id: "agent-1",
           user_id: "",
           home_root: roots.fetch(:home_root),
           system_root: roots.fetch(:system_root),
@@ -132,7 +132,7 @@ class Fenix::Agent::Skills::RepositoryTest < ActiveSupport::TestCase
 
       error = assert_raises(ArgumentError) do
         Fenix::Agent::Skills::Repository.new(
-          agent_program_id: "..",
+          agent_id: "..",
           user_id: "user-1",
           home_root: roots.fetch(:home_root),
           system_root: roots.fetch(:system_root),
@@ -140,11 +140,11 @@ class Fenix::Agent::Skills::RepositoryTest < ActiveSupport::TestCase
         )
       end
 
-      assert_includes error.message, "agent_program_id"
+      assert_includes error.message, "agent_id"
 
       error = assert_raises(ArgumentError) do
         Fenix::Agent::Skills::Repository.new(
-          agent_program_id: "agent-program-1",
+          agent_id: "agent-1",
           user_id: "..",
           home_root: roots.fetch(:home_root),
           system_root: roots.fetch(:system_root),
@@ -162,7 +162,7 @@ class Fenix::Agent::Skills::RepositoryTest < ActiveSupport::TestCase
       outside_file.write("outside scope\n")
 
       skill_root = write_skill(
-        root: roots.fetch(:home_root).join("skills-scopes", "agent-program-1", "user-1", "live"),
+        root: roots.fetch(:home_root).join("skills-scopes", "agent-1", "user-1", "live"),
         name: "portable-notes",
         description: "Capture notes."
       )
@@ -178,7 +178,7 @@ class Fenix::Agent::Skills::RepositoryTest < ActiveSupport::TestCase
       end
 
       repository = Fenix::Agent::Skills::Repository.new(
-        agent_program_id: "agent-program-1",
+        agent_id: "agent-1",
         user_id: "user-1",
         home_root: roots.fetch(:home_root),
         system_root: roots.fetch(:system_root),

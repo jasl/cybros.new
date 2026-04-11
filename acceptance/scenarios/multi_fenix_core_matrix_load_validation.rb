@@ -64,7 +64,7 @@ def execute_mailbox_task_on_conversation!(conversation:, task:)
     content: task.fetch('content'),
     root_node_key: 'agent_turn_step',
     root_node_type: 'turn_step',
-    decision_source: 'agent_program',
+    decision_source: 'agent',
     initial_kind: 'turn_step',
     initial_payload: { 'mode' => task.fetch('mode') }.merge(task.fetch('extra_payload', {}))
   )
@@ -86,7 +86,7 @@ def execute_mailbox_task_on_conversation!(conversation:, task:)
   }
 end
 
-def execute_program_exchange_task_on_conversation!(conversation:, _agent_program_version: nil, task:, catalog: nil)
+def execute_agent_request_exchange_task_on_conversation!(conversation:, _agent_snapshot: nil, task:, catalog: nil)
   run = Acceptance::ManualSupport.execute_provider_turn_on_conversation!(
     conversation: conversation,
     content: task.fetch('content'),
@@ -172,10 +172,10 @@ workload_executor = Acceptance::Perf::WorkloadExecutor.new(
       task: task
     ).merge('slot_index' => slot_index)
   end,
-  run_program_exchange: lambda do |conversation:, registration:, task:, slot_index:|
-    execute_program_exchange_task_on_conversation!(
+  run_agent_request_exchange: lambda do |conversation:, registration:, task:, slot_index:|
+    execute_agent_request_exchange_task_on_conversation!(
       conversation: conversation,
-      _agent_program_version: registration.agent_program_version,
+      _agent_snapshot: registration.agent_snapshot,
       task: task,
       catalog: provider_catalog_override&.catalog
     ).merge('slot_index' => slot_index)
@@ -195,7 +195,7 @@ registration_matrix = Acceptance::Perf::RuntimeRegistrationMatrix.call(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   topology: topology,
-  create_external_agent_program: Acceptance::ManualSupport.method(:create_external_agent_program!),
+  create_external_agent: Acceptance::ManualSupport.method(:create_external_agent!),
   register_external_runtime: Acceptance::ManualSupport.method(:register_external_runtime!)
 )
 registration_matrix = decorate_boot_states(registration_matrix, topology)
@@ -209,8 +209,8 @@ driver_report =
       Acceptance::Perf::WorkloadDriver.call(
         manifest: manifest,
         registration_matrix: registration_matrix,
-        create_conversation: lambda do |agent_program_version:|
-          Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version)
+        create_conversation: lambda do |agent_snapshot:|
+          Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot)
         end,
         execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
           workload_executor.call(
@@ -227,8 +227,8 @@ driver_report =
     Acceptance::Perf::WorkloadDriver.call(
       manifest: manifest,
       registration_matrix: registration_matrix,
-      create_conversation: lambda do |agent_program_version:|
-        Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version)
+      create_conversation: lambda do |agent_snapshot:|
+        Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot)
       end,
       execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
         workload_executor.call(

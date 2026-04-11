@@ -6,8 +6,8 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      executor_program: context[:executor_program],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
     )
     session = ConversationSupervisionSession.create!(
       installation: context[:installation],
@@ -53,7 +53,7 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
       conversation_event_projection_sequence_snapshot: 9,
       active_workflow_run_public_id: "workflow_run_public_id",
       active_workflow_node_public_id: "workflow_node_public_id",
-      active_subagent_session_public_ids: ["subagent_public_id"],
+      active_subagent_connection_public_ids: ["subagent_public_id"],
       bundle_payload: { "proof" => { "conversation_id" => conversation.public_id } },
       machine_status_payload: { "board_lane" => "active" }
     )
@@ -62,7 +62,7 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
     assert_equal snapshot, ConversationSupervisionSnapshot.find_by_public_id!(snapshot.public_id)
     assert_equal state.public_id, snapshot.conversation_supervision_state_public_id
     assert_equal policy.public_id, snapshot.conversation_capability_policy_public_id
-    assert_equal ["subagent_public_id"], snapshot.active_subagent_session_public_ids
+    assert_equal ["subagent_public_id"], snapshot.active_subagent_connection_public_ids
     assert_equal({ "proof" => { "conversation_id" => conversation.public_id } }, snapshot.bundle_payload)
     assert_equal({ "board_lane" => "active" }, snapshot.machine_status_payload)
   end
@@ -72,14 +72,14 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      executor_program: context[:executor_program],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
     )
     other_conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      executor_program: context[:executor_program],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
     )
     session = ConversationSupervisionSession.create!(
       installation: context[:installation],
@@ -100,7 +100,7 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
       anchor_turn_public_id: "turn_public_id",
       anchor_turn_sequence_snapshot: 1,
       conversation_event_projection_sequence_snapshot: 1,
-      active_subagent_session_public_ids: [],
+      active_subagent_connection_public_ids: [],
       bundle_payload: {},
       machine_status_payload: {}
     )

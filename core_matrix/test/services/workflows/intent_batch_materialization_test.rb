@@ -9,13 +9,13 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -23,7 +23,7 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
       turn: turn,
       root_node_key: "agent_step_1",
       root_node_type: "agent_task_run",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
     yielding_node = workflow_run.workflow_nodes.first
@@ -103,13 +103,13 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -117,7 +117,7 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
       turn: turn,
       root_node_key: "agent_step_1",
       root_node_type: "agent_task_run",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
     yielding_node = workflow_run.workflow_nodes.first
@@ -168,13 +168,13 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -182,7 +182,7 @@ class Workflows::IntentBatchMaterializationTest < ActiveSupport::TestCase
       turn: turn,
       root_node_key: "agent_step_1",
       root_node_type: "agent_task_run",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
     yielding_node = workflow_run.workflow_nodes.first

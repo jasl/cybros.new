@@ -6,8 +6,8 @@ class ExecutionContract < ApplicationRecord
 
   belongs_to :installation
   belongs_to :turn
-  belongs_to :agent_program_version
-  belongs_to :executor_program, class_name: "ExecutorProgram", optional: true
+  belongs_to :agent_snapshot
+  belongs_to :execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :selected_input_message, class_name: "Message", optional: true
   belongs_to :selected_output_message, class_name: "Message", optional: true
   belongs_to :execution_capability_snapshot
@@ -27,8 +27,8 @@ class ExecutionContract < ApplicationRecord
       "conversation_id" => turn.conversation.public_id,
       "turn_id" => turn.public_id,
       "selected_input_message_id" => selected_input_message&.public_id,
-      "executor_program_id" => executor_program&.public_id,
-      "agent_program_version_id" => agent_program_version.public_id,
+      "execution_runtime_id" => execution_runtime&.public_id,
+      "agent_snapshot_id" => agent_snapshot.public_id,
     }
   end
 

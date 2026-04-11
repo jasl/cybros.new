@@ -212,7 +212,7 @@ Execute the task documents in this exact order:
 22. `docs/finished-plans/2026-03-24-core-matrix-phase-1-task-10-4-subagents-and-leases.md`
 23. `docs/finished-plans/2026-03-24-core-matrix-phase-1-task-11-1-registration-and-capability-handshake.md`
 24. `docs/finished-plans/2026-03-24-core-matrix-phase-1-task-11-2-runtime-resource-apis.md`
-25. `docs/finished-plans/2026-03-24-core-matrix-phase-1-task-11-3-deployment-credential-lifecycle.md`
+25. `docs/finished-plans/2026-03-24-core-matrix-phase-1-task-11-3-connection-credential-lifecycle.md`
 26. `docs/finished-plans/2026-03-24-core-matrix-phase-1-task-11-4-bootstrap-and-recovery.md`
 27. `docs/finished-plans/2026-03-24-core-matrix-phase-1-task-12-1-publication-model-and-live-projection.md`
 28. `docs/finished-plans/2026-03-24-core-matrix-phase-1-task-12-2-read-side-queries-and-seed-baseline.md`

@@ -15,7 +15,7 @@ Rules:
 - prioritize the cleanest and currently most correct architecture over forward-compatibility promises
 - allow destructive correction when a boundary later proves wrong
 - if persistent data conflicts with the corrected design, resetting the database is acceptable in this stage
-- defer compatibility guarantees until the kernel has been validated against multiple real agent-program shapes
+- defer compatibility guarantees until the kernel has been validated against multiple real agent shapes
 
 ## Review Conclusion
 
@@ -325,7 +325,7 @@ The reason for documenting them now is to preserve the boundary decision:
 
 - these are recognized platform concerns
 - they should not be half-implemented in the current phase
-- they may live in agent programs first and move into substrate later only after validation
+- they may live in agents first and move into substrate later only after validation
 
 ## Final Direction
 

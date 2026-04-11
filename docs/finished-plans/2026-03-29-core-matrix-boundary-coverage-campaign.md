@@ -136,7 +136,7 @@ git commit -m "test: execute wave 1 boundary coverage sweep"
 - Modify: `docs/plans/2026-03-29-core-matrix-boundary-coverage-working-ledger.md`
 - Modify: `docs/plans/2026-03-29-core-matrix-test-suite-audit-findings.md`
 - Modify: `app/services/agent_control/**/*`
-- Modify: `app/services/subagent_sessions/**/*`
+- Modify: `app/services/subagent_connections/**/*`
 - Modify: `app/services/installations/**/*`
 - Modify: `app/services/execution_environments/**/*`
 - Modify: `app/services/leases/**/*`
@@ -174,7 +174,7 @@ Run a Wave 2 aggregate and then full `bin/rails test`.
 git add docs/plans/2026-03-29-core-matrix-boundary-coverage-working-ledger.md \
   docs/plans/2026-03-29-core-matrix-test-suite-audit-findings.md \
   app/services/agent_control \
-  app/services/subagent_sessions \
+  app/services/subagent_connections \
   app/services/installations \
   app/services/execution_environments \
   app/services/leases \

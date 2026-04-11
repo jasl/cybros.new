@@ -35,9 +35,9 @@ sessions, and installation-scoped audit logs.
 - Consuming an invitation creates a new `Identity` plus `User` for the target
   installation and marks the invitation as consumed.
 
-### Session
+### Conversation
 
-- Session tokens are stored as SHA-256 digests, not plaintext.
+- Conversation tokens are stored as SHA-256 digests, not plaintext.
 - Sessions are active only while not expired and not revoked.
 - Revocation is explicit through `revoked_at`.
 

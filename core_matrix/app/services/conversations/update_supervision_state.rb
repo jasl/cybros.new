@@ -113,8 +113,8 @@ module Conversations
       return "blocked" if workflow_run&.blocked?
       return "waiting" if workflow_run&.waiting?
       return current_task_run.supervision_state if current_task_run.present?
-      return active_conversation_subagent_session.supervision_state if active_conversation_subagent_session.present?
-      return owned_subagent_overall_state if active_owned_subagent_sessions.any?
+      return active_conversation_subagent_connection.supervision_state if active_conversation_subagent_connection.present?
+      return owned_subagent_overall_state if active_owned_subagent_connections.any?
       return "running" if workflow_progressing_without_task?
       return "queued" if active_workflow?
 
@@ -138,8 +138,8 @@ module Conversations
     def current_owner_kind
       return "workflow_run" if workflow_run&.waiting? || workflow_run&.blocked?
       return "agent_task_run" if current_task_run.present?
-      return "subagent_session" if active_conversation_subagent_session.present?
-      return "subagent_session" if active_owned_subagent_sessions.first.present?
+      return "subagent_connection" if active_conversation_subagent_connection.present?
+      return "subagent_connection" if active_owned_subagent_connections.first.present?
       return "workflow_run" if active_workflow?
 
       nil
@@ -148,8 +148,8 @@ module Conversations
     def current_owner_public_id
       return workflow_run.public_id if workflow_run&.waiting? || workflow_run&.blocked?
       return current_task_run.public_id if current_task_run.present?
-      return active_conversation_subagent_session.public_id if active_conversation_subagent_session.present?
-      return active_owned_subagent_sessions.first&.public_id if active_owned_subagent_sessions.first.present?
+      return active_conversation_subagent_connection.public_id if active_conversation_subagent_connection.present?
+      return active_owned_subagent_connections.first&.public_id if active_owned_subagent_connections.first.present?
       return workflow_run.public_id if active_workflow?
 
       nil
@@ -160,9 +160,9 @@ module Conversations
 
       current_task_plan_summary&.fetch("goal_summary", nil) ||
         current_task_run&.request_summary ||
-        active_conversation_subagent_session&.request_summary ||
+        active_conversation_subagent_connection&.request_summary ||
         active_owned_subagent_turn_plan_summaries.filter_map { |summary| summary["goal_summary"] }.first ||
-        active_owned_subagent_sessions.filter_map(&:request_summary).first ||
+        active_owned_subagent_connections.filter_map(&:request_summary).first ||
         latest_task_plan_summary&.fetch("goal_summary", nil) ||
         latest_task_run&.request_summary ||
         conversation_goal_summary
@@ -174,9 +174,9 @@ module Conversations
 
       current_task_plan_summary&.fetch("current_item_title", nil) ||
         current_task_run&.current_focus_summary ||
-        active_conversation_subagent_session&.current_focus_summary ||
+        active_conversation_subagent_connection&.current_focus_summary ||
         active_owned_subagent_turn_plan_summaries.filter_map { |summary| summary["current_item_title"] }.first ||
-        active_owned_subagent_sessions.filter_map(&:current_focus_summary).first ||
+        active_owned_subagent_connections.filter_map(&:current_focus_summary).first ||
         generic_runtime_current_focus_summary ||
         basic_task_run_current_focus_summary
     end
@@ -187,8 +187,8 @@ module Conversations
       plan_backed_recent_progress_summary ||
         current_task_run&.recent_progress_summary ||
         current_task_progress_entry_summary ||
-        active_conversation_subagent_session&.recent_progress_summary ||
-        active_owned_subagent_sessions.filter_map(&:recent_progress_summary).first ||
+        active_conversation_subagent_connection&.recent_progress_summary ||
+        active_owned_subagent_connections.filter_map(&:recent_progress_summary).first ||
         latest_progress_entry_summary ||
         terminal_recent_progress_summary ||
         generic_runtime_recent_progress_summary
@@ -198,8 +198,8 @@ module Conversations
       return unless detailed_progress_enabled?
 
       return humanized_subagent_barrier_summary if workflow_run&.waiting_on_subagent_barrier?
-      return active_conversation_subagent_session&.waiting_summary if active_conversation_subagent_session&.waiting_summary.present?
-      return active_owned_subagent_sessions.filter_map(&:waiting_summary).first if workflow_run&.waiting?
+      return active_conversation_subagent_connection&.waiting_summary if active_conversation_subagent_connection&.waiting_summary.present?
+      return active_owned_subagent_connections.filter_map(&:waiting_summary).first if workflow_run&.waiting?
       return generic_runtime_waiting_summary if %w[waiting blocked].include?(overall_state)
 
       nil
@@ -209,8 +209,8 @@ module Conversations
       return unless detailed_progress_enabled?
 
       return current_task_run&.blocked_summary if current_task_run&.blocked_summary.present?
-      return active_conversation_subagent_session&.blocked_summary if active_conversation_subagent_session&.blocked_summary.present?
-      return active_owned_subagent_sessions.filter_map(&:blocked_summary).first if workflow_run&.blocked?
+      return active_conversation_subagent_connection&.blocked_summary if active_conversation_subagent_connection&.blocked_summary.present?
+      return active_owned_subagent_connections.filter_map(&:blocked_summary).first if workflow_run&.blocked?
       return workflow_run.wait_last_error_summary if workflow_run&.blocked? && workflow_run.wait_last_error_summary.present?
 
       nil
@@ -220,15 +220,15 @@ module Conversations
       return unless detailed_progress_enabled?
 
       current_task_run&.next_step_hint ||
-        active_conversation_subagent_session&.next_step_hint ||
-        active_owned_subagent_sessions.filter_map(&:next_step_hint).first
+        active_conversation_subagent_connection&.next_step_hint ||
+        active_owned_subagent_connections.filter_map(&:next_step_hint).first
     end
 
     def last_progress_at
       [
         current_task_run&.last_progress_at,
-        active_conversation_subagent_session&.last_progress_at,
-        active_owned_subagent_sessions.filter_map(&:last_progress_at).max,
+        active_conversation_subagent_connection&.last_progress_at,
+        active_owned_subagent_connections.filter_map(&:last_progress_at).max,
         workflow_activity_at,
         latest_task_run&.last_progress_at,
         last_terminal_at,
@@ -265,7 +265,7 @@ module Conversations
     end
 
     def active_subagent_count
-      active_owned_subagent_sessions.count
+      active_owned_subagent_connections.count
     end
 
     def board_badges
@@ -296,10 +296,10 @@ module Conversations
     end
 
     def active_subagent_payloads
-      active_owned_subagent_sessions.map do |session|
+      active_owned_subagent_connections.map do |session|
         plan_summary = active_subagent_turn_plan_summary_for(session)
         {
-          "subagent_session_id" => session.public_id,
+          "subagent_connection_id" => session.public_id,
           "observed_status" => session.observed_status,
           "supervision_state" => session.supervision_state,
           "profile_key" => session.profile_key,
@@ -326,7 +326,7 @@ module Conversations
     end
 
     def humanized_subagent_barrier_summary
-      sessions = barrier_aware_subagent_sessions
+      sessions = barrier_aware_subagent_connections
       count = sessions.size
       return "Waiting for child work to finish." if count.zero?
 
@@ -525,21 +525,21 @@ module Conversations
       latest_progress_entry&.summary
     end
 
-    def conversation_subagent_session
-      return @conversation_subagent_session if instance_variable_defined?(:@conversation_subagent_session)
+    def conversation_subagent_connection
+      return @conversation_subagent_connection if instance_variable_defined?(:@conversation_subagent_connection)
 
-      @conversation_subagent_session = @conversation.subagent_session
+      @conversation_subagent_connection = @conversation.subagent_connection
     end
 
-    def active_conversation_subagent_session
-      session = conversation_subagent_session
-      return unless active_subagent_session?(session)
+    def active_conversation_subagent_connection
+      session = conversation_subagent_connection
+      return unless active_subagent_connection?(session)
 
       session
     end
 
-    def active_owned_subagent_sessions
-      @active_owned_subagent_sessions ||= @conversation.owned_subagent_sessions
+    def active_owned_subagent_connections
+      @active_owned_subagent_connections ||= @conversation.owned_subagent_connections
         .close_pending_or_open
         .where(observed_status: ACTIVE_SUBAGENT_OBSERVED_STATUSES)
         .order(:created_at)
@@ -557,17 +557,17 @@ module Conversations
         end
     end
 
-    def barrier_subagent_sessions
+    def barrier_subagent_connections
       return [] unless workflow_run&.waiting_on_subagent_barrier?
 
-      workflow_run.subagent_barrier_sessions.select { |session| active_subagent_session?(session) }
+      workflow_run.subagent_barrier_sessions.select { |session| active_subagent_connection?(session) }
     end
 
-    def barrier_aware_subagent_sessions
-      sessions = barrier_subagent_sessions
+    def barrier_aware_subagent_connections
+      sessions = barrier_subagent_connections
       return sessions if sessions.present?
 
-      active_owned_subagent_sessions
+      active_owned_subagent_connections
     end
 
     def current_task_plan
@@ -608,7 +608,7 @@ module Conversations
     def active_owned_subagent_turn_plan_summaries
       return @active_owned_subagent_turn_plan_summaries if instance_variable_defined?(:@active_owned_subagent_turn_plan_summaries)
 
-      @active_owned_subagent_turn_plan_summaries = active_owned_subagent_sessions.filter_map do |session|
+      @active_owned_subagent_turn_plan_summaries = active_owned_subagent_connections.filter_map do |session|
         active_subagent_turn_plan_summary_for(session)
       end
     end
@@ -620,7 +620,7 @@ module Conversations
     def active_subagent_turn_plan_summaries_by_session_id
       return @active_subagent_turn_plan_summaries_by_session_id if instance_variable_defined?(:@active_subagent_turn_plan_summaries_by_session_id)
 
-      @active_subagent_turn_plan_summaries_by_session_id = active_owned_subagent_sessions.each_with_object({}) do |session, summaries|
+      @active_subagent_turn_plan_summaries_by_session_id = active_owned_subagent_connections.each_with_object({}) do |session, summaries|
         agent_task_run = AgentTaskRun
           .where(conversation: session.conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
           .includes(turn_todo_plan: :turn_todo_plan_items)
@@ -629,7 +629,7 @@ module Conversations
         next if agent_task_run&.turn_todo_plan.blank?
 
         summaries[session.id] = TurnTodoPlans::BuildCompactView.call(turn_todo_plan: agent_task_run.turn_todo_plan).merge(
-          "subagent_session_id" => session.public_id,
+          "subagent_connection_id" => session.public_id,
           "profile_key" => session.profile_key,
           "observed_status" => session.observed_status,
           "supervision_state" => session.supervision_state,
@@ -637,14 +637,14 @@ module Conversations
       end
     end
 
-    def active_subagent_session?(session)
+    def active_subagent_connection?(session)
       session.present? &&
         session.close_pending_or_open? &&
         ACTIVE_SUBAGENT_OBSERVED_STATUSES.include?(session.observed_status)
     end
 
     def owned_subagent_overall_state
-      states = active_owned_subagent_sessions.map(&:supervision_state)
+      states = active_owned_subagent_connections.map(&:supervision_state)
       return "blocked" if states.include?("blocked")
       return "waiting" if states.include?("waiting")
 
@@ -652,7 +652,7 @@ module Conversations
     end
 
     def board_lane_active_subagent_count
-      return barrier_aware_subagent_sessions.count if workflow_run&.waiting_on_subagent_barrier?
+      return barrier_aware_subagent_connections.count if workflow_run&.waiting_on_subagent_barrier?
 
       active_subagent_count
     end

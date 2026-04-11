@@ -11,7 +11,7 @@ module Acceptance
 
       class << self
         def payload_for(profile:)
-          return unless profile.workload_kind == 'program_exchange_mock'
+          return unless profile.workload_kind == 'agent_request_exchange_mock'
 
           {
             'providers' => {

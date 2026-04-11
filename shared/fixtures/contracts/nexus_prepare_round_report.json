@@ -1,0 +1,33 @@
+{
+  "method_id": "agent_completed",
+  "mailbox_item_id": "mailbox-item-public-id",
+  "logical_work_id": "prepare-round:workflow-node-public-id",
+  "attempt_no": 1,
+  "control_plane": "execution_runtime",
+  "request_kind": "prepare_round",
+  "workflow_node_id": "workflow-node-public-id",
+  "conversation_id": "conversation-public-id",
+  "turn_id": "turn-public-id",
+  "response_payload": {
+    "status": "ok",
+    "messages": [
+      {
+        "role": "system"
+      },
+      {
+        "role": "system"
+      },
+      {
+        "role": "user"
+      }
+    ],
+    "visible_tool_names": [
+      "compact_context",
+      "estimate_messages",
+      "estimate_tokens",
+      "calculator"
+    ],
+    "summary_artifacts": [],
+    "trace": []
+  }
+}

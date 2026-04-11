@@ -22,8 +22,8 @@ module Workflows
       execution_contract = ExecutionContract.find_or_initialize_by(turn: @turn)
 
       execution_contract.installation = @turn.installation
-      execution_contract.agent_program_version = @turn.agent_program_version
-      execution_contract.executor_program = @turn.executor_program
+      execution_contract.agent_snapshot = @turn.agent_snapshot
+      execution_contract.execution_runtime = @turn.execution_runtime
       execution_contract.selected_input_message = @turn.selected_input_message
       execution_contract.selected_output_message = @turn.selected_output_message
       execution_contract.execution_capability_snapshot = capability_snapshot
@@ -51,13 +51,13 @@ module Workflows
 
       snapshot_payload = {
         "tool_surface_sha" => tool_surface_document.content_sha256,
-        "program_version_fingerprint" => @turn.agent_program_version.fingerprint,
+        "program_version_fingerprint" => @turn.agent_snapshot.fingerprint,
         "profile_key" => current_profile_key,
-        "subagent" => subagent_session.present?,
-        "subagent_session_id" => subagent_session&.public_id,
-        "parent_subagent_session_id" => subagent_session&.parent_subagent_session&.public_id,
-        "subagent_depth" => subagent_session&.depth,
-        "owner_conversation_id" => subagent_session&.owner_conversation&.public_id,
+        "subagent" => subagent_connection.present?,
+        "subagent_connection_id" => subagent_connection&.public_id,
+        "parent_subagent_connection_id" => subagent_connection&.parent_subagent_connection&.public_id,
+        "subagent_depth" => subagent_connection&.depth,
+        "owner_conversation_id" => subagent_connection&.owner_conversation&.public_id,
         "subagent_policy" => deep_stringify(capability_contract.default_config_snapshot.fetch("subagents", {})),
       }
       fingerprint = "sha256:#{Digest::SHA256.hexdigest(JSON.generate(snapshot_payload))}"
@@ -67,13 +67,13 @@ module Workflows
         fingerprint: fingerprint
       ) do |snapshot|
         snapshot.tool_surface_document = tool_surface_document
-        snapshot.program_version_fingerprint = @turn.agent_program_version.fingerprint
+        snapshot.program_version_fingerprint = @turn.agent_snapshot.fingerprint
         snapshot.profile_key = current_profile_key
-        snapshot.subagent = subagent_session.present?
-        snapshot.subagent_session = subagent_session
-        snapshot.parent_subagent_session = subagent_session&.parent_subagent_session
-        snapshot.owner_conversation = subagent_session&.owner_conversation
-        snapshot.subagent_depth = subagent_session&.depth
+        snapshot.subagent = subagent_connection.present?
+        snapshot.subagent_connection = subagent_connection
+        snapshot.parent_subagent_connection = subagent_connection&.parent_subagent_connection
+        snapshot.owner_conversation = subagent_connection&.owner_conversation
+        snapshot.subagent_depth = subagent_connection&.depth
         snapshot.subagent_policy_snapshot = snapshot_payload.fetch("subagent_policy")
       end
     end
@@ -335,8 +335,8 @@ module Workflows
       @capability_contract ||= RuntimeCapabilities::ComposeForTurn.new(turn: @turn).contract
     end
 
-    def subagent_session
-      @subagent_session ||= @turn.conversation.subagent_session
+    def subagent_connection
+      @subagent_connection ||= @turn.conversation.subagent_connection
     end
 
     def current_profile_key

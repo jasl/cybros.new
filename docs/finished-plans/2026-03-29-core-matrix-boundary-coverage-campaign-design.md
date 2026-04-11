@@ -65,7 +65,7 @@ Focus:
 Primary scope:
 
 - `app/services/agent_control/**/*`
-- `app/services/subagent_sessions/**/*`
+- `app/services/subagent_connections/**/*`
 - `app/services/installations/**/*`
 - `app/services/execution_environments/**/*`
 - `app/services/leases/**/*`

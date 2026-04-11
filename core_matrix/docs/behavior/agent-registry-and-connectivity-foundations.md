@@ -3,18 +3,19 @@
 ## Purpose
 
 Task 03 establishes the machine-facing registry substrate for Core Matrix:
-agent programs, executor programs, one-time enrollment tokens,
-immutable program versions, and session-backed heartbeat state.
+agents, execution runtimes, one-time enrollment tokens,
+immutable agent snapshots, and connection-backed heartbeat state.
 
 ## Status
 
 This document records the current landed connectivity substrate.
 
-This document is the source of truth for the registration and session-backed
-runtime aggregates underneath the control plane, including external-runtime
-pairing and same-installation program-version rotation. Mailbox-first control delivery,
-`poll + WebSocket + piggyback` transport parity, and distinct realtime-link
-versus control-activity facts build on top of this substrate.
+This document is the source of truth for the registration and
+connection-backed runtime aggregates underneath the control plane, including
+external-runtime pairing and same-installation agent-snapshot rotation.
+Mailbox-first control delivery, `poll + WebSocket + piggyback` transport
+parity, and distinct realtime-link versus control-activity facts build on top
+of this substrate.
 
 Related design note:
 
@@ -22,22 +23,22 @@ Related design note:
 
 ## Aggregate Responsibilities
 
-### AgentProgram
+### Agent
 
-- `AgentProgram` is the stable logical identity of an agent program inside
+- `Agent` is the stable logical identity of an agent inside
   one installation.
 - Visibility is `personal` or `global`.
-- Personal agent programs require an owner user from the same
+- Personal agents require an owner user from the same
   installation.
 - Lifecycle state is tracked separately from runtime health.
 
-### ExecutorProgram
+### ExecutionRuntime
 
-- `ExecutorProgram` is the stable runtime-resource owner aggregate.
+- `ExecutionRuntime` is the stable runtime-resource owner aggregate.
 - It is the durable owner for environment-backed resources such as
   `ProcessRun` and future shell or file sessions.
 - Kind is `local`, `container`, or `remote`.
-- Stable reconciliation identity is `executor_fingerprint`, scoped to one
+- Stable reconciliation identity is `execution_runtime_fingerprint`, scoped to one
   installation.
 - Connection details live in `connection_metadata`.
 - Lifecycle state tracks whether the executor carrier is still available for
@@ -49,57 +50,59 @@ Related design note:
 - Enrollment token digests are stored, not plaintext tokens.
 - Consuming an enrollment sets `consumed_at`.
 
-### AgentProgramVersion
+### AgentSnapshot
 
-- `AgentProgramVersion` is the immutable version and capability snapshot for
-  one `AgentProgram`.
+- `AgentSnapshot` is the immutable version and capability snapshot for
+  one `Agent`.
 - It stores the protocol methods, tool catalog, profile catalog, and config
   snapshots advertised by one runtime release fingerprint.
-- It does not own live connectivity, machine credentials, or executor-program
+- It does not own live connectivity, connection credentials, or execution-runtime
   state.
 
-### AgentSession
+### AgentConnection
 
-- `AgentSession` is the live control-plane identity for one `AgentProgram`.
-- Machine credentials and session tokens are stored as digests, not plaintext
-  bearer secrets.
-- Only one `active` session may exist for a given `AgentProgram` at a time.
+- `AgentConnection` is the live control-plane identity for one `Agent`.
+- Connection credentials and connection tokens are stored as digests, not
+  plaintext bearer secrets.
+- Only one `active` connection may exist for a given `Agent` at a time.
 - Health, heartbeat, realtime-link, and control-activity facts live here.
 
-### ExecutorSession
+### ExecutionRuntimeConnection
 
-- `ExecutorSession` is the live executor-plane identity for one
-  `ExecutorProgram`.
-- Only one `active` session may exist for a given `ExecutorProgram` at a
+- `ExecutionRuntimeConnection` is the live execution-runtime-plane identity
+  for one
+  `ExecutionRuntime`.
+- Only one `active` connection may exist for a given `ExecutionRuntime` at a
   time.
 - Execution delivery and runtime-owned resource reporting lease against this
-  session rather than against `AgentProgramVersion`.
+  connection rather than against `AgentSnapshot`.
 
 ## Services
 
 ### `AgentEnrollments::Issue`
 
-- Mints a one-time enrollment token for an agent program.
+- Mints a one-time enrollment token for an agent.
 - Requires the issuing actor to belong to the same installation.
 - Writes the `agent_enrollment.issued` audit row.
 
-### `AgentProgramVersions::Register`
+### `AgentSnapshots::Register`
 
 - Resolves an enrollment token by digest lookup.
 - Rejects invalid, consumed, or expired tokens.
-- Creates or reuses the advertised `AgentProgramVersion` and opens the live
-  `AgentSession` plus `ExecutorSession` in one transaction.
-- Exchanges the one-time enrollment token for a durable machine credential.
+- Creates or reuses the advertised `AgentSnapshot` and opens the live
+  `AgentConnection` plus `ExecutionRuntimeConnection` in one transaction.
+- Exchanges the one-time enrollment token for a durable connection credential.
 - Works for bundled and external runtimes because the kernel only needs
   registration metadata, not a callback path into the runtime's private
   network.
-- Writes the `agent_session.registered` audit row.
+- Writes the `agent_connection.registered` audit row.
 
-### `AgentProgramVersions::RecordHeartbeat`
+### `AgentSnapshots::RecordHeartbeat`
 
-- Updates `AgentSession` health metadata and heartbeat timestamps.
-- Marks the live session healthy or unavailable without mutating the immutable
-  `AgentProgramVersion`.
+- Updates `AgentConnection` health metadata and heartbeat timestamps.
+- Marks the live connection healthy or unavailable without mutating the
+  immutable
+  `AgentSnapshot`.
 - Preserves version identity while connectivity changes over time.
 
 ## Pairing And Rotation
@@ -109,34 +112,34 @@ Related design note:
 - the runtime pairing manifest is registration metadata, not a product
   execution callback surface
 - bundled and external runtimes share the same registration and heartbeat
-  substrate once the `AgentProgramVersion` row exists
-- release change is represented as registering a new `AgentProgramVersion`,
-  waiting for a healthy session, and then cutting future work over to that
-  newly active session
+  substrate once the `AgentSnapshot` row exists
+- release change is represented as registering a new `AgentSnapshot`,
+  waiting for a healthy connection, and then cutting future work over to that
+  newly active connection
 - both upgrade and downgrade use the same rotation contract
-- version rotation reuses the same `ExecutorProgram` when
-  `executor_fingerprint` is unchanged
-- mailbox control targets logical owners plus live sessions, not persisted
-  program-version rows
+- version rotation reuses the same `ExecutionRuntime` when
+  `execution_runtime_fingerprint` is unchanged
+- mailbox control targets logical owners plus live connections, not persisted
+  agent-snapshot rows
 
 ## Invariants
 
-- `AgentProgram` and `AgentProgramVersion` remain separate aggregates.
-- `ExecutorProgram` remains stable across version rotation for the same
+- `Agent` and `AgentSnapshot` remain separate aggregates.
+- `ExecutionRuntime` remains stable across version rotation for the same
   runtime carrier.
 - Cross-installation references are rejected for owners, enrollments, and
   versions.
-- Active session uniqueness is scoped to the logical owner (`agent_program_id`
-  or `executor_program_id`), not the top-level installation.
-- `AgentProgramVersion` rows are append-only historical records.
+- Active connection uniqueness is scoped to the logical owner (`agent_id`
+  or `execution_runtime_id`), not the top-level installation.
+- `AgentSnapshot` rows are append-only historical records.
 - Cross-aggregate side effects happen through service objects, not model
   callbacks.
 
 ## Failure Modes
 
-- Personal agent programs without an owner user are invalid.
+- Personal agents without an owner user are invalid.
 - Enrollment reuse or unknown enrollment tokens raise `InvalidEnrollment`.
 - Expired enrollment tokens raise `ExpiredEnrollment`.
 - Cross-installation issuance or registration raises `ArgumentError`.
-- Attempting to mutate a persisted `AgentProgramVersion` raises
+- Attempting to mutate a persisted `AgentSnapshot` raises
   `ActiveRecord::ReadOnlyRecord`.

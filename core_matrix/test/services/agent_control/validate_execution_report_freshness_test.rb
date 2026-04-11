@@ -6,10 +6,14 @@ class AgentControl::ValidateExecutionReportFreshnessTest < ActiveSupport::TestCa
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(
+      execution_runtime_connection: context[:execution_runtime_connection],
+      limit: 10
+    )
 
     result = AgentControl::ValidateExecutionReportFreshness.call(
-      deployment: context[:deployment],
+      agent_snapshot: context[:agent_snapshot],
+      execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "execution_started",
       payload: {
         "logical_work_id" => agent_task_run.logical_work_id,
@@ -30,7 +34,7 @@ class AgentControl::ValidateExecutionReportFreshnessTest < ActiveSupport::TestCa
     agent_task_run = scenario.fetch(:agent_task_run)
     agent_task_run.update!(
       lifecycle_state: "running",
-      holder_agent_session: context[:agent_session],
+      holder_agent_connection: context[:agent_connection],
       close_state: "requested",
       close_reason_kind: "operator_stop",
       close_requested_at: Time.current,
@@ -38,13 +42,14 @@ class AgentControl::ValidateExecutionReportFreshnessTest < ActiveSupport::TestCa
     )
     Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:agent_snapshot].public_id,
       heartbeat_timeout_seconds: 30
     )
 
     assert_raises(AgentControl::Report::StaleReportError) do
       AgentControl::ValidateExecutionReportFreshness.call(
-        deployment: context[:deployment],
+        agent_snapshot: context[:agent_snapshot],
+        execution_runtime_connection: context[:execution_runtime_connection],
         method_id: "execution_progress",
         payload: {
           "logical_work_id" => agent_task_run.logical_work_id,

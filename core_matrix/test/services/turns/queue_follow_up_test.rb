@@ -29,7 +29,7 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     assert_equal "Follow up input", queued.selected_input_message.content
   end
 
-  test "freezes the active agent session version instead of a caller supplied version" do
+  test "freezes the active agent snapshot instead of a caller supplied snapshot" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
@@ -40,9 +40,9 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
-    alternate_deployment = create_agent_program_version!(
+    alternate_agent_snapshot = create_agent_snapshot!(
       installation: context[:installation],
-      agent_program: create_agent_program!(installation: context[:installation]),
+      agent: create_agent!(installation: context[:installation]),
       fingerprint: "alternate-#{next_test_sequence}"
     )
 
@@ -53,9 +53,9 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal context[:agent_program_version], queued.agent_program_version
-    assert_equal context[:agent_program_version].fingerprint, queued.pinned_program_version_fingerprint
-    refute_equal alternate_deployment, queued.agent_program_version
+    assert_equal context[:agent_snapshot], queued.agent_snapshot
+    assert_equal context[:agent_snapshot].fingerprint, queued.pinned_agent_snapshot_fingerprint
+    refute_equal alternate_agent_snapshot, queued.agent_snapshot
   end
 
   test "rejects queueing when no active work exists" do
@@ -104,7 +104,7 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       kind: "fork",
       addressability: "agent_addressable"
     )
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: context[:installation],
       conversation: child_conversation,
       owner_conversation: root_conversation,

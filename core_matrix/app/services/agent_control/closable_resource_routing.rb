@@ -2,14 +2,14 @@ module AgentControl
   module ClosableResourceRouting
     module_function
 
-    def executor_program_for(resource)
-      return resource.executor_program if resource.respond_to?(:executor_program)
+    def execution_runtime_for(resource)
+      return resource.execution_runtime if resource.respond_to?(:execution_runtime)
 
-      turn_for(resource)&.executor_program
+      turn_for(resource)&.execution_runtime
     end
 
     def conversation_for(resource)
-      return resource.owner_conversation if resource.is_a?(SubagentSession)
+      return resource.owner_conversation if resource.is_a?(SubagentConnection)
       return resource.conversation if resource.respond_to?(:conversation)
 
       turn = turn_for(resource)
@@ -25,11 +25,11 @@ module AgentControl
       resource.workflow_run&.turn if resource.respond_to?(:workflow_run)
     end
 
-    def owning_agent_program_for(resource)
-      return resource.agent_program if resource.respond_to?(:agent_program)
+    def owning_agent_for(resource)
+      return resource.agent if resource.respond_to?(:agent)
 
-      turn_for(resource)&.agent_program_version&.agent_program ||
-        conversation_for(resource)&.agent_program
+      turn_for(resource)&.agent_snapshot&.agent ||
+        conversation_for(resource)&.agent
     end
   end
 end

@@ -4,7 +4,7 @@
 
 **Goal:** Reduce throughput loss and heavy-load latency for the multi-Fenix topology by removing synchronous mailbox waiting, materializing mailbox routing, and separating orchestration from heavy execution queues.
 
-**Architecture:** Reuse the existing workflow wait/resume model instead of inventing a second async execution state machine. First tighten queue topology and mailbox routing, then move `ProgramMailboxExchange` from in-thread receipt polling to deferred workflow resume.
+**Architecture:** Reuse the existing workflow wait/resume model instead of inventing a second async execution state machine. First tighten queue topology and mailbox routing, then move `AgentRequestExchange` from in-thread receipt polling to deferred workflow resume.
 
 **Tech Stack:** Ruby on Rails, Solid Queue, PostgreSQL, SQLite, acceptance/perf harness
 
@@ -31,12 +31,12 @@
 
 **Files:**
 - Modify: `core_matrix/app/models/agent_control_mailbox_item.rb`
-- Modify: `core_matrix/app/services/agent_control/create_agent_program_request.rb`
+- Modify: `core_matrix/app/services/agent_control/create_agent_request.rb`
 - Modify: `core_matrix/app/services/agent_control/poll.rb`
 - Modify: `core_matrix/app/services/resolve_target_runtime.rb`
 - Add/Modify migrations as needed under `core_matrix/db/migrate`
 - Test: `core_matrix/test/models/agent_control_mailbox_item_test.rb`
-- Test: `core_matrix/test/services/agent_control/create_agent_program_request_test.rb`
+- Test: `core_matrix/test/services/agent_control/create_agent_request_test.rb`
 - Test: `core_matrix/test/services/agent_control/poll_test.rb`
 
 **Steps:**
@@ -48,16 +48,16 @@
 ### Task 3: Make program mailbox exchange resumable
 
 **Files:**
-- Modify: `core_matrix/app/services/provider_execution/program_mailbox_exchange.rb`
-- Modify: `core_matrix/app/services/provider_execution/prepare_program_round.rb`
+- Modify: `core_matrix/app/services/provider_execution/agent_request_exchange.rb`
+- Modify: `core_matrix/app/services/provider_execution/prepare_agent_round.rb`
 - Modify: `core_matrix/app/services/provider_execution/execute_round_loop.rb`
 - Modify: `core_matrix/app/services/provider_execution/execute_turn_step.rb`
-- Modify: `core_matrix/app/services/provider_execution/tool_call_runners/program.rb`
-- Modify: `core_matrix/app/services/agent_control/handle_agent_program_report.rb`
+- Modify: `core_matrix/app/services/provider_execution/tool_call_runners/agent_mediated.rb`
+- Modify: `core_matrix/app/services/agent_control/handle_agent_report.rb`
 - Modify: `core_matrix/app/services/agent_control/report.rb`
 - Modify: `core_matrix/app/services/workflows/resume_blocked_step.rb`
 - Add helpers/services for deferred request persistence/finalization as needed
-- Test: `core_matrix/test/services/provider_execution/program_mailbox_exchange_test.rb`
+- Test: `core_matrix/test/services/provider_execution/agent_request_exchange_test.rb`
 - Test: `core_matrix/test/services/provider_execution/execute_turn_step_test.rb`
 - Test: `core_matrix/test/services/provider_execution/execute_tool_node_test.rb`
 - Test: `core_matrix/test/requests/agent_api/execution_delivery_test.rb`

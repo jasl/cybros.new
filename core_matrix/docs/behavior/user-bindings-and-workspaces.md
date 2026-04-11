@@ -3,17 +3,17 @@
 ## Purpose
 
 Task 04.1 establishes the user-owned chain between the installation-level agent
-registry and private workspaces: `User -> UserProgramBinding -> Workspace`.
+registry and private workspaces: `User -> UserAgentBinding -> Workspace`.
 
 ## Aggregate Responsibilities
 
-### UserProgramBinding
+### UserAgentBinding
 
-- A binding links one user to one logical `AgentProgram`.
+- A binding links one user to one logical `Agent`.
 - One binding exists at most once for a given user-agent pair.
 - Bindings stay inside one installation and inherit that boundary from both the
-  user and the agent program.
-- Personal agent programs may only be bound by their owner user.
+  user and the agent.
+- Personal agents may only be bound by their owner user.
 - Binding presence represents that the agent is enabled for that user in v1.
 
 ### Workspace
@@ -25,11 +25,11 @@ registry and private workspaces: `User -> UserProgramBinding -> Workspace`.
 
 ## Services
 
-### `UserProgramBindings::Enable`
+### `UserAgentBindings::Enable`
 
 - Enables an agent for a user by reusing or creating the unique binding row.
 - Rejects cross-installation binding attempts.
-- Rejects enabling another user's personal agent program.
+- Rejects enabling another user's personal agent.
 - Ensures the binding has a default workspace.
 
 ### `Workspaces::CreateDefault`
@@ -42,7 +42,7 @@ registry and private workspaces: `User -> UserProgramBinding -> Workspace`.
 ## Invariants
 
 - `Workspace` remains private and user-owned.
-- Default workspace uniqueness is scoped to `user_program_binding_id`, not the
+- Default workspace uniqueness is scoped to `user_agent_binding_id`, not the
   installation.
 - Service orchestration owns enable/default-workspace side effects; models do
   not use callbacks to create default workspaces.
@@ -53,5 +53,5 @@ registry and private workspaces: `User -> UserProgramBinding -> Workspace`.
 - Cross-installation bindings are invalid at both the model and service
   boundary.
 - Attempting to enable another user's personal agent raises
-  `UserProgramBindings::Enable::AccessDenied`.
+  `UserAgentBindings::Enable::AccessDenied`.
 - A second default workspace for the same binding is invalid.

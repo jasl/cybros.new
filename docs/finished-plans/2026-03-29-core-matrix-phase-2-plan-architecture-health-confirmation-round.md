@@ -4,7 +4,7 @@
 
 **Goal:** Run one narrow follow-up confirmation round after the archived iterative architecture audit to determine whether any additional high-confidence structural findings remain undiscovered in the current `core_matrix` and its `core_matrix <-> agents/fenix` runtime boundary.
 
-**Architecture:** Treat the archived iterative audit as the baseline, not as a task to repeat from scratch. Re-read the archived findings and round log, then run focused confirmation passes around the most failure-prone neighboring surfaces: runtime capability preservation and reuse, `SubagentSession` close progression, and the cross-project execution-context boundary. Finish with one anti-pattern sweep over adjacent wrappers and payload families so the round can honestly conclude either "no new high-confidence findings" or "one more concrete issue exists and needs a new cleanup plan."
+**Architecture:** Treat the archived iterative audit as the baseline, not as a task to repeat from scratch. Re-read the archived findings and round log, then run focused confirmation passes around the most failure-prone neighboring surfaces: runtime capability preservation and reuse, `SubagentConnection` close progression, and the cross-project execution-context boundary. Finish with one anti-pattern sweep over adjacent wrappers and payload families so the round can honestly conclude either "no new high-confidence findings" or "one more concrete issue exists and needs a new cleanup plan."
 
 **Tech Stack:** Markdown, git, `rg`, `find`, `sed`, Ruby on Rails code in `core_matrix`, `agents/fenix` boundary files, archived audit artifacts under `docs/finished-plans`
 
@@ -120,7 +120,7 @@ Under `## Confirmation Passes`, add a checklist of the three required
 confirmation targets:
 
 - runtime capability preservation and reuse rules
-- `SubagentSession` close progression and neighboring close-control readers
+- `SubagentConnection` close progression and neighboring close-control readers
 - `core_matrix <-> fenix` execution-context contract, including model hints and
   visible-tool semantics
 
@@ -181,17 +181,17 @@ git add docs/plans/2026-03-29-core-matrix-phase-2-architecture-health-confirmati
 git commit -m "docs: record runtime capability confirmation pass"
 ```
 
-## Task 4: Confirm The `SubagentSession` Close Surface
+## Task 4: Confirm The `SubagentConnection` Close Surface
 
 **Files:**
 - Modify: `docs/plans/2026-03-29-core-matrix-phase-2-architecture-health-confirmation-round-findings.md`
-- Reference: `core_matrix/app/models/subagent_session.rb`
-- Reference: `core_matrix/app/services/subagent_sessions/request_close.rb`
+- Reference: `core_matrix/app/models/subagent_connection.rb`
+- Reference: `core_matrix/app/services/subagent_connections/request_close.rb`
 - Reference: `core_matrix/app/services/agent_control/create_resource_close_request.rb`
 - Reference: `core_matrix/app/services/agent_control/apply_close_outcome.rb`
-- Reference: `core_matrix/app/services/subagent_sessions`
+- Reference: `core_matrix/app/services/subagent_connections`
 - Reference: `core_matrix/app/queries/conversations/blocker_snapshot_query.rb`
-- Reference: `core_matrix/test/services/subagent_sessions`
+- Reference: `core_matrix/test/services/subagent_connections`
 - Reference: `core_matrix/test/services/agent_control`
 
 **Step 1: Read the close-progression and reader surface**
@@ -209,7 +209,7 @@ Under `## Confirmation Passes`, add:
 
 - files reviewed
 - whether any extra high-confidence issue exists beyond the archived
-  `SubagentSession` close-progression split
+  `SubagentConnection` close-progression split
 
 If one exists, add it under `## New High-Confidence Findings`.
 

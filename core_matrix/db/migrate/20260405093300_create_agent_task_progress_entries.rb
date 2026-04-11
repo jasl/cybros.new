@@ -3,7 +3,7 @@ class CreateAgentTaskProgressEntries < ActiveRecord::Migration[8.2]
     create_table :agent_task_progress_entries do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :agent_task_run, null: false, foreign_key: { on_delete: :cascade }
-      t.references :subagent_session, foreign_key: true
+      t.references :subagent_connection, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.integer :sequence, null: false
       t.string :entry_kind, null: false

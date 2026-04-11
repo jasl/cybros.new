@@ -1,43 +1,43 @@
 module AgentControl
   class ResolveTargetRuntime
-    EXECUTOR_PLANE = "executor".freeze
-    PROGRAM_PLANE = "program".freeze
+    EXECUTION_RUNTIME_PLANE = "execution_runtime".freeze
+    AGENT_PLANE = "agent".freeze
 
     class SessionCache
-      def initialize(agent_session: nil, executor_session: nil)
-        @agent_session = agent_session
-        @executor_session = executor_session
-        @program_sessions_by_agent_program_id = {}
-        @program_sessions_by_agent_program_version_id = {}
-        @executor_sessions_by_runtime_id = {}
+      def initialize(agent_connection: nil, execution_runtime_connection: nil)
+        @agent_connection = agent_connection
+        @execution_runtime_connection = execution_runtime_connection
+        @agent_connections_by_agent_id = {}
+        @agent_connections_by_agent_snapshot_id = {}
+        @execution_runtime_connections_by_runtime_id = {}
       end
 
-      def program_delivery_endpoint_for(mailbox_item)
-        if mailbox_item.target_agent_program_version_id.present?
-          version_id = mailbox_item.target_agent_program_version_id
-          return @agent_session if @agent_session&.agent_program_version_id == version_id
+      def agent_delivery_endpoint_for(mailbox_item)
+        if mailbox_item.target_agent_snapshot_id.present?
+          agent_snapshot_id = mailbox_item.target_agent_snapshot_id
+          return @agent_connection if @agent_connection&.agent_snapshot_id == agent_snapshot_id
 
-          @program_sessions_by_agent_program_version_id[version_id] ||= AgentSession.find_by(
-            agent_program_version_id: version_id,
+          @agent_connections_by_agent_snapshot_id[agent_snapshot_id] ||= AgentConnection.find_by(
+            agent_snapshot_id: agent_snapshot_id,
             lifecycle_state: "active"
           )
         else
-          program_id = mailbox_item.target_agent_program_id
-          return @agent_session if @agent_session&.agent_program_id == program_id
+          agent_id = mailbox_item.target_agent_id
+          return @agent_connection if @agent_connection&.agent_id == agent_id
 
-          @program_sessions_by_agent_program_id[program_id] ||= AgentSession.find_by(
-            agent_program_id: program_id,
+          @agent_connections_by_agent_id[agent_id] ||= AgentConnection.find_by(
+            agent_id: agent_id,
             lifecycle_state: "active"
           )
         end
       end
 
       def execution_delivery_endpoint_for(mailbox_item)
-        runtime_id = mailbox_item.target_executor_program_id
-        return @executor_session if @executor_session&.executor_program_id == runtime_id
+        runtime_id = mailbox_item.target_execution_runtime_id
+        return @execution_runtime_connection if @execution_runtime_connection&.execution_runtime_id == runtime_id
 
-        @executor_sessions_by_runtime_id[runtime_id] ||= ExecutorSession.find_by(
-          executor_program_id: runtime_id,
+        @execution_runtime_connections_by_runtime_id[runtime_id] ||= ExecutionRuntimeConnection.find_by(
+          execution_runtime_id: runtime_id,
           lifecycle_state: "active"
         )
       end
@@ -45,27 +45,27 @@ module AgentControl
 
     Result = Struct.new(
       :control_plane,
-      :executor_program,
+      :execution_runtime,
       :delivery_endpoint,
       keyword_init: true
     ) do
-      def matches?(deployment)
-        return false if deployment.blank? || delivery_endpoint.blank?
+      def matches?(agent_snapshot)
+        return false if agent_snapshot.blank? || delivery_endpoint.blank?
 
         case delivery_endpoint
-        when AgentSession
-          case deployment
-          when AgentSession
-            delivery_endpoint.id == deployment.id
-          when AgentProgramVersion
-            delivery_endpoint.agent_program_version_id == deployment.id
+        when AgentConnection
+          case agent_snapshot
+          when AgentConnection
+            delivery_endpoint.id == agent_snapshot.id
+          when AgentSnapshot
+            delivery_endpoint.agent_snapshot_id == agent_snapshot.id
           else
             false
           end
-        when ExecutorSession
-          case deployment
-          when ExecutorSession
-            delivery_endpoint.id == deployment.id
+        when ExecutionRuntimeConnection
+          case agent_snapshot
+          when ExecutionRuntimeConnection
+            delivery_endpoint.id == agent_snapshot.id
           else
             false
           end
@@ -79,25 +79,25 @@ module AgentControl
       new(...).call
     end
 
-    def self.candidate_scope_for(deployment:, relation: AgentControlMailboxItem.all)
+    def self.candidate_scope_for(agent_snapshot:, relation: AgentControlMailboxItem.all)
       relation.where(
         <<~SQL.squish,
-          target_agent_program_version_id = :deployment_id
+          target_agent_snapshot_id = :agent_snapshot_id
           OR (
-            control_plane = :program_plane
-            AND target_agent_program_id = :agent_program_id
+            control_plane = :agent_plane
+            AND target_agent_id = :agent_id
           )
         SQL
-        deployment_id: deployment.id,
-        program_plane: PROGRAM_PLANE,
-        agent_program_id: deployment.agent_program_id
+        agent_snapshot_id: agent_snapshot.id,
+        agent_plane: AGENT_PLANE,
+        agent_id: agent_snapshot.agent_id
       )
     end
 
-    def self.candidate_scope_for_executor_session(executor_session:, relation: AgentControlMailboxItem.all)
+    def self.candidate_scope_for_execution_runtime_connection(execution_runtime_connection:, relation: AgentControlMailboxItem.all)
       relation.where(
-        control_plane: EXECUTOR_PLANE,
-        target_executor_program_id: executor_session.executor_program_id
+        control_plane: EXECUTION_RUNTIME_PLANE,
+        target_execution_runtime_id: execution_runtime_connection.execution_runtime_id
       )
     end
 
@@ -107,48 +107,48 @@ module AgentControl
     end
 
     def call
-      if @mailbox_item.executor_plane?
-        resolve_executor_program
+      if @mailbox_item.execution_runtime_plane?
+        resolve_execution_runtime
       else
-        resolve_program_runtime
+        resolve_agent_runtime
       end
     end
 
     private
 
-    def resolve_executor_program
-      executor_program = @mailbox_item.target_executor_program
+    def resolve_execution_runtime
+      execution_runtime = @mailbox_item.target_execution_runtime
 
       Result.new(
-        control_plane: EXECUTOR_PLANE,
-        executor_program: executor_program,
+        control_plane: EXECUTION_RUNTIME_PLANE,
+        execution_runtime: execution_runtime,
         delivery_endpoint: resolve_execution_delivery_endpoint
       )
     end
 
-    def resolve_program_runtime
+    def resolve_agent_runtime
       Result.new(
-        control_plane: PROGRAM_PLANE,
-        executor_program: nil,
-        delivery_endpoint: resolve_program_delivery_endpoint
+        control_plane: AGENT_PLANE,
+        execution_runtime: nil,
+        delivery_endpoint: resolve_agent_delivery_endpoint
       )
     end
 
-    def resolve_program_delivery_endpoint
-      return @session_cache.program_delivery_endpoint_for(@mailbox_item) if @session_cache.present?
+    def resolve_agent_delivery_endpoint
+      return @session_cache.agent_delivery_endpoint_for(@mailbox_item) if @session_cache.present?
 
-      if @mailbox_item.target_agent_program_version?
-        AgentSession.find_by(agent_program_version: @mailbox_item.target_agent_program_version, lifecycle_state: "active")
+      if @mailbox_item.target_agent_snapshot?
+        AgentConnection.find_by(agent_snapshot: @mailbox_item.target_agent_snapshot, lifecycle_state: "active")
       else
-        AgentSession.find_by(agent_program: @mailbox_item.target_agent_program, lifecycle_state: "active")
+        AgentConnection.find_by(agent: @mailbox_item.target_agent, lifecycle_state: "active")
       end
     end
 
     def resolve_execution_delivery_endpoint
-      return if @mailbox_item.target_executor_program.blank?
+      return if @mailbox_item.target_execution_runtime.blank?
       return @session_cache.execution_delivery_endpoint_for(@mailbox_item) if @session_cache.present?
 
-      ExecutorSessions::ResolveActiveSession.call(executor_program: @mailbox_item.target_executor_program)
+      ExecutionRuntimeConnections::ResolveActiveConnection.call(execution_runtime: @mailbox_item.target_execution_runtime)
     end
   end
 end

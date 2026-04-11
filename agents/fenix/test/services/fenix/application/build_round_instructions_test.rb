@@ -29,7 +29,7 @@ class Fenix::Application::BuildRoundInstructionsTest < ActiveSupport::TestCase
         ],
         "work_context_view" => {
           "supervisor_guidance" => {
-            "guidance_scope" => "conversation",
+            "guidance_scope" => "session",
             "latest_guidance" => {
               "content" => "Stop and summarize the current blocker.",
               "delivered_at" => "2026-04-09T12:00:00Z",

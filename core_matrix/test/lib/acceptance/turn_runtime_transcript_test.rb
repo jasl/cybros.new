@@ -66,7 +66,7 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
           "started_at" => "2026-04-06T08:49:00Z",
           "finished_at" => "2026-04-06T08:49:01Z",
           "request_payload" => { "arguments" => { "profile_key" => "researcher" } },
-          "response_payload" => { "subagent_session_id" => "sub_1", "profile_key" => "researcher" },
+          "response_payload" => { "subagent_connection_id" => "sub_1", "profile_key" => "researcher" },
           "agent_task_run_id" => nil,
         },
       ],
@@ -87,9 +87,9 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
         },
       ],
       process_runs: [],
-      subagent_sessions: [
+      subagent_connections: [
         {
-          "subagent_session_id" => "sub_1",
+          "subagent_connection_id" => "sub_1",
           "profile_key" => "researcher",
           "observed_status" => "completed",
           "created_at" => "2026-04-06T08:49:00Z",
@@ -98,7 +98,7 @@ class AcceptanceTurnRuntimeTranscriptTest < ActiveSupport::TestCase
       ],
       subagent_runtime_snapshots: [
         {
-          "subagent_session_id" => "sub_1",
+          "subagent_connection_id" => "sub_1",
           "profile_key" => "researcher",
           "usage_events" => [
             {

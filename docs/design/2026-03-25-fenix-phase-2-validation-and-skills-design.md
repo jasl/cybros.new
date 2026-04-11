@@ -6,7 +6,7 @@ Approved focused design for `Fenix` within `Core Matrix` Phase 2.
 
 This document complements the platform-wide phase design. It narrows Phase 2
 down to the `Fenix`-specific validation shape, deployment topology, and
-agent-program-owned skill boundary.
+agent-owned skill boundary.
 
 Implementation status refresh (`2026-03-30`):
 
@@ -22,13 +22,13 @@ Use this document to define:
 
 - how `Fenix` proves the Phase 2 loop in real environments
 - how external pairing differs from same-installation deployment rotation
-- what "upgrade" and "downgrade" mean for an external agent program
+- what "upgrade" and "downgrade" mean for an external agent
 - how `Fenix` should support third-party Agent Skills without moving skills
   into the kernel
 
 ## Decision Summary
 
-- `Fenix` remains an external agent program. Skills stay on the agent-program
+- `Fenix` remains an external agent. Skills stay on the agent
   side and do not become a `Core Matrix` kernel primitive in Phase 2.
 - Phase 2 must prove three `Fenix` runtime shapes:
   - bundled baseline
@@ -87,7 +87,7 @@ Phase 2 must also prove a separately started external `Fenix` deployment:
 - real loop execution
 
 This proves the full external deployment workflow without requiring a second
-agent program.
+agent.
 
 ### Same-Installation Rotation
 
@@ -106,7 +106,7 @@ owned by the release itself rather than by `Core Matrix`.
 
 ## Skills Boundary
 
-Skills are an agent-program responsibility in Phase 2.
+Skills are an agent responsibility in Phase 2.
 
 `Core Matrix` should only see the resulting tool surface exposed by `Fenix`
 through capability snapshots, tool binding, invocation audit, and normal policy
@@ -137,7 +137,7 @@ Recommended helper family:
 - `estimate_tokens`
 - `estimate_messages`
 
-These stages and helpers belong on the agent-program side or in a future shared
+These stages and helpers belong on the agent side or in a future shared
 SDK layer. They are not a reason to move prompt building back into the kernel.
 
 The kernel should instead provide the stable execution context and budget hints
@@ -272,4 +272,4 @@ This design does not require:
 - [2026-03-25-core-matrix-platform-phases-and-validation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-platform-phases-and-validation-design.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 - [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
-- [2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-deployment-rotation-and-discourse-operations-research-note.md)
+- [2026-03-25-fenix-agent-snapshot-rotation-and-discourse-operations-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-agent-snapshot-rotation-and-discourse-operations-research-note.md)

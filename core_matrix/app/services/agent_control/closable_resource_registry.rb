@@ -3,7 +3,7 @@ module AgentControl
     RESOURCE_TYPES = {
       "AgentTaskRun" => AgentTaskRun,
       "ProcessRun" => ProcessRun,
-      "SubagentSession" => SubagentSession,
+      "SubagentConnection" => SubagentConnection,
     }.freeze
 
     module_function

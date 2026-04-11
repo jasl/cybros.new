@@ -10,8 +10,8 @@ class Fenix::Runtime::MailboxPumpTest < ActiveSupport::TestCase
   test "poll tick dispatches each mailbox item through the configured worker" do
     client = FakeControlClient.new(
       mailbox_items: [
-        { "item_id" => "item-1", "control_plane" => "program" },
-        { "item_id" => "item-2", "control_plane" => "executor" },
+        { "item_id" => "item-1", "control_plane" => "agent" },
+        { "item_id" => "item-2", "control_plane" => "agent" },
       ]
     )
     invocations = []

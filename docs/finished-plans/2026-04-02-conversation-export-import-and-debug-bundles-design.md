@@ -377,7 +377,7 @@ include:
 - tool invocations
 - command runs
 - process runs
-- subagent sessions
+- subagent connections
 - usage events
 - diagnostics snapshots
 

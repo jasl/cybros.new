@@ -82,7 +82,7 @@ module Workflows
           queued_turn = Turns::QueueFollowUp.call(
             conversation: @turn.conversation,
             content: @content,
-            agent_program_version: @turn.agent_program_version,
+            agent_snapshot: @turn.agent_snapshot,
             resolved_config_snapshot: @turn.resolved_config_snapshot,
             resolved_model_selection_snapshot: @turn.resolved_model_selection_snapshot
           )

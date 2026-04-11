@@ -31,7 +31,7 @@ class AcceptanceConversationArtifactsTest < ActiveSupport::TestCase
         "command_runs.json" => [{}, {}],
         "process_runs.json" => [{}],
         "workflow_nodes.json" => [{}, {}, {}],
-        "subagent_sessions.json" => [{}],
+        "subagent_connections.json" => [{}],
       }
     )
 

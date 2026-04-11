@@ -4,12 +4,14 @@ This directory contains active execution plans for the monorepo. Most plans are
 primarily for `core_matrix` or `agents/fenix`, and only currently executable,
 not-yet-completed work should remain here.
 
-## Current Status (`2026-04-10`)
+## Current Status (`2026-04-11`)
 
 The current active planning documents in this directory are:
 
 - [2026-04-03-recoverable-failure-step-resume-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-design.md)
 - [2026-04-03-recoverable-failure-step-resume-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-implementation.md)
+- [2026-04-11-agent-runtime-conversation-reset-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-11-agent-runtime-conversation-reset-design.md)
+- [2026-04-11-agent-runtime-conversation-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-11-agent-runtime-conversation-reset.md)
 
 Practical state:
 
@@ -17,7 +19,10 @@ Practical state:
   `Fenix` cowork roadmap have been archived because those tracks already
   landed and were superseded by the completed implementation records.
 - The recoverable-failure step-resume work remains the only still-open
-  execution family in this directory.
+  legacy execution family in this directory.
+- The agent/runtime/conversation reset is now an active destructive architecture
+  reset track spanning `core_matrix`, `agents/fenix`, `executors/nexus`, docs,
+  and acceptance.
 - Current acceptance runs now execute through the top-level
   [acceptance harness](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md),
   not the old `core_matrix/script/manual/acceptance` path.

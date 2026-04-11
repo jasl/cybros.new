@@ -6,13 +6,13 @@ module Installations
       display_name: "Bundled Fenix",
       visibility: "global",
       lifecycle_state: "active",
-      executor_kind: "local",
-      executor_fingerprint: "bundled-fenix-environment",
+      execution_runtime_kind: "local",
+      execution_runtime_fingerprint: "bundled-fenix-environment",
       executor_display_name: "Bundled Fenix Runtime",
       connection_metadata: {},
       endpoint_metadata: {},
-      executor_capability_payload: {},
-      executor_tool_catalog: [],
+      execution_runtime_capability_payload: {},
+      execution_runtime_tool_catalog: [],
       fingerprint: "bundled-fenix-runtime",
       protocol_version: "2026-03-24",
       sdk_version: "fenix-0.1.0",
@@ -25,14 +25,14 @@ module Installations
     }.freeze
 
     Result = Struct.new(
-      :agent_program,
-      :executor_program,
-      :deployment,
+      :agent,
+      :execution_runtime,
+      :agent_snapshot,
       :capability_snapshot,
-      :agent_session,
-      :executor_session,
-      :session_credential,
-      :executor_session_credential,
+      :agent_connection,
+      :execution_runtime_connection,
+      :agent_connection_credential,
+      :execution_runtime_connection_credential,
       keyword_init: true
     )
 
@@ -43,48 +43,48 @@ module Installations
     def initialize(
       installation:,
       configuration: Rails.configuration.x.bundled_agent,
-      session_credential: nil,
-      executor_session_credential: nil
+      agent_connection_credential: nil,
+      execution_runtime_connection_credential: nil
     )
       @installation = installation
       @configuration = normalize_configuration(configuration)
-      @session_credential = session_credential
-      @executor_session_credential = executor_session_credential
+      @agent_connection_credential = agent_connection_credential
+      @execution_runtime_connection_credential = execution_runtime_connection_credential
     end
 
     def call
       return unless @configuration[:enabled]
 
       ApplicationRecord.transaction do
-        executor_program = reconcile_executor_program!
-        agent_program = reconcile_agent_program!(executor_program)
-        deployment = nil
-        agent_session = nil
-        executor_session = nil
-        session_credential = nil
-        executor_session_credential = nil
+        execution_runtime = reconcile_execution_runtime!
+        agent = reconcile_agent!(execution_runtime)
+        agent_snapshot = nil
+        agent_connection = nil
+        execution_runtime_connection = nil
+        agent_connection_credential = nil
+        execution_runtime_connection_credential = nil
 
-        agent_program.with_lock do
-          executor_program.with_lock do
-            deployment = reconcile_deployment!(agent_program)
-            agent_session, session_credential = reconcile_agent_session!(agent_program:, deployment:)
-            executor_session, executor_session_credential = reconcile_executor_session!(executor_program:)
+        agent.with_lock do
+          execution_runtime.with_lock do
+            agent_snapshot = reconcile_agent_snapshot!(agent)
+            agent_connection, agent_connection_credential = reconcile_agent_connection!(agent:, agent_snapshot:)
+            execution_runtime_connection, execution_runtime_connection_credential = reconcile_execution_runtime_connection!(execution_runtime:)
           end
         end
 
-        agent_program.reload
-        executor_program.reload
-        deployment.reload
+        agent.reload
+        execution_runtime.reload
+        agent_snapshot.reload
 
         Result.new(
-          agent_program:,
-          executor_program:,
-          deployment:,
-          capability_snapshot: deployment,
-          agent_session:,
-          executor_session:,
-          session_credential:,
-          executor_session_credential:
+          agent:,
+          execution_runtime:,
+          agent_snapshot:,
+          capability_snapshot: agent_snapshot,
+          agent_connection:,
+          execution_runtime_connection:,
+          agent_connection_credential:,
+          execution_runtime_connection_credential:
         )
       end
     end
@@ -98,47 +98,47 @@ module Installations
       end
     end
 
-    def reconcile_agent_program!(executor_program)
-      agent_program = AgentProgram.find_or_initialize_by(
+    def reconcile_agent!(execution_runtime)
+      agent = Agent.find_or_initialize_by(
         installation: @installation,
         key: @configuration[:agent_key]
       )
-      agent_program.update!(
+      agent.update!(
         display_name: @configuration[:display_name],
         visibility: @configuration[:visibility],
         lifecycle_state: @configuration[:lifecycle_state],
         owner_user: nil,
-        default_executor_program: executor_program
+        default_execution_runtime: execution_runtime
       )
-      agent_program
+      agent
     end
 
-    def reconcile_executor_program!
-      executor_program = ExecutorPrograms::Reconcile.call(
+    def reconcile_execution_runtime!
+      execution_runtime = ExecutionRuntimes::Reconcile.call(
         installation: @installation,
-        executor_fingerprint: @configuration[:executor_fingerprint],
-        kind: @configuration[:executor_kind],
+        execution_runtime_fingerprint: @configuration[:execution_runtime_fingerprint],
+        kind: @configuration[:execution_runtime_kind],
         connection_metadata: @configuration[:connection_metadata]
       )
-      executor_program.update!(display_name: @configuration[:executor_display_name])
-      ExecutorPrograms::RecordCapabilities.call(
-        executor_program: executor_program,
-        capability_payload: @configuration[:executor_capability_payload],
-        tool_catalog: @configuration[:executor_tool_catalog]
+      execution_runtime.update!(display_name: @configuration[:executor_display_name])
+      ExecutionRuntimes::RecordCapabilities.call(
+        execution_runtime: execution_runtime,
+        capability_payload: @configuration[:execution_runtime_capability_payload],
+        tool_catalog: @configuration[:execution_runtime_tool_catalog]
       )
-      executor_program
+      execution_runtime
     end
 
-    def reconcile_deployment!(agent_program)
-      deployment = AgentProgramVersion.find_by(
+    def reconcile_agent_snapshot!(agent)
+      agent_snapshot = AgentSnapshot.find_by(
         installation: @installation,
         fingerprint: @configuration[:fingerprint]
       )
-      return deployment if deployment.present?
+      return agent_snapshot if agent_snapshot.present?
 
-      AgentProgramVersion.create!(
+      AgentSnapshot.create!(
         installation: @installation,
-        agent_program: agent_program,
+        agent: agent,
         fingerprint: @configuration[:fingerprint],
         protocol_version: @configuration[:protocol_version],
         sdk_version: @configuration[:sdk_version],
@@ -150,35 +150,35 @@ module Installations
         default_config_snapshot: @configuration[:default_config_snapshot]
       )
     rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
-      AgentProgramVersion.find_by!(
+      AgentSnapshot.find_by!(
         installation: @installation,
         fingerprint: @configuration[:fingerprint]
       )
     end
 
-    def reconcile_agent_session!(agent_program:, deployment:)
-      active_session = agent_program.active_agent_session
-      if active_session&.agent_program_version_id == deployment.id
-        return refresh_agent_session!(active_session, deployment)
+    def reconcile_agent_connection!(agent:, agent_snapshot:)
+      active_session = agent.active_agent_connection
+      if active_session&.agent_snapshot_id == agent_snapshot.id
+        return refresh_agent_connection!(active_session, agent_snapshot)
       end
 
-      AgentSession.where(agent_program:, lifecycle_state: "active").update_all(
+      AgentConnection.where(agent:, lifecycle_state: "active").update_all(
         lifecycle_state: "stale",
         updated_at: Time.current
       )
-      create_agent_session!(agent_program:, deployment:)
+      create_agent_connection!(agent:, agent_snapshot:)
     end
 
-    def refresh_agent_session!(agent_session, deployment)
-      session_credential = @session_credential
-      if session_credential.present?
-        agent_session.assign_attributes(
-          session_credential_digest: AgentSession.digest_session_credential(session_credential)
+    def refresh_agent_connection!(agent_connection, agent_snapshot)
+      agent_connection_credential = @agent_connection_credential
+      if agent_connection_credential.present?
+        agent_connection.assign_attributes(
+          connection_credential_digest: AgentConnection.digest_connection_credential(agent_connection_credential)
         )
       end
 
-      agent_session.update!(
-        agent_program_version: deployment,
+      agent_connection.update!(
+        agent_snapshot: agent_snapshot,
         endpoint_metadata: @configuration[:endpoint_metadata],
         lifecycle_state: "active",
         health_status: "healthy",
@@ -188,25 +188,25 @@ module Installations
         last_heartbeat_at: Time.current,
         last_health_check_at: Time.current
       )
-      [agent_session, session_credential]
+      [agent_connection, agent_connection_credential]
     end
 
-    def create_agent_session!(agent_program:, deployment:)
-      session_credential = @session_credential.presence
-      session_credential_digest =
-        if session_credential.present?
-          AgentSession.digest_session_credential(session_credential)
+    def create_agent_connection!(agent:, agent_snapshot:)
+      agent_connection_credential = @agent_connection_credential.presence
+      connection_credential_digest =
+        if agent_connection_credential.present?
+          AgentConnection.digest_connection_credential(agent_connection_credential)
         else
-          session_credential, digest = AgentSession.issue_session_credential
+          agent_connection_credential, digest = AgentConnection.issue_connection_credential
           digest
         end
-      session_token, session_token_digest = AgentSession.issue_session_token
-      agent_session = AgentSession.create!(
+      _connection_token, connection_token_digest = AgentConnection.issue_connection_token
+      agent_connection = AgentConnection.create!(
         installation: @installation,
-        agent_program: agent_program,
-        agent_program_version: deployment,
-        session_credential_digest: session_credential_digest,
-        session_token_digest: session_token_digest,
+        agent: agent,
+        agent_snapshot: agent_snapshot,
+        connection_credential_digest: connection_credential_digest,
+        connection_token_digest: connection_token_digest,
         endpoint_metadata: @configuration[:endpoint_metadata],
         lifecycle_state: "active",
         health_status: "healthy",
@@ -216,56 +216,56 @@ module Installations
         last_heartbeat_at: Time.current,
         last_health_check_at: Time.current
       )
-      [agent_session, session_credential]
+      [agent_connection, agent_connection_credential]
     end
 
-    def reconcile_executor_session!(executor_program:)
-      active_session = executor_program.active_executor_session
-      return refresh_executor_session!(active_session) if active_session.present?
+    def reconcile_execution_runtime_connection!(execution_runtime:)
+      active_session = execution_runtime.active_execution_runtime_connection
+      return refresh_execution_runtime_connection!(active_session) if active_session.present?
 
-      ExecutorSession.where(executor_program:, lifecycle_state: "active").update_all(
+      ExecutionRuntimeConnection.where(execution_runtime:, lifecycle_state: "active").update_all(
         lifecycle_state: "stale",
         updated_at: Time.current
       )
-      create_executor_session!(executor_program:)
+      create_execution_runtime_connection!(execution_runtime:)
     end
 
-    def refresh_executor_session!(executor_session)
-      session_credential = @executor_session_credential
-      if session_credential.present?
-        executor_session.assign_attributes(
-          session_credential_digest: ExecutorSession.digest_session_credential(session_credential)
+    def refresh_execution_runtime_connection!(execution_runtime_connection)
+      runtime_connection_credential = @execution_runtime_connection_credential
+      if runtime_connection_credential.present?
+        execution_runtime_connection.assign_attributes(
+          connection_credential_digest: ExecutionRuntimeConnection.digest_connection_credential(runtime_connection_credential)
         )
       end
 
-      executor_session.update!(
+      execution_runtime_connection.update!(
         endpoint_metadata: @configuration[:endpoint_metadata],
         lifecycle_state: "active",
         last_heartbeat_at: Time.current
       )
-      [executor_session, session_credential]
+      [execution_runtime_connection, runtime_connection_credential]
     end
 
-    def create_executor_session!(executor_program:)
-      session_credential = @executor_session_credential.presence
-      session_credential_digest =
-        if session_credential.present?
-          ExecutorSession.digest_session_credential(session_credential)
+    def create_execution_runtime_connection!(execution_runtime:)
+      runtime_connection_credential = @execution_runtime_connection_credential.presence
+      connection_credential_digest =
+        if runtime_connection_credential.present?
+          ExecutionRuntimeConnection.digest_connection_credential(runtime_connection_credential)
         else
-          session_credential, digest = ExecutorSession.issue_session_credential
+          runtime_connection_credential, digest = ExecutionRuntimeConnection.issue_connection_credential
           digest
         end
-      session_token, session_token_digest = ExecutorSession.issue_session_token
-      executor_session = ExecutorSession.create!(
+      _connection_token, connection_token_digest = ExecutionRuntimeConnection.issue_connection_token
+      execution_runtime_connection = ExecutionRuntimeConnection.create!(
         installation: @installation,
-        executor_program: executor_program,
-        session_credential_digest: session_credential_digest,
-        session_token_digest: session_token_digest,
+        execution_runtime: execution_runtime,
+        connection_credential_digest: connection_credential_digest,
+        connection_token_digest: connection_token_digest,
         endpoint_metadata: @configuration[:endpoint_metadata],
         lifecycle_state: "active",
         last_heartbeat_at: Time.current
       )
-      [executor_session, session_credential]
+      [execution_runtime_connection, runtime_connection_credential]
     end
   end
 end

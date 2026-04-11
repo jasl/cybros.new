@@ -44,9 +44,9 @@ module Acceptance
       bootstrap
     end
 
-    def token_headers(machine_credential)
+    def token_headers(agent_connection_credential)
       {
-        'Authorization' => ActionController::HttpAuthentication::Token.encode_credentials(machine_credential)
+        'Authorization' => ActionController::HttpAuthentication::Token.encode_credentials(agent_connection_credential)
       }
     end
 
@@ -141,16 +141,16 @@ module Acceptance
       http_get_json("#{base_url}/runtime/manifest")
     end
 
-    def app_api_get_json(path, machine_credential:, params: {})
+    def app_api_get_json(path, agent_connection_credential:, params: {})
       query = params.present? ? "?#{URI.encode_www_form(params.transform_keys(&:to_s))}" : ''
-      http_get_json(control_url(path) + query, headers: token_headers(machine_credential))
+      http_get_json(control_url(path) + query, headers: token_headers(agent_connection_credential))
     end
 
-    def app_api_post_json(path, payload, machine_credential:)
-      http_post_json(control_url(path), payload, headers: token_headers(machine_credential))
+    def app_api_post_json(path, payload, agent_connection_credential:)
+      http_post_json(control_url(path), payload, headers: token_headers(agent_connection_credential))
     end
 
-    def app_api_post_multipart_json(path, params:, file_param:, file_path:, machine_credential:,
+    def app_api_post_multipart_json(path, params:, file_param:, file_path:, agent_connection_credential:,
                                     content_type: 'application/zip')
       http_post_multipart_json(
         control_url(path),
@@ -158,25 +158,25 @@ module Acceptance
         file_param: file_param,
         file_path: file_path,
         content_type: content_type,
-        headers: token_headers(machine_credential)
+        headers: token_headers(agent_connection_credential)
       )
     end
 
-    def app_api_download!(path, destination_path:, machine_credential:)
+    def app_api_download!(path, destination_path:, agent_connection_credential:)
       http_download!(
         control_url(path),
-        headers: token_headers(machine_credential),
+        headers: token_headers(agent_connection_credential),
         destination_path: destination_path
       )
     end
 
-    def wait_for_app_api_request_terminal!(path:, request_key:, machine_credential:, terminal_states:,
+    def wait_for_app_api_request_terminal!(path:, request_key:, agent_connection_credential:, terminal_states:,
                                            timeout_seconds: 30, poll_interval_seconds: 0.2)
       deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
       terminal_states = Array(terminal_states)
 
       loop do
-        payload = app_api_get_json(path, machine_credential:)
+        payload = app_api_get_json(path, agent_connection_credential:)
         request = payload.fetch(request_key)
         return payload if terminal_states.include?(request.fetch('lifecycle_state'))
 
@@ -188,10 +188,10 @@ module Acceptance
       end
     end
 
-    def app_api_conversation_transcript!(conversation_id:, machine_credential:, cursor: nil, limit: nil)
+    def app_api_conversation_transcript!(conversation_id:, agent_connection_credential:, cursor: nil, limit: nil)
       app_api_get_json(
         '/app_api/conversation_transcripts',
-        machine_credential:,
+        agent_connection_credential:,
         params: {
           conversation_id: conversation_id,
           cursor: cursor,
@@ -200,18 +200,18 @@ module Acceptance
       )
     end
 
-    def app_api_conversation_diagnostics_show!(conversation_id:, machine_credential:)
+    def app_api_conversation_diagnostics_show!(conversation_id:, agent_connection_credential:)
       app_api_get_json(
         '/app_api/conversation_diagnostics/show',
-        machine_credential:,
+        agent_connection_credential:,
         params: { conversation_id: conversation_id }
       )
     end
 
-    def app_api_conversation_diagnostics_turns!(conversation_id:, machine_credential:)
+    def app_api_conversation_diagnostics_turns!(conversation_id:, agent_connection_credential:)
       app_api_get_json(
         '/app_api/conversation_diagnostics/turns',
-        machine_credential:,
+        agent_connection_credential:,
         params: { conversation_id: conversation_id }
       )
     end
@@ -250,17 +250,17 @@ module Acceptance
       }
     end
 
-    def app_api_export_conversation!(conversation_id:, machine_credential:, destination_path:, timeout_seconds: 60)
+    def app_api_export_conversation!(conversation_id:, agent_connection_credential:, destination_path:, timeout_seconds: 60)
       created = app_api_post_json(
         '/app_api/conversation_export_requests',
         { conversation_id: conversation_id },
-        machine_credential:
+        agent_connection_credential:
       )
       request_id = created.dig('export_request', 'request_id')
       shown = wait_for_app_api_request_terminal!(
         path: "/app_api/conversation_export_requests/#{request_id}",
         request_key: 'export_request',
-        machine_credential: machine_credential,
+        agent_connection_credential: agent_connection_credential,
         terminal_states: %w[succeeded failed expired],
         timeout_seconds: timeout_seconds
       )
@@ -271,7 +271,7 @@ module Acceptance
       download = app_api_download!(
         "/app_api/conversation_export_requests/#{request_id}/download",
         destination_path: destination_path,
-        machine_credential: machine_credential
+        agent_connection_credential: agent_connection_credential
       )
 
       {
@@ -281,18 +281,18 @@ module Acceptance
       }
     end
 
-    def app_api_debug_export_conversation!(conversation_id:, machine_credential:, destination_path:,
+    def app_api_debug_export_conversation!(conversation_id:, agent_connection_credential:, destination_path:,
                                            timeout_seconds: 60)
       created = app_api_post_json(
         '/app_api/conversation_debug_export_requests',
         { conversation_id: conversation_id },
-        machine_credential:
+        agent_connection_credential:
       )
       request_id = created.dig('debug_export_request', 'request_id')
       shown = wait_for_app_api_request_terminal!(
         path: "/app_api/conversation_debug_export_requests/#{request_id}",
         request_key: 'debug_export_request',
-        machine_credential: machine_credential,
+        agent_connection_credential: agent_connection_credential,
         terminal_states: %w[succeeded failed expired],
         timeout_seconds: timeout_seconds
       )
@@ -303,7 +303,7 @@ module Acceptance
       download = app_api_download!(
         "/app_api/conversation_debug_export_requests/#{request_id}/download",
         destination_path: destination_path,
-        machine_credential: machine_credential
+        agent_connection_credential: agent_connection_credential
       )
 
       {
@@ -313,19 +313,19 @@ module Acceptance
       }
     end
 
-    def app_api_import_conversation_bundle!(workspace_id:, zip_path:, machine_credential:, timeout_seconds: 60)
+    def app_api_import_conversation_bundle!(workspace_id:, zip_path:, agent_connection_credential:, timeout_seconds: 60)
       created = app_api_post_multipart_json(
         '/app_api/conversation_bundle_import_requests',
         params: { workspace_id: workspace_id },
         file_param: :upload_file,
         file_path: zip_path,
-        machine_credential: machine_credential
+        agent_connection_credential: agent_connection_credential
       )
       request_id = created.dig('import_request', 'request_id')
       shown = wait_for_app_api_request_terminal!(
         path: "/app_api/conversation_bundle_import_requests/#{request_id}",
         request_key: 'import_request',
-        machine_credential: machine_credential,
+        agent_connection_credential: agent_connection_credential,
         terminal_states: %w[succeeded failed],
         timeout_seconds: timeout_seconds
       )
@@ -339,12 +339,12 @@ module Acceptance
       }
     end
 
-    def run_fenix_mailbox_pump_once!(machine_credential:, executor_machine_credential: machine_credential, limit: 10,
+    def run_fenix_mailbox_pump_once!(agent_connection_credential:, execution_runtime_connection_credential: agent_connection_credential, limit: 10,
                                      inline: true, env: {})
       run_fenix_runtime_task!(
         task_name: 'runtime:mailbox_pump_once',
-        machine_credential:,
-        executor_machine_credential:,
+        agent_connection_credential:,
+        execution_runtime_connection_credential:,
         env: {
           'LIMIT' => limit.to_s,
           'INLINE' => inline ? 'true' : 'false'
@@ -352,12 +352,12 @@ module Acceptance
       )
     end
 
-    def run_fenix_control_loop_once!(machine_credential:, executor_machine_credential: machine_credential, limit: 10,
+    def run_fenix_control_loop_once!(agent_connection_credential:, execution_runtime_connection_credential: agent_connection_credential, limit: 10,
                                      inline: true, realtime_timeout_seconds: 5, env: {})
       run_fenix_runtime_task!(
         task_name: 'runtime:control_loop_once',
-        machine_credential:,
-        executor_machine_credential:,
+        agent_connection_credential:,
+        execution_runtime_connection_credential:,
         env: {
           'LIMIT' => limit.to_s,
           'INLINE' => inline ? 'true' : 'false',
@@ -368,18 +368,18 @@ module Acceptance
 
     def run_fenix_control_loop_for_registration!(registration:, **kwargs)
       run_fenix_control_loop_once!(
-        machine_credential: registration.machine_credential,
-        executor_machine_credential: registration.executor_machine_credential,
+        agent_connection_credential: registration.agent_connection_credential,
+        execution_runtime_connection_credential: registration.execution_runtime_connection_credential,
         **kwargs
       )
     end
 
-    def run_fenix_runtime_task!(task_name:, machine_credential:, env:, executor_machine_credential: machine_credential)
+    def run_fenix_runtime_task!(task_name:, agent_connection_credential:, env:, execution_runtime_connection_credential: agent_connection_credential)
       project_root = fenix_project_root
       task_env = {
         'CORE_MATRIX_BASE_URL' => CONTROL_BASE_URL,
-        'CORE_MATRIX_MACHINE_CREDENTIAL' => machine_credential,
-        'CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL' => executor_machine_credential,
+        'CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL' => agent_connection_credential,
+        'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential,
         'BUNDLE_GEMFILE' => project_root.join('Gemfile').to_s
       }.merge(forwarded_fenix_env).merge(env)
 
@@ -401,13 +401,13 @@ module Acceptance
       JSON.parse(stdout)
     end
 
-    def with_fenix_control_worker!(machine_credential:, executor_machine_credential: machine_credential, limit: 10,
+    def with_fenix_control_worker!(agent_connection_credential:, execution_runtime_connection_credential: agent_connection_credential, limit: 10,
                                    inline: true, realtime_timeout_seconds: 5, env: {})
       project_root = fenix_project_root
       task_env = {
         'CORE_MATRIX_BASE_URL' => CONTROL_BASE_URL,
-        'CORE_MATRIX_MACHINE_CREDENTIAL' => machine_credential,
-        'CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL' => executor_machine_credential,
+        'CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL' => agent_connection_credential,
+        'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential,
         'BUNDLE_GEMFILE' => project_root.join('Gemfile').to_s,
         'LIMIT' => limit.to_s,
         'INLINE' => inline ? 'true' : 'false',
@@ -438,8 +438,8 @@ module Acceptance
 
     def with_fenix_control_worker_for_registration!(registration:, **kwargs, &block)
       with_fenix_control_worker!(
-        machine_credential: registration.machine_credential,
-        executor_machine_credential: registration.executor_machine_credential,
+        agent_connection_credential: registration.agent_connection_credential,
+        execution_runtime_connection_credential: registration.execution_runtime_connection_credential,
         **kwargs,
         &block
       )
@@ -471,8 +471,9 @@ module Acceptance
             'RAILS_ENV' => ENV.fetch('RAILS_ENV', 'development'),
             'DISABLE_DATABASE_ENVIRONMENT_CHECK' => '1'
           },
-          'bin/rails',
-          'db:reset',
+          'bash',
+          '-lc',
+          'bin/rails db:drop && rm -f db/schema.rb && bin/rails db:create && bin/rails db:migrate && bin/rails db:reset',
           chdir: Rails.root.to_s
         )
       end
@@ -585,8 +586,8 @@ module Acceptance
       summary['kind'] == 'mailbox_result' ? summary.fetch('result') : summary
     end
 
-    def create_external_agent_program!(installation:, actor:, key:, display_name:)
-      agent_program = AgentProgram.create!(
+    def create_external_agent!(installation:, actor:, key:, display_name:)
+      agent = Agent.create!(
         installation: installation,
         key: key,
         display_name: display_name,
@@ -594,13 +595,13 @@ module Acceptance
         lifecycle_state: 'active'
       )
       enrollment = AgentEnrollments::Issue.call(
-        agent_program: agent_program,
+        agent: agent,
         actor: actor,
         expires_at: 2.hours.from_now
       )
 
       {
-        agent_program: agent_program,
+        agent: agent,
         enrollment_token: enrollment.plaintext_token
       }
     end
@@ -608,7 +609,7 @@ module Acceptance
     def register_external_runtime!(
       enrollment_token:,
       runtime_base_url:,
-      executor_fingerprint:,
+      execution_runtime_fingerprint:,
       fingerprint:
     )
       manifest = live_manifest(base_url: runtime_base_url)
@@ -616,18 +617,18 @@ module Acceptance
         "#{CONTROL_BASE_URL}/agent_api/registrations",
         {
           enrollment_token: enrollment_token,
-          executor_fingerprint: executor_fingerprint,
-          executor_kind: 'local',
-          executor_connection_metadata: manifest.fetch(
-            'executor_connection_metadata',
-            default_executor_connection_metadata(runtime_base_url:)
+          execution_runtime_fingerprint: execution_runtime_fingerprint,
+          execution_runtime_kind: 'local',
+          execution_runtime_connection_metadata: manifest.fetch(
+            'execution_runtime_connection_metadata',
+            default_execution_runtime_connection_metadata(runtime_base_url:)
           ),
           fingerprint: fingerprint,
           endpoint_metadata: manifest.fetch('endpoint_metadata'),
           protocol_version: manifest.fetch('protocol_version'),
           sdk_version: manifest.fetch('sdk_version'),
-          executor_capability_payload: manifest.fetch('executor_capability_payload', {}),
-          executor_tool_catalog: manifest.fetch('executor_tool_catalog', []),
+          execution_runtime_capability_payload: manifest.fetch('execution_runtime_capability_payload', {}),
+          execution_runtime_tool_catalog: manifest.fetch('execution_runtime_tool_catalog', []),
           protocol_methods: manifest.fetch('protocol_methods'),
           tool_catalog: manifest.fetch('tool_catalog'),
           profile_catalog: manifest.fetch('profile_catalog'),
@@ -636,8 +637,11 @@ module Acceptance
           default_config_snapshot: manifest.fetch('default_config_snapshot')
         }
       )
-      machine_credential = registration.fetch('machine_credential')
-      executor_machine_credential = registration.fetch('executor_machine_credential', machine_credential)
+      agent_connection_credential = registration.fetch('agent_connection_credential')
+      execution_runtime_connection_credential = registration.fetch(
+        'execution_runtime_connection_credential',
+        agent_connection_credential
+      )
       heartbeat = http_post_json(
         "#{CONTROL_BASE_URL}/agent_api/heartbeats",
         {
@@ -645,54 +649,54 @@ module Acceptance
           health_metadata: { 'release' => manifest.fetch('sdk_version') },
           auto_resume_eligible: true
         },
-        headers: token_headers(machine_credential)
+        headers: token_headers(agent_connection_credential)
       )
-      agent_program_version = AgentProgramVersion.find_by_public_id!(registration.fetch('agent_program_version_id'))
-      executor_program = if registration['executor_program_id'].present?
-                           ExecutorProgram.find_by_public_id!(registration.fetch('executor_program_id'))
-                         end
+      agent_snapshot = AgentSnapshot.find_by_public_id!(registration.fetch('agent_snapshot_id'))
+      execution_runtime = if registration['execution_runtime_id'].present?
+                            ExecutionRuntime.find_by_public_id!(registration.fetch('execution_runtime_id'))
+                          end
 
       RuntimeRegistration.new(
         manifest: manifest,
         registration: registration,
         heartbeat: heartbeat,
-        machine_credential: machine_credential,
-        executor_machine_credential: executor_machine_credential,
-        agent_program_version: agent_program_version,
-        executor_program: executor_program
+        agent_connection_credential: agent_connection_credential,
+        execution_runtime_connection_credential: execution_runtime_connection_credential,
+        agent_snapshot: agent_snapshot,
+        execution_runtime: execution_runtime
       )
     end
 
     def register_bundled_runtime_from_manifest!(
       installation:,
       runtime_base_url:,
-      executor_fingerprint:,
+      execution_runtime_fingerprint:,
       fingerprint:,
       sdk_version: nil
     )
       manifest = live_manifest(base_url: runtime_base_url)
       resolved_sdk_version = sdk_version || manifest.fetch('sdk_version')
-      session_credential = SecureRandom.hex(32)
-      executor_session_credential = SecureRandom.hex(32)
+      agent_connection_credential = SecureRandom.hex(32)
+      execution_runtime_connection_credential = SecureRandom.hex(32)
       runtime = Installations::RegisterBundledAgentRuntime.call(
         installation: installation,
-        session_credential: session_credential,
-        executor_session_credential: executor_session_credential,
+        agent_connection_credential: agent_connection_credential,
+        execution_runtime_connection_credential: execution_runtime_connection_credential,
         configuration: {
           enabled: true,
           agent_key: manifest.fetch('agent_key'),
           display_name: manifest.fetch('display_name'),
           visibility: 'global',
           lifecycle_state: 'active',
-          executor_kind: manifest.fetch('executor_kind'),
-          executor_fingerprint: executor_fingerprint,
+          execution_runtime_kind: manifest.fetch('execution_runtime_kind', manifest.fetch('execution_runtime_kind', 'local')),
+          execution_runtime_fingerprint: execution_runtime_fingerprint,
           connection_metadata: manifest.fetch(
-            'executor_connection_metadata',
-            default_executor_connection_metadata(runtime_base_url:)
+            'execution_runtime_connection_metadata',
+            default_execution_runtime_connection_metadata(runtime_base_url:)
           ),
           endpoint_metadata: manifest.fetch('endpoint_metadata'),
-          executor_capability_payload: manifest.fetch('executor_capability_payload', {}),
-          executor_tool_catalog: manifest.fetch('executor_tool_catalog', []),
+          execution_runtime_capability_payload: manifest.fetch('execution_runtime_capability_payload', {}),
+          execution_runtime_tool_catalog: manifest.fetch('execution_runtime_tool_catalog', []),
           fingerprint: fingerprint,
           protocol_version: manifest.fetch('protocol_version'),
           sdk_version: resolved_sdk_version,
@@ -708,42 +712,39 @@ module Acceptance
       RuntimeRegistration.new(
         manifest: manifest,
         runtime: runtime,
-        machine_credential: runtime.session_credential || session_credential,
-        executor_machine_credential: runtime.executor_session_credential || executor_session_credential,
-        agent_program_version: runtime.deployment,
-        executor_program: runtime.executor_program
+        agent_connection_credential: runtime.agent_connection_credential || agent_connection_credential,
+        execution_runtime_connection_credential: runtime.execution_runtime_connection_credential || execution_runtime_connection_credential,
+        agent_snapshot: runtime.agent_snapshot,
+        execution_runtime: runtime.execution_runtime
       )
     end
 
-    def default_executor_connection_metadata(runtime_base_url:)
+    def default_execution_runtime_connection_metadata(runtime_base_url:)
       {
         'transport' => 'http',
         'base_url' => runtime_base_url
       }
     end
 
-    def enable_default_workspace!(agent_program_version: nil, deployment: nil)
-      agent_program_version ||= deployment
-
-      user = User.find_by!(installation: agent_program_version.installation, role: 'admin')
-      user_binding = UserProgramBindings::Enable.call(
+    def enable_default_workspace!(agent_snapshot:)
+      user = User.find_by!(installation: agent_snapshot.installation, role: 'admin')
+      user_binding = UserAgentBindings::Enable.call(
         user: user,
-        agent_program: agent_program_version.agent_program
+        agent: agent_snapshot.agent
       ).binding
 
       user_binding.workspaces.find_by!(is_default: true)
     end
 
-    def create_conversation!(agent_program_version: nil, deployment: nil)
-      agent_program_version ||= deployment
-      workspace = enable_default_workspace!(agent_program_version: agent_program_version)
+    def create_conversation!(agent_snapshot:)
+      workspace = enable_default_workspace!(agent_snapshot: agent_snapshot)
 
       {
         actor: workspace.user,
         workspace: workspace,
         conversation: Conversations::CreateRoot.call(
           workspace: workspace,
-          agent_program: agent_program_version.agent_program
+          agent: agent_snapshot.agent
         )
       }
     end
@@ -751,7 +752,7 @@ module Acceptance
     def start_turn_workflow_on_conversation!(
       conversation:,
       content:, root_node_key:, root_node_type:, decision_source:,
-      executor_program: nil,
+      execution_runtime: nil,
       selector_source: 'conversation',
       selector: 'candidate:dev/mock-model',
       initial_kind: nil,
@@ -760,7 +761,7 @@ module Acceptance
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: content,
-        executor_program: executor_program,
+        execution_runtime: execution_runtime,
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -805,14 +806,14 @@ module Acceptance
     def execute_provider_turn_on_conversation!(
       conversation:,
       content:, selector:,
-      executor_program: nil,
+      execution_runtime: nil,
       selector_source: 'conversation',
       catalog: nil,
       inline_if_queued: true
     )
       run = start_turn_workflow_on_conversation!(
         conversation: conversation,
-        executor_program: executor_program,
+        execution_runtime: execution_runtime,
         content: content,
         root_node_key: 'turn_step',
         root_node_type: 'turn_step',
@@ -828,7 +829,7 @@ module Acceptance
       run.transform_values { |value| value.respond_to?(:reload) ? value.reload : value }
     end
 
-    def execute_program_tool_call!(workflow_node:, tool_call:, round_bindings:, agent_program_version:,
+    def execute_tool_call!(workflow_node:, tool_call:, round_bindings:, agent_snapshot:,
                                    timeout_seconds: 30, poll_interval_seconds: 0.1)
       deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
 
@@ -837,13 +838,13 @@ module Acceptance
           workflow_node: workflow_node,
           tool_call: tool_call,
           round_bindings: round_bindings,
-          program_exchange: ProviderExecution::ProgramMailboxExchange.new(
-            agent_program_version: agent_program_version
+          agent_request_exchange: ProviderExecution::AgentRequestExchange.new(
+            agent_snapshot: agent_snapshot
           )
         )
-      rescue ProviderExecution::ProgramMailboxExchange::PendingResponse
+      rescue ProviderExecution::AgentRequestExchange::PendingResponse
         if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
-          raise "timed out waiting for program tool call #{tool_call.fetch('call_id')} to finish"
+          raise "timed out waiting for agent tool call #{tool_call.fetch('call_id')} to finish"
         end
 
         sleep(poll_interval_seconds)
@@ -851,35 +852,33 @@ module Acceptance
     end
 
     def run_fenix_mailbox_task!(
-      machine_credential:, content:, mode:, agent_program_version: nil,
-      deployment: nil,
-      executor_machine_credential: machine_credential,
+      agent_connection_credential:, content:, mode:, agent_snapshot:,
+      execution_runtime_connection_credential: agent_connection_credential,
       runtime_base_url: nil,
       extra_payload: {},
       delivery_mode: 'realtime'
     )
-      agent_program_version ||= deployment
       _unused_runtime_base_url = runtime_base_url
-      conversation_context = create_conversation!(agent_program_version: agent_program_version)
+      conversation_context = create_conversation!(agent_snapshot: agent_snapshot)
       run = start_turn_workflow_on_conversation!(
         conversation: conversation_context.fetch(:conversation),
         content: content,
         root_node_key: 'agent_turn_step',
         root_node_type: 'turn_step',
-        decision_source: 'agent_program',
+        decision_source: 'agent',
         initial_kind: 'turn_step',
         initial_payload: { 'mode' => mode }.merge(extra_payload)
       )
       pump_result =
         if delivery_mode == 'realtime'
           run_fenix_control_loop_once!(
-            machine_credential:,
-            executor_machine_credential:
+            agent_connection_credential:,
+            execution_runtime_connection_credential:
           )
         else
           run_fenix_mailbox_pump_once!(
-            machine_credential:,
-            executor_machine_credential:
+            agent_connection_credential:,
+            execution_runtime_connection_credential:
           )
         end
       agent_task_run = wait_for_agent_task_terminal!(agent_task_run: run.fetch(:agent_task_run))

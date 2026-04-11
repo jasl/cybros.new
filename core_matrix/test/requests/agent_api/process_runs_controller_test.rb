@@ -4,7 +4,7 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
   test "creates workflow owned process runs through the machine facing api" do
     context = build_process_runtime_context!
 
-    post "/executor_api/process_runs",
+    post "/execution_runtime_api/process_runs",
       params: {
         agent_task_run_id: context[:agent_task_run].public_id,
         tool_name: "process_exec",
@@ -15,7 +15,7 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
           service_name: "dev-server",
         },
       },
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :created
@@ -31,7 +31,7 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "background_service", response_body.fetch("kind")
     assert_equal "starting", response_body.fetch("lifecycle_state")
     assert_equal "dev-server", process_run.metadata.fetch("service_name")
-    assert_equal context[:executor_program], process_run.executor_program
+    assert_equal context[:execution_runtime], process_run.execution_runtime
     assert process_run.starting?
     refute_includes response.body, %("#{process_run.id}")
   end
@@ -46,17 +46,17 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
       idempotency_key: "process-run-#{next_test_sequence}",
     }
 
-    post "/executor_api/process_runs",
+    post "/execution_runtime_api/process_runs",
       params: request_params,
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :created
     first_body = JSON.parse(response.body)
 
-    post "/executor_api/process_runs",
+    post "/execution_runtime_api/process_runs",
       params: request_params,
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :ok
@@ -70,14 +70,14 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
   test "rejects raw bigint task ids" do
     context = build_process_runtime_context!
 
-    post "/executor_api/process_runs",
+    post "/execution_runtime_api/process_runs",
       params: {
         agent_task_run_id: context[:agent_task_run].id,
         tool_name: "process_exec",
         kind: "background_service",
         command_line: "bin/dev",
       },
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :not_found
@@ -90,14 +90,14 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
       .where(tool_definitions: { tool_name: "process_exec" })
       .delete_all
 
-    post "/executor_api/process_runs",
+    post "/execution_runtime_api/process_runs",
       params: {
         agent_task_run_id: context[:agent_task_run].public_id,
         tool_name: "process_exec",
         kind: "background_service",
         command_line: "bin/dev",
       },
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :not_found
@@ -111,14 +111,14 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
       close_reason_kind: "turn_interrupted"
     )
 
-    post "/executor_api/process_runs",
+    post "/execution_runtime_api/process_runs",
       params: {
         agent_task_run_id: context[:agent_task_run].public_id,
         tool_name: "process_exec",
         kind: "background_service",
         command_line: "bin/dev",
       },
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :not_found
@@ -129,14 +129,14 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
   def build_process_runtime_context!
     context = build_agent_control_context!(workflow_node_type: "background_service")
     capability_snapshot = create_capability_snapshot!(
-      agent_program_version: context[:deployment],
+      agent_snapshot: context[:agent_snapshot],
       version: 2,
       tool_catalog: default_tool_catalog("process_exec")
     )
-    adopt_agent_program_version!(context, capability_snapshot)
+    adopt_agent_snapshot!(context, capability_snapshot)
     context[:turn].update!(
       resolved_model_selection_snapshot: context[:turn].resolved_model_selection_snapshot.merge(
-        "agent_program_version_id" => capability_snapshot.public_id
+        "agent_snapshot_id" => capability_snapshot.public_id
       )
     )
     Workflows::BuildExecutionSnapshot.call(turn: context[:turn].reload)

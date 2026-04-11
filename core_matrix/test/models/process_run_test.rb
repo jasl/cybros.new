@@ -1,18 +1,18 @@
 require "test_helper"
 
 class ProcessRunTest < ActiveSupport::TestCase
-  test "requires the process run executor program to match the frozen turn executor program" do
+  test "requires the process run execution runtime to match the frozen turn execution runtime" do
     process_context = build_process_context!
-    other_runtime = create_executor_program!(
+    other_runtime = create_execution_runtime!(
       installation: process_context[:installation],
-      executor_fingerprint: "other-host",
+      execution_runtime_fingerprint: "other-host",
       capability_payload: {}
     )
 
     process_run = ProcessRun.new(
       installation: process_context[:installation],
       workflow_node: process_context[:workflow_node],
-      executor_program: other_runtime,
+      execution_runtime: other_runtime,
       conversation: process_context[:conversation],
       turn: process_context[:turn],
       origin_message: process_context[:origin_message],
@@ -23,31 +23,31 @@ class ProcessRunTest < ActiveSupport::TestCase
     )
 
     assert_not process_run.valid?
-    assert_includes process_run.errors[:executor_program], "must match the turn executor program"
+    assert_includes process_run.errors[:execution_runtime], "must match the turn execution runtime"
   end
 
   private
 
   def build_process_context!
     installation = create_installation!
-    agent_program = create_agent_program!(installation: installation)
+    agent = create_agent!(installation: installation)
     user = create_user!(installation: installation)
-    user_program_binding = create_user_program_binding!(
+    user_agent_binding = create_user_agent_binding!(
       installation: installation,
       user: user,
-      agent_program: agent_program
+      agent: agent
     )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_program_binding: user_program_binding
+      user_agent_binding: user_agent_binding
     )
-    agent_program_version = create_agent_program_version!(installation: installation, agent_program: agent_program)
-    executor_program = create_executor_program!(installation: installation)
+    agent_snapshot = create_agent_snapshot!(installation: installation, agent: agent)
+    execution_runtime = create_execution_runtime!(installation: installation)
     conversation = Conversation.create!(
       installation: installation,
       workspace: workspace,
-      agent_program: agent_program,
+      agent: agent,
       kind: "root",
       purpose: "interactive",
       lifecycle_state: "active"
@@ -55,13 +55,13 @@ class ProcessRunTest < ActiveSupport::TestCase
     turn = Turn.create!(
       installation: installation,
       conversation: conversation,
-      agent_program_version: agent_program_version,
-      executor_program: executor_program,
+      agent_snapshot: agent_snapshot,
+      execution_runtime: execution_runtime,
       sequence: 1,
       lifecycle_state: "active",
       origin_kind: "manual_user",
       origin_payload: {},
-      pinned_program_version_fingerprint: agent_program_version.fingerprint,
+      pinned_agent_snapshot_fingerprint: agent_snapshot.fingerprint,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
@@ -72,7 +72,7 @@ class ProcessRunTest < ActiveSupport::TestCase
     {
       installation: installation,
       conversation: conversation,
-      executor_program: executor_program,
+      execution_runtime: execution_runtime,
       origin_message: nil,
       turn: turn,
       workflow_node: workflow_node,

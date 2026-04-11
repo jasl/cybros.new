@@ -9,7 +9,7 @@ class WorkflowNode < ApplicationRecord
     provider_round_index
     subagent_agent_task_run_id
     subagent_conversation_id
-    subagent_session_id
+    subagent_connection_id
     subagent_turn_id
     subagent_workflow_run_id
     transcript_side_effect_committed
@@ -20,7 +20,7 @@ class WorkflowNode < ApplicationRecord
   enum :decision_source,
     {
       llm: "llm",
-      agent_program: "agent_program",
+      agent: "agent",
       system: "system",
       user: "user",
     },
@@ -51,7 +51,7 @@ class WorkflowNode < ApplicationRecord
   belongs_to :turn
   belongs_to :yielding_workflow_node, class_name: "WorkflowNode", optional: true
   belongs_to :opened_human_interaction_request, class_name: "HumanInteractionRequest", optional: true
-  belongs_to :spawned_subagent_session, class_name: "SubagentSession", optional: true
+  belongs_to :spawned_subagent_connection, class_name: "SubagentConnection", optional: true
   belongs_to :tool_call_document, class_name: "JsonDocument", optional: true
 
   has_many :outgoing_edges,
@@ -97,7 +97,7 @@ class WorkflowNode < ApplicationRecord
   validate :turn_installation_match
   validate :tool_call_document_installation_match
   validate :opened_human_interaction_request_installation_match
-  validate :spawned_subagent_session_installation_match
+  validate :spawned_subagent_connection_installation_match
   validate :workflow_projection_match
   validate :yielding_workflow_integrity
   validate :execution_timestamps_consistency
@@ -194,11 +194,11 @@ class WorkflowNode < ApplicationRecord
     errors.add(:opened_human_interaction_request, "must belong to the same installation")
   end
 
-  def spawned_subagent_session_installation_match
-    return if spawned_subagent_session.blank?
-    return if spawned_subagent_session.installation_id == installation_id
+  def spawned_subagent_connection_installation_match
+    return if spawned_subagent_connection.blank?
+    return if spawned_subagent_connection.installation_id == installation_id
 
-    errors.add(:spawned_subagent_session, "must belong to the same installation")
+    errors.add(:spawned_subagent_connection, "must belong to the same installation")
   end
 
   def workflow_projection_match
@@ -216,8 +216,8 @@ class WorkflowNode < ApplicationRecord
     if opened_human_interaction_request.present? && opened_human_interaction_request.workflow_run_id != workflow_run_id
       errors.add(:opened_human_interaction_request, "must belong to the same workflow run")
     end
-    if spawned_subagent_session.present? && spawned_subagent_session.owner_conversation_id != conversation_id
-      errors.add(:spawned_subagent_session, "must belong to the same owner conversation")
+    if spawned_subagent_connection.present? && spawned_subagent_connection.owner_conversation_id != conversation_id
+      errors.add(:spawned_subagent_connection, "must belong to the same owner conversation")
     end
   end
 

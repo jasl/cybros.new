@@ -83,7 +83,7 @@ Typed top-level fields:
 - `command_failure_count`
 - `process_run_count`
 - `process_failure_count`
-- `subagent_session_count`
+- `subagent_connection_count`
 - `input_variant_count`
 - `output_variant_count`
 - `resume_attempt_count`
@@ -129,7 +129,7 @@ Typed top-level fields:
 - `command_failure_count`
 - `process_run_count`
 - `process_failure_count`
-- `subagent_session_count`
+- `subagent_connection_count`
 - `input_variant_count`
 - `output_variant_count`
 - `resume_attempt_count`
@@ -164,7 +164,7 @@ Use `UsageEvent` as truth.
 - tool counts and breakdown: `ToolInvocation` joined with `ToolDefinition`
 - command counts and classification: `CommandRun`
 - process counts: `ProcessRun`
-- subagent counts and status breakdown: `SubagentSession`
+- subagent counts and status breakdown: `SubagentConnection`
 - steer proxy: extra input variants on the same turn
 - output retry proxy: extra output variants on the same turn
 - resume attempts: `AgentTaskRun.task_payload.delivery_kind = turn_resume`

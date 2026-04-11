@@ -5,7 +5,7 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
     context = build_runtime_command_context!
     invocation = create_exec_command_invocation!(context)
 
-    post "/executor_api/command_runs",
+    post "/execution_runtime_api/command_runs",
       params: {
         tool_invocation_id: invocation.public_id,
         command_line: "printf 'hello\\n'",
@@ -15,7 +15,7 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
           sandbox: "workspace-write",
         },
       },
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :created
@@ -47,8 +47,8 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
       metadata: {}
     ).command_run
 
-    post "/executor_api/command_runs/#{command_run.public_id}/activate",
-      headers: executor_api_headers(context[:executor_machine_credential]),
+    post "/execution_runtime_api/command_runs/#{command_run.public_id}/activate",
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :created
@@ -74,8 +74,8 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
     ).command_run
     CommandRuns::Activate.call(command_run: command_run)
 
-    post "/executor_api/command_runs/#{command_run.public_id}/activate",
-      headers: executor_api_headers(context[:executor_machine_credential]),
+    post "/execution_runtime_api/command_runs/#{command_run.public_id}/activate",
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :ok
@@ -96,17 +96,17 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
       pty: false,
     }
 
-    post "/executor_api/command_runs",
+    post "/execution_runtime_api/command_runs",
       params: request_params,
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :created
     first_body = JSON.parse(response.body)
 
-    post "/executor_api/command_runs",
+    post "/execution_runtime_api/command_runs",
       params: request_params,
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :ok
@@ -121,12 +121,12 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
     context = build_runtime_command_context!
     invocation = create_exec_command_invocation!(context)
 
-    post "/executor_api/command_runs",
+    post "/execution_runtime_api/command_runs",
       params: {
         tool_invocation_id: invocation.id,
         command_line: "printf 'hello\\n'",
       },
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :not_found
@@ -143,8 +143,8 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
       metadata: {}
     ).command_run
 
-    post "/executor_api/command_runs/#{command_run.id}/activate",
-      headers: executor_api_headers(context[:executor_machine_credential]),
+    post "/execution_runtime_api/command_runs/#{command_run.id}/activate",
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :not_found
@@ -160,12 +160,12 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
       }
     )
 
-    post "/executor_api/command_runs",
+    post "/execution_runtime_api/command_runs",
       params: {
         tool_invocation_id: invocation.public_id,
         command_line: "printf 'hello\\n'",
       },
-      headers: executor_api_headers(context[:executor_machine_credential]),
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :not_found
@@ -187,8 +187,8 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
       close_reason_kind: "turn_interrupted"
     )
 
-    post "/executor_api/command_runs/#{command_run.public_id}/activate",
-      headers: executor_api_headers(context[:executor_machine_credential]),
+    post "/execution_runtime_api/command_runs/#{command_run.public_id}/activate",
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
 
     assert_response :not_found
@@ -215,13 +215,13 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
 
   def build_runtime_command_context!
     context = build_governed_tool_context!(
-      executor_tool_catalog: [],
+      execution_runtime_tool_catalog: [],
       agent_tool_catalog: runtime_command_tool_catalog,
       profile_catalog: runtime_command_profile_catalog
     )
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     agent_task_run = create_agent_task_run!(

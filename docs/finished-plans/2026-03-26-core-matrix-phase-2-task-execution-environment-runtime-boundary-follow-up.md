@@ -21,7 +21,7 @@ Use this task document together with:
 Repair the runtime ownership boundary exposed by Milestone C so that:
 
 - `ExecutionEnvironment` is the stable owner of runtime resources
-- `AgentDeployment` is the rotatable Agent Program layer on that environment
+- `AgentDeployment` is the rotatable Agent layer on that environment
 - runtime pairing and mailbox control keep owner identity separate from the
   current delivery endpoint
 - bundled runtimes such as `Fenix` expose explicit agent and environment planes

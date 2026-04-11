@@ -18,16 +18,16 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
     )
     create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
-    create_open_owned_subagent_session!(
+    create_open_owned_subagent_connection!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: root,
-      executor_program: context[:executor_program],
-      agent_program_version: context[:deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
 
     snapshot = Conversations::BlockerSnapshotQuery.call(conversation: root)
@@ -66,7 +66,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
     )
     create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -80,18 +80,18 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
 
   private
 
-  def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, executor_program:, agent_program_version:)
+  def create_open_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_snapshot:)
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
-      executor_program: executor_program,
-      agent_program_version: agent_program_version,
+      execution_runtime: execution_runtime,
+      agent_snapshot: agent_snapshot,
       addressability: "agent_addressable"
     )
 
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: installation,
       owner_conversation: owner_conversation,
       conversation: child_conversation,

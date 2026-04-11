@@ -1,9 +1,9 @@
 {
-  "method_id": "agent_program_completed",
+  "method_id": "agent_completed",
   "mailbox_item_id": "mailbox-item-public-id",
   "logical_work_id": "prepare-round:workflow-node-public-id",
   "attempt_no": 1,
-  "control_plane": "program",
+  "control_plane": "agent",
   "request_kind": "prepare_round",
   "workflow_node_id": "workflow-node-public-id",
   "conversation_id": "conversation-public-id",

@@ -1,17 +1,17 @@
 require "test_helper"
 
 class ExecutionLeaseTest < ActiveSupport::TestCase
-  test "accepts subagent sessions as leasable runtime resources and tracks heartbeat freshness" do
+  test "accepts subagent connections as leasable runtime resources and tracks heartbeat freshness" do
     context = build_subagent_context!
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: child_conversation,
@@ -26,7 +26,7 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
       installation: context[:installation],
       workflow_run: context[:workflow_run],
       workflow_node: context[:workflow_node],
-      leased_resource: subagent_session,
+      leased_resource: subagent_connection,
       holder_key: "worker-1",
       heartbeat_timeout_seconds: 30,
       acquired_at: Time.current,
@@ -35,7 +35,7 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
     )
 
     assert lease.valid?
-    assert_equal "open", subagent_session.derived_close_status
+    assert_equal "open", subagent_connection.derived_close_status
     lease.save!
     assert lease.active?
 

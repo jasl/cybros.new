@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+ENV["NEXUS_HOME_ROOT"] ||= File.expand_path("../tmp/nexus-home-test", __dir__) if ENV["RAILS_ENV"] == "test"
+require_relative "../lib/nexus/runtime/python_bootstrap"
+Nexus::Runtime::PythonBootstrap.ensure_ready!
+
+require_relative "../config/environment"
+require "solid_queue/cli"
+
+SolidQueue::Cli.start(ARGV)

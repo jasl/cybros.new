@@ -6,8 +6,8 @@ class ConversationSupervisionMessageTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      executor_program: context[:executor_program],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
     )
     session = ConversationSupervisionSession.create!(
       installation: context[:installation],
@@ -27,7 +27,7 @@ class ConversationSupervisionMessageTest < ActiveSupport::TestCase
       anchor_turn_public_id: "turn_public_id",
       anchor_turn_sequence_snapshot: 1,
       conversation_event_projection_sequence_snapshot: 1,
-      active_subagent_session_public_ids: [],
+      active_subagent_connection_public_ids: [],
       bundle_payload: {},
       machine_status_payload: {}
     )
@@ -69,14 +69,14 @@ class ConversationSupervisionMessageTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      executor_program: context[:executor_program],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
     )
     other_conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      executor_program: context[:executor_program],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
     )
     session = ConversationSupervisionSession.create!(
       installation: context[:installation],
@@ -96,7 +96,7 @@ class ConversationSupervisionMessageTest < ActiveSupport::TestCase
       anchor_turn_public_id: "turn_public_id",
       anchor_turn_sequence_snapshot: 1,
       conversation_event_projection_sequence_snapshot: 1,
-      active_subagent_session_public_ids: [],
+      active_subagent_connection_public_ids: [],
       bundle_payload: {},
       machine_status_payload: {}
     )

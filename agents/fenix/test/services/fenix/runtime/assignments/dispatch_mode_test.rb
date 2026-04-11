@@ -21,14 +21,14 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
     dispatch = Fenix::Runtime::Assignments::DispatchMode.call(
       task_payload: { "mode" => "skills_catalog_list" },
       runtime_context: {
-        "agent_program_id" => "agent-program-1",
+        "agent_id" => "agent-1",
         "user_id" => "user-1",
       }
     )
 
     assert_equal "skill_flow", dispatch.fetch("kind")
     assert_equal "catalog-output", dispatch.fetch("output")
-    assert_equal "agent-program-1", captured_repository.scope_roots.agent_program_id
+    assert_equal "agent-1", captured_repository.scope_roots.agent_id
     assert_equal "user-1", captured_repository.scope_roots.user_id
   ensure
     Fenix::Agent::Skills::CatalogList.define_singleton_method(:call, original_catalog_list) if original_catalog_list
@@ -40,7 +40,7 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
     Fenix::Agent::Skills::Load.define_singleton_method(:call) do |skill_name:, repository:|
       captured_args = {
         "skill_name" => skill_name,
-        "agent_program_id" => repository.scope_roots.agent_program_id,
+        "agent_id" => repository.scope_roots.agent_id,
         "user_id" => repository.scope_roots.user_id,
       }
       "load-output"
@@ -52,7 +52,7 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
         "skill_name" => "portable-notes",
       },
       runtime_context: {
-        "agent_program_id" => "agent-program-1",
+        "agent_id" => "agent-1",
         "user_id" => "user-1",
       }
     )
@@ -62,7 +62,7 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
     assert_equal(
       {
         "skill_name" => "portable-notes",
-        "agent_program_id" => "agent-program-1",
+        "agent_id" => "agent-1",
         "user_id" => "user-1",
       },
       captured_args
@@ -78,7 +78,7 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
       captured_args = {
         "skill_name" => skill_name,
         "relative_path" => relative_path,
-        "agent_program_id" => repository.scope_roots.agent_program_id,
+        "agent_id" => repository.scope_roots.agent_id,
         "user_id" => repository.scope_roots.user_id,
       }
       "read-output"
@@ -91,7 +91,7 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
         "relative_path" => "references/checklist.md",
       },
       runtime_context: {
-        "agent_program_id" => "agent-program-1",
+        "agent_id" => "agent-1",
         "user_id" => "user-1",
       }
     )
@@ -102,7 +102,7 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
       {
         "skill_name" => "portable-notes",
         "relative_path" => "references/checklist.md",
-        "agent_program_id" => "agent-program-1",
+        "agent_id" => "agent-1",
         "user_id" => "user-1",
       },
       captured_args
@@ -117,7 +117,7 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
     Fenix::Agent::Skills::Install.define_singleton_method(:call) do |source_path:, repository:|
       captured_args = {
         "source_path" => source_path,
-        "agent_program_id" => repository.scope_roots.agent_program_id,
+        "agent_id" => repository.scope_roots.agent_id,
         "user_id" => repository.scope_roots.user_id,
       }
       "install-output"
@@ -129,7 +129,7 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
         "source_path" => "/tmp/portable-notes",
       },
       runtime_context: {
-        "agent_program_id" => "agent-program-1",
+        "agent_id" => "agent-1",
         "user_id" => "user-1",
       }
     )
@@ -139,7 +139,7 @@ class Fenix::Runtime::Assignments::DispatchModeTest < ActiveSupport::TestCase
     assert_equal(
       {
         "source_path" => "/tmp/portable-notes",
-        "agent_program_id" => "agent-program-1",
+        "agent_id" => "agent-1",
         "user_id" => "user-1",
       },
       captured_args

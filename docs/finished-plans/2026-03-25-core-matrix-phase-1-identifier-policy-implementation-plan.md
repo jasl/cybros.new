@@ -555,7 +555,7 @@ git -C .. commit -m "feat: expose public ids at resource boundaries"
 - Modify: `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
 - Modify: `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
 - Modify: `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
-- Modify: `core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md`
+- Modify: `core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md`
 - Modify: `AGENTS.md`
 - Modify: `docs/plans/README.md`
 

@@ -13,7 +13,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
           workspace_id: context[:workspace].public_id,
           upload_file: upload,
         },
-        headers: app_api_headers(registration[:machine_credential])
+        headers: app_api_headers(registration[:agent_connection_credential])
     end
 
     assert_response :created
@@ -27,7 +27,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     refute_includes response.body, %("#{context[:workspace].id}")
 
     get "/app_api/conversation_bundle_import_requests/#{request_id}",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -48,7 +48,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
       workspace: context[:workspace],
       user: context[:user],
       lifecycle_state: "queued",
-      request_payload: { "target_agent_program_version_id" => context[:agent_program_version].public_id }
+      request_payload: { "target_agent_snapshot_id" => context[:agent_snapshot].public_id }
     )
     request.upload_file.attach(
       io: StringIO.new(File.binread(bundle.fetch("io").path)),
@@ -62,12 +62,12 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
         workspace_id: context[:workspace].id,
         upload_file: upload,
       },
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :not_found
 
     get "/app_api/conversation_bundle_import_requests/#{request.id}",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :not_found
   ensure
@@ -80,8 +80,8 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     imported_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     request = ConversationBundleImportRequest.new(
       installation: context[:installation],
@@ -105,7 +105,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     request.update_columns(imported_conversation_id: nil)
 
     get "/app_api/conversation_bundle_import_requests/#{request.public_id}",
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     response_body = JSON.parse(response.body)

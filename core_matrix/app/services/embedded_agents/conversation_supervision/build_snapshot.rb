@@ -40,7 +40,7 @@ module EmbeddedAgents
           conversation_event_projection_sequence_snapshot: latest_projection_sequence,
           active_workflow_run_public_id: workflow_run&.public_id,
           active_workflow_node_public_id: workflow_node&.public_id,
-          active_subagent_session_public_ids: active_subagent_session_public_ids(bundle_payload),
+          active_subagent_connection_public_ids: active_subagent_connection_public_ids(bundle_payload),
           bundle_payload: bundle_payload,
           machine_status_payload: {}
         )
@@ -130,9 +130,9 @@ module EmbeddedAgents
         )
       end
 
-      def active_subagent_session_public_ids(bundle_payload)
-        Array(bundle_payload["active_subagent_turn_todo_plan_views"]).filter_map { |entry| entry["subagent_session_id"] }.presence ||
-          Array(bundle_payload["active_subagents"]).filter_map { |entry| entry["subagent_session_id"] }
+      def active_subagent_connection_public_ids(bundle_payload)
+        Array(bundle_payload["active_subagent_turn_todo_plan_views"]).filter_map { |entry| entry["subagent_connection_id"] }.presence ||
+          Array(bundle_payload["active_subagents"]).filter_map { |entry| entry["subagent_connection_id"] }
       end
 
       def primary_turn_todo_plan_view
@@ -144,7 +144,7 @@ module EmbeddedAgents
       def active_subagent_turn_todo_plan_views
         return @active_subagent_turn_todo_plan_views if instance_variable_defined?(:@active_subagent_turn_todo_plan_views)
 
-        @active_subagent_turn_todo_plan_views = active_subagent_sessions.filter_map do |session|
+        @active_subagent_turn_todo_plan_views = active_subagent_connections.filter_map do |session|
           active_subagent_turn_todo_plan_view_for(session)
         end
       end
@@ -169,7 +169,7 @@ module EmbeddedAgents
           end
 
         view.merge(
-          "subagent_session_id" => session.public_id,
+          "subagent_connection_id" => session.public_id,
           "profile_key" => session.profile_key,
           "observed_status" => session.observed_status,
           "supervision_state" => session.supervision_state,
@@ -205,10 +205,10 @@ module EmbeddedAgents
         )
       end
 
-      def active_subagent_sessions
-        return @active_subagent_sessions if instance_variable_defined?(:@active_subagent_sessions)
+      def active_subagent_connections
+        return @active_subagent_connections if instance_variable_defined?(:@active_subagent_connections)
 
-        @active_subagent_sessions = @conversation.owned_subagent_sessions
+        @active_subagent_connections = @conversation.owned_subagent_connections
           .close_pending_or_open
           .where(observed_status: ACTIVE_SUBAGENT_OBSERVED_STATUSES)
           .order(:created_at)

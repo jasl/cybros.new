@@ -54,7 +54,7 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
     end
 
     transcript = turn_step_messages_for(workflow_run)
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       prepared_rounds: [
         {
           "messages" => transcript,
@@ -69,7 +69,7 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
           "trace" => [],
         },
       ],
-      program_tool_results: {
+      tool_results: {
         "call-calculator-1" => {
           "status" => "ok",
           "result" => { "value" => 4 },
@@ -84,7 +84,7 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: transcript,
         adapter: tool_call_adapter,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -95,7 +95,7 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
     with_stubbed_provider_catalog(catalog) do
       Workflows::ExecuteNode.call(
         workflow_node: tool_node,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
       Workflows::ExecuteNode.call(
         workflow_node: join_node
@@ -104,7 +104,7 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
         workflow_node: successor,
         messages: transcript,
         adapter: final_adapter,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -128,7 +128,7 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
     assert_equal "tool", tool_messages.second.fetch("role")
     assert_equal "calculator", tool_messages.second.fetch("name")
     assert_equal JSON.generate("value" => 4), tool_messages.second.fetch("content")
-    assert_equal 1, program_exchange.execute_program_tool_requests.length
+    assert_equal 1, agent_request_exchange.execute_tool_requests.length
   end
 
   private

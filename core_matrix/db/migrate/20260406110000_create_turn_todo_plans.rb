@@ -24,7 +24,7 @@ class CreateTurnTodoPlans < ActiveRecord::Migration[8.2]
     create_table :turn_todo_plan_items do |t|
       t.references :turn_todo_plan, null: false, foreign_key: { on_delete: :cascade }
       t.references :installation, null: false, foreign_key: true
-      t.references :delegated_subagent_session, foreign_key: { to_table: :subagent_sessions }
+      t.references :delegated_subagent_connection, foreign_key: { to_table: :subagent_connections }
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :item_key, null: false
       t.string :title, null: false

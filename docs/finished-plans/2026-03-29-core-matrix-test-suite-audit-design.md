@@ -48,7 +48,7 @@ raise meaningful coverage around the core substrate.
   - `app/services/provider_execution/persist_turn_step_success.rb`
   - `app/services/turns/start_user_turn.rb`
   - `app/services/lineage_stores/compact_snapshot.rb`
-  - `app/services/subagent_sessions/spawn.rb`
+  - `app/services/subagent_connections/spawn.rb`
 
 ## Quality Rubric
 
@@ -122,7 +122,7 @@ Priority directories:
 
 - `app/services/agent_control`
 - `app/services/agent_deployments`
-- `app/services/subagent_sessions`
+- `app/services/subagent_connections`
 - `app/services/installations`
 - `app/services/execution_environments`
 

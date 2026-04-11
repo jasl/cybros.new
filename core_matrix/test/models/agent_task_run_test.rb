@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AgentTaskRunTest < ActiveSupport::TestCase
-  test "requires workflow ownership to stay aligned with the accepted agent session" do
+  test "requires workflow ownership to stay aligned with the accepted agent connection" do
     context = build_agent_control_context!
     agent_task_run = create_agent_task_run!(workflow_node: context[:workflow_node])
 
@@ -13,21 +13,21 @@ class AgentTaskRunTest < ActiveSupport::TestCase
       global_settings: {}
     )
     foreign_installation.save!(validate: false)
-    foreign_agent_program = create_agent_program!(installation: foreign_installation)
-    foreign_deployment = create_agent_program_version!(
+    foreign_agent = create_agent!(installation: foreign_installation)
+    foreign_agent_snapshot = create_agent_snapshot!(
       installation: foreign_installation,
-      agent_program: foreign_agent_program
+      agent: foreign_agent
     )
-    foreign_agent_session = create_agent_session!(
+    foreign_agent_connection = create_agent_connection!(
       installation: foreign_installation,
-      agent_program: foreign_agent_program,
-      agent_program_version: foreign_deployment
+      agent: foreign_agent,
+      agent_snapshot: foreign_agent_snapshot
     )
 
-    agent_task_run.holder_agent_session = foreign_agent_session
+    agent_task_run.holder_agent_connection = foreign_agent_connection
 
     assert_not agent_task_run.valid?
-    assert_includes agent_task_run.errors[:holder_agent_session], "must belong to the same installation"
+    assert_includes agent_task_run.errors[:holder_agent_connection], "must belong to the same installation"
   end
 
   test "enforces close lifecycle pairings" do
@@ -54,15 +54,15 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     assert agent_task_run.valid?
   end
 
-  test "supports subagent session and origin turn references" do
-    assert_includes AgentTaskRun.column_names, "subagent_session_id"
+  test "supports subagent connection and origin turn references" do
+    assert_includes AgentTaskRun.column_names, "subagent_connection_id"
     assert_includes AgentTaskRun.column_names, "origin_turn_id"
     assert_includes AgentTaskRun.column_names, "kind"
 
-    subagent_session_association = AgentTaskRun.reflect_on_association(:subagent_session)
+    subagent_connection_association = AgentTaskRun.reflect_on_association(:subagent_connection)
     origin_turn_association = AgentTaskRun.reflect_on_association(:origin_turn)
 
-    assert_equal :belongs_to, subagent_session_association&.macro
+    assert_equal :belongs_to, subagent_connection_association&.macro
     assert_equal :belongs_to, origin_turn_association&.macro
 
     context = build_agent_control_context!
@@ -70,12 +70,12 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,
@@ -88,11 +88,11 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     agent_task_run = create_agent_task_run!(
       workflow_node: context[:workflow_node],
       kind: "subagent_step",
-      subagent_session: subagent_session,
+      subagent_connection: subagent_connection,
       origin_turn: context[:turn]
     )
 
-    assert_equal subagent_session, agent_task_run.subagent_session
+    assert_equal subagent_connection, agent_task_run.subagent_connection
     assert_equal context[:turn], agent_task_run.origin_turn
   end
 
@@ -125,7 +125,7 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     running_task = AgentTaskRun.new(
       create_agent_task_run!(workflow_node: context[:workflow_node]).attributes.slice(
         "installation_id",
-        "agent_program_id",
+        "agent_id",
         "workflow_run_id",
         "workflow_node_id",
         "conversation_id",

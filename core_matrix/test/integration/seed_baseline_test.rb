@@ -6,11 +6,11 @@ class SeedBaselineTest < ActiveSupport::TestCase
     initial_installation_count = Installation.count
     initial_identity_count = Identity.count
     initial_user_count = User.count
-    initial_binding_count = UserProgramBinding.count
+    initial_binding_count = UserAgentBinding.count
     initial_workspace_count = Workspace.count
-    initial_agent_program_count = AgentProgram.count
-    initial_environment_count = ExecutorProgram.count
-    initial_deployment_count = AgentProgramVersion.count
+    initial_agent_count = Agent.count
+    initial_environment_count = ExecutionRuntime.count
+    initial_agent_snapshot_count = AgentSnapshot.count
 
     run_seed_script!(
       installation: installation,
@@ -25,12 +25,12 @@ class SeedBaselineTest < ActiveSupport::TestCase
 
     assert_equal initial_installation_count, Installation.count
     assert_equal installation, Installation.first
-    assert_equal initial_agent_program_count + 1, AgentProgram.count
-    assert_equal initial_environment_count + 1, ExecutorProgram.count
-    assert_equal initial_deployment_count + 1, AgentProgramVersion.count
+    assert_equal initial_agent_count + 1, Agent.count
+    assert_equal initial_environment_count + 1, ExecutionRuntime.count
+    assert_equal initial_agent_snapshot_count + 1, AgentSnapshot.count
     assert_equal initial_identity_count, Identity.count
     assert_equal initial_user_count, User.count
-    assert_equal initial_binding_count, UserProgramBinding.count
+    assert_equal initial_binding_count, UserAgentBinding.count
     assert_equal initial_workspace_count, Workspace.count
     assert_equal 1, ProviderPolicy.where(installation: installation, provider_handle: "dev").count
     assert_equal 1, ProviderEntitlement.where(installation: installation, provider_handle: "dev").count
@@ -65,8 +65,8 @@ class SeedBaselineTest < ActiveSupport::TestCase
 
   test "seeds keep role mock usable when only the dev baseline is present" do
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_program_version: context[:agent_program_version])
-    adopt_agent_program_version!(context, capability_snapshot, turn: nil)
+    capability_snapshot = create_capability_snapshot!(agent_snapshot: context[:agent_snapshot])
+    adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
 
     run_seed_script!(
       installation: context[:installation],
@@ -76,12 +76,12 @@ class SeedBaselineTest < ActiveSupport::TestCase
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      agent_program: context[:agent_program]
+      agent: context[:agent]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Seed selector",
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -100,8 +100,8 @@ class SeedBaselineTest < ActiveSupport::TestCase
 
   test "auto selector fails without a usable real provider even when the dev baseline is present" do
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_program_version: context[:agent_program_version])
-    adopt_agent_program_version!(context, capability_snapshot, turn: nil)
+    capability_snapshot = create_capability_snapshot!(agent_snapshot: context[:agent_snapshot])
+    adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
 
     run_seed_script!(
       installation: context[:installation],
@@ -111,12 +111,12 @@ class SeedBaselineTest < ActiveSupport::TestCase
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      agent_program: context[:agent_program]
+      agent: context[:agent]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Seed selector",
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -134,8 +134,8 @@ class SeedBaselineTest < ActiveSupport::TestCase
 
   test "seeded real provider credentials plus seeded governance keep role main usable without changing auto selector mode" do
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_program_version: context[:agent_program_version])
-    adopt_agent_program_version!(context, capability_snapshot, turn: nil)
+    capability_snapshot = create_capability_snapshot!(agent_snapshot: context[:agent_snapshot])
+    adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
 
     run_seed_script!(
       installation: context[:installation],
@@ -145,12 +145,12 @@ class SeedBaselineTest < ActiveSupport::TestCase
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      agent_program: context[:agent_program]
+      agent: context[:agent]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Seed selector",
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

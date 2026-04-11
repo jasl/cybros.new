@@ -67,8 +67,8 @@ class TurnExecutionSnapshot
           "tool_surface" => snapshot.tool_surface,
           "profile_key" => snapshot.profile_key,
           "is_subagent" => snapshot.subagent,
-          "subagent_session_id" => snapshot.subagent_session&.public_id,
-          "parent_subagent_session_id" => snapshot.parent_subagent_session&.public_id,
+          "subagent_connection_id" => snapshot.subagent_connection&.public_id,
+          "parent_subagent_connection_id" => snapshot.parent_subagent_connection&.public_id,
           "subagent_depth" => snapshot.subagent_depth,
           "owner_conversation_id" => snapshot.owner_conversation&.public_id,
           "subagent_policy" => snapshot.subagent_policy_snapshot.deep_dup,
@@ -91,13 +91,13 @@ class TurnExecutionSnapshot
         {}
       else
         {
-          "control_plane" => "program",
+          "control_plane" => "agent",
           "logical_work_id" => nil,
           "attempt_no" => nil,
-          "agent_program_version_id" => turn.agent_program_version.public_id,
-          "agent_program_id" => turn.agent_program_version.agent_program.public_id,
+          "agent_snapshot_id" => turn.agent_snapshot.public_id,
+          "agent_id" => turn.agent_snapshot.agent.public_id,
           "user_id" => turn.conversation.workspace.user.public_id,
-          "executor_program_id" => turn.executor_program&.public_id,
+          "execution_runtime_id" => turn.execution_runtime&.public_id,
         }.compact
       end
     end

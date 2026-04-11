@@ -139,8 +139,8 @@ Suggested fields:
 - `profile_key`
 - `subagent`
 - `subagent_depth`
-- `subagent_session_id`
-- `parent_subagent_session_id`
+- `subagent_connection_id`
+- `parent_subagent_connection_id`
 - `owner_conversation_id`
 - `tool_surface_document_id`
 - `subagent_policy_snapshot`
@@ -185,7 +185,7 @@ Suggested fields:
 - `installation_id`
 - `turn_id`
 - `public_id`
-- `agent_program_version_id`
+- `agent_snapshot_id`
 - `execution_runtime_id`
 - `selected_input_message_id`
 - `selected_output_message_id`
@@ -208,7 +208,7 @@ The contract is the frozen agreement between orchestration and execution:
 - which attachments are in play
 
 It does not duplicate data already owned by `Turn`, `Conversation`, `Message`,
-or `AgentProgramVersion`.
+or `AgentSnapshot`.
 
 ## Existing Tables After Refactor
 

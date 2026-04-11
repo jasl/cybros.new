@@ -24,7 +24,7 @@ questions about how work executed, not how providers billed for it.
   - `turn_id`
   - `workflow_node_key`
   - `process_run_id`
-  - `subagent_session_id`
+  - `subagent_connection_id`
   - `human_interaction_request_id`
 - Runtime reference columns are stored as loose scalar identifiers instead of
   future foreign keys so later runtime tables can land without forcing a schema

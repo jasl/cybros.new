@@ -218,12 +218,12 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: context[:conversation],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: child_conversation,
@@ -265,8 +265,8 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      executor_program: context[:executor_program],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
     )
 
     state = Conversations::UpdateSupervisionState.call(
@@ -324,7 +324,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       lifecycle_state: "running",
       started_at: 30.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
 
@@ -479,13 +479,13 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       lifecycle_state: "running",
       started_at: 30.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       installation: context[:installation],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       lifecycle_state: "running",
       command_line: "cd /workspace/game-2048 && npm run dev -- --host 0.0.0.0 --port 4173",
       started_at: 20.seconds.ago
@@ -509,7 +509,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       lifecycle_state: "running",
       started_at: 30.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
     command_execution = create_exec_command_execution!(
@@ -540,7 +540,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       started_at: 2.minutes.ago,
       finished_at: 90.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       provider_round_index: 1,
       metadata: {}
     )
@@ -552,7 +552,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       lifecycle_state: "running",
       started_at: 20.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       provider_round_index: 2,
       metadata: {}
     )
@@ -572,7 +572,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       lifecycle_state: "running",
       started_at: 10.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       provider_round_index: 2,
       tool_call_document: JsonDocuments::Store.call(
         installation: context[:installation],
@@ -609,13 +609,13 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       lifecycle_state: "running",
       started_at: 20.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
       installation: context[:installation],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       lifecycle_state: "running",
       command_line: "cd /workspace/game-2048 && npm run preview",
       started_at: 20.seconds.ago
@@ -628,7 +628,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       lifecycle_state: "running",
       started_at: 10.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       provider_round_index: 2,
       metadata: {}
     )
@@ -682,13 +682,13 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       started_at: 20.seconds.ago,
       finished_at: 5.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
     create_process_run!(
       workflow_node: context[:workflow_node],
       installation: context[:installation],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       lifecycle_state: "stopped",
       command_line: "cd /workspace/game-2048 && npm run preview",
       started_at: 20.seconds.ago,
@@ -737,18 +737,18 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "The turn failed.", state.recent_progress_summary
   end
 
-  test "prefers an active conversation subagent session over a historical terminal task" do
+  test "prefers an active conversation subagent connection over a historical terminal task" do
     parent_context = build_agent_control_context!
     child_conversation = create_conversation_record!(
       workspace: parent_context[:workspace],
       installation: parent_context[:installation],
       parent_conversation: parent_context[:conversation],
-      executor_program: parent_context[:executor_program],
-      agent_program_version: parent_context[:agent_program_version],
+      execution_runtime: parent_context[:execution_runtime],
+      agent_snapshot: parent_context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: parent_context[:installation],
       owner_conversation: parent_context[:conversation],
       conversation: child_conversation,
@@ -791,8 +791,8 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workflow_node: child_workflow_node,
       conversation: child_conversation,
       turn: child_turn,
-      agent_program: parent_context[:agent_program],
-      subagent_session: subagent_session,
+      agent: parent_context[:agent],
+      subagent_connection: subagent_connection,
       origin_turn: parent_context[:turn],
       kind: "subagent_step",
       lifecycle_state: "completed",
@@ -811,8 +811,8 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     )
 
     assert_equal "running", state.overall_state
-    assert_equal "subagent_session", state.current_owner_kind
-    assert_equal subagent_session.public_id, state.current_owner_public_id
+    assert_equal "subagent_connection", state.current_owner_kind
+    assert_equal subagent_connection.public_id, state.current_owner_public_id
     assert_equal "Continuing reusable child work", state.current_focus_summary
   end
 
@@ -824,8 +824,8 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: context[:conversation],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -833,12 +833,12 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: context[:conversation],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
-    barrier_session = SubagentSession.create!(
+    barrier_session = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: barrier_conversation,
@@ -851,7 +851,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       last_progress_at: 1.minute.ago,
       supervision_payload: {}
     )
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: unrelated_conversation,
@@ -877,7 +877,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       stage_index: 0,
       stage_position: 0,
       yielding_workflow_node: yielding_node,
-      spawned_subagent_session: barrier_session,
+      spawned_subagent_connection: barrier_session,
       started_at: 2.minutes.ago,
       finished_at: 90.seconds.ago
     )
@@ -973,12 +973,12 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: context[:conversation],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: child_conversation,
@@ -1021,8 +1021,8 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       workflow_node: child_workflow_node,
       conversation: child_conversation,
       turn: child_turn,
-      agent_program: context[:agent_program],
-      subagent_session: subagent_session,
+      agent: context[:agent],
+      subagent_connection: subagent_connection,
       origin_turn: context[:turn],
       kind: "subagent_step",
       lifecycle_state: "running",
@@ -1054,7 +1054,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     {
       conversation: context[:conversation],
       agent_task_run: agent_task_run,
-      subagent_session: subagent_session,
+      subagent_connection: subagent_connection,
       child_agent_task_run: child_agent_task_run,
     }
   end

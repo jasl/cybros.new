@@ -42,7 +42,7 @@ it is not a reusable template.
   handles.
 - Supported v1 decision sources are:
   - `llm`
-  - `agent_program`
+  - `agent`
   - `system`
   - `user`
 - Supported workflow-node lifecycle states are:

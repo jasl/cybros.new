@@ -75,7 +75,7 @@ module Acceptance
           case workload_kind
           when "execution_assignment"
             EXECUTION_ASSIGNMENT_REQUEST_CORPUS
-          when "program_exchange_mock"
+          when "agent_request_exchange_mock"
             PROGRAM_EXCHANGE_MOCK_REQUEST_CORPUS
           else
             raise ArgumentError, "unsupported workload kind: #{workload_kind}"

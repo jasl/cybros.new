@@ -96,13 +96,13 @@ class RetrySemanticsE2ETest < ActionDispatch::IntegrationTest
     initial_task = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: background_service,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:agent_snapshot].public_id,
       heartbeat_timeout_seconds: 30
     )
 
@@ -138,8 +138,8 @@ class RetrySemanticsE2ETest < ActionDispatch::IntegrationTest
   def build_harness(context:)
     FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential]
     )
   end
 

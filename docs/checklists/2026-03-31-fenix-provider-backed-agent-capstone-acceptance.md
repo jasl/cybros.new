@@ -28,7 +28,7 @@ and fully complementary:
 - `Core Matrix` owns the provider-backed loop, tool calling substrate, generic
   MCP support, workflow orchestration, and durable proof
 - `Fenix` owns prompt preparation, skills policy, and execution of
-  program-owned tools through the published runtime contract
+  agent-owned tools through the published runtime contract
 
 ## Fixed Acceptance Workload
 
@@ -52,7 +52,7 @@ The final application must be runnable from the host machine using the mounted
 workspace contents in `tmp/fenix`.
 
 The current runtime contract baseline for this acceptance is
-`agent-program/2026-04-01`. Manual validation, proof capture, and any helper
+`agent-runtime/2026-04-01`. Manual validation, proof capture, and any helper
 scripts used during the run must read the sectioned envelope shape:
 
 - `task`
@@ -94,7 +94,7 @@ portability:
 - the Docker container must mount the workspace to
   `/Users/jasl/Workspaces/Ruby/cybros/tmp/fenix`
 - the development server must be reachable from the host machine
-- after external registration returns the runtime machine credential, start the
+- after external registration returns the runtime connection credential, start the
   persistent runtime worker inside the Docker container with the same
   `CORE_MATRIX_BASE_URL`, `CORE_MATRIX_MACHINE_CREDENTIAL`, and execution
   credential
@@ -110,7 +110,7 @@ portability:
 
 - the work must run through the real conversation and turn model
 - `Core Matrix` must execute the repeated provider-backed loop
-- `Fenix` must provide prompt preparation and program-owned tool execution
+- `Fenix` must provide prompt preparation and agent-owned tool execution
   through the published runtime endpoints
 - the run must use the sectioned runtime contract above; no legacy flat
   `agent_context`, `context_messages`, or `program_tools` payloads may be used
@@ -139,7 +139,7 @@ For every turn in the capstone run, record:
 - conversation `public_id`
 - turn `public_id`
 - workflow-run `public_id`
-- agent program version identifier, executor program identifier, and runtime mode
+- agent agent snapshot identifier, execution runtime identifier, and runtime mode
 - provider handle, model ref, and API model when applicable
 - expected DAG shape
 - observed DAG shape
@@ -332,8 +332,8 @@ The capstone run passes only if all of the following are true:
 - per-turn DAG and conversation-state records are complete
 - the final application is present under `tmp/fenix`
 - runtime-generated memory, prompts, and conversation-local artifacts may live
-  under the agent-program-version namespace inside
-  `tmp/fenix/.fenix/agent_program_versions/...`
+  under the agent-snapshot namespace inside
+  `tmp/fenix/.fenix/agent_snapshots/...`
 - the game is actually playable by a human
 - the proof package is complete, including chat transcript and collaboration
   notes

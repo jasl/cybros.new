@@ -21,7 +21,7 @@ module RuntimeCapabilities
         "result_schema" => {
           "type" => "object",
           "properties" => {
-            "subagent_session_id" => { "type" => "string" },
+            "subagent_connection_id" => { "type" => "string" },
             "conversation_id" => { "type" => "string" },
             "turn_id" => { "type" => "string" },
             "workflow_run_id" => { "type" => "string" },
@@ -39,15 +39,15 @@ module RuntimeCapabilities
         "input_schema" => {
           "type" => "object",
           "properties" => {
-            "subagent_session_id" => { "type" => "string" },
+            "subagent_connection_id" => { "type" => "string" },
             "content" => { "type" => "string" },
           },
-          "required" => %w[subagent_session_id content],
+          "required" => %w[subagent_connection_id content],
         },
         "result_schema" => {
           "type" => "object",
           "properties" => {
-            "subagent_session_id" => { "type" => "string" },
+            "subagent_connection_id" => { "type" => "string" },
             "conversation_id" => { "type" => "string" },
             "message_id" => { "type" => "string" },
           },
@@ -63,15 +63,15 @@ module RuntimeCapabilities
         "input_schema" => {
           "type" => "object",
           "properties" => {
-            "subagent_session_id" => { "type" => "string" },
+            "subagent_connection_id" => { "type" => "string" },
             "timeout_seconds" => { "type" => "number" },
           },
-          "required" => %w[subagent_session_id timeout_seconds],
+          "required" => %w[subagent_connection_id timeout_seconds],
         },
         "result_schema" => {
           "type" => "object",
           "properties" => {
-            "subagent_session_id" => { "type" => "string" },
+            "subagent_connection_id" => { "type" => "string" },
             "timed_out" => { "type" => "boolean" },
             "derived_close_status" => { "type" => "string" },
             "observed_status" => { "type" => "string" },
@@ -89,15 +89,15 @@ module RuntimeCapabilities
         "input_schema" => {
           "type" => "object",
           "properties" => {
-            "subagent_session_id" => { "type" => "string" },
+            "subagent_connection_id" => { "type" => "string" },
             "strictness" => { "type" => "string", "enum" => %w[graceful forced] },
           },
-          "required" => ["subagent_session_id"],
+          "required" => ["subagent_connection_id"],
         },
         "result_schema" => {
           "type" => "object",
           "properties" => {
-            "subagent_session_id" => { "type" => "string" },
+            "subagent_connection_id" => { "type" => "string" },
             "derived_close_status" => { "type" => "string" },
             "observed_status" => { "type" => "string" },
             "close_state" => { "type" => "string" },
@@ -123,7 +123,7 @@ module RuntimeCapabilities
               "items" => {
                 "type" => "object",
                 "properties" => {
-                  "subagent_session_id" => { "type" => "string" },
+                  "subagent_connection_id" => { "type" => "string" },
                   "conversation_id" => { "type" => "string" },
                   "profile_key" => { "type" => "string" },
                   "scope" => { "type" => "string" },
@@ -185,16 +185,16 @@ module RuntimeCapabilities
       new(...).call
     end
 
-    def initialize(executor_program:, agent_program_version: nil, capability_snapshot: nil, core_matrix_tool_catalog: CORE_MATRIX_TOOL_CATALOG)
-      @executor_program = executor_program
-      @agent_program_version = agent_program_version || capability_snapshot
+    def initialize(execution_runtime:, agent_snapshot: nil, capability_snapshot: nil, core_matrix_tool_catalog: CORE_MATRIX_TOOL_CATALOG)
+      @execution_runtime = execution_runtime
+      @agent_snapshot = agent_snapshot || capability_snapshot
       @core_matrix_tool_catalog = Array(core_matrix_tool_catalog)
     end
 
     def call
       RuntimeCapabilityContract.build(
-        executor_program: @executor_program,
-        agent_program_version: @agent_program_version,
+        execution_runtime: @execution_runtime,
+        agent_snapshot: @agent_snapshot,
         core_matrix_tool_catalog: @core_matrix_tool_catalog
       ).effective_tool_catalog
     end

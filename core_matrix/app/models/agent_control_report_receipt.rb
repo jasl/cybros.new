@@ -15,8 +15,8 @@ class AgentControlReportReceipt < ApplicationRecord
   before_validation :materialize_pending_payload
 
   belongs_to :installation
-  belongs_to :agent_session, optional: true
-  belongs_to :executor_session, class_name: "ExecutorSession", optional: true
+  belongs_to :agent_connection, optional: true
+  belongs_to :execution_runtime_connection, class_name: "ExecutionRuntimeConnection", optional: true
   belongs_to :agent_task_run, optional: true
   belongs_to :mailbox_item, class_name: "AgentControlMailboxItem", optional: true
   belongs_to :report_document, class_name: "JsonDocument", optional: true
@@ -126,8 +126,8 @@ class AgentControlReportReceipt < ApplicationRecord
   end
 
   def compact_program_tool_report_response?(response_payload)
-    method_id == "agent_program_completed" &&
-      mailbox_item&.payload&.fetch("request_kind", nil) == "execute_program_tool" &&
+    method_id == "agent_completed" &&
+      mailbox_item&.payload&.fetch("request_kind", nil) == "execute_tool" &&
       response_payload.is_a?(Hash) &&
       resolved_tool_invocation.present?
   end
@@ -135,7 +135,7 @@ class AgentControlReportReceipt < ApplicationRecord
   def compact_response_payload(response_payload)
     response_payload
       .deep_stringify_keys
-      .except("program_tool_call")
+      .except("tool_call")
       .tap do |compact|
         compact.delete("status") if compact["status"] == "ok"
         compact.delete("output_chunks") if Array(compact["output_chunks"]).empty?
@@ -145,8 +145,8 @@ class AgentControlReportReceipt < ApplicationRecord
   end
 
   def reconstructed_response_payload(payload)
-    return {} unless method_id == "agent_program_completed"
-    return {} unless mailbox_item&.payload&.fetch("request_kind", nil) == "execute_program_tool"
+    return {} unless method_id == "agent_completed"
+    return {} unless mailbox_item&.payload&.fetch("request_kind", nil) == "execute_tool"
 
     existing = payload["response_payload"].is_a?(Hash) ? payload["response_payload"] : {}
     response = {}
@@ -154,7 +154,7 @@ class AgentControlReportReceipt < ApplicationRecord
     response["status"] = "ok" unless existing.key?("status")
     response["output_chunks"] = [] unless existing.key?("output_chunks")
     response["summary_artifacts"] = [] unless existing.key?("summary_artifacts")
-    response["program_tool_call"] = mailbox_item.payload.fetch("program_tool_call") unless existing.key?("program_tool_call")
+    response["tool_call"] = mailbox_item.payload.fetch("tool_call") unless existing.key?("tool_call")
 
     if !existing.key?("result") && (tool_invocation = resolved_tool_invocation).present?
       response["result"] = tool_invocation.response_payload

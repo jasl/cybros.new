@@ -14,8 +14,8 @@ module ToolBindings
 
     def call
       ToolBindings::ProjectCapabilitySnapshot.call(
-        agent_program_version: agent_program_version,
-        executor_program: executor_program
+        agent_snapshot: agent_snapshot,
+        execution_runtime: execution_runtime
       )
 
       if @tool_catalog_provided
@@ -47,12 +47,12 @@ module ToolBindings
       @workflow_node.tool_bindings.where(agent_task_run_id: nil)
     end
 
-    def agent_program_version
-      @agent_program_version ||= turn_record.agent_program_version || raise_invalid!("missing agent program version")
+    def agent_snapshot
+      @agent_snapshot ||= turn_record.agent_snapshot || raise_invalid!("missing agent snapshot")
     end
 
-    def executor_program
-      @executor_program ||= @workflow_node.turn.executor_program
+    def execution_runtime
+      @execution_runtime ||= @workflow_node.turn.execution_runtime
     end
 
     def requested_tool_catalog
@@ -68,7 +68,7 @@ module ToolBindings
     def allowed_tool_names
       @allowed_tool_names ||= begin
         profile_allowed_names = Array(
-          agent_program_version.profile_catalog.fetch(current_profile_key, {}).fetch("allowed_tool_names", [])
+          agent_snapshot.profile_catalog.fetch(current_profile_key, {}).fetch("allowed_tool_names", [])
         ).uniq
         if profile_allowed_names.present?
           profile_allowed_names
@@ -88,14 +88,14 @@ module ToolBindings
 
     def definitions_by_name
       @definitions_by_name ||= ToolDefinition.where(
-        agent_program_version: agent_program_version,
+        agent_snapshot: agent_snapshot,
         tool_name: allowed_tool_names
       ).includes(:tool_implementations).index_by(&:tool_name)
     end
 
     def upsert_definition_for_entry!(tool_entry)
       definition = ToolDefinition.find_or_initialize_by(
-        agent_program_version: agent_program_version,
+        agent_snapshot: agent_snapshot,
         tool_name: tool_entry.fetch("tool_name")
       )
       definition.installation = @workflow_node.installation
@@ -152,7 +152,7 @@ module ToolBindings
       source = tool_entry.fetch("implementation_source")
 
       return "reserved" if reserved_tool_name?(tool_name)
-      return "whitelist_only" if source == "executor_program"
+      return "whitelist_only" if source == "execution_runtime"
 
       "replaceable"
     end
@@ -165,16 +165,16 @@ module ToolBindings
     end
 
     def reserved_tool_name?(tool_name)
-      tool_name.start_with?(AgentProgramVersion::RESERVED_CORE_MATRIX_PREFIX) || RESERVED_TOOL_NAMES.include?(tool_name)
+      tool_name.start_with?(AgentSnapshot::RESERVED_CORE_MATRIX_PREFIX) || RESERVED_TOOL_NAMES.include?(tool_name)
     end
 
     def find_or_create_source!(tool_entry)
       source_kind = tool_entry.fetch("implementation_source")
       source_ref = case source_kind
-      when "executor_program"
-        executor_program.public_id
+      when "execution_runtime"
+        execution_runtime.public_id
       when "agent", "kernel"
-        "agent_program_version:#{agent_program_version.public_id}"
+        "agent_snapshot:#{agent_snapshot.public_id}"
       when "core_matrix"
         "built_in"
       else

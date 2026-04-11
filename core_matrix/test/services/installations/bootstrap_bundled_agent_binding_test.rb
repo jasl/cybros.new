@@ -15,8 +15,8 @@ class Installations::BootstrapBundledAgentBindingTest < ActiveSupport::TestCase
     )
 
     assert_nil result
-    assert_equal 0, AgentProgram.count
-    assert_equal 0, UserProgramBinding.count
+    assert_equal 0, Agent.count
+    assert_equal 0, UserAgentBinding.count
     assert_equal 0, Workspace.count
   end
 
@@ -30,15 +30,15 @@ class Installations::BootstrapBundledAgentBindingTest < ActiveSupport::TestCase
       configuration: bundled_agent_configuration(enabled: true)
     )
 
-    assert_equal result.agent_program, result.binding.agent_program
-    assert_equal result.binding, result.workspace.user_program_binding
+    assert_equal result.agent, result.binding.agent
+    assert_equal result.binding, result.workspace.user_agent_binding
     assert_equal user, result.workspace.user
     assert_equal installation, result.workspace.installation
     assert result.workspace.is_default?
-    assert_equal 1, AgentProgram.count
-    assert_equal 1, ExecutorProgram.count
-    assert_equal 1, AgentProgramVersion.count
-    assert_equal 1, UserProgramBinding.count
+    assert_equal 1, Agent.count
+    assert_equal 1, ExecutionRuntime.count
+    assert_equal 1, AgentSnapshot.count
+    assert_equal 1, UserAgentBinding.count
     assert_equal 1, Workspace.count
   end
 end

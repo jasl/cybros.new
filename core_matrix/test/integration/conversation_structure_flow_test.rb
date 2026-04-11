@@ -7,13 +7,13 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
 
     root = Conversations::CreateRoot.call(
       workspace: workspace,
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -26,7 +26,7 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
     branch_turn = Turns::StartUserTurn.call(
       conversation: branch,
       content: "Branch input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -42,8 +42,8 @@ class ConversationStructureFlowTest < ActionDispatch::IntegrationTest
 
     automation_root = Conversations::CreateAutomationRoot.call(
       workspace: workspace,
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
 
     assert_equal "active", branch.reload.lifecycle_state

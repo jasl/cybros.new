@@ -1,5 +1,5 @@
 class ExecutionLease < ApplicationRecord
-  LEASED_RESOURCE_TYPES = %w[AgentTaskRun ProcessRun SubagentSession].freeze
+  LEASED_RESOURCE_TYPES = %w[AgentTaskRun ProcessRun SubagentConnection].freeze
 
   belongs_to :installation
   belongs_to :workflow_run
@@ -29,17 +29,17 @@ class ExecutionLease < ApplicationRecord
     last_heartbeat_at < at - heartbeat_timeout_seconds.seconds
   end
 
-  def holder_deployment
+  def holder_agent_snapshot
     return if holder_key.blank?
 
-    @holder_deployment ||= AgentProgramVersion.find_by(
+    @holder_agent_snapshot ||= AgentSnapshot.find_by(
       installation_id: installation_id,
       public_id: holder_key
     )
   end
 
-  def holder_executor_program
-    holder_deployment&.executor_program
+  def holder_execution_runtime
+    holder_agent_snapshot&.execution_runtime
   end
 
   private

@@ -8,13 +8,13 @@ inventing demo users or UI state.
 
 ## Agent Visibility Query
 
-### `AgentPrograms::VisibleToUserQuery`
+### `Agents::VisibleToUserQuery`
 
-- Returns only `AgentProgram` rows that are visible to one user inside the
+- Returns only `Agent` rows that are visible to one user inside the
   single installation.
 - Visibility remains distinct:
-  - `global` agent programs are visible to every user in the installation
-  - `personal` agent programs are visible only to their `owner_user`
+  - `global` agents are visible to every user in the installation
+  - `personal` agents are visible only to their `owner_user`
 - Retired logical agent rows are excluded from the default visible list.
 - Results are ordered with global agents first, then personal agents, with a
   stable secondary order by display name and id.
@@ -160,14 +160,14 @@ of carrying separate counter families and close-summary logic in parallel.
   - the provider catalog baseline
   - optional real-provider credentials and governance rows
   - bundled runtime reconciliation when the scenario needs a bundled `Fenix`
-    deployment
+    agent snapshot
 - The acceptance support layer silences seed stdout during those script runs so
   the operator scripts can write pure JSON to stdout and be redirected
   directly into `/tmp/*.json`.
 
 ## Failure Modes
 
-- Agent visibility queries exclude another user's personal agent program
+- Agent visibility queries exclude another user's personal agent
 - Human interaction inbox queries exclude resolved requests and requests owned
   by another user's private workspace
 - Workspace queries never cross the private workspace ownership boundary

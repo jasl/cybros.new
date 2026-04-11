@@ -9,7 +9,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     end
   end
 
-  test "prepare_round agent program requests emit a completed terminal report" do
+  test "prepare_round agent requests emit a completed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 
     Dir.mktmpdir("fenix-workspace-") do |workspace_root|
@@ -22,7 +22,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
       )
 
       assert_equal "ok", result.fetch("status")
-      assert_equal ["agent_program_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+      assert_equal ["agent_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
       assert_equal "prepare_round", client.reported_payloads.last.fetch("request_kind")
       assert_equal "ok", client.reported_payloads.last.dig("response_payload", "status")
       assert_equal %w[compact_context exec_command], client.reported_payloads.last.dig("response_payload", "visible_tool_names")
@@ -47,12 +47,12 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     assert_equal prepare_round_report_contract_fixture, normalize_prepare_round_report(client.reported_payloads.last)
   end
 
-  test "execute_program_tool agent program requests emit a completed terminal report" do
+  test "execute_tool agent requests emit a completed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 
     Dir.mktmpdir("fenix-workspace-") do |workspace_root|
       result = Fenix::Runtime::ExecuteMailboxItem.call(
-        mailbox_item: execute_program_tool_mailbox_item(
+        mailbox_item: execute_tool_mailbox_item(
           workspace_root: workspace_root,
           allowed_tool_names: %w[exec_command]
         ),
@@ -61,19 +61,19 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
       )
 
       assert_equal "ok", result.fetch("status")
-      assert_equal ["agent_program_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
-      assert_equal "execute_program_tool", client.reported_payloads.last.fetch("request_kind")
+      assert_equal ["agent_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+      assert_equal "execute_tool", client.reported_payloads.last.fetch("request_kind")
       assert_equal "ok", client.reported_payloads.last.dig("response_payload", "status")
-      assert_equal "exec_command", client.reported_payloads.last.dig("response_payload", "program_tool_call", "tool_name")
+      assert_equal "exec_command", client.reported_payloads.last.dig("response_payload", "tool_call", "tool_name")
       assert_equal 0, client.reported_payloads.last.dig("response_payload", "result", "exit_status")
     end
   end
 
-  test "execute_program_tool terminal report matches the shared contract fixture" do
+  test "execute_tool terminal report matches the shared contract fixture" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
     mailbox_item = JSON.parse(
       File.read(
-        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "core_matrix_fenix_execute_program_tool_mailbox_item.json")
+        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "core_matrix_fenix_execute_tool_mailbox_item.json")
       )
     )
 
@@ -84,14 +84,14 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_equal "ok", result.fetch("status")
-    assert_equal execute_program_tool_report_contract_fixture, normalize_execute_program_tool_report(client.reported_payloads.last)
+    assert_equal execute_tool_report_contract_fixture, normalize_execute_tool_report(client.reported_payloads.last)
   end
 
-  test "execute_program_tool failures emit a failed terminal report" do
+  test "execute_tool failures emit a failed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 
     result = Fenix::Runtime::ExecuteMailboxItem.call(
-      mailbox_item: execute_program_tool_mailbox_item(
+      mailbox_item: execute_tool_mailbox_item(
         workspace_root: Dir.tmpdir,
         allowed_tool_names: []
       ),
@@ -100,17 +100,17 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_equal "failed", result.fetch("status")
-    assert_equal ["agent_program_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
-    assert_equal "execute_program_tool", client.reported_payloads.last.fetch("request_kind")
+    assert_equal ["agent_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "execute_tool", client.reported_payloads.last.fetch("request_kind")
     assert_equal "tool_not_allowed", client.reported_payloads.last.dig("error_payload", "code")
   end
 
-  test "execute_program_tool forwards the control client into executor-backed process tools" do
+  test "execute_tool forwards the control client into execution-runtime-backed process tools" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
     received_control_client = nil
-    original_new = Fenix::Executor::ProgramToolExecutor.method(:new)
+    original_new = Fenix::ExecutionRuntime::ToolExecutor.method(:new)
 
-    Fenix::Executor::ProgramToolExecutor.define_singleton_method(:new) do |context:, collector: nil, control_client: nil, cancellation_probe: nil|
+    Fenix::ExecutionRuntime::ToolExecutor.define_singleton_method(:new) do |context:, collector: nil, control_client: nil, cancellation_probe: nil|
       received_control_client = control_client
       Object.new.tap do |executor|
         executor.define_singleton_method(:call) do |tool_call:, command_run: nil, process_run: nil|
@@ -126,7 +126,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     end
 
     result = Fenix::Runtime::ExecuteMailboxItem.call(
-      mailbox_item: execute_program_tool_mailbox_item(
+      mailbox_item: execute_tool_mailbox_item(
         workspace_root: Dir.tmpdir,
         allowed_tool_names: %w[process_exec],
         tool_name: "process_exec",
@@ -141,10 +141,10 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     assert_equal "ok", result.fetch("status")
     assert_same client, received_control_client
   ensure
-    Fenix::Executor::ProgramToolExecutor.define_singleton_method(:new, original_new) if original_new
+    Fenix::ExecutionRuntime::ToolExecutor.define_singleton_method(:new, original_new) if original_new
   end
 
-  test "supervision_status_refresh agent program requests emit a completed terminal report" do
+  test "supervision_status_refresh agent requests emit a completed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 
     result = Fenix::Runtime::ExecuteMailboxItem.call(
@@ -154,13 +154,13 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_equal "ok", result.fetch("status")
-    assert_equal ["agent_program_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal ["agent_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
     assert_equal "supervision_status_refresh", client.reported_payloads.last.fetch("request_kind")
     assert_equal "supervision_status_refresh", client.reported_payloads.last.dig("response_payload", "handled_request_kind")
     assert_equal "status_refresh_acknowledged", client.reported_payloads.last.dig("response_payload", "control_outcome", "outcome_kind")
   end
 
-  test "supervision_guidance agent program requests emit a completed terminal report" do
+  test "supervision_guidance agent requests emit a completed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 
     result = Fenix::Runtime::ExecuteMailboxItem.call(
@@ -170,7 +170,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_equal "ok", result.fetch("status")
-    assert_equal ["agent_program_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal ["agent_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
     assert_equal "supervision_guidance", client.reported_payloads.last.fetch("request_kind")
     assert_equal "supervision_guidance", client.reported_payloads.last.dig("response_payload", "handled_request_kind")
     assert_equal "guidance_acknowledged", client.reported_payloads.last.dig("response_payload", "control_outcome", "outcome_kind")
@@ -207,7 +207,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_equal "failed", result.fetch("status")
-    assert_equal ["agent_program_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal ["agent_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
     assert_equal "invalid_conversation_control_request", client.reported_payloads.last.dig("error_payload", "code")
   end
 
@@ -218,7 +218,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
       {
         "name" => skill_name,
         "scope" => [
-          repository.scope_roots.agent_program_id,
+          repository.scope_roots.agent_id,
           repository.scope_roots.user_id,
         ],
       }
@@ -229,9 +229,9 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
         mode: "skills_load",
         task_payload: { "skill_name" => "portable-notes" },
         runtime_context: {
-          "agent_program_id" => "agent-program-1",
+          "agent_id" => "agent-1",
           "user_id" => "user-1",
-          "agent_program_version_id" => "agent-program-version-1",
+          "agent_snapshot_id" => "agent-snapshot-1",
         }
       ),
       deliver_reports: true,
@@ -273,7 +273,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
       mailbox_item: execution_assignment_mailbox_item(
         mode: "skills_catalog_list",
         runtime_context: {
-          "agent_program_version_id" => "agent-program-version-1",
+          "agent_snapshot_id" => "agent-snapshot-1",
         }
       ),
       deliver_reports: true,
@@ -333,7 +333,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-execution-assignment-1",
       "logical_work_id" => "logical-work-execution-assignment-1",
       "attempt_no" => 1,
-      "control_plane" => "program",
+      "control_plane" => "agent",
       "payload" => {
         "request_kind" => "execution_assignment",
         "task" => {
@@ -354,12 +354,12 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
 
   def prepare_round_mailbox_item(workspace_root:)
     {
-      "item_type" => "agent_program_request",
+      "item_type" => "agent_request",
       "item_id" => "mailbox-item-prepare-round-1",
       "protocol_message_id" => "protocol-message-prepare-round-1",
       "logical_work_id" => "prepare-round:workflow-node-1",
       "attempt_no" => 1,
-      "control_plane" => "program",
+      "control_plane" => "agent",
       "payload" => {
         "request_kind" => "prepare_round",
         "task" => {
@@ -383,7 +383,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
           "model_context" => { "model_slug" => "gpt-5.4" },
         },
         "runtime_context" => {
-          "agent_program_version_id" => "agent-program-version-1",
+          "agent_snapshot_id" => "agent-snapshot-1",
         },
         "workspace_context" => {
           "workspace_root" => workspace_root,
@@ -392,16 +392,16 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     }
   end
 
-  def execute_program_tool_mailbox_item(workspace_root:, allowed_tool_names:, tool_name: "exec_command", arguments: nil)
+  def execute_tool_mailbox_item(workspace_root:, allowed_tool_names:, tool_name: "exec_command", arguments: nil)
     {
-      "item_type" => "agent_program_request",
+      "item_type" => "agent_request",
       "item_id" => "mailbox-item-program-tool-1",
       "protocol_message_id" => "protocol-message-program-tool-1",
-      "logical_work_id" => "program-tool:workflow-node-1:tool-call-1",
+      "logical_work_id" => "tool-call:workflow-node-1:tool-call-1",
       "attempt_no" => 1,
-      "control_plane" => "program",
+      "control_plane" => "agent",
       "payload" => {
-        "request_kind" => "execute_program_tool",
+        "request_kind" => "execute_tool",
         "task" => {
           "workflow_node_id" => "workflow-node-1",
           "conversation_id" => "conversation-1",
@@ -417,12 +417,12 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
           "model_context" => { "model_slug" => "gpt-5.4" },
         },
         "runtime_context" => {
-          "agent_program_version_id" => "agent-program-version-1",
+          "agent_snapshot_id" => "agent-snapshot-1",
         },
         "workspace_context" => {
           "workspace_root" => workspace_root,
         },
-        "program_tool_call" => {
+        "tool_call" => {
           "call_id" => "tool-call-1",
           "tool_name" => tool_name,
           "arguments" => arguments || {
@@ -435,12 +435,12 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
 
   def supervision_mailbox_item(request_kind:)
     {
-      "item_type" => "agent_program_request",
+      "item_type" => "agent_request",
       "item_id" => "mailbox-item-#{request_kind}",
       "protocol_message_id" => "protocol-message-#{request_kind}",
       "logical_work_id" => "conversation-control:control-request-1:#{request_kind}",
       "attempt_no" => 1,
-      "control_plane" => "program",
+      "control_plane" => "agent",
       "payload" => {
         "request_kind" => request_kind,
         "content" => (request_kind == "supervision_guidance" ? "Stop and summarize." : nil),
@@ -452,7 +452,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
           "target_public_id" => "conversation-1",
         },
         "runtime_context" => {
-          "agent_program_version_id" => "agent-program-version-1",
+          "agent_snapshot_id" => "agent-snapshot-1",
         },
       },
     }
@@ -466,10 +466,10 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     )
   end
 
-  def execute_program_tool_report_contract_fixture
+  def execute_tool_report_contract_fixture
     JSON.parse(
       File.read(
-        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "fenix_execute_program_tool_report.json")
+        Rails.root.join("..", "..", "shared", "fixtures", "contracts", "fenix_execute_tool_report.json")
       )
     )
   end
@@ -492,7 +492,7 @@ class Fenix::Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     normalized
   end
 
-  def normalize_execute_program_tool_report(report)
+  def normalize_execute_tool_report(report)
     normalized = report.deep_dup
     normalized.delete("protocol_message_id")
     normalized

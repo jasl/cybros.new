@@ -10,7 +10,7 @@ bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
 v1 = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  executor_fingerprint: "acceptance-bundled-rotation-environment",
+  execution_runtime_fingerprint: "acceptance-bundled-rotation-environment",
   fingerprint: "acceptance-bundled-fenix-v1",
   sdk_version: "fenix-0.1.0"
 )
@@ -19,7 +19,7 @@ conversation_context = nil
 baseline = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: v1) do
-  conversation_context = Acceptance::ManualSupport.create_conversation!(deployment: v1.deployment)
+  conversation_context = Acceptance::ManualSupport.create_conversation!(agent_snapshot: v1.agent_snapshot)
   baseline = Acceptance::ManualSupport.execute_provider_turn_on_conversation!(
     conversation: conversation_context.fetch(:conversation),
     content: "Bundled rotation baseline turn",
@@ -30,13 +30,13 @@ end
 v2 = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  executor_fingerprint: "acceptance-bundled-rotation-environment",
+  execution_runtime_fingerprint: "acceptance-bundled-rotation-environment",
   fingerprint: "acceptance-bundled-fenix-v2",
   sdk_version: "fenix-0.2.0"
 )
 
-upgrade_previous_state = v1.deployment.reload.bootstrap_state
-upgrade_new_state = v2.deployment.reload.bootstrap_state
+upgrade_previous_state = v1.agent_snapshot.reload.bootstrap_state
+upgrade_new_state = v2.agent_snapshot.reload.bootstrap_state
 upgrade = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: v2) do
@@ -50,13 +50,13 @@ end
 v0 = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  executor_fingerprint: "acceptance-bundled-rotation-environment",
+  execution_runtime_fingerprint: "acceptance-bundled-rotation-environment",
   fingerprint: "acceptance-bundled-fenix-v0-9",
   sdk_version: "fenix-0.0.9"
 )
 
-downgrade_previous_state = v2.deployment.reload.bootstrap_state
-downgrade_new_state = v0.deployment.reload.bootstrap_state
+downgrade_previous_state = v2.agent_snapshot.reload.bootstrap_state
+downgrade_new_state = v0.agent_snapshot.reload.bootstrap_state
 downgrade = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: v0) do
@@ -104,10 +104,10 @@ Acceptance::ManualSupport.write_json(
     ].all? { |dag_shape, state| dag_shape == expected_dag_shape && state == expected_conversation_state },
     "proof_artifact_path" => nil,
     "conversation_id" => conversation_context.fetch(:conversation).public_id,
-    "executor_program_id" => v1.executor_program.public_id,
+    "execution_runtime_id" => v1.execution_runtime.public_id,
     "baseline" => {
       "passed" => baseline_dag_shape == expected_dag_shape && baseline_state == expected_conversation_state,
-      "deployment_id" => v1.deployment.public_id,
+      "agent_snapshot_id" => v1.agent_snapshot.public_id,
       "turn_id" => baseline.fetch(:turn).public_id,
       "workflow_run_id" => baseline.fetch(:workflow_run).public_id,
       "selected_output_message_id" => baseline.fetch(:turn).selected_output_message.public_id,
@@ -119,15 +119,15 @@ Acceptance::ManualSupport.write_json(
     "expected_conversation_state" => expected_conversation_state,
     "upgrade" => {
       "passed" => upgrade_dag_shape == expected_dag_shape && upgrade_state == expected_conversation_state,
-      "previous_deployment_id" => v1.deployment.public_id,
-      "new_deployment_id" => v2.deployment.public_id,
-      "previous_fingerprint" => v1.deployment.fingerprint,
-      "new_fingerprint" => v2.deployment.fingerprint,
+      "previous_agent_snapshot_id" => v1.agent_snapshot.public_id,
+      "new_agent_snapshot_id" => v2.agent_snapshot.public_id,
+      "previous_fingerprint" => v1.agent_snapshot.fingerprint,
+      "new_fingerprint" => v2.agent_snapshot.fingerprint,
       "previous_sdk_version" => "fenix-0.1.0",
       "new_sdk_version" => "fenix-0.2.0",
       "previous_bootstrap_state_after_cutover" => upgrade_previous_state,
       "new_bootstrap_state_after_cutover" => upgrade_new_state,
-      "conversation_agent_program_version_id_after_switch" => upgrade.fetch(:turn).agent_program_version.public_id,
+      "conversation_agent_snapshot_id_after_switch" => upgrade.fetch(:turn).agent_snapshot.public_id,
       "turn_id" => upgrade.fetch(:turn).public_id,
       "workflow_run_id" => upgrade.fetch(:workflow_run).public_id,
       "selected_output_message_id" => upgrade.fetch(:turn).selected_output_message.public_id,
@@ -137,15 +137,15 @@ Acceptance::ManualSupport.write_json(
     },
     "downgrade" => {
       "passed" => downgrade_dag_shape == expected_dag_shape && downgrade_state == expected_conversation_state,
-      "previous_deployment_id" => v2.deployment.public_id,
-      "new_deployment_id" => v0.deployment.public_id,
-      "previous_fingerprint" => v2.deployment.fingerprint,
-      "new_fingerprint" => v0.deployment.fingerprint,
+      "previous_agent_snapshot_id" => v2.agent_snapshot.public_id,
+      "new_agent_snapshot_id" => v0.agent_snapshot.public_id,
+      "previous_fingerprint" => v2.agent_snapshot.fingerprint,
+      "new_fingerprint" => v0.agent_snapshot.fingerprint,
       "previous_sdk_version" => "fenix-0.2.0",
       "new_sdk_version" => "fenix-0.0.9",
       "previous_bootstrap_state_after_cutover" => downgrade_previous_state,
       "new_bootstrap_state_after_cutover" => downgrade_new_state,
-      "conversation_agent_program_version_id_after_switch" => downgrade.fetch(:turn).agent_program_version.public_id,
+      "conversation_agent_snapshot_id_after_switch" => downgrade.fetch(:turn).agent_snapshot.public_id,
       "turn_id" => downgrade.fetch(:turn).public_id,
       "workflow_run_id" => downgrade.fetch(:workflow_run).public_id,
       "selected_output_message_id" => downgrade.fetch(:turn).selected_output_message.public_id,
@@ -153,10 +153,10 @@ Acceptance::ManualSupport.write_json(
       "observed_dag_shape" => downgrade_dag_shape,
       "observed_conversation_state" => downgrade_state,
     },
-    "current_conversation_agent_program_version_id" => Turns::FreezeProgramVersion.call(
+    "current_conversation_agent_snapshot_id" => Turns::FreezeProgramVersion.call(
       conversation: conversation_context.fetch(:conversation).reload
     ).public_id,
-    "current_conversation_agent_program_version_fingerprint" => Turns::FreezeProgramVersion.call(
+    "current_conversation_agent_snapshot_fingerprint" => Turns::FreezeProgramVersion.call(
       conversation: conversation_context.fetch(:conversation).reload
     ).fingerprint,
   }

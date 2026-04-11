@@ -28,8 +28,7 @@ class Fenix::Runtime::MailboxExecutionJob < ApplicationJob
 
     Fenix::Shared::ControlPlane::Client.new(
       base_url: context.fetch("base_url"),
-      machine_credential: context.fetch("machine_credential"),
-      execution_machine_credential: context.fetch("execution_machine_credential", context.fetch("machine_credential")),
+      agent_connection_credential: context.fetch("agent_connection_credential"),
       open_timeout: context.fetch("open_timeout", Fenix::Shared::ControlPlane::Client::DEFAULT_OPEN_TIMEOUT),
       read_timeout: context.fetch("read_timeout", Fenix::Shared::ControlPlane::Client::DEFAULT_READ_TIMEOUT),
       write_timeout: context.fetch("write_timeout", Fenix::Shared::ControlPlane::Client::DEFAULT_WRITE_TIMEOUT)

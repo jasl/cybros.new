@@ -1,10 +1,11 @@
 {
-  "method_id": "agent_program_completed",
+  "method_id": "agent_completed",
   "mailbox_item_id": "mailbox-item-supervision-public-id",
   "logical_work_id": "conversation-control:conversation-control-request-public-id:supervision_guidance",
   "attempt_no": 1,
-  "control_plane": "program",
+  "control_plane": "agent",
   "request_kind": "supervision_guidance",
+  "conversation_id": "conversation-public-id",
   "response_payload": {
     "status": "ok",
     "handled_request_kind": "supervision_guidance",

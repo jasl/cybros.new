@@ -22,7 +22,7 @@ Current gap:
   `prepare_round`
 - Conversation guidance applies to the target conversation
 - Subagent guidance applies to the child conversation that owns the targeted
-  `SubagentSession`
+  `SubagentConnection`
 - Guidance projection is read-only and derived from audit records
 - The prompt surface in `Fenix` makes the newest guidance salient
 
@@ -123,14 +123,14 @@ For a normal conversation runtime:
 
 For a child conversation runtime:
 
-- if `conversation.subagent_session` is present, treat the child as a subagent
+- if `conversation.subagent_connection` is present, treat the child as a subagent
   runtime target
 - select completed `send_guidance_to_subagent` requests where
-  `target_kind = subagent_session`
+  `target_kind = subagent_connection`
 - select completed `send_guidance_to_subagent` requests where
-  `target_public_id = conversation.subagent_session.public_id`
+  `target_public_id = conversation.subagent_connection.public_id`
 - set `guidance_scope = subagent`
-- set `source_conversation_id = conversation.subagent_session.owner_conversation.public_id`
+- set `source_conversation_id = conversation.subagent_connection.owner_conversation.public_id`
 
 This keeps the durable source in the owner conversation audit trail while
 projecting the guidance into the child conversation's next round.
@@ -140,7 +140,7 @@ projecting the guidance into the child conversation's next round.
 - `ConversationControl::BuildGuidanceProjection` feeds
   `ProviderExecution::BuildWorkContextView`
 - `BuildWorkContextView` adds `supervisor_guidance` only when present
-- `ProviderExecution::PrepareProgramRound` continues passing the full
+- `ProviderExecution::PrepareAgentRound` continues passing the full
   `work_context_view`
 - `Fenix::Prompts::Assembler` gets a dedicated `Supervisor Guidance` section
   derived from `work_context_view["supervisor_guidance"]`
@@ -187,7 +187,7 @@ CoreMatrix:
   - ignores failed or non-guidance control requests
 - `ProviderExecution::BuildWorkContextViewTest`
   - includes `supervisor_guidance` when guidance exists
-- `ProviderExecution::PrepareProgramRoundTest`
+- `ProviderExecution::PrepareAgentRoundTest`
   - carries projected guidance through `round_context.work_context_view`
 
 Fenix:

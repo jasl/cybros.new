@@ -73,13 +73,13 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      executor_program: context[:executor_program],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
     )
     Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Summarize the recent work",
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

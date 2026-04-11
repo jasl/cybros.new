@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Repair the runtime model so `ExecutionEnvironment` becomes the stable owner of runtime resources, `AgentDeployment` becomes the rotatable Agent Program layer on top of that environment, and bundled runtimes expose distinct agent and environment planes without compatibility leftovers.
+**Goal:** Repair the runtime model so `ExecutionEnvironment` becomes the stable owner of runtime resources, `AgentDeployment` becomes the rotatable Agent layer on top of that environment, and bundled runtimes expose distinct agent and environment planes without compatibility leftovers.
 
 **Architecture:** Reshape the schema and model invariants first, then refactor pairing and routing so ownership is always environment-first while delivery can still reuse the current bundled runtime connection. After that, compose conversation capabilities and tool catalogs from environment plus agent layers, update Fenix to publish and serve both planes explicitly, and finally delete stale deployment-owned assumptions from docs, tests, and code.
 
@@ -529,7 +529,7 @@ git commit -m "feat: publish environment-first tool precedence and dual-plane ru
 - Modify: `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
 - Modify: `core_matrix/docs/behavior/workflow-artifacts-node-events-and-process-runs.md`
 - Modify: `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
-- Modify: `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
+- Modify: `core_matrix/docs/behavior/subagent-connections-and-execution-leases.md`
 - Modify: `docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md`
 - Modify: `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
 - Modify: `docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
@@ -636,7 +636,7 @@ git add core_matrix/docs/behavior/agent-registry-and-connectivity-foundations.md
   core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md \
   core_matrix/docs/behavior/workflow-artifacts-node-events-and-process-runs.md \
   core_matrix/docs/behavior/agent-runtime-resource-apis.md \
-  core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md \
+  core_matrix/docs/behavior/subagent-connections-and-execution-leases.md \
   docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md \
   docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md \
   docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md \

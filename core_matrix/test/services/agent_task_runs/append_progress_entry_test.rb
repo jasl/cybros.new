@@ -16,12 +16,12 @@ class AgentTaskRuns::AppendProgressEntryTest < ActiveSupport::TestCase
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,
@@ -39,7 +39,7 @@ class AgentTaskRuns::AppendProgressEntryTest < ActiveSupport::TestCase
     )
     second_entry = AgentTaskRuns::AppendProgressEntry.call(
       agent_task_run: agent_task_run,
-      subagent_session: subagent_session,
+      subagent_connection: subagent_connection,
       entry_kind: "progress_recorded",
       summary: "Delegated the next slice to a child worker",
       details_payload: { "delegated" => true },
@@ -48,7 +48,7 @@ class AgentTaskRuns::AppendProgressEntryTest < ActiveSupport::TestCase
 
     assert_equal 1, first_entry.sequence
     assert_equal 2, second_entry.sequence
-    assert_equal subagent_session, second_entry.subagent_session
+    assert_equal subagent_connection, second_entry.subagent_connection
 
     agent_task_run.reload
     assert_equal "Delegated the next slice to a child worker", agent_task_run.recent_progress_summary

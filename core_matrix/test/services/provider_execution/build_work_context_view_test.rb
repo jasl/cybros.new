@@ -16,9 +16,9 @@ class ProviderExecution::BuildWorkContextViewTest < ActiveSupport::TestCase
       view.dig("primary_turn_todo", "plan_summary", "current_item_key")
     assert_equal "Rendering the frozen supervision snapshot",
       view.dig("primary_turn_todo", "plan_view", "current_item", "title")
-    assert_equal [fixture.fetch(:subagent_session).public_id],
-      view.fetch("active_children").map { |entry| entry.fetch("child_session_id") }
-    assert_equal [fixture.fetch(:subagent_session).conversation.public_id],
+    assert_equal [fixture.fetch(:subagent_connection).public_id],
+      view.fetch("active_children").map { |entry| entry.fetch("subagent_connection_id") }
+    assert_equal [fixture.fetch(:subagent_connection).conversation.public_id],
       view.fetch("active_children").map { |entry| entry.fetch("conversation_id") }
     assert_equal ["Checking the 2048 acceptance flow"],
       view.fetch("active_children").map { |entry| entry.dig("plan_summary", "current_item_title") }
@@ -26,7 +26,6 @@ class ProviderExecution::BuildWorkContextViewTest < ActiveSupport::TestCase
     assert_equal 1, view.dig("supervision_snapshot", "active_child_count")
     refute view.key?("active_subagents")
     refute view.key?("supervisor_guidance")
-    refute view.fetch("active_children").first.key?("subagent_session_id")
     refute_match(/cowork/i, view.to_json)
   end
 

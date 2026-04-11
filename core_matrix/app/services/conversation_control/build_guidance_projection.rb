@@ -39,13 +39,13 @@ module ConversationControl
     end
 
     def guidance_requests
-      if subagent_session.present?
+      if subagent_connection.present?
         ConversationControlRequest.where(
           installation_id: conversation.installation_id,
           request_kind: "send_guidance_to_subagent",
           lifecycle_state: "completed",
-          target_kind: "subagent_session",
-          target_public_id: subagent_session.public_id
+          target_kind: "subagent_connection",
+          target_public_id: subagent_connection.public_id
         )
       else
         ConversationControlRequest.where(
@@ -71,19 +71,19 @@ module ConversationControl
     end
 
     def source_conversation_public_id(request)
-      return subagent_session.owner_conversation.public_id if request.request_kind == "send_guidance_to_subagent" && subagent_session.present?
+      return subagent_connection.owner_conversation.public_id if request.request_kind == "send_guidance_to_subagent" && subagent_connection.present?
 
       request.target_conversation.public_id
     end
 
     def guidance_scope
-      subagent_session.present? ? "subagent" : "conversation"
+      subagent_connection.present? ? "subagent" : "conversation"
     end
 
     attr_reader :conversation
 
-    def subagent_session
-      @subagent_session ||= conversation.subagent_session
+    def subagent_connection
+      @subagent_connection ||= conversation.subagent_connection
     end
   end
 end

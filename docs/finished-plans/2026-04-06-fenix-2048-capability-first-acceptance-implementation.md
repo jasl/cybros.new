@@ -77,7 +77,7 @@ Add helper methods that can build evidence entries from:
 
 - `ToolInvocation`
 - `CommandRun`
-- `SubagentSession`
+- `SubagentConnection`
 - exported artifact presence
 - workspace file presence
 - supervision artifact presence
@@ -210,7 +210,7 @@ Reuse existing local data instead of re-querying blindly:
 - supervision trace
 - export/debug export results
 - diagnostics
-- subagent sessions
+- subagent connections
 - workspace artifact checks
 
 **Step 3: Build the capability activation report**

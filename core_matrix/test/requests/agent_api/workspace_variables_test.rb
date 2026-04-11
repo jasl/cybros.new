@@ -30,7 +30,7 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
         workspace_id: context[:workspace].public_id,
         key: "support_tier",
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: agent_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -44,7 +44,7 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
         workspace_id: context[:workspace].public_id,
         keys: %w[support_tier region missing],
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :success
@@ -59,7 +59,7 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
       params: {
         workspace_id: context[:workspace].public_id,
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: agent_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -82,7 +82,7 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
         source_turn_id: context[:turn].public_id,
         source_workflow_run_id: context[:workflow_run].public_id,
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :created
@@ -94,7 +94,7 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
     refute response_body.fetch("variable").key?("id")
 
     variable = CanonicalVariable.find_by!(scope: "workspace", key: "region", current: true)
-    assert_equal registration[:deployment], variable.writer
+    assert_equal registration[:agent_snapshot], variable.writer
     assert_equal context[:turn], variable.source_turn
     assert_equal context[:workflow_run], variable.source_workflow_run
     refute_includes response.body, %("#{variable.id}")
@@ -111,7 +111,7 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
         typed_value_payload: { type: "string", value: "cn" },
         source_kind: "agent_runtime",
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :not_found
@@ -125,7 +125,7 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
         source_turn_id: context[:turn].id,
         source_workflow_run_id: context[:workflow_run].id,
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :not_found

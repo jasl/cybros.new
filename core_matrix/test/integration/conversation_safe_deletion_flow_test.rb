@@ -23,7 +23,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
         workspace_id: context[:workspace].public_id,
         conversation_id: context[:conversation].public_id,
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: agent_api_headers(registration[:agent_connection_credential])
 
     assert_response :not_found
     assert_equal [], HumanInteractions::OpenForUserQuery.call(user: context[:user])
@@ -40,7 +40,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
       Turns::StartUserTurn.call(
         conversation: context[:conversation],
         content: "Blocked input",
-        agent_program_version: context[:agent_program_version],
+        agent_snapshot: context[:agent_snapshot],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -50,7 +50,7 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
       Turns::QueueFollowUp.call(
         conversation: context[:conversation],
         content: "Blocked follow up",
-        agent_program_version: context[:agent_program_version],
+        agent_snapshot: context[:agent_snapshot],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -88,14 +88,14 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     parent = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     child = Conversations::CreateFork.call(parent: parent)
     child_turn = Turns::StartUserTurn.call(
       conversation: child,
       content: "Child still running",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

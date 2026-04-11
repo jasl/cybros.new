@@ -29,14 +29,14 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
     assert_nil turn.selected_output_message
   end
 
-  test "freezes the active agent session version instead of a caller supplied version" do
+  test "freezes the active agent snapshot instead of a caller supplied snapshot" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(
       workspace: context[:workspace]
     )
-    alternate_deployment = create_agent_program_version!(
+    alternate_agent_snapshot = create_agent_snapshot!(
       installation: context[:installation],
-      agent_program: create_agent_program!(installation: context[:installation]),
+      agent: create_agent!(installation: context[:installation]),
       fingerprint: "alternate-#{next_test_sequence}"
     )
 
@@ -52,9 +52,9 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal context[:agent_program_version], turn.agent_program_version
-    assert_equal context[:agent_program_version].fingerprint, turn.pinned_program_version_fingerprint
-    refute_equal alternate_deployment, turn.agent_program_version
+    assert_equal context[:agent_snapshot], turn.agent_snapshot
+    assert_equal context[:agent_snapshot].fingerprint, turn.pinned_agent_snapshot_fingerprint
+    refute_equal alternate_agent_snapshot, turn.agent_snapshot
   end
 
   test "rejects pending delete automation conversations" do

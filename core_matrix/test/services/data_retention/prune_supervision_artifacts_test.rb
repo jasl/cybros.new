@@ -76,7 +76,7 @@ class DataRetention::PruneSupervisionArtifactsTest < ActiveSupport::TestCase
       installation: fixture.fetch(:installation),
       target_conversation: fixture.fetch(:conversation),
       conversation_supervision_session: session,
-      active_subagent_session_public_ids: [],
+      active_subagent_connection_public_ids: [],
       bundle_payload: {},
       machine_status_payload: {},
       created_at: created_at,

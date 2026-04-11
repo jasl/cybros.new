@@ -6,9 +6,9 @@
 > migration period and may no longer resolve now that the legacy app has been
 > removed.
 
-**Goal:** Make installed Fenix skills durable and isolated by `agent_program public_id + user public_id`, shared across that user's conversations for the same agent program, while keeping CoreMatrix agent-program-neutral and keeping the 2048 cowork capstone free of `superpowers` and staged-skill dependencies.
+**Goal:** Make installed Fenix skills durable and isolated by `agent public_id + user public_id`, shared across that user's conversations for the same agent, while keeping CoreMatrix agent-neutral and keeping the 2048 cowork capstone free of `superpowers` and staged-skill dependencies.
 
-**Architecture:** CoreMatrix only forwards neutral scope identifiers that Fenix already needs at the runtime boundary: `agent_program_id` and `user_id`, both as `public_id`. Fenix owns all filesystem layout, install/load/read behavior, and activation rules through a scoped skills repository rooted at `~/.fenix/skills-scopes/<agent_program_public_id>/<user_public_id>/...`; conversations never become the storage boundary.
+**Architecture:** CoreMatrix only forwards neutral scope identifiers that Fenix already needs at the runtime boundary: `agent_id` and `user_id`, both as `public_id`. Fenix owns all filesystem layout, install/load/read behavior, and activation rules through a scoped skills repository rooted at `~/.fenix/skills-scopes/<agent_public_id>/<user_public_id>/...`; conversations never become the storage boundary.
 
 **Tech Stack:** Ruby on Rails 8, Minitest, filesystem-backed skill packages, acceptance Ruby scenarios, Docker/local runtime pairing, public-id-only runtime payload contracts.
 
@@ -20,7 +20,7 @@
 - If a test fails unexpectedly or behavior conflicts with the plan, stop and use `@systematic-debugging` before changing code.
 - After every task, run `@requesting-code-review`, repair findings, then run `@verification-before-completion` before moving on.
 - Prefer breaking cleanup over compatibility shims; this refactor removes obsolete roots, env vars, and fallback behavior.
-- Do not introduce `agent_program_version_id`, conversation ids, or bigint ids as the durable skills scope key.
+- Do not introduce `agent_snapshot_id`, conversation ids, or bigint ids as the durable skills scope key.
 - Do not reintroduce `using-superpowers`, `find-skills`, or GitHub-staged skills into the Cowork Fenix capstone flow.
 - Keep memory and skills in `agents/fenix`; CoreMatrix only transports neutral identifiers.
 
@@ -28,14 +28,14 @@
 
 The implementation is correct only if all of these are true:
 
-1. Installing a skill in conversation A makes it available in conversation B for the same user and the same agent program.
-2. The same installed skill is not visible from a different agent program, even for the same user.
+1. Installing a skill in conversation A makes it available in conversation B for the same user and the same agent.
+2. The same installed skill is not visible from a different agent, even for the same user.
 3. All agent-facing/runtime-facing ids remain `public_id` values.
-4. The default writable root is `~/.fenix/skills-scopes/<agent_program_public_id>/<user_public_id>/`.
+4. The default writable root is `~/.fenix/skills-scopes/<agent_public_id>/<user_public_id>/`.
 5. `skills/.system` and `skills/.curated` remain checked-in, read-only catalog roots inside `agents/fenix`.
 6. The standalone 2048 cowork acceptance path stays independent from skill installation and from `superpowers`.
 7. `skills_install` remains the simple runtime install entry point for third-party skills; this refactor must not remove or hide it behind a different API.
-8. Scope is keyed only by `agent_program_id + user_id`; conversation id, workspace id, and agent-program-version id are never part of the durable skills root.
+8. Scope is keyed only by `agent_id + user_id`; conversation id, workspace id, and agent-snapshot id are never part of the durable skills root.
 9. Docker deployments must keep the effective `FENIX_HOME_ROOT` on persistent storage; installed skills must not disappear just because the runtime container is replaced.
 
 ## Task 1: Add neutral skills-scope identifiers to CoreMatrix runtime payloads
@@ -43,16 +43,16 @@ The implementation is correct only if all of these are true:
 **Files:**
 - Modify: `core_matrix/app/models/agent_control_mailbox_item.rb`
 - Modify: `core_matrix/app/models/turn_execution_snapshot.rb`
-- Modify: `core_matrix/app/services/provider_execution/prepare_program_round.rb`
-- Modify: `core_matrix/app/services/provider_execution/tool_call_runners/program.rb`
+- Modify: `core_matrix/app/services/provider_execution/prepare_agent_round.rb`
+- Modify: `core_matrix/app/services/provider_execution/tool_call_runners/agent_mediated.rb`
 - Modify: `core_matrix/app/services/agent_control/serialize_mailbox_item.rb`
-- Modify: `core_matrix/app/services/agent_control/create_agent_program_request.rb`
+- Modify: `core_matrix/app/services/agent_control/create_agent_request.rb`
 - Test: `core_matrix/test/models/agent_control_mailbox_item_test.rb`
 - Test: `core_matrix/test/models/turn_execution_snapshot_test.rb`
-- Test: `core_matrix/test/services/provider_execution/prepare_program_round_test.rb`
-- Test: `core_matrix/test/services/provider_execution/tool_call_runners/program_test.rb`
+- Test: `core_matrix/test/services/provider_execution/prepare_agent_round_test.rb`
+- Test: `core_matrix/test/services/provider_execution/tool_call_runners/agent_mediated_test.rb`
 - Test: `core_matrix/test/services/agent_control/serialize_mailbox_item_test.rb`
-- Test: `core_matrix/test/services/agent_control/create_agent_program_request_test.rb`
+- Test: `core_matrix/test/services/agent_control/create_agent_request_test.rb`
 
 **Step 1: Write failing tests for public scope ids**
 
@@ -60,7 +60,7 @@ Add assertions that runtime-facing payloads include:
 
 ```ruby
 {
-  "agent_program_id" => turn.agent_program_version.agent_program.public_id,
+  "agent_id" => turn.agent_snapshot.agent.public_id,
   "user_id" => turn.conversation.workspace.user.public_id
 }
 ```
@@ -69,10 +69,10 @@ Required coverage:
 
 - `AgentControlMailboxItem#materialized_payload` for persisted request documents
 - `TurnExecutionSnapshot#runtime_context`
-- `ProviderExecution::PrepareProgramRound` request payloads
-- `ProviderExecution::ToolCallRunners::Program` request payloads
+- `ProviderExecution::PrepareAgentRound` request payloads
+- `ProviderExecution::ToolCallRunners::AgentMediated` request payloads
 - `AgentControl::SerializeMailboxItem.serialized_payload` for execution assignments
-- `AgentControl::CreateAgentProgramRequest` payload document compaction and reconstruction
+- `AgentControl::CreateAgentRequest` payload document compaction and reconstruction
 
 **Step 2: Run the targeted CoreMatrix tests and confirm red**
 
@@ -80,19 +80,19 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/models/agent_control_mailbox_item_test.rb test/models/turn_execution_snapshot_test.rb test/services/provider_execution/prepare_program_round_test.rb test/services/provider_execution/tool_call_runners/program_test.rb test/services/agent_control/serialize_mailbox_item_test.rb test/services/agent_control/create_agent_program_request_test.rb
+bin/rails test test/models/agent_control_mailbox_item_test.rb test/models/turn_execution_snapshot_test.rb test/services/provider_execution/prepare_agent_round_test.rb test/services/provider_execution/tool_call_runners/agent_mediated_test.rb test/services/agent_control/serialize_mailbox_item_test.rb test/services/agent_control/create_agent_request_test.rb
 ```
 
-Expected: FAIL because `agent_program_id` and `user_id` are missing from at least one runtime payload.
+Expected: FAIL because `agent_id` and `user_id` are missing from at least one runtime payload.
 
 **Step 3: Implement minimal neutral propagation**
 
 Implementation rules:
 
-- use `turn.agent_program_version.agent_program.public_id`, not `agent_program_version.public_id`, as the durable program scope key
+- use `turn.agent_snapshot.agent.public_id`, not `agent_snapshot.public_id`, as the durable program scope key
 - use `turn.conversation.workspace.user.public_id`, not any bigint id
-- keep field names neutral: `agent_program_id`, `user_id`
-- update payload compaction in `CreateAgentProgramRequest` so those keys survive when agent-program requests are persisted and replayed
+- keep field names neutral: `agent_id`, `user_id`
+- update payload compaction in `CreateAgentRequest` so those keys survive when agent requests are persisted and replayed
 - do not keep a compatibility branch that tolerates missing skills-scope ids in new runtime payloads; downstream Fenix code treats these fields as required
 
 **Step 4: Re-run the targeted CoreMatrix tests**
@@ -107,7 +107,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rubocop app/models/agent_control_mailbox_item.rb app/models/turn_execution_snapshot.rb app/services/provider_execution/prepare_program_round.rb app/services/provider_execution/tool_call_runners/program.rb app/services/agent_control/serialize_mailbox_item.rb app/services/agent_control/create_agent_program_request.rb test/models/agent_control_mailbox_item_test.rb test/models/turn_execution_snapshot_test.rb test/services/provider_execution/prepare_program_round_test.rb test/services/provider_execution/tool_call_runners/program_test.rb test/services/agent_control/serialize_mailbox_item_test.rb test/services/agent_control/create_agent_program_request_test.rb
+bin/rubocop app/models/agent_control_mailbox_item.rb app/models/turn_execution_snapshot.rb app/services/provider_execution/prepare_agent_round.rb app/services/provider_execution/tool_call_runners/agent_mediated.rb app/services/agent_control/serialize_mailbox_item.rb app/services/agent_control/create_agent_request.rb test/models/agent_control_mailbox_item_test.rb test/models/turn_execution_snapshot_test.rb test/services/provider_execution/prepare_agent_round_test.rb test/services/provider_execution/tool_call_runners/agent_mediated_test.rb test/services/agent_control/serialize_mailbox_item_test.rb test/services/agent_control/create_agent_request_test.rb
 ```
 
 Expected: PASS.
@@ -145,7 +145,7 @@ Add tests that prove:
 Pathname(Dir.home).join(
   ".fenix",
   "skills-scopes",
-  agent_program_id,
+  agent_id,
   user_id,
   "live"
 )
@@ -153,8 +153,8 @@ Pathname(Dir.home).join(
 
 and sibling `staging` / `backups` roots
 
-- two repositories with the same `agent_program_id` and `user_id` share the same live skill installation
-- changing only `agent_program_id` isolates the installation
+- two repositories with the same `agent_id` and `user_id` share the same live skill installation
+- changing only `agent_id` isolates the installation
 - `.system` skills remain reserved and cannot be overridden
 - `Catalog#active_for_messages` only sees active system/live skills from the current scope
 - installed or loaded skill packages must satisfy the Agent Skills spec subset that Fenix accepts:
@@ -172,7 +172,7 @@ Use explicit constructor arguments in the tests:
 
 ```ruby
 Fenix::Skills::Repository.new(
-  agent_program_id: "agent-program-1",
+  agent_id: "agent-1",
   user_id: "user-1",
   home_root: tmp_root
 )
@@ -197,9 +197,9 @@ Implementation rules:
   - `skills/.system/<name>/`
   - `skills/.curated/<name>/`
 - move writable state to:
-  - `~/.fenix/skills-scopes/<agent_program_public_id>/<user_public_id>/live/<skill_name>/`
-  - `~/.fenix/skills-scopes/<agent_program_public_id>/<user_public_id>/staging/<nonce>/<skill_name>/`
-  - `~/.fenix/skills-scopes/<agent_program_public_id>/<user_public_id>/backups/<timestamp>-<skill_name>/`
+  - `~/.fenix/skills-scopes/<agent_public_id>/<user_public_id>/live/<skill_name>/`
+  - `~/.fenix/skills-scopes/<agent_public_id>/<user_public_id>/staging/<nonce>/<skill_name>/`
+  - `~/.fenix/skills-scopes/<agent_public_id>/<user_public_id>/backups/<timestamp>-<skill_name>/`
 - keep provenance in `.fenix-skill-provenance.json`
 - prefer a small `ScopeRoots` value object for path math and keep filesystem mutation in `Repository`
 - tests override the home base through constructor injection; app runtime and acceptance override it only through `FENIX_HOME_ROOT`
@@ -267,8 +267,8 @@ Expected: PASS.
 
 Add tests that prove:
 
-- `PayloadContext` builds its default skills catalog from `runtime_context["agent_program_id"]` and `runtime_context["user_id"]`
-- `PayloadContext` raises a deterministic configuration/runtime error when a skills operation is attempted without both `agent_program_id` and `user_id`
+- `PayloadContext` builds its default skills catalog from `runtime_context["agent_id"]` and `runtime_context["user_id"]`
+- `PayloadContext` raises a deterministic configuration/runtime error when a skills operation is attempted without both `agent_id` and `user_id`
 - the same transcript message activates an installed live skill for one scope and not for another
 - install/load/read service wrappers delegate through the scoped repository instead of hard-coded global roots
 - `execution_assignment` mailbox items with `task_payload["mode"]` equal to `skills_catalog_list`, `skills_load`, `skills_read_file`, or `skills_install` dispatch through the scoped skill wrappers instead of the current unconditional executor-slice failure
@@ -278,9 +278,9 @@ Use a payload like:
 
 ```ruby
 "runtime_context" => {
-  "agent_program_id" => "agent-program-1",
+  "agent_id" => "agent-1",
   "user_id" => "user-1",
-  "agent_program_version_id" => "agent-program-version-1"
+  "agent_snapshot_id" => "agent-snapshot-1"
 }
 ```
 
@@ -299,7 +299,7 @@ Expected: FAIL because payload-bound repository wiring does not exist yet.
 
 Implementation rules:
 
-- `PayloadContext` must require `agent_program_id` and `user_id` for default skills resolution; missing scope ids are a hard error, not a fallback case
+- `PayloadContext` must require `agent_id` and `user_id` for default skills resolution; missing scope ids are a hard error, not a fallback case
 - keep skill activation transcript-driven; only the active catalog source changes
 - make the small service wrappers the public app-local entry points so the rest of Fenix does not know about filesystem layout details
 - restore the minimal `skills_*` mailbox flow by dispatching those `execution_assignment` modes through `Runtime::Assignments::DispatchMode`
@@ -354,8 +354,8 @@ Add or update contract assertions so the repo clearly documents:
 
 Implementation requirements:
 
-- create two external agent programs for the same seeded user
-- register the same runtime base URL once per external agent program enrollment; do not introduce a second runtime process just to prove scope
+- create two external agents for the same seeded user
+- register the same runtime base URL once per external agent enrollment; do not introduce a second runtime process just to prove scope
 - install the third-party skill through conversation A on program 1 via `skills_install`
 - load and read that skill through conversation B on program 1
 - attempt to load the same skill through conversation C on program 2 and assert a semantic skill-not-found failure rather than a generic runtime crash
@@ -410,7 +410,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/models/agent_control_mailbox_item_test.rb test/models/turn_execution_snapshot_test.rb test/services/provider_execution/prepare_program_round_test.rb test/services/provider_execution/tool_call_runners/program_test.rb test/services/agent_control/serialize_mailbox_item_test.rb test/services/agent_control/create_agent_program_request_test.rb test/lib/fenix_capstone_acceptance_contract_test.rb
+bin/rails test test/models/agent_control_mailbox_item_test.rb test/models/turn_execution_snapshot_test.rb test/services/provider_execution/prepare_agent_round_test.rb test/services/provider_execution/tool_call_runners/agent_mediated_test.rb test/services/agent_control/serialize_mailbox_item_test.rb test/services/agent_control/create_agent_request_test.rb test/lib/fenix_capstone_acceptance_contract_test.rb
 ```
 
 Expected: PASS.
@@ -425,11 +425,11 @@ Expected: PASS.
 
 Before claiming the refactor complete, verify all of these explicitly:
 
-- `agent_program_id` and `user_id` appear in agent-facing runtime payloads as `public_id`
+- `agent_id` and `user_id` appear in agent-facing runtime payloads as `public_id`
 - Fenix defaults to `~/.fenix/skills-scopes/...` for writable skill state
 - invalid skill packages that violate the accepted `agentskills` spec subset are rejected deterministically
 - conversation A install is visible in conversation B for the same user/program
-- the same installed skill is not visible from a different agent program
+- the same installed skill is not visible from a different agent
 - the different-program failure is a skill-scope miss, not a generic runtime exception
 - the legacy `skills_catalog_list` / `skills_load` / `skills_read_file` / `skills_install` runtime flow is runnable again in the new Fenix
 - `skills_install` remains the simplest supported install path for user-installed third-party skills

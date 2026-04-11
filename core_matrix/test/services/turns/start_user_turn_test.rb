@@ -22,9 +22,9 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal 1, turn.sequence
     assert_equal "User", turn.source_ref_type
     assert_equal context[:user].public_id, turn.source_ref_id
-    assert_equal context[:agent_program_version], turn.agent_program_version
-    assert_equal context[:executor_program], turn.executor_program
-    assert_equal context[:agent_program_version].fingerprint, turn.pinned_program_version_fingerprint
+    assert_equal context[:agent_snapshot], turn.agent_snapshot
+    assert_equal context[:execution_runtime], turn.execution_runtime
+    assert_equal context[:agent_snapshot].fingerprint, turn.pinned_agent_snapshot_fingerprint
     assert_equal({ "temperature" => 0.2 }, turn.resolved_config_snapshot)
     assert_equal "role:main", turn.resolved_model_selection_snapshot.fetch("normalized_selector")
     assert_instance_of UserMessage, turn.selected_input_message
@@ -53,14 +53,14 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_not_nil conversation.title_updated_at
   end
 
-  test "freezes the active agent session version instead of a caller supplied version" do
+  test "freezes the active agent snapshot instead of a caller supplied snapshot" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
     )
-    alternate_deployment = create_agent_program_version!(
+    alternate_agent_snapshot = create_agent_snapshot!(
       installation: context[:installation],
-      agent_program: create_agent_program!(installation: context[:installation]),
+      agent: create_agent!(installation: context[:installation]),
       fingerprint: "alternate-#{next_test_sequence}"
     )
 
@@ -71,28 +71,28 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal context[:agent_program_version], turn.agent_program_version
-    assert_equal context[:agent_program_version].fingerprint, turn.pinned_program_version_fingerprint
-    refute_equal alternate_deployment, turn.agent_program_version
+    assert_equal context[:agent_snapshot], turn.agent_snapshot
+    assert_equal context[:agent_snapshot].fingerprint, turn.pinned_agent_snapshot_fingerprint
+    refute_equal alternate_agent_snapshot, turn.agent_snapshot
   end
 
-  test "accepts executor_program as an alias for the selected executor" do
+  test "accepts execution_runtime as an alias for the selected executor" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
     )
-    alternate_executor_program = create_executor_program!(installation: context[:installation])
-    create_executor_session!(installation: context[:installation], executor_program: alternate_executor_program)
+    alternate_execution_runtime = create_execution_runtime!(installation: context[:installation])
+    create_execution_runtime_connection!(installation: context[:installation], execution_runtime: alternate_execution_runtime)
 
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Hello executor alias",
-      executor_program: alternate_executor_program,
+      execution_runtime: alternate_execution_runtime,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal alternate_executor_program, turn.executor_program
+    assert_equal alternate_execution_runtime, turn.execution_runtime
   end
 
   test "rejects automation purpose conversations" do
@@ -123,7 +123,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
       kind: "fork",
       addressability: "agent_addressable"
     )
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: context[:installation],
       conversation: child_conversation,
       owner_conversation: root_conversation,

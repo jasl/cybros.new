@@ -5,14 +5,14 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
 
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -22,7 +22,7 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Second input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -62,14 +62,14 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
 
     failed_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Failed input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -84,7 +84,7 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
     completed_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Completed input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

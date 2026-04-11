@@ -41,7 +41,7 @@ Document exact reproducible steps for at least:
 - admin grant and revoke flow
 - bundled Fenix auto-registration and auto-binding when configured
 - agent registration, handshake, heartbeat, health, recovery, and retirement using `script/manual/dummy_agent_runtime.rb`
-- machine credential rotation and revocation
+- connection credential rotation and revocation
 - `main` auto selection, explicit candidate pinning, role-local fallback after entitlement exhaustion, and one-time recovery override
 - drift-triggered manual resume and manual retry
 - conversation root, branch, thread, checkpoint, archive, and unarchive

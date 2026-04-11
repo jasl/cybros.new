@@ -44,7 +44,7 @@ module Workflows
           intent_conflict_scope: node_attributes[:intent_conflict_scope],
           intent_idempotency_key: node_attributes[:intent_idempotency_key],
           opened_human_interaction_request: node_attributes[:opened_human_interaction_request],
-          spawned_subagent_session: node_attributes[:spawned_subagent_session],
+          spawned_subagent_connection: node_attributes[:spawned_subagent_connection],
           provider_round_index: node_attributes[:provider_round_index],
           prior_tool_node_keys: node_attributes.fetch(:prior_tool_node_keys, []),
           blocked_retry_failure_kind: node_attributes[:blocked_retry_failure_kind],

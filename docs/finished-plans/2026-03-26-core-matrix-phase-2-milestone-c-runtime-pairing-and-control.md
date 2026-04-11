@@ -13,7 +13,7 @@ appended tasks before Phase 2 moved on to post-Milestone-C breadth.
 
 ## Purpose
 
-Prove that `Core Matrix` can pair with an agent program, deliver mailbox
+Prove that `Core Matrix` can pair with an agent, deliver mailbox
 control work through `poll` and `WebSocket`, and enforce stop or close behavior
 under kernel authority.
 
@@ -39,7 +39,7 @@ end-to-end stack.
 
 ### Task C4
 
-- [2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-deployment-rotation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-deployment-rotation.md)
+- [2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-agent-snapshot-rotation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-agent-snapshot-rotation.md)
 
 ### Task C5 Follow-Up
 
@@ -102,8 +102,8 @@ end-to-end stack.
 
 ### Task C16 Follow-Up
 
-- [2026-03-28-core-matrix-phase-2-conversation-first-subagent-sessions-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-28-core-matrix-phase-2-conversation-first-subagent-sessions-design.md)
-- [2026-03-28-core-matrix-phase-2-plan-conversation-first-subagent-sessions.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-28-core-matrix-phase-2-plan-conversation-first-subagent-sessions.md)
+- [2026-03-28-core-matrix-phase-2-conversation-first-subagent-connections-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-28-core-matrix-phase-2-conversation-first-subagent-connections-design.md)
+- [2026-03-28-core-matrix-phase-2-plan-conversation-first-subagent-connections.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-28-core-matrix-phase-2-plan-conversation-first-subagent-connections.md)
 
 ### Task C17 Follow-Up
 

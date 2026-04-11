@@ -42,21 +42,21 @@ module Acceptance
     def bootstrap_state(**data)
       {
         'scenario_date' => data.fetch(:scenario_date),
-        'machine_credential' => data.fetch(:machine_credential),
-        'executor_machine_credential' => data.fetch(:executor_machine_credential)
+        'agent_connection_credential' => data.fetch(:agent_connection_credential),
+        'execution_runtime_connection_credential' => data.fetch(:execution_runtime_connection_credential)
       }.merge(bootstrap_public_ids(data)).merge(bootstrap_runtime_metadata(data))
     end
 
     def registration_artifact(**data)
       {
-        'agent_program_id' => data.fetch(:agent_program).public_id,
-        'agent_program_display_name' => data.fetch(:agent_program).display_name,
-        'agent_program_version_id' => data.fetch(:agent_program_version).public_id,
-        'executor_program_id' => data.fetch(:executor_program).public_id,
-        'executor_program_display_name' => data.fetch(:executor_program).display_name,
-        'executor_fingerprint' => data.fetch(:executor_program).executor_fingerprint,
-        'program_fingerprint' => data.fetch(:agent_program_version).fingerprint,
-        'machine_credential_redacted' => Acceptance::CredentialRedaction.redact(data.fetch(:machine_credential))
+        'agent_id' => data.fetch(:agent).public_id,
+        'agent_display_name' => data.fetch(:agent).display_name,
+        'agent_snapshot_id' => data.fetch(:agent_snapshot).public_id,
+        'execution_runtime_id' => data.fetch(:execution_runtime).public_id,
+        'execution_runtime_display_name' => data.fetch(:execution_runtime).display_name,
+        'execution_runtime_fingerprint' => data.fetch(:execution_runtime).execution_runtime_fingerprint,
+        'agent_fingerprint' => data.fetch(:agent_snapshot).fingerprint,
+        'agent_connection_credential_redacted' => Acceptance::CredentialRedaction.redact(data.fetch(:agent_connection_credential))
       }
     end
 
@@ -74,11 +74,11 @@ module Acceptance
 
     def bootstrap_public_ids(data)
       {
-        'agent_program_id' => data.fetch(:agent_program).public_id,
-        'agent_program_version_id' => data.fetch(:agent_program_version).public_id,
-        'executor_program_id' => data.fetch(:executor_program).public_id,
-        'agent_session_id' => data.fetch(:agent_session).public_id,
-        'executor_session_id' => data.fetch(:executor_session).public_id
+        'agent_id' => data.fetch(:agent).public_id,
+        'agent_snapshot_id' => data.fetch(:agent_snapshot).public_id,
+        'execution_runtime_id' => data.fetch(:execution_runtime).public_id,
+        'agent_connection_id' => data.fetch(:agent_connection).public_id,
+        'execution_runtime_connection_id' => data.fetch(:execution_runtime_connection).public_id
       }
     end
 
@@ -86,8 +86,8 @@ module Acceptance
       {
         'runtime_base_url' => data.fetch(:runtime_base_url),
         'docker_container' => data.fetch(:docker_container),
-        'executor_fingerprint' => data.fetch(:executor_fingerprint),
-        'program_fingerprint' => data.fetch(:program_fingerprint)
+        'execution_runtime_fingerprint' => data.fetch(:execution_runtime_fingerprint),
+        'agent_fingerprint' => data.fetch(:agent_fingerprint)
       }
     end
 

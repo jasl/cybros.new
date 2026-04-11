@@ -6,9 +6,9 @@ This audit covers the active machine-facing contracts between `core_matrix` and
 `agents/fenix`:
 
 - runtime registration and capability discovery
-- program-plane mailbox delivery and report handling
-- agent-program request / response exchange
-- executor-plane close and process-runtime control
+- agent-plane mailbox delivery and report handling
+- agent request / response exchange
+- execution-runtime-plane close and process-runtime control
 
 This document is a working inventory for implementation and test repair. It is
 not a product spec.
@@ -101,25 +101,25 @@ Definition:
 
 Implementation:
 
-- `core_matrix/app/services/agent_control/create_agent_program_request.rb`
-- `core_matrix/app/services/agent_control/handle_agent_program_report.rb`
-- `core_matrix/app/services/provider_execution/program_mailbox_exchange.rb`
-- `core_matrix/app/services/provider_execution/prepare_program_round.rb`
-- `core_matrix/app/services/provider_execution/tool_call_runners/program.rb`
+- `core_matrix/app/services/agent_control/create_agent_request.rb`
+- `core_matrix/app/services/agent_control/handle_agent_report.rb`
+- `core_matrix/app/services/provider_execution/agent_request_exchange.rb`
+- `core_matrix/app/services/provider_execution/prepare_agent_round.rb`
+- `core_matrix/app/services/provider_execution/tool_call_runners/agent_mediated.rb`
 - `agents/fenix/app/services/fenix/runtime/prepare_round.rb`
-- `agents/fenix/app/services/fenix/runtime/execute_program_tool.rb`
+- `agents/fenix/app/services/fenix/runtime/execute_tool.rb`
 - `agents/fenix/app/services/fenix/runtime/execute_mailbox_item.rb`
 
 Existing tests:
 
-- `core_matrix/test/services/agent_control/create_agent_program_request_test.rb`
-- `core_matrix/test/services/agent_control/handle_agent_program_report_test.rb`
-- `core_matrix/test/services/provider_execution/program_mailbox_exchange_test.rb`
-- `core_matrix/test/services/provider_execution/program_mailbox_exchange_perf_test.rb`
-- `core_matrix/test/services/provider_execution/prepare_program_round_test.rb`
-- `core_matrix/test/services/provider_execution/tool_call_runners/program_test.rb`
+- `core_matrix/test/services/agent_control/create_agent_request_test.rb`
+- `core_matrix/test/services/agent_control/handle_agent_report_test.rb`
+- `core_matrix/test/services/provider_execution/agent_request_exchange_test.rb`
+- `core_matrix/test/services/provider_execution/agent_request_exchange_perf_test.rb`
+- `core_matrix/test/services/provider_execution/prepare_agent_round_test.rb`
+- `core_matrix/test/services/provider_execution/tool_call_runners/agent_mediated_test.rb`
 - `agents/fenix/test/services/fenix/runtime/prepare_round_test.rb`
-- `agents/fenix/test/services/fenix/runtime/execute_program_tool_test.rb`
+- `agents/fenix/test/services/fenix/runtime/execute_tool_test.rb`
 - `agents/fenix/test/services/fenix/runtime/execute_mailbox_item_test.rb`
 
 Status:
@@ -132,7 +132,7 @@ Audit note:
   - mailbox `request_kind` must match the declared conversation-control request
     kind
   - conversation targets must remain conversation-scoped
-  - subagent guidance must declare a matching `subagent_session_id`
+  - subagent guidance must declare a matching `subagent_connection_id`
   - status refresh rejects stray guidance content
 - `core_matrix` now persists structured `response_payload` / `error_payload`
   on linked `ConversationControlRequest.result_payload`
@@ -167,12 +167,12 @@ Status:
 
 ## Findings Repaired In This Branch
 
-### Finding 1: Missing request-level coverage for agent-program terminal reports
+### Finding 1: Missing request-level coverage for agent terminal reports
 
 Original problem:
 
-- `core_matrix` has service-level tests for `agent_program_completed` and
-  `agent_program_failed`
+- `core_matrix` has service-level tests for `agent_completed` and
+  `agent_failed`
 - the public `/agent_api/control/report` contract does not currently have
   request-level tests for those method ids
 
@@ -183,25 +183,25 @@ Risk:
 
 Repair:
 
-- add request specs for `agent_program_completed`
-- add request specs for `agent_program_failed`
+- add request specs for `agent_completed`
+- add request specs for `agent_failed`
 
 ### Finding 2: Fenix does not fully implement the declared supervision mailbox request surface
 
 Original problem:
 
-- `core_matrix/app/services/agent_control/create_agent_program_request.rb`
+- `core_matrix/app/services/agent_control/create_agent_request.rb`
   explicitly supports:
   - `prepare_round`
-  - `execute_program_tool`
+  - `execute_tool`
   - `supervision_status_refresh`
   - `supervision_guidance`
 - `core_matrix/app/services/conversation_control/dispatch_request.rb` can
-  dispatch the latter two to the active agent program
+  dispatch the latter two to the active agent
 - `agents/fenix/app/services/fenix/runtime/execute_mailbox_item.rb` only
   handles:
   - `prepare_round`
-  - `execute_program_tool`
+  - `execute_tool`
 
 Risk:
 
@@ -218,15 +218,15 @@ Repair:
 - add request-level CoreMatrix tests proving the public control-report boundary
   handles the resulting terminal reports
 
-### Finding 3: Missing mailbox-item bridge coverage for execute_program_tool
+### Finding 3: Missing mailbox-item bridge coverage for execute_tool
 
 Original problem:
 
 - `Fenix::Runtime::ExecuteProgramTool` has unit coverage
 - `core_matrix` has program-exchange coverage
 - `Fenix::Runtime::ExecuteMailboxItem` does not have direct coverage that an
-  `agent_program_request` mailbox item for `execute_program_tool` produces the
-  correct `agent_program_completed` / `agent_program_failed` report envelope
+  `agent_request` mailbox item for `execute_tool` produces the
+  correct `agent_completed` / `agent_failed` report envelope
 
 Risk:
 
@@ -236,8 +236,8 @@ Risk:
 Repair:
 
 - add `ExecuteMailboxItem` tests for:
-  - `execute_program_tool` success
-  - `execute_program_tool` visibility failure
+  - `execute_tool` success
+  - `execute_tool` visibility failure
 
 ### Finding 4: The public manifest understated the program request surface
 
@@ -245,7 +245,7 @@ Original problem:
 
 - `Fenix` runtime manifest `program_contract.methods` still declared only:
   - `prepare_round`
-  - `execute_program_tool`
+  - `execute_tool`
 - the runtime now also supports:
   - `supervision_status_refresh`
   - `supervision_guidance`
@@ -266,7 +266,7 @@ Repair:
 
 Original problem:
 
-- `HandleAgentProgramReport` only copied mailbox status and timestamps back to
+- `HandleAgentReport` only copied mailbox status and timestamps back to
   `ConversationControlRequest.result_payload`
 - structured `response_payload` / `error_payload` from Fenix terminal reports
   were discarded
@@ -284,7 +284,7 @@ Repair:
   `ConversationControlRequest.result_payload`
 - add service and request tests for both completion and failure paths
 - add a symmetric `AgentControl::Report` storage test for
-  `agent_program_failed`
+  `agent_failed`
 
 ### Finding 6: Supervision mailbox requests omitted scoped runtime user identity
 
@@ -297,14 +297,14 @@ Original problem:
 
 Risk:
 
-- `agent_program + user` scoped runtime features could not rely on the same
+- `agent + user` scoped runtime features could not rely on the same
   runtime-context contract for supervision requests
 - poll and serialization produced a narrower envelope than execution
   assignments
 
 Repair:
 
-- inject `runtime_context.agent_program_id` and `runtime_context.user_id` at
+- inject `runtime_context.agent_id` and `runtime_context.user_id` at
   conversation-control mailbox creation time
 - add request and serialization tests that assert the scoped public ids are
   present
@@ -313,7 +313,7 @@ Repair:
 
 Original problem:
 
-- `ValidateAgentProgramReportFreshness` enforced the lease/attempt/logical work
+- `ValidateAgentReportFreshness` enforced the lease/attempt/logical work
   contract
 - the project had only indirect freshness coverage through higher-level report
   handlers
@@ -339,12 +339,12 @@ seam:
   `ConversationControlRequest` audit rows
 - `ProviderExecution::BuildWorkContextView` injects that projection into
   `work_context_view["supervisor_guidance"]`
-- `prepare_round` carries the projection into the agent-program payload
+- `prepare_round` carries the projection into the agent payload
 - `Fenix::Prompts::Assembler` renders a dedicated `Supervisor Guidance`
   section while preserving the raw durable-state JSON block
 
 Subagent guidance is routed from the owner conversation audit trail to the
-child conversation runtime by targeting the child `SubagentSession.public_id`.
+child conversation runtime by targeting the child `SubagentConnection.public_id`.
 
 Reference design:
 

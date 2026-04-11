@@ -53,19 +53,19 @@ class AgentTaskProgressEntryTest < ActiveSupport::TestCase
     )
     unrelated_owner = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     unrelated_child = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: unrelated_owner,
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
-    unrelated_session = SubagentSession.create!(
+    unrelated_session = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: unrelated_owner,
       conversation: unrelated_child,
@@ -89,7 +89,7 @@ class AgentTaskProgressEntryTest < ActiveSupport::TestCase
     invalid_link = AgentTaskProgressEntry.new(
       installation: context[:installation],
       agent_task_run: agent_task_run,
-      subagent_session: unrelated_session,
+      subagent_connection: unrelated_session,
       sequence: 3,
       entry_kind: "progress_recorded",
       summary: "Delegated follow-up verification to a child worker",
@@ -98,6 +98,6 @@ class AgentTaskProgressEntryTest < ActiveSupport::TestCase
     )
 
     assert_not invalid_link.valid?
-    assert_includes invalid_link.errors[:subagent_session], "must be owned by the task conversation"
+    assert_includes invalid_link.errors[:subagent_connection], "must be owned by the task conversation"
   end
 end

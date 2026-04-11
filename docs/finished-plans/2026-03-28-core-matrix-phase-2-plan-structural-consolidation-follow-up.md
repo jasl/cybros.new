@@ -841,7 +841,7 @@ git commit -m "refactor: unify runtime capability contracts"
 **Files:**
 - Modify: `core_matrix/docs/behavior/provider-catalog-config-and-validation.md`
 - Modify: `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
-- Modify: `core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md`
+- Modify: `core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md`
 - Modify: `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
 - Modify: `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
 - Modify: `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
@@ -963,7 +963,7 @@ Expected: PASS.
 ```bash
 git add core_matrix/docs/behavior/provider-catalog-config-and-validation.md \
   core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md \
-  core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md \
+  core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md \
   core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md \
   core_matrix/docs/behavior/conversation-structure-and-lineage.md \
   core_matrix/docs/behavior/agent-registration-and-capability-handshake.md \

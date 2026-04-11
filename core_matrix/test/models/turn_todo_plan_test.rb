@@ -73,12 +73,12 @@ class TurnTodoPlanTest < ActiveSupport::TestCase
 
     other_conversation = Conversations::CreateRoot.call(
       workspace: context.fetch(:workspace),
-      agent_program: context.fetch(:agent_program)
+      agent: context.fetch(:agent)
     )
     other_turn = Turns::StartUserTurn.call(
       conversation: other_conversation,
       content: "Second turn",
-      executor_program: context.fetch(:executor_program),
+      execution_runtime: context.fetch(:execution_runtime),
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

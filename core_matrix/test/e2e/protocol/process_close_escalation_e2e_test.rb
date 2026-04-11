@@ -1,44 +1,44 @@
 require "test_helper"
 
 class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
-  test "executor-plane close reports from a program version on the wrong executor program are stale" do
+  test "execution-runtime-plane close reports from a agent snapshot on the wrong execution runtime are stale" do
     context = build_agent_control_context!
     correct_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential],
-      executor_machine_credential: context[:executor_machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential],
+      execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
-    other_agent_program = create_agent_program!(installation: context[:installation])
-    other_executor_program = create_executor_program!(installation: context[:installation])
+    other_agent = create_agent!(installation: context[:installation])
+    other_execution_runtime = create_execution_runtime!(installation: context[:installation])
     wrong_registration = register_agent_runtime!(
       installation: context[:installation],
       actor: context[:actor],
-      agent_program: other_agent_program,
-      executor_program: other_executor_program,
+      agent: other_agent,
+      execution_runtime: other_execution_runtime,
       reuse_enrollment: true
     )
-    wrong_deployment = wrong_registration.fetch(:deployment)
-    wrong_registration.fetch(:agent_session).update!(
+    wrong_agent_snapshot = wrong_registration.fetch(:agent_snapshot)
+    wrong_registration.fetch(:agent_connection).update!(
       health_status: "healthy",
       last_heartbeat_at: Time.current,
       last_health_check_at: Time.current
     )
     wrong_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: wrong_deployment,
-      machine_credential: wrong_registration.fetch(:machine_credential),
-      executor_machine_credential: wrong_registration.fetch(:executor_machine_credential)
+      agent_snapshot: wrong_agent_snapshot,
+      agent_connection_credential: wrong_registration.fetch(:agent_connection_credential),
+      execution_runtime_connection_credential: wrong_registration.fetch(:execution_runtime_connection_credential)
     )
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:executor_session].public_id,
+      holder_key: context[:execution_runtime_connection].public_id,
       heartbeat_timeout_seconds: 30
     )
 
@@ -103,7 +103,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     close_request = travel_to(occurred_at) do
       AgentControlMailboxItem.find_by!(
         item_type: "resource_close_request",
-        target_executor_program: process_run.executor_program
+        target_execution_runtime: process_run.execution_runtime
       )
     end
 
@@ -153,19 +153,19 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential],
-      executor_machine_credential: context[:executor_machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential],
+      execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:executor_session].public_id,
+      holder_key: context[:execution_runtime_connection].public_id,
       heartbeat_timeout_seconds: 30
     )
     occurred_at = Time.zone.parse("2026-03-26 15:00:00 UTC")

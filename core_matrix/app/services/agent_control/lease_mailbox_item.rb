@@ -4,9 +4,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(mailbox_item:, deployment:, resolved_delivery_endpoint: nil, occurred_at: Time.current)
+    def initialize(mailbox_item:, agent_snapshot:, resolved_delivery_endpoint: nil, occurred_at: Time.current)
       @mailbox_item = mailbox_item
-      @deployment = deployment
+      @agent_snapshot = agent_snapshot
       @resolved_delivery_endpoint = resolved_delivery_endpoint
       @occurred_at = occurred_at
     end
@@ -18,14 +18,14 @@ module AgentControl
         return if @mailbox_item.available_at > @occurred_at
 
         if @mailbox_item.leased?
-          return @mailbox_item if @mailbox_item.leased_to?(@deployment) && !@mailbox_item.lease_stale?(at: @occurred_at)
+          return @mailbox_item if @mailbox_item.leased_to?(@agent_snapshot) && !@mailbox_item.lease_stale?(at: @occurred_at)
           return if !@mailbox_item.lease_stale?(at: @occurred_at)
         end
 
         @mailbox_item.update_columns(
           status: "leased",
-          leased_to_agent_session_id: leased_agent_session&.id,
-          leased_to_executor_session_id: leased_executor_session&.id,
+          leased_to_agent_connection_id: leased_agent_connection&.id,
+          leased_to_execution_runtime_connection_id: leased_execution_runtime_connection&.id,
           leased_at: @occurred_at,
           lease_expires_at: @occurred_at + @mailbox_item.lease_timeout_seconds.seconds,
           delivery_no: @mailbox_item.delivery_no + 1,
@@ -51,29 +51,29 @@ module AgentControl
       )
     end
 
-    def leased_agent_session
-      return @leased_agent_session if defined?(@leased_agent_session)
-      return @leased_agent_session = @resolved_delivery_endpoint if @resolved_delivery_endpoint.is_a?(AgentSession)
+    def leased_agent_connection
+      return @leased_agent_connection if defined?(@leased_agent_connection)
+      return @leased_agent_connection = @resolved_delivery_endpoint if @resolved_delivery_endpoint.is_a?(AgentConnection)
 
-      @leased_agent_session =
-        case @deployment
-        when AgentProgramVersion
-          AgentSession.find_by(agent_program_version: @deployment, lifecycle_state: "active")
+      @leased_agent_connection =
+        case @agent_snapshot
+        when AgentSnapshot
+          AgentConnection.find_by(agent_snapshot: @agent_snapshot, lifecycle_state: "active")
         else
           nil
         end
     end
 
-    def leased_executor_session
-      return @leased_executor_session if defined?(@leased_executor_session)
-      return @leased_executor_session = @resolved_delivery_endpoint if @resolved_delivery_endpoint.is_a?(ExecutorSession)
+    def leased_execution_runtime_connection
+      return @leased_execution_runtime_connection if defined?(@leased_execution_runtime_connection)
+      return @leased_execution_runtime_connection = @resolved_delivery_endpoint if @resolved_delivery_endpoint.is_a?(ExecutionRuntimeConnection)
 
-      @leased_executor_session =
-        case @deployment
-        when ExecutorSession
-          @deployment
-        when AgentProgramVersion
-          ExecutorSession.find_by(executor_program: @mailbox_item.target_executor_program, lifecycle_state: "active") if @mailbox_item.executor_plane?
+      @leased_execution_runtime_connection =
+        case @agent_snapshot
+        when ExecutionRuntimeConnection
+          @agent_snapshot
+        when AgentSnapshot
+          ExecutionRuntimeConnection.find_by(execution_runtime: @mailbox_item.target_execution_runtime, lifecycle_state: "active") if @mailbox_item.execution_runtime_plane?
         else
           nil
         end

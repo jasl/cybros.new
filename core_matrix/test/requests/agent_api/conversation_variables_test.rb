@@ -31,7 +31,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
         conversation_id: context[:conversation].public_id,
         key: "customer_name",
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: agent_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -50,7 +50,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
         conversation_id: context[:conversation].public_id,
         keys: %w[customer_name tone missing],
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :success
@@ -68,7 +68,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
         conversation_id: context[:conversation].public_id,
         key: "tone",
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: agent_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -80,7 +80,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
         workspace_id: context[:workspace].public_id,
         conversation_id: context[:conversation].public_id,
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: agent_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -95,7 +95,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
         workspace_id: context[:workspace].public_id,
         conversation_id: context[:conversation].public_id,
       },
-      headers: agent_api_headers(registration[:machine_credential])
+      headers: agent_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -118,7 +118,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
         key: "customer_name",
         typed_value_payload: { type: "string", value: "Acme China" },
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :created
@@ -137,7 +137,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
         conversation_id: context[:conversation].public_id,
         key: "customer_name",
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :created
@@ -153,7 +153,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
         conversation_id: context[:conversation].public_id,
         key: "customer_name",
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :success
@@ -174,7 +174,7 @@ class AgentApiConversationVariablesTest < ActionDispatch::IntegrationTest
         key: "customer_name",
         typed_value_payload: { type: "string", value: "Acme China" },
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :not_found

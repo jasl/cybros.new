@@ -1,7 +1,7 @@
 {
   "item_id": "mailbox-item-public-id",
-  "item_type": "agent_program_request",
-  "control_plane": "program",
+  "item_type": "agent_request",
+  "control_plane": "agent",
   "logical_work_id": "prepare-round:workflow-node-public-id",
   "attempt_no": 1,
   "delivery_no": 0,
@@ -10,7 +10,7 @@
   "status": "queued",
   "lease_timeout_seconds": 30,
   "payload": {
-    "protocol_version": "agent-program/2026-04-01",
+    "protocol_version": "agent-runtime/2026-04-01",
     "request_kind": "prepare_round",
     "task": {
       "workflow_run_id": "workflow-run-public-id",
@@ -71,10 +71,10 @@
       }
     },
     "runtime_context": {
-      "control_plane": "program",
+      "control_plane": "agent",
       "logical_work_id": "prepare-round:workflow-node-public-id",
       "attempt_no": 1,
-      "agent_program_version_id": "agent-program-version-public-id"
+      "agent_snapshot_id": "agent-snapshot-public-id"
     }
   }
 }

@@ -1,15 +1,10 @@
 module AgentAPI
   class RegistrationsController < BaseController
-    skip_before_action :authenticate_agent_session!, only: :create
+    skip_before_action :authenticate_agent_connection!, only: :create
 
     def create
-      registration = AgentProgramVersions::Register.call(
+      registration = AgentSnapshots::Register.call(
         enrollment_token: request_payload.fetch("enrollment_token"),
-        executor_fingerprint: request_payload["executor_fingerprint"],
-        executor_kind: request_payload.fetch("executor_kind", "local"),
-        executor_connection_metadata: request_payload["executor_connection_metadata"],
-        executor_capability_payload: request_payload["executor_capability_payload"],
-        executor_tool_catalog: request_payload["executor_tool_catalog"],
         fingerprint: request_payload.fetch("fingerprint"),
         endpoint_metadata: request_payload.fetch("endpoint_metadata", {}),
         protocol_version: request_payload.fetch("protocol_version"),
@@ -22,23 +17,19 @@ module AgentAPI
         default_config_snapshot: request_payload.fetch("default_config_snapshot", {})
       )
       capability_contract = RuntimeCapabilityContract.build(
-        executor_program: registration.executor_program,
-        agent_program_version: registration.deployment
+        execution_runtime: registration.execution_runtime,
+        agent_snapshot: registration.agent_snapshot
       )
 
       render json: capability_contract.capability_response(
-        method_id: "program_registration",
-        executor_program_id: registration.executor_program&.public_id,
-        executor_fingerprint: registration.executor_program&.executor_fingerprint
+        method_id: "agent_registration",
+        execution_runtime_id: registration.execution_runtime&.public_id,
+        execution_runtime_fingerprint: registration.execution_runtime&.execution_runtime_fingerprint
       ).merge(
-        agent_program_id: registration.deployment.agent_program.public_id,
-        agent_program_version_id: registration.deployment.public_id,
-        agent_session_id: registration.agent_session.public_id,
-        executor_session_id: registration.executor_session&.public_id,
-        machine_credential: registration.session_credential,
-        session_credential: registration.session_credential,
-        executor_machine_credential: registration.executor_session_credential,
-        executor_session_credential: registration.executor_session_credential,
+        agent_id: registration.agent_snapshot.agent.public_id,
+        agent_snapshot_id: registration.agent_snapshot.public_id,
+        agent_connection_id: registration.agent_connection.public_id,
+        agent_connection_credential: registration.agent_connection_credential,
       ), status: :created
     end
   end

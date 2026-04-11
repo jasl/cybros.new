@@ -192,7 +192,7 @@ git commit -m "refactor: centralize recovery and rebinding ownership"
 ## Task 3: Close Batch 1 With Docs, Grep Checks, And Adjacent Verification
 
 **Files:**
-- Modify: `core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md`
+- Modify: `core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md`
 - Modify: `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
 - Modify: `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
 
@@ -236,7 +236,7 @@ Expected: PASS.
 **Step 4: Commit**
 
 ```bash
-git add core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md \
+git add core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md \
   core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md \
   core_matrix/docs/behavior/agent-registration-and-capability-handshake.md
 git commit -m "docs: describe centralized recovery ownership"
@@ -634,7 +634,7 @@ bin/rails test \
   test/services/turns \
   test/services/workflows \
   test/services/runtime_capabilities \
-  test/services/subagent_sessions \
+  test/services/subagent_connections \
   test/services/provider_execution \
   test/projections \
   test/resolvers \
@@ -643,7 +643,7 @@ bin/rails test \
   test/models/conversation_blocker_snapshot_test.rb \
   test/models/runtime_capability_contract_test.rb \
   test/models/capability_snapshot_test.rb \
-  test/models/subagent_session_test.rb \
+  test/models/subagent_connection_test.rb \
   test/queries/conversations \
   test/queries/workspace_variables \
   test/queries/lineage_stores \
@@ -659,7 +659,7 @@ bin/rubocop \
   app/services/turns \
   app/services/workflows \
   app/services/runtime_capabilities \
-  app/services/subagent_sessions \
+  app/services/subagent_connections \
   app/services/provider_execution \
   app/projections \
   app/resolvers \
@@ -670,7 +670,7 @@ bin/rubocop \
   test/services/turns \
   test/services/workflows \
   test/services/runtime_capabilities \
-  test/services/subagent_sessions \
+  test/services/subagent_connections \
   test/services/provider_execution \
   test/models \
   test/queries \

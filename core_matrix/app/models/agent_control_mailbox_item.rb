@@ -1,12 +1,12 @@
 class AgentControlMailboxItem < ApplicationRecord
   include HasPublicId
 
-  CONTROL_PLANES = %w[program executor].freeze
+  CONTROL_PLANES = %w[agent execution_runtime].freeze
 
   enum :item_type,
     {
       execution_assignment: "execution_assignment",
-      agent_program_request: "agent_program_request",
+      agent_request: "agent_request",
       resource_close_request: "resource_close_request",
       capabilities_refresh_request: "capabilities_refresh_request",
       recovery_notice: "recovery_notice",
@@ -25,15 +25,15 @@ class AgentControlMailboxItem < ApplicationRecord
     validate: true
 
   belongs_to :installation
-  belongs_to :target_agent_program, class_name: "AgentProgram"
-  belongs_to :target_agent_program_version, class_name: "AgentProgramVersion", optional: true
-  belongs_to :target_executor_program, class_name: "ExecutorProgram", optional: true
+  belongs_to :target_agent, class_name: "Agent"
+  belongs_to :target_agent_snapshot, class_name: "AgentSnapshot", optional: true
+  belongs_to :target_execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :agent_task_run, optional: true
   belongs_to :workflow_node, optional: true
   belongs_to :execution_contract, optional: true
   belongs_to :payload_document, class_name: "JsonDocument", optional: true
-  belongs_to :leased_to_agent_session, class_name: "AgentSession", optional: true
-  belongs_to :leased_to_executor_session, class_name: "ExecutorSession", optional: true
+  belongs_to :leased_to_agent_connection, class_name: "AgentConnection", optional: true
+  belongs_to :leased_to_execution_runtime_connection, class_name: "ExecutionRuntimeConnection", optional: true
 
   has_many :agent_control_report_receipts, foreign_key: :mailbox_item_id, dependent: :restrict_with_exception
 
@@ -47,7 +47,7 @@ class AgentControlMailboxItem < ApplicationRecord
   validate :payload_must_be_hash
   validate :target_installation_match
   validate :target_program_version_match
-  validate :target_executor_program_match
+  validate :target_execution_runtime_match
   validate :agent_task_run_match
   validate :workflow_node_match
   validate :lease_holder_match
@@ -59,7 +59,7 @@ class AgentControlMailboxItem < ApplicationRecord
 
   def materialized_payload(execution_snapshot: nil)
     if payload_document.present?
-      return reconstructed_agent_program_request_payload(execution_snapshot:) if agent_program_request?
+      return reconstructed_agent_request_payload(execution_snapshot:) if agent_request?
 
       return payload_document.payload.deep_dup
     end
@@ -77,50 +77,50 @@ class AgentControlMailboxItem < ApplicationRecord
     value.is_a?(Hash) ? value.deep_dup : {}
   end
 
-  def program_plane?
-    control_plane == "program"
+  def agent_plane?
+    control_plane == "agent"
   end
 
-  def executor_plane?
-    control_plane == "executor"
+  def execution_runtime_plane?
+    control_plane == "execution_runtime"
   end
 
-  def target_agent_program_version?
-    target_agent_program_version_id.present?
+  def target_agent_snapshot?
+    target_agent_snapshot_id.present?
   end
 
-  def targets?(deployment)
-    return false if deployment.blank?
+  def targets?(agent_snapshot)
+    return false if agent_snapshot.blank?
 
-    if executor_plane?
-      target_executor_program_id.present? &&
-        target_executor_program_id == executor_program_id_for(deployment)
+    if execution_runtime_plane?
+      target_execution_runtime_id.present? &&
+        target_execution_runtime_id == execution_runtime_id_for(agent_snapshot)
     else
-      if target_agent_program_version_id.present?
-        deployment.id == target_agent_program_version_id
+      if target_agent_snapshot_id.present?
+        agent_snapshot.id == target_agent_snapshot_id
       else
-        deployment.agent_program_id == target_agent_program_id
+        agent_snapshot.agent_id == target_agent_id
       end
     end
   end
 
-  def leased_to?(deployment)
-    return false if deployment.blank?
+  def leased_to?(agent_snapshot)
+    return false if agent_snapshot.blank?
 
-    case deployment
-    when AgentSession
-      leased_to_agent_session_id == deployment.id
-    when AgentProgramVersion
-      leased_to_agent_session&.agent_program_version_id == deployment.id
-    when ExecutorSession
-      leased_to_executor_session_id == deployment.id
+    case agent_snapshot
+    when AgentConnection
+      leased_to_agent_connection_id == agent_snapshot.id
+    when AgentSnapshot
+      leased_to_agent_connection&.agent_snapshot_id == agent_snapshot.id
+    when ExecutionRuntimeConnection
+      leased_to_execution_runtime_connection_id == agent_snapshot.id
     else
       false
     end
   end
 
-  def leased_to_agent_program_version
-    leased_to_agent_session&.agent_program_version
+  def leased_to_agent_snapshot
+    leased_to_agent_connection&.agent_snapshot
   end
 
   def lease_stale?(at: Time.current)
@@ -129,10 +129,10 @@ class AgentControlMailboxItem < ApplicationRecord
 
   private
 
-  def reconstructed_agent_program_request_payload(execution_snapshot: nil)
+  def reconstructed_agent_request_payload(execution_snapshot: nil)
     payload = payload_document.payload.deep_dup
     payload.merge!(payload_body)
-    payload["protocol_version"] ||= "agent-program/2026-04-01"
+    payload["protocol_version"] ||= "agent-runtime/2026-04-01"
 
     task = payload["task"].is_a?(Hash) ? payload["task"].deep_dup : {}
     if workflow_node.present?
@@ -163,10 +163,10 @@ class AgentControlMailboxItem < ApplicationRecord
     runtime_context["logical_work_id"] = logical_work_id
     runtime_context["attempt_no"] = attempt_no
     runtime_context["control_plane"] = control_plane
-    runtime_context["agent_program_version_id"] = target_agent_program_version.public_id if target_agent_program_version.present?
-    runtime_context["agent_program_id"] ||= snapshot_runtime_context["agent_program_id"]
+    runtime_context["agent_snapshot_id"] = target_agent_snapshot.public_id if target_agent_snapshot.present?
+    runtime_context["agent_id"] ||= snapshot_runtime_context["agent_id"]
     runtime_context["user_id"] ||= snapshot_runtime_context["user_id"]
-    runtime_context["agent_program_id"] ||= target_agent_program.public_id if target_agent_program.present?
+    runtime_context["agent_id"] ||= target_agent.public_id if target_agent.present?
     runtime_context["user_id"] ||= execution_contract&.turn&.conversation&.workspace&.user&.public_id
     payload["runtime_context"] = runtime_context if runtime_context.present?
 
@@ -175,7 +175,7 @@ class AgentControlMailboxItem < ApplicationRecord
 
   def reconstructed_agent_context(payload, execution_snapshot:)
     capability_projection = execution_snapshot&.capability_projection || {}
-    tool_name = payload.dig("program_tool_call", "tool_name")
+    tool_name = payload.dig("tool_call", "tool_name")
     allowed_tool_names =
       if tool_name.present?
         [tool_name]
@@ -186,8 +186,8 @@ class AgentControlMailboxItem < ApplicationRecord
     {
       "profile" => capability_projection.fetch("profile_key", "main"),
       "is_subagent" => capability_projection["is_subagent"] == true,
-      "subagent_session_id" => capability_projection["subagent_session_id"],
-      "parent_subagent_session_id" => capability_projection["parent_subagent_session_id"],
+      "subagent_connection_id" => capability_projection["subagent_connection_id"],
+      "parent_subagent_connection_id" => capability_projection["parent_subagent_connection_id"],
       "subagent_depth" => capability_projection["subagent_depth"],
       "owner_conversation_id" => capability_projection["owner_conversation_id"],
       "allowed_tool_names" => allowed_tool_names,
@@ -207,37 +207,37 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def target_installation_match
-    return if target_agent_program.blank? || target_agent_program.installation_id == installation_id
+    return if target_agent.blank? || target_agent.installation_id == installation_id
 
-    errors.add(:target_agent_program, "must belong to the same installation")
+    errors.add(:target_agent, "must belong to the same installation")
   end
 
   def target_program_version_match
-    return if target_agent_program_version.blank?
+    return if target_agent_snapshot.blank?
 
-    errors.add(:target_agent_program_version, "must belong to the same installation") if target_agent_program_version.installation_id != installation_id
-    errors.add(:target_agent_program_version, "must belong to the targeted agent program") if target_agent_program_version.agent_program_id != target_agent_program_id
+    errors.add(:target_agent_snapshot, "must belong to the same installation") if target_agent_snapshot.installation_id != installation_id
+    errors.add(:target_agent_snapshot, "must belong to the targeted agent") if target_agent_snapshot.agent_id != target_agent_id
   end
 
-  def target_executor_program_match
-    return if target_executor_program.blank?
-    return if target_executor_program.installation_id == installation_id
+  def target_execution_runtime_match
+    return if target_execution_runtime.blank?
+    return if target_execution_runtime.installation_id == installation_id
 
-    errors.add(:target_executor_program, "must belong to the same installation")
+    errors.add(:target_execution_runtime, "must belong to the same installation")
   end
 
   def agent_task_run_match
     return if agent_task_run.blank?
 
     errors.add(:agent_task_run, "must belong to the same installation") if agent_task_run.installation_id != installation_id
-    errors.add(:agent_task_run, "must belong to the targeted agent program") if agent_task_run.agent_program_id != target_agent_program_id
+    errors.add(:agent_task_run, "must belong to the targeted agent") if agent_task_run.agent_id != target_agent_id
   end
 
   def workflow_node_match
     return if workflow_node.blank?
 
     errors.add(:workflow_node, "must belong to the same installation") if workflow_node.installation_id != installation_id
-    errors.add(:workflow_node, "must belong to the targeted agent program") if workflow_node.conversation&.agent_program_id != target_agent_program_id
+    errors.add(:workflow_node, "must belong to the targeted agent") if workflow_node.conversation&.agent_id != target_agent_id
 
     return if execution_contract.blank? || workflow_node.turn_id == execution_contract.turn_id
 
@@ -245,36 +245,36 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def lease_holder_match
-    return if leased_to_agent_session.blank? && leased_to_executor_session.blank?
+    return if leased_to_agent_connection.blank? && leased_to_execution_runtime_connection.blank?
 
-    if leased_to_agent_session.present?
-      errors.add(:leased_to_agent_session, "must belong to the same installation") if leased_to_agent_session.installation_id != installation_id
-      errors.add(:leased_to_agent_session, "must satisfy the mailbox target") unless targets?(leased_to_agent_session.agent_program_version)
+    if leased_to_agent_connection.present?
+      errors.add(:leased_to_agent_connection, "must belong to the same installation") if leased_to_agent_connection.installation_id != installation_id
+      errors.add(:leased_to_agent_connection, "must satisfy the mailbox target") unless targets?(leased_to_agent_connection.agent_snapshot)
     end
 
-    if leased_to_executor_session.present?
-      errors.add(:leased_to_executor_session, "must belong to the same installation") if leased_to_executor_session.installation_id != installation_id
-      if executor_plane?
-        errors.add(:leased_to_executor_session, "must belong to the targeted executor program") if leased_to_executor_session.executor_program_id != target_executor_program_id
+    if leased_to_execution_runtime_connection.present?
+      errors.add(:leased_to_execution_runtime_connection, "must belong to the same installation") if leased_to_execution_runtime_connection.installation_id != installation_id
+      if execution_runtime_plane?
+        errors.add(:leased_to_execution_runtime_connection, "must belong to the targeted execution runtime") if leased_to_execution_runtime_connection.execution_runtime_id != target_execution_runtime_id
       end
-      errors.add(:leased_to_executor_session, "is only valid for executor-plane work") unless executor_plane?
+      errors.add(:leased_to_execution_runtime_connection, "is only valid for execution-runtime-plane work") unless execution_runtime_plane?
     end
   end
 
   def control_plane_contract
-    return unless executor_plane?
+    return unless execution_runtime_plane?
 
-    if target_executor_program.blank?
-      errors.add(:target_executor_program, "must be present for executor-plane work")
+    if target_execution_runtime.blank?
+      errors.add(:target_execution_runtime, "must be present for execution-runtime-plane work")
       return
     end
 
-    return if target_executor_program.installation_id == installation_id
+    return if target_execution_runtime.installation_id == installation_id
 
-    errors.add(:target_executor_program, "must reference an executor program in the same installation")
+    errors.add(:target_execution_runtime, "must reference an execution runtime in the same installation")
   end
 
-  def executor_program_id_for(deployment)
-    deployment.agent_program.default_executor_program_id
+  def execution_runtime_id_for(agent_snapshot)
+    agent_snapshot.agent.default_execution_runtime_id
   end
 end

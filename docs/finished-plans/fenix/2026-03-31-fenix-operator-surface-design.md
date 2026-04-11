@@ -9,7 +9,7 @@
 ## Goal
 
 Turn the current `agents/fenix` runtime into a coherent operator workspace for
-humans and agent programs by organizing the existing environment capabilities
+humans and agents by organizing the existing environment capabilities
 around a small set of first-class operational objects instead of a flat tool
 catalog.
 

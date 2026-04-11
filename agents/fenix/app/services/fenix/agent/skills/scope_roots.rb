@@ -2,14 +2,14 @@ module Fenix
   module Agent
     module Skills
       class ScopeRoots
-        attr_reader :home_root, :agent_program_id, :user_id
+        attr_reader :home_root, :agent_id, :user_id
 
-        def initialize(agent_program_id:, user_id:, home_root:)
-          @agent_program_id = agent_program_id.to_s
+        def initialize(agent_id:, user_id:, home_root:)
+          @agent_id = agent_id.to_s
           @user_id = user_id.to_s
           @home_root = Pathname(home_root).expand_path
 
-          validate_scope_component!("agent_program_id", @agent_program_id)
+          validate_scope_component!("agent_id", @agent_id)
           validate_scope_component!("user_id", @user_id)
         end
 
@@ -35,7 +35,7 @@ module Fenix
         end
 
         def scope_root
-          @scope_root ||= home_root.join("skills-scopes", agent_program_id, user_id)
+          @scope_root ||= home_root.join("skills-scopes", agent_id, user_id)
         end
       end
     end

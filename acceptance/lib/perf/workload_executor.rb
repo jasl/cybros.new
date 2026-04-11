@@ -4,9 +4,9 @@ module Acceptance
   module Perf
     # Executes one benchmark workload item and emits its completion event.
     class WorkloadExecutor
-      def initialize(run_execution_assignment:, run_program_exchange:, append_event:, time_source: nil)
+      def initialize(run_execution_assignment:, run_agent_request_exchange:, append_event:, time_source: nil)
         @run_execution_assignment = run_execution_assignment
-        @run_program_exchange = run_program_exchange
+        @run_agent_request_exchange = run_agent_request_exchange
         @append_event = append_event
         @time_source = time_source || -> { Time.zone.now }
       end
@@ -50,7 +50,7 @@ module Acceptance
       def runner_for(task)
         case task.fetch('workload_kind')
         when 'execution_assignment' then @run_execution_assignment
-        when 'program_exchange_mock' then @run_program_exchange
+        when 'agent_request_exchange_mock' then @run_agent_request_exchange
         else
           raise ArgumentError, "unsupported workload kind: #{task.fetch('workload_kind')}"
         end
@@ -96,7 +96,7 @@ module Acceptance
           ),
           'turn_public_id' => execution['turn_public_id'],
           'workflow_run_public_id' => execution['workflow_run_public_id'],
-          'agent_program_public_id' => extract_agent_program_public_id(registration)
+          'agent_public_id' => extract_agent_public_id(registration)
         }
       end
       # rubocop:enable Metrics/MethodLength, Metrics/ParameterLists
@@ -105,11 +105,11 @@ module Acceptance
         %w[completed ok].include?(execution.fetch('status'))
       end
 
-      def extract_agent_program_public_id(registration)
-        agent_program_version = registration.agent_program_version
-        return agent_program_version.agent_program.public_id if agent_program_version.respond_to?(:agent_program)
+      def extract_agent_public_id(registration)
+        agent_snapshot = registration.agent_snapshot
+        return agent_snapshot.agent.public_id if agent_snapshot.respond_to?(:agent)
 
-        agent_program_version.fetch('agent_program_public_id')
+        agent_snapshot.fetch('agent_public_id')
       end
 
       def conversation_public_id_for(conversation)

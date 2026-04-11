@@ -298,15 +298,15 @@ git commit -m "docs: record runtime and provider review round"
 
 **Files:**
 - Modify: `docs/plans/2026-03-28-core-matrix-phase-2-iterative-architecture-health-refresh-findings.md`
-- Reference: `core_matrix/app/models/subagent_session.rb`
-- Reference: `core_matrix/app/services/subagent_sessions`
+- Reference: `core_matrix/app/models/subagent_connection.rb`
+- Reference: `core_matrix/app/services/subagent_connections`
 - Reference: `core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb`
 - Reference: `core_matrix/app/models/runtime_capability_contract.rb`
 - Reference: `core_matrix/app/models/turn_execution_snapshot.rb`
 - Reference: `core_matrix/app/services/workflows/build_execution_snapshot.rb`
 - Reference: `core_matrix/app/services/conversations/reconcile_close_operation.rb`
 - Reference: `core_matrix/app/services/conversations/request_resource_closes.rb`
-- Reference: `core_matrix/test/services/subagent_sessions`
+- Reference: `core_matrix/test/services/subagent_connections`
 - Reference: `core_matrix/test/services/runtime_capabilities`
 - Reference: `core_matrix/test/services/conversations`
 - Reference: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
@@ -362,7 +362,7 @@ Run focused searches such as:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-rg -n "with_lock|transaction|ValidateMutableState|BlockerSnapshotQuery|to_h|deep_stringify_keys|profile_catalog|tool_catalog|request_context|close_operation|subagent_session"
+rg -n "with_lock|transaction|ValidateMutableState|BlockerSnapshotQuery|to_h|deep_stringify_keys|profile_catalog|tool_catalog|request_context|close_operation|subagent_connection"
 rg -n "class .*Query|class .*Projection|class .*Resolver" app/queries app/services
 rg -n "payload|metadata|snapshot" app/models app/services
 ```

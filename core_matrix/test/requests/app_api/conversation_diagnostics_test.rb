@@ -12,8 +12,8 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       conversation_id: context[:conversation].id,
       turn_id: context[:turn].id,
       workflow_node_key: "turn_step",
-      agent_program: context[:agent_program],
-      agent_program_version: context[:agent_program_version],
+      agent: context[:agent],
+      agent_snapshot: context[:agent_snapshot],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",
@@ -34,7 +34,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].public_id,
       },
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
 
@@ -69,7 +69,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].public_id,
       },
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
 
@@ -109,8 +109,8 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       conversation_id: context[:conversation].id,
       turn_id: context[:turn].id,
       workflow_node_key: "turn_step",
-      agent_program: context[:agent_program],
-      agent_program_version: context[:agent_program_version],
+      agent: context[:agent],
+      agent_snapshot: context[:agent_snapshot],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",
@@ -127,7 +127,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].public_id,
       },
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
     assert_nil JSON.parse(response.body).dig("snapshot", "prompt_cache_hit_rate")
@@ -141,7 +141,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].id,
       },
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :not_found
 
@@ -149,7 +149,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].id,
       },
-      headers: app_api_headers(registration[:machine_credential])
+      headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :not_found
   end

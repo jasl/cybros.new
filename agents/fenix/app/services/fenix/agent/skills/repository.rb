@@ -15,15 +15,15 @@ module Fenix
 
         def self.from_runtime_context!(runtime_context:, **kwargs)
           context = runtime_context.deep_stringify_keys
-          agent_program_id = context["agent_program_id"].to_s
+          agent_id = context["agent_id"].to_s
           user_id = context["user_id"].to_s
 
-          if agent_program_id.blank? || user_id.blank?
-            raise MissingScopeError, "runtime_context must include non-blank agent_program_id and user_id"
+          if agent_id.blank? || user_id.blank?
+            raise MissingScopeError, "runtime_context must include non-blank agent_id and user_id"
           end
 
           new(
-            agent_program_id: agent_program_id,
+            agent_id: agent_id,
             user_id: user_id,
             **kwargs
           )
@@ -51,9 +51,9 @@ module Fenix
 
         attr_reader :scope_roots, :system_root, :curated_root
 
-        def initialize(agent_program_id:, user_id:, home_root: default_home_root, system_root: default_system_root, curated_root: default_curated_root, validator: PackageValidator)
+        def initialize(agent_id:, user_id:, home_root: default_home_root, system_root: default_system_root, curated_root: default_curated_root, validator: PackageValidator)
           @scope_roots = ScopeRoots.new(
-            agent_program_id: agent_program_id,
+            agent_id: agent_id,
             user_id: user_id,
             home_root: home_root
           )

@@ -6,7 +6,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     receipt = AgentControlReportReceipt.create!(
       installation: context[:installation],
-      agent_session: context[:agent_session],
+      agent_connection: context[:agent_connection],
       agent_task_run: scenario.fetch(:agent_task_run),
       mailbox_item: scenario.fetch(:mailbox_item),
       protocol_message_id: "receipt-#{next_test_sequence}",
@@ -31,11 +31,11 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
 
     receipt = AgentControlReportReceipt.create!(
       installation: context[:installation],
-      agent_session: context[:agent_session],
+      agent_connection: context[:agent_connection],
       agent_task_run: agent_task_run,
       mailbox_item: mailbox_item,
       protocol_message_id: "receipt-compact-#{next_test_sequence}",
-      method_id: "agent_program_completed",
+      method_id: "agent_completed",
       logical_work_id: agent_task_run.logical_work_id,
       attempt_no: agent_task_run.attempt_no,
       result_code: "accepted",
@@ -91,7 +91,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
 
     receipt = AgentControlReportReceipt.create!(
       installation: context[:installation],
-      agent_session: context[:agent_session],
+      agent_connection: context[:agent_connection],
       agent_task_run: agent_task_run,
       mailbox_item: mailbox_item,
       protocol_message_id: "receipt-empty-body-#{next_test_sequence}",
@@ -131,7 +131,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     assert_equal agent_task_run.workflow_node.public_id, payload.fetch("workflow_node_id")
   end
 
-  test "keeps execute_program_tool result in storage while still reconstructing mailbox defaults" do
+  test "keeps execute_tool result in storage while still reconstructing mailbox defaults" do
     context = build_agent_control_context!
     implementation_source = ImplementationSource.create!(
       installation: context.fetch(:installation),
@@ -141,7 +141,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     )
     tool_definition = ToolDefinition.create!(
       installation: context.fetch(:installation),
-      agent_program_version: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       tool_name: "exec_command",
       tool_kind: "agent_observation",
       governance_mode: "replaceable",
@@ -179,11 +179,11 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
       }
     )
 
-    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
-      agent_program_version: context.fetch(:deployment),
-      request_kind: "execute_program_tool",
+    mailbox_item = AgentControl::CreateAgentRequest.call(
+      agent_snapshot: context.fetch(:agent_snapshot),
+      request_kind: "execute_tool",
       payload: {
-        "protocol_version" => "agent-program/2026-04-01",
+        "protocol_version" => "agent-runtime/2026-04-01",
         "task" => {
           "kind" => "turn_step",
           "workflow_node_id" => context.fetch(:workflow_node).public_id,
@@ -191,7 +191,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
           "turn_id" => context.fetch(:turn).public_id,
           "conversation_id" => context.fetch(:conversation).public_id,
         },
-        "program_tool_call" => {
+        "tool_call" => {
           "call_id" => invocation.idempotency_key,
           "tool_name" => "exec_command",
           "arguments" => { "command_line" => "echo hello" },
@@ -208,23 +208,23 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
         },
         "provider_context" => context.fetch(:turn).execution_contract.provider_context,
         "runtime_context" => {
-          "logical_work_id" => "program-tool:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
+          "logical_work_id" => "tool-call:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
           "attempt_no" => 1,
-          "control_plane" => "program",
-          "agent_program_version_id" => context.fetch(:deployment).public_id,
+          "control_plane" => "agent",
+          "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id,
         },
       },
-      logical_work_id: "program-tool:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
+      logical_work_id: "tool-call:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
       attempt_no: 1,
       dispatch_deadline_at: 5.minutes.from_now
     )
 
     receipt = AgentControlReportReceipt.create!(
       installation: context.fetch(:installation),
-      agent_session: context.fetch(:agent_session),
+      agent_connection: context.fetch(:agent_connection),
       mailbox_item: mailbox_item,
       protocol_message_id: "receipt-program-tool-#{next_test_sequence}",
-      method_id: "agent_program_completed",
+      method_id: "agent_completed",
       logical_work_id: mailbox_item.logical_work_id,
       attempt_no: mailbox_item.attempt_no,
       result_code: "accepted",
@@ -236,7 +236,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
             "exit_status" => 0,
           },
           "output_chunks" => [],
-          "program_tool_call" => {
+          "tool_call" => {
             "call_id" => invocation.idempotency_key,
             "tool_name" => "exec_command",
             "arguments" => { "command_line" => "echo hello" },
@@ -255,7 +255,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
       },
       stored_payload.dig("response_payload", "result")
     )
-    refute stored_payload.dig("response_payload", "program_tool_call")
+    refute stored_payload.dig("response_payload", "tool_call")
     refute stored_payload.dig("response_payload", "output_chunks")
     refute stored_payload.dig("response_payload", "status")
 
@@ -263,11 +263,11 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     assert_equal "ok", response_payload.fetch("status")
     assert_equal invocation.response_payload, response_payload.fetch("result")
     assert_equal [], response_payload.fetch("output_chunks")
-    assert_equal mailbox_item.payload.fetch("program_tool_call"), response_payload.fetch("program_tool_call")
+    assert_equal mailbox_item.payload.fetch("tool_call"), response_payload.fetch("tool_call")
     assert_equal [], response_payload.fetch("summary_artifacts")
   end
 
-  test "returns the original execute_program_tool result before tool invocation reconciliation runs" do
+  test "returns the original execute_tool result before tool invocation reconciliation runs" do
     context = build_agent_control_context!
     implementation_source = ImplementationSource.create!(
       installation: context.fetch(:installation),
@@ -277,7 +277,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     )
     tool_definition = ToolDefinition.create!(
       installation: context.fetch(:installation),
-      agent_program_version: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       tool_name: "browser_open",
       tool_kind: "agent_observation",
       governance_mode: "replaceable",
@@ -308,11 +308,11 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
       idempotency_key: "call-#{next_test_sequence}"
     ).tool_invocation
 
-    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
-      agent_program_version: context.fetch(:deployment),
-      request_kind: "execute_program_tool",
+    mailbox_item = AgentControl::CreateAgentRequest.call(
+      agent_snapshot: context.fetch(:agent_snapshot),
+      request_kind: "execute_tool",
       payload: {
-        "protocol_version" => "agent-program/2026-04-01",
+        "protocol_version" => "agent-runtime/2026-04-01",
         "task" => {
           "kind" => "turn_step",
           "workflow_node_id" => context.fetch(:workflow_node).public_id,
@@ -320,7 +320,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
           "turn_id" => context.fetch(:turn).public_id,
           "conversation_id" => context.fetch(:conversation).public_id,
         },
-        "program_tool_call" => {
+        "tool_call" => {
           "call_id" => invocation.idempotency_key,
           "tool_name" => "browser_open",
           "arguments" => { "url" => "http://127.0.0.1:4173" },
@@ -337,23 +337,23 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
         },
         "provider_context" => context.fetch(:turn).execution_contract.provider_context,
         "runtime_context" => {
-          "logical_work_id" => "program-tool:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
+          "logical_work_id" => "tool-call:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
           "attempt_no" => 1,
-          "control_plane" => "program",
-          "agent_program_version_id" => context.fetch(:deployment).public_id,
+          "control_plane" => "agent",
+          "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id,
         },
       },
-      logical_work_id: "program-tool:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
+      logical_work_id: "tool-call:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
       attempt_no: 1,
       dispatch_deadline_at: 5.minutes.from_now
     )
 
     receipt = AgentControlReportReceipt.create!(
       installation: context.fetch(:installation),
-      agent_session: context.fetch(:agent_session),
+      agent_connection: context.fetch(:agent_connection),
       mailbox_item: mailbox_item,
       protocol_message_id: "receipt-program-tool-pending-#{next_test_sequence}",
-      method_id: "agent_program_completed",
+      method_id: "agent_completed",
       logical_work_id: mailbox_item.logical_work_id,
       attempt_no: mailbox_item.attempt_no,
       result_code: "accepted",
@@ -366,7 +366,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
             "content" => "Browser session browser-session-1 opened at http://127.0.0.1:4173.",
           },
           "output_chunks" => [],
-          "program_tool_call" => {
+          "tool_call" => {
             "call_id" => invocation.idempotency_key,
             "tool_name" => "browser_open",
             "arguments" => { "url" => "http://127.0.0.1:4173" },
@@ -387,7 +387,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
       response_payload.fetch("result")
     )
     assert_equal "ok", response_payload.fetch("status")
-    assert_equal mailbox_item.payload.fetch("program_tool_call"), response_payload.fetch("program_tool_call")
+    assert_equal mailbox_item.payload.fetch("tool_call"), response_payload.fetch("tool_call")
     assert_equal [], response_payload.fetch("output_chunks")
   end
 end

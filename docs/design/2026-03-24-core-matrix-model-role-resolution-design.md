@@ -118,7 +118,7 @@ Instead:
 
 - the kernel reserves one slot name: `interactive`
 - `interactive` defaults to `role:main`
-- agent programs may define additional named slots in deployment config schema
+- agents may define additional named slots in deployment config schema
 
 Examples:
 

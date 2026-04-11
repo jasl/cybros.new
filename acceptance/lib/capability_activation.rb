@@ -27,7 +27,7 @@ module Acceptance
     #     },
     #     tool_invocations: parsed_debug["tool_invocations.json"],
     #     command_runs: parsed_debug["command_runs.json"],
-    #     subagent_sessions: parsed_debug["subagent_sessions.json"],
+    #     subagent_connections: parsed_debug["subagent_connections.json"],
     #     artifact_paths: {
     #       "workspace_validation" => artifact_dir.join("workspace-validation.md"),
     #       "skills_validation" => artifact_dir.join("skills-validation.json"),
@@ -36,7 +36,7 @@ module Acceptance
     #       "generated_app_dir" => generated_app_dir,
     #     }
     #   )
-    def build(contract:, tool_invocations: [], command_runs: [], subagent_sessions: [], artifact_paths: {}, workspace_paths: {}, skill_validation: nil, transcript_roundtrip_match: nil, supervision_trace: nil)
+    def build(contract:, tool_invocations: [], command_runs: [], subagent_connections: [], artifact_paths: {}, workspace_paths: {}, skill_validation: nil, transcript_roundtrip_match: nil, supervision_trace: nil)
       normalized_contract = stringify_keys(contract)
       skill_validation = stringify_keys(skill_validation || {})
       supervision_trace = stringify_keys(supervision_trace || {})
@@ -46,7 +46,7 @@ module Acceptance
           capability: capability,
           tool_invocations: Array(tool_invocations),
           command_runs: Array(command_runs),
-          subagent_sessions: Array(subagent_sessions),
+          subagent_connections: Array(subagent_connections),
           artifact_paths: stringify_keys(artifact_paths),
           workspace_paths: stringify_keys(workspace_paths),
           skill_validation: skill_validation,
@@ -70,7 +70,7 @@ module Acceptance
       }
     end
 
-    def build_capability_row(capability:, tool_invocations:, command_runs:, subagent_sessions:, artifact_paths:, workspace_paths:, skill_validation:, transcript_roundtrip_match:, supervision_trace:)
+    def build_capability_row(capability:, tool_invocations:, command_runs:, subagent_connections:, artifact_paths:, workspace_paths:, skill_validation:, transcript_roundtrip_match:, supervision_trace:)
       key = capability.fetch("key")
       db_evidence = []
       artifact_evidence = []
@@ -106,7 +106,7 @@ module Acceptance
         artifact_evidence.concat(existing_paths(artifact_paths.values_at("skills_validation")))
         notes << "skills_validation_passed=#{skill_validation["passed"]}" unless skill_validation.empty?
       when "subagents"
-        db_evidence.concat(public_ids_for(subagent_sessions))
+        db_evidence.concat(public_ids_for(subagent_connections))
         final_subagents = Array(supervision_trace.dig("final_response", "machine_status", "active_subagents"))
         notes << "active_subagents_seen=#{final_subagents.length}" if final_subagents.any?
         artifact_evidence << artifact_paths.fetch("supervision_status").to_s if path_present?(artifact_paths["supervision_status"])
@@ -148,7 +148,7 @@ module Acceptance
 
     def public_ids_for(records)
       records.filter_map do |entry|
-        entry["id"] || entry["public_id"] || entry["tool_invocation_id"] || entry["command_run_id"] || entry["subagent_session_id"]
+        entry["id"] || entry["public_id"] || entry["tool_invocation_id"] || entry["command_run_id"] || entry["subagent_connection_id"]
       end
     end
 

@@ -5,7 +5,7 @@ class Conversations::ProgressCloseRequestsTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -31,7 +31,7 @@ class Conversations::ProgressCloseRequestsTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -66,13 +66,13 @@ class Conversations::ProgressCloseRequestsTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run_a = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     process_run_b = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -86,22 +86,22 @@ class Conversations::ProgressCloseRequestsTest < ActiveSupport::TestCase
       lifecycle_state: "running",
       started_at: Time.current
     )
-    subagent_session_a = create_open_owned_subagent_session!(
+    subagent_connection_a = create_open_owned_subagent_connection!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: context[:conversation],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
-    subagent_session_b = create_open_owned_subagent_session!(
+    subagent_connection_b = create_open_owned_subagent_connection!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: context[:conversation],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:deployment]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
 
-    [process_run_a, process_run_b, task_run_a, task_run_b, subagent_session_a, subagent_session_b].each do |resource|
+    [process_run_a, process_run_b, task_run_a, task_run_b, subagent_connection_a, subagent_connection_b].each do |resource|
       AgentControl::CreateResourceCloseRequest.call(
         resource: resource,
         request_kind: "archive",
@@ -124,18 +124,18 @@ class Conversations::ProgressCloseRequestsTest < ActiveSupport::TestCase
 
   private
 
-  def create_open_owned_subagent_session!(installation:, workspace:, owner_conversation:, executor_program:, agent_program_version:)
+  def create_open_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_snapshot:)
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
-      executor_program: executor_program,
-      agent_program_version: agent_program_version,
+      execution_runtime: execution_runtime,
+      agent_snapshot: agent_snapshot,
       addressability: "agent_addressable"
     )
 
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: installation,
       owner_conversation: owner_conversation,
       conversation: child_conversation,

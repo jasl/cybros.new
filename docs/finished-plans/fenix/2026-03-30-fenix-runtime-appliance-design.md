@@ -11,7 +11,7 @@
 Turn `agents/fenix` from the current validated runtime baseline
 into a default, distributable runtime appliance that:
 
-- remains compatible with Core Matrix's `AgentProgramVersion + ExecutorProgram`
+- remains compatible with Core Matrix's `AgentSnapshot + ExecutionRuntime`
   model
 - ships as the default agent implementation in Docker Compose deployments
 - can also run bare-metal on Ubuntu 24.04 LTS with documented prerequisites
@@ -22,8 +22,8 @@ into a default, distributable runtime appliance that:
 
 ## Current Constraints
 
-- `core_matrix` already models one stable `ExecutorProgram`, frozen
-  `AgentProgramVersion` rows, and `program_plane` / `execution_plane` /
+- `core_matrix` already models one stable `ExecutionRuntime`, frozen
+  `AgentSnapshot` rows, and `agent_plane` / `execution_runtime_plane` /
   `effective_tool_catalog` contracts.
 - `agents/fenix` still exposes a mostly static pairing manifest and hardcoded
   tool composition, but it now handles both mailbox-driven agent execution and
@@ -44,7 +44,7 @@ into a default, distributable runtime appliance that:
 ## High-Level Decision
 
 Build Fenix as a single Ubuntu 24.04-based runtime appliance first, but define
-clear program-plane and execution-plane seams from the beginning.
+clear agent-plane and execution-plane seams from the beginning.
 
 The first release should keep one deployable service for product simplicity:
 
@@ -55,7 +55,7 @@ The first release should keep one deployable service for product simplicity:
 
 Internally, the implementation should still separate:
 
-- program-plane logic
+- agent-plane logic
   - prompts
   - profiles
   - skills
@@ -152,7 +152,7 @@ Rules:
   - `conversation_public_id`
   - `parent_conversation_public_id`
   - `root_conversation_public_id`
-  - `subagent_session_public_id`
+  - `subagent_connection_public_id`
   - `depth`
   - `addressability`
 

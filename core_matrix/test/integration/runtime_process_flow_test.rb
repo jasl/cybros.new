@@ -5,13 +5,13 @@ class RuntimeProcessFlowTest < ActionDispatch::IntegrationTest
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Run process",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -28,7 +28,7 @@ class RuntimeProcessFlowTest < ActionDispatch::IntegrationTest
         {
           node_key: "process",
           node_type: "background_service",
-          decision_source: "agent_program",
+          decision_source: "agent",
           metadata: { "policy_sensitive" => true },
         },
       ],
@@ -40,7 +40,7 @@ class RuntimeProcessFlowTest < ActionDispatch::IntegrationTest
 
     process_run = Processes::Provision.call(
       workflow_node: process_node,
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       command_line: "echo hi",
       origin_message: turn.selected_input_message
@@ -51,7 +51,7 @@ class RuntimeProcessFlowTest < ActionDispatch::IntegrationTest
     assert_equal conversation, stopped.conversation
     assert_equal turn, stopped.turn
     assert_equal turn.selected_input_message, stopped.origin_message
-    assert_equal context[:executor_program], stopped.executor_program
+    assert_equal context[:execution_runtime], stopped.execution_runtime
     assert_equal %w[starting running stopped], WorkflowNodeEvent.where(workflow_node: process_node, event_kind: "status").order(:ordinal).map { |event| event.payload.fetch("state") }
     assert_equal "background_service", AuditLog.find_by!(action: "process_run.started").metadata["kind"]
   end

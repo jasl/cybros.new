@@ -12,7 +12,7 @@ class AgentApiHumanInteractionsTest < ActionDispatch::IntegrationTest
         blocking: true,
         request_payload: { approval_scope: "publish" },
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :created
@@ -41,7 +41,7 @@ class AgentApiHumanInteractionsTest < ActionDispatch::IntegrationTest
         blocking: true,
         request_payload: { approval_scope: "publish" },
       },
-      headers: agent_api_headers(registration[:machine_credential]),
+      headers: agent_api_headers(registration[:agent_connection_credential]),
       as: :json
 
     assert_response :not_found

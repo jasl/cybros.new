@@ -12,8 +12,8 @@ module ToolBindings
       return @agent_task_run.tool_bindings if @agent_task_run.tool_bindings.exists?
 
       ToolBindings::ProjectCapabilitySnapshot.call(
-        agent_program_version: agent_program_version,
-        executor_program: executor_program
+        agent_snapshot: agent_snapshot,
+        execution_runtime: execution_runtime
       )
 
       allowed_tool_names.each do |tool_name|
@@ -40,18 +40,18 @@ module ToolBindings
 
     private
 
-    def agent_program_version
-      @agent_program_version ||= turn_record.agent_program_version || raise_invalid!("missing agent program version")
+    def agent_snapshot
+      @agent_snapshot ||= turn_record.agent_snapshot || raise_invalid!("missing agent snapshot")
     end
 
-    def executor_program
-      @executor_program ||= @agent_task_run.turn.executor_program
+    def execution_runtime
+      @execution_runtime ||= @agent_task_run.turn.execution_runtime
     end
 
     def allowed_tool_names
       @allowed_tool_names ||= begin
         profile_allowed_names = Array(
-          agent_program_version.profile_catalog.fetch(current_profile_key, {}).fetch("allowed_tool_names", [])
+          agent_snapshot.profile_catalog.fetch(current_profile_key, {}).fetch("allowed_tool_names", [])
         ).uniq
         if profile_allowed_names.present?
           profile_allowed_names
@@ -71,7 +71,7 @@ module ToolBindings
 
     def definitions_by_name
       @definitions_by_name ||= ToolDefinition.where(
-        agent_program_version: agent_program_version,
+        agent_snapshot: agent_snapshot,
         tool_name: allowed_tool_names
       ).includes(:tool_implementations).index_by(&:tool_name)
     end

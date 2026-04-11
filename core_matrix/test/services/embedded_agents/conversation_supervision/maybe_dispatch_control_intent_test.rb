@@ -93,7 +93,7 @@ class EmbeddedAgents::ConversationSupervision::MaybeDispatchControlIntentTest < 
       assert decision.handled?
       assert_equal "request_subagent_close", decision.request_kind
       assert_equal "control_dispatched", decision.response_kind
-      assert_equal fixture.fetch(:subagent_session).public_id, request.target_public_id
+      assert_equal fixture.fetch(:subagent_connection).public_id, request.target_public_id
     end
   end
 

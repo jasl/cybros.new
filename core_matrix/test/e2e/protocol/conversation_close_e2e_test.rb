@@ -5,23 +5,23 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential],
-      executor_machine_credential: context[:executor_machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential],
+      execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: resource.is_a?(ProcessRun) ? context[:executor_session].public_id : context[:deployment].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:execution_runtime_connection].public_id : context[:agent_snapshot].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -64,24 +64,24 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential],
-      executor_machine_credential: context[:executor_machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential],
+      execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
-    subagent_session = create_turn_scoped_subagent_session!(context: context)
+    subagent_connection = create_turn_scoped_subagent_connection!(context: context)
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: resource.is_a?(ProcessRun) ? context[:executor_session].public_id : context[:deployment].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:execution_runtime_connection].public_id : context[:agent_snapshot].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -113,7 +113,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     )
     report_resource_closed!(
       harness: harness,
-      mailbox_item: close_requests.fetch(subagent_session.public_id),
+      mailbox_item: close_requests.fetch(subagent_connection.public_id),
       close_outcome_kind: "graceful"
     )
     background_close_protocol_message_id = "background-close-#{next_test_sequence}"
@@ -137,7 +137,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     assert_equal "degraded", close_operation.lifecycle_state
     assert_equal "residual_abandoned", background_service.reload.close_outcome_kind
     assert background_service.reload.lost?
-    assert_equal "closed", subagent_session.reload.derived_close_status
+    assert_equal "closed", subagent_connection.reload.derived_close_status
     assert_equal 200, duplicate_background_close.fetch("http_status")
     assert_equal "duplicate", duplicate_background_close.fetch("result")
     assert_equal close_operation_updated_at, close_operation.reload.updated_at
@@ -147,23 +147,23 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      deployment: context[:deployment],
-      machine_credential: context[:machine_credential],
-      executor_machine_credential: context[:executor_machine_credential]
+      agent_snapshot: context[:agent_snapshot],
+      agent_connection_credential: context[:agent_connection_credential],
+      execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     assignment = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: resource.is_a?(ProcessRun) ? context[:executor_session].public_id : context[:deployment].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:execution_runtime_connection].public_id : context[:agent_snapshot].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -172,7 +172,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     child_turn = Turns::StartUserTurn.call(
       conversation: child,
       content: "Child keeps running",
-      agent_program_version: context[:deployment],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -223,18 +223,18 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
 
   private
 
-  def create_turn_scoped_subagent_session!(context:)
+  def create_turn_scoped_subagent_connection!(context:)
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      executor_program: context[:executor_program],
-      agent_program_version: context[:deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       addressability: "agent_addressable"
     )
 
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: child_conversation,

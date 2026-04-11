@@ -29,14 +29,14 @@ module AgentControl
 
       AgentTaskRuns::AppendProgressEntry.call(
         agent_task_run: @agent_task_run,
-        subagent_session: @agent_task_run.progress_entry_subagent_session,
+        subagent_connection: @agent_task_run.progress_entry_subagent_connection,
         entry_kind: "progress_recorded",
         summary: supervision_update.fetch("recent_progress_summary"),
         details_payload: {},
         occurred_at: @occurred_at
       ) if supervision_update["recent_progress_summary"].present?
       @agent_task_run.reload.update!(task_attributes_from(supervision_update))
-      sync_subagent_session!(supervision_update)
+      sync_subagent_connection!(supervision_update)
 
       refresh_related_conversations!
     end
@@ -82,8 +82,8 @@ module AgentControl
       )
     end
 
-    def sync_subagent_session!(supervision_update)
-      session = @agent_task_run.subagent_session
+    def sync_subagent_connection!(supervision_update)
+      session = @agent_task_run.subagent_connection
       return if session.blank?
 
       attributes = supervision_update.slice(
@@ -126,7 +126,7 @@ module AgentControl
     end
 
     def related_conversations
-      [@agent_task_run.conversation, @agent_task_run.subagent_session&.owner_conversation].compact.uniq
+      [@agent_task_run.conversation, @agent_task_run.subagent_connection&.owner_conversation].compact.uniq
     end
   end
 end

@@ -4,9 +4,9 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, program_exchange: nil)
+    def initialize(workflow_node:, agent_request_exchange: nil)
       @workflow_node = workflow_node
-      @program_exchange = program_exchange
+      @agent_request_exchange = agent_request_exchange
     end
 
     def call
@@ -22,7 +22,7 @@ module ProviderExecution
         workflow_node: current_node,
         tool_call: current_node.tool_call_payload,
         round_bindings: current_node.tool_bindings.includes(tool_implementation: :implementation_source).to_a,
-        program_exchange: @program_exchange
+        agent_request_exchange: @agent_request_exchange
       )
 
       Workflows::CompleteNode.call(
@@ -35,7 +35,7 @@ module ProviderExecution
       Workflows::RefreshRunLifecycle.call(workflow_run: current_node.workflow_run)
       Workflows::DispatchRunnableNodes.call(workflow_run: current_node.workflow_run)
       result
-    rescue ProviderExecution::ProgramMailboxExchange::PendingResponse
+    rescue ProviderExecution::AgentRequestExchange::PendingResponse
       current_node.reload
     rescue StandardError => error
       failure_result = fail_node!(current_node || @workflow_node, error)

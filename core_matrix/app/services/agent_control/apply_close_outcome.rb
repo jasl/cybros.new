@@ -66,7 +66,7 @@ module AgentControl
           )
         )
         broadcast_process_run_terminal!("runtime.process_run.#{@resource.lifecycle_state}")
-      when SubagentSession
+      when SubagentConnection
         @resource.update!(
           observed_status: terminal_observed_status
         )
@@ -97,7 +97,7 @@ module AgentControl
           )
         )
         broadcast_process_run_terminal!("runtime.process_run.lost")
-      when SubagentSession
+      when SubagentConnection
         @resource.update!(
           observed_status: "failed"
         )
@@ -320,7 +320,7 @@ module AgentControl
 
     def conversations_for_close_reconciliation
       conversations = [ClosableResourceRouting.conversation_for(@resource)]
-      conversations << @resource.conversation if @resource.is_a?(SubagentSession)
+      conversations << @resource.conversation if @resource.is_a?(SubagentConnection)
 
       conversations.compact.uniq
     end

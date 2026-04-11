@@ -1,18 +1,18 @@
 require "test_helper"
 
 class TurnExecutionSnapshotTest < ActiveSupport::TestCase
-  test "builds runtime_context with public agent program and user ids" do
+  test "builds runtime_context with public agent and user ids" do
     context = build_agent_control_context!
 
     snapshot = TurnExecutionSnapshot.new(turn: context.fetch(:turn))
 
     assert_equal(
       {
-        "control_plane" => "program",
-        "agent_program_version_id" => context.fetch(:deployment).public_id,
-        "agent_program_id" => context.fetch(:agent_program).public_id,
+        "control_plane" => "agent",
+        "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id,
+        "agent_id" => context.fetch(:agent).public_id,
         "user_id" => context.fetch(:user).public_id,
-        "executor_program_id" => context.fetch(:executor_program).public_id,
+        "execution_runtime_id" => context.fetch(:execution_runtime).public_id,
       },
       snapshot.runtime_context.compact
     )

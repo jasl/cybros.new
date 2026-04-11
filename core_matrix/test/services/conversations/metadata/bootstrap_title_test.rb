@@ -119,15 +119,15 @@ class Conversations::Metadata::BootstrapTitleTest < ActiveSupport::TestCase
     turn = Turn.create!(
       installation: conversation.installation,
       conversation: conversation,
-      agent_program_version: context[:agent_program_version],
-      executor_program: context[:executor_program],
+      agent_snapshot: context[:agent_snapshot],
+      execution_runtime: context[:execution_runtime],
       sequence: conversation.turns.maximum(:sequence).to_i + 1,
       lifecycle_state: "active",
       origin_kind: "manual_user",
       origin_payload: {},
       source_ref_type: "User",
       source_ref_id: context[:user].public_id,
-      pinned_program_version_fingerprint: context[:agent_program_version].fingerprint,
+      pinned_agent_snapshot_fingerprint: context[:agent_snapshot].fingerprint,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

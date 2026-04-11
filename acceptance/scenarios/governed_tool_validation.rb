@@ -9,7 +9,7 @@ require_relative "../lib/governed_validation_support"
 runtime_context = GovernedValidationSupport.bootstrap_runtime!(
   agent_key: "acceptance-governed-tool",
   display_name: "Acceptance Governed Tool Runtime",
-  executor_fingerprint: "acceptance-governed-tool-environment",
+  execution_runtime_fingerprint: "acceptance-governed-tool-environment",
   fingerprint: "acceptance-governed-tool-runtime",
   tool_catalog: [],
   profile_catalog: {
@@ -35,7 +35,7 @@ runtime_context = GovernedValidationSupport.bootstrap_runtime!(
 
 task_context = GovernedValidationSupport.create_task_context!(
   workspace: runtime_context.fetch(:workspace),
-  deployment: runtime_context.fetch(:runtime).deployment,
+  agent_snapshot: runtime_context.fetch(:runtime).agent_snapshot,
   capability_snapshot: runtime_context.fetch(:runtime).capability_snapshot,
   content: "Spawn one governed subagent and report the durable records.",
   allowed_tool_names: ["subagent_spawn"]
@@ -55,7 +55,7 @@ invocation = ToolInvocations::Start.call(
   }
 )
 
-spawn_result = SubagentSessions::Spawn.call(
+spawn_result = SubagentConnections::Spawn.call(
   conversation: task_context.fetch(:conversation),
   origin_turn: task_context.fetch(:turn),
   content: "Investigate the delegated task.",

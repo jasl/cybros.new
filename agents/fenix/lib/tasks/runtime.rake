@@ -1,10 +1,9 @@
 require "json"
 
-def runtime_client(machine_credential: ENV["CORE_MATRIX_MACHINE_CREDENTIAL"], execution_machine_credential: ENV["CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL"])
+def runtime_client(agent_connection_credential: ENV["CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL"])
   Fenix::Shared::ControlPlane::Client.new(
     base_url: ENV.fetch("CORE_MATRIX_BASE_URL"),
-    machine_credential: machine_credential,
-    execution_machine_credential: execution_machine_credential.presence || machine_credential
+    agent_connection_credential: agent_connection_credential
   )
 end
 
@@ -106,19 +105,13 @@ namespace :runtime do
     worker.call
   end
 
-  desc "Register this Fenix runtime with Core Matrix, then handshake, heartbeat, and refresh capabilities"
+  desc "Register this Fenix agent with Core Matrix, then handshake, heartbeat, and refresh capabilities"
   task pair_with_core_matrix: :environment do
     manifest = pairing_manifest_payload
-    executor_fingerprint = ENV.fetch("FENIX_RUNTIME_FINGERPRINT", manifest.fetch("executor_fingerprint"))
 
-    registration = runtime_client(machine_credential: nil).register!(
+    registration = runtime_client(agent_connection_credential: nil).register!(
       enrollment_token: ENV.fetch("CORE_MATRIX_ENROLLMENT_TOKEN"),
-      executor_fingerprint: manifest.fetch("executor_fingerprint"),
-      executor_kind: manifest.fetch("executor_kind"),
-      executor_connection_metadata: manifest.fetch("executor_connection_metadata"),
-      executor_capability_payload: manifest.fetch("executor_capability_payload"),
-      executor_tool_catalog: manifest.fetch("executor_tool_catalog"),
-      fingerprint: executor_fingerprint,
+      fingerprint: manifest.fetch("fingerprint"),
       endpoint_metadata: manifest.fetch("endpoint_metadata"),
       protocol_version: manifest.fetch("protocol_version"),
       sdk_version: manifest.fetch("sdk_version"),
@@ -131,19 +124,16 @@ namespace :runtime do
     )
 
     client = runtime_client(
-      machine_credential: registration.fetch("machine_credential"),
-      execution_machine_credential: registration.fetch("execution_machine_credential", registration.fetch("machine_credential"))
+      agent_connection_credential: registration.fetch("agent_connection_credential")
     )
 
     puts JSON.pretty_generate(
       {
         "registration" => registration,
         "capabilities_handshake" => client.capabilities_handshake!(
-          fingerprint: executor_fingerprint,
+          fingerprint: manifest.fetch("fingerprint"),
           protocol_version: manifest.fetch("protocol_version"),
           sdk_version: manifest.fetch("sdk_version"),
-          executor_capability_payload: manifest.fetch("executor_capability_payload"),
-          executor_tool_catalog: manifest.fetch("executor_tool_catalog"),
           protocol_methods: manifest.fetch("protocol_methods"),
           tool_catalog: manifest.fetch("tool_catalog"),
           profile_catalog: manifest.fetch("profile_catalog"),

@@ -8,7 +8,7 @@ module ConversationControl
       :target_record,
       :target_kind,
       :target_public_id,
-      :agent_program_version,
+      :agent_snapshot,
       keyword_init: true
     ) do
       def allowed?
@@ -67,7 +67,7 @@ module ConversationControl
         target_record: resolved_target.target_record,
         target_kind: resolved_target.target_kind,
         target_public_id: resolved_target.target_public_id,
-        agent_program_version: resolved_target.agent_program_version
+        agent_snapshot: resolved_target.agent_snapshot
       )
     end
 
@@ -80,7 +80,7 @@ module ConversationControl
         target_record: resolved_target&.target_record,
         target_kind: resolved_target&.target_kind,
         target_public_id: resolved_target&.target_public_id,
-        agent_program_version: resolved_target&.agent_program_version
+        agent_snapshot: resolved_target&.agent_snapshot
       )
     end
 

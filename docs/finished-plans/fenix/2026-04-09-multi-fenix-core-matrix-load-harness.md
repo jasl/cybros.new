@@ -115,12 +115,12 @@
 **Files:**
 
 - Modify: `core_matrix/app/services/agent_control/poll.rb`
-- Modify: `core_matrix/app/services/provider_execution/program_mailbox_exchange.rb`
+- Modify: `core_matrix/app/services/provider_execution/agent_request_exchange.rb`
 - Modify one or more CoreMatrix queue-entry or queue-start boundaries that can
   emit enqueue-to-start timing
 - Create: `core_matrix/app/services/perf/db_checkout_probe.rb`
 - Create: `core_matrix/test/services/agent_control/poll_perf_test.rb`
-- Create: `core_matrix/test/services/provider_execution/program_mailbox_exchange_perf_test.rb`
+- Create: `core_matrix/test/services/provider_execution/agent_request_exchange_perf_test.rb`
 - Create: `core_matrix/test/services/perf/db_checkout_probe_test.rb`
 
 **Steps:**
@@ -224,7 +224,7 @@
 
 **Requirements:**
 
-- default topology for v1 is multiple external agent programs, one per runtime
+- default topology for v1 is multiple external agents, one per runtime
 - `smoke` and `target_8_fenix` must use deterministic workload only
 - deterministic v1 workload must stay narrow:
   - one conversation per scheduled workload slot

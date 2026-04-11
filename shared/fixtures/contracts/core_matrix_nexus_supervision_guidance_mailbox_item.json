@@ -1,0 +1,34 @@
+{
+  "item_id": "mailbox-item-supervision-public-id",
+  "item_type": "agent_request",
+  "control_plane": "execution_runtime",
+  "logical_work_id": "conversation-control:conversation-control-request-public-id:supervision_guidance",
+  "attempt_no": 1,
+  "delivery_no": 0,
+  "protocol_message_id": "kernel-program-request-supervision-message-id",
+  "priority": 1,
+  "status": "queued",
+  "available_at": "2026-04-10T08:00:00Z",
+  "dispatch_deadline_at": "2026-04-10T08:05:00Z",
+  "lease_timeout_seconds": 30,
+  "payload": {
+    "protocol_version": "agent-runtime/2026-04-01",
+    "request_kind": "supervision_guidance",
+    "content": "Stop and summarize.",
+    "conversation_control": {
+      "conversation_control_request_id": "conversation-control-request-public-id",
+      "conversation_id": "conversation-public-id",
+      "request_kind": "send_guidance_to_active_agent",
+      "target_kind": "conversation",
+      "target_public_id": "conversation-public-id"
+    },
+    "runtime_context": {
+      "agent_id": "agent-public-id",
+      "user_id": "user-public-id",
+      "logical_work_id": "conversation-control:conversation-control-request-public-id:supervision_guidance",
+      "attempt_no": 1,
+      "control_plane": "execution_runtime",
+      "agent_snapshot_id": "agent-snapshot-public-id"
+    }
+  }
+}

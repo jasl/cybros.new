@@ -12,42 +12,30 @@ module Fenix
 
         def initialize(
           base_url:,
-          machine_credential:,
-          execution_machine_credential: nil,
+          agent_connection_credential:,
           open_timeout: DEFAULT_OPEN_TIMEOUT,
           read_timeout: DEFAULT_READ_TIMEOUT,
           write_timeout: DEFAULT_WRITE_TIMEOUT
         )
           @base_url = base_url
-          @machine_credential = machine_credential
-          @execution_machine_credential = execution_machine_credential.presence || machine_credential
+          @agent_connection_credential = agent_connection_credential
           @open_timeout = open_timeout
           @read_timeout = read_timeout
           @write_timeout = write_timeout
         end
 
         def poll(limit:)
-          program_items = post_json("/agent_api/control/poll", { limit: limit }, credential: machine_credential).fetch("mailbox_items")
-          execution_items = post_json("/executor_api/control/poll", { limit: limit }, credential: execution_machine_credential).fetch("mailbox_items")
-
-          (Array(program_items) + Array(execution_items)).map(&:deep_stringify_keys)
+          post_json("/agent_api/control/poll", { limit: limit }, credential: agent_connection_credential)
+            .fetch("mailbox_items")
+            .map(&:deep_stringify_keys)
         end
 
         def report!(payload:)
-          if execution_report?(payload)
-            post_json("/executor_api/control/report", payload, credential: execution_machine_credential)
-          else
-            post_json("/agent_api/control/report", payload, credential: machine_credential)
-          end
+          post_json("/agent_api/control/report", payload, credential: agent_connection_credential)
         end
 
         def register!(
           enrollment_token:,
-          executor_fingerprint:,
-          executor_kind: "local",
-          executor_connection_metadata:,
-          executor_capability_payload: {},
-          executor_tool_catalog: [],
           fingerprint:,
           endpoint_metadata:,
           protocol_version:,
@@ -61,11 +49,6 @@ module Fenix
         )
           post_json("/agent_api/registrations", {
             enrollment_token: enrollment_token,
-            executor_fingerprint: executor_fingerprint,
-            executor_kind: executor_kind,
-            executor_connection_metadata: executor_connection_metadata,
-            executor_capability_payload: executor_capability_payload,
-            executor_tool_catalog: executor_tool_catalog,
             fingerprint: fingerprint,
             endpoint_metadata: endpoint_metadata,
             protocol_version: protocol_version,
@@ -100,8 +83,6 @@ module Fenix
           fingerprint:,
           protocol_version:,
           sdk_version:,
-          executor_capability_payload: nil,
-          executor_tool_catalog: nil,
           protocol_methods: [],
           tool_catalog: [],
           profile_catalog: {},
@@ -113,8 +94,6 @@ module Fenix
             fingerprint: fingerprint,
             protocol_version: protocol_version,
             sdk_version: sdk_version,
-            executor_capability_payload: executor_capability_payload,
-            executor_tool_catalog: executor_tool_catalog,
             protocol_methods: protocol_methods,
             tool_catalog: tool_catalog,
             profile_catalog: profile_catalog,
@@ -127,8 +106,7 @@ module Fenix
         def connection_context
           {
             "base_url" => @base_url,
-            "machine_credential" => @machine_credential,
-            "execution_machine_credential" => @execution_machine_credential,
+            "agent_connection_credential" => @agent_connection_credential,
             "open_timeout" => @open_timeout,
             "read_timeout" => @read_timeout,
             "write_timeout" => @write_timeout,
@@ -137,16 +115,16 @@ module Fenix
 
         private
 
-        attr_reader :machine_credential, :execution_machine_credential
+        attr_reader :agent_connection_credential
 
-        def get_json(path, params = {}, authorize: true, credential: machine_credential)
+        def get_json(path, params = {}, authorize: true, credential: agent_connection_credential)
           uri = URI.join(@base_url, path)
           uri.query = URI.encode_www_form(params) if params.present?
           request = Net::HTTP::Get.new(uri)
           perform_json_request(uri: uri, request: request, authorize: authorize, credential: credential)
         end
 
-        def post_json(path, payload, authorize: true, credential: machine_credential)
+        def post_json(path, payload, authorize: true, credential: agent_connection_credential)
           uri = URI.join(@base_url, path)
           request = Net::HTTP::Post.new(uri)
           request["Content-Type"] = "application/json"
@@ -174,14 +152,6 @@ module Fenix
           raise "HTTP #{response.code}: #{body}" unless response.code.to_i.between?(200, 299)
 
           parsed
-        end
-
-        def execution_report?(payload)
-          method_id = payload.fetch("method_id")
-          return true if %w[process_started process_output process_exited].include?(method_id)
-
-          %w[resource_close_acknowledged resource_closed resource_close_failed].include?(method_id) &&
-            payload["resource_type"] == "ProcessRun"
         end
       end
     end

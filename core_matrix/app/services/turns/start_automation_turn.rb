@@ -4,7 +4,7 @@ module Turns
       new(...).call
     end
 
-    def initialize(conversation:, origin_kind:, origin_payload:, source_ref_type:, source_ref_id:, idempotency_key:, external_event_key:, executor_program: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:, **_ignored)
+    def initialize(conversation:, origin_kind:, origin_payload:, source_ref_type:, source_ref_id:, idempotency_key:, external_event_key:, execution_runtime: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:, **_ignored)
       @conversation = conversation
       @origin_kind = origin_kind
       @origin_payload = origin_payload
@@ -12,7 +12,7 @@ module Turns
       @source_ref_id = source_ref_id
       @idempotency_key = idempotency_key
       @external_event_key = external_event_key
-      @executor_program = executor_program
+      @execution_runtime = execution_runtime
       @resolved_config_snapshot = resolved_config_snapshot
       @resolved_model_selection_snapshot = resolved_model_selection_snapshot
     end
@@ -26,17 +26,17 @@ module Turns
       ) do |conversation|
         raise_invalid!(conversation, :purpose, "must be automation for automation turn entry") unless conversation.automation?
 
-        agent_program_version = Turns::FreezeProgramVersion.call(conversation: conversation)
-        executor_program = Turns::SelectExecutorProgram.call(
+        agent_snapshot = Turns::FreezeAgentSnapshot.call(conversation: conversation)
+        execution_runtime = Turns::SelectExecutionRuntime.call(
           conversation: conversation,
-          executor_program: @executor_program
+          execution_runtime: @execution_runtime
         )
 
         Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
-          agent_program_version: agent_program_version,
-          executor_program: executor_program,
+          agent_snapshot: agent_snapshot,
+          execution_runtime: execution_runtime,
           sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "active",
           origin_kind: @origin_kind,
@@ -45,7 +45,7 @@ module Turns
           source_ref_id: @source_ref_id,
           idempotency_key: @idempotency_key,
           external_event_key: @external_event_key,
-          pinned_program_version_fingerprint: agent_program_version.fingerprint,
+          pinned_agent_snapshot_fingerprint: agent_snapshot.fingerprint,
           resolved_config_snapshot: @resolved_config_snapshot,
           resolved_model_selection_snapshot: @resolved_model_selection_snapshot
         )

@@ -9,8 +9,8 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
         :__undefined__
       end
     @original_core_matrix_base_url = ENV["CORE_MATRIX_BASE_URL"]
-    @original_core_matrix_machine_credential = ENV["CORE_MATRIX_MACHINE_CREDENTIAL"]
-    @original_core_matrix_execution_machine_credential = ENV["CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL"]
+    @original_core_matrix_agent_connection_credential = ENV["CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL"]
+    @original_core_matrix_execution_runtime_connection_credential = ENV["CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL"]
   end
 
   teardown do
@@ -21,14 +21,14 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
     end
 
     ENV["CORE_MATRIX_BASE_URL"] = @original_core_matrix_base_url
-    ENV["CORE_MATRIX_MACHINE_CREDENTIAL"] = @original_core_matrix_machine_credential
-    ENV["CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL"] = @original_core_matrix_execution_machine_credential
+    ENV["CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL"] = @original_core_matrix_agent_connection_credential
+    ENV["CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL"] = @original_core_matrix_execution_runtime_connection_credential
   end
 
   test "perform does not require control plane configuration when report delivery is disabled" do
     ENV.delete("CORE_MATRIX_BASE_URL")
-    ENV.delete("CORE_MATRIX_MACHINE_CREDENTIAL")
-    ENV.delete("CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL")
+    ENV.delete("CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL")
+    ENV.delete("CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL")
     Fenix::Shared::ControlPlane.remove_instance_variable(:@client) if Fenix::Shared::ControlPlane.instance_variable_defined?(:@client)
 
     result = with_dispatch_mode_stub(
@@ -37,7 +37,7 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
           "kind" => "skill_flow",
           "output" => {
             "mode" => task_payload.fetch("mode"),
-            "agent_program_id" => runtime_context.fetch("agent_program_id"),
+            "agent_id" => runtime_context.fetch("agent_id"),
           },
         }
       end
@@ -50,7 +50,7 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
 
     assert_equal "ok", result.fetch("status")
     assert_equal "skills_catalog_list", result.dig("output", "mode")
-    assert_equal "agent-program-1", result.dig("output", "agent_program_id")
+    assert_equal "agent-1", result.dig("output", "agent_id")
   end
 
   test "publishes queue delay perf event when mailbox execution job starts" do
@@ -64,7 +64,7 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
             "kind" => "skill_flow",
             "output" => {
               "mode" => task_payload.fetch("mode"),
-              "agent_program_id" => runtime_context.fetch("agent_program_id"),
+              "agent_id" => runtime_context.fetch("agent_id"),
             },
           }
         end
@@ -90,8 +90,8 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
 
   test "perform uses explicit control plane context when queued report delivery is enabled" do
     ENV.delete("CORE_MATRIX_BASE_URL")
-    ENV.delete("CORE_MATRIX_MACHINE_CREDENTIAL")
-    ENV.delete("CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL")
+    ENV.delete("CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL")
+    ENV.delete("CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL")
     Fenix::Shared::ControlPlane.remove_instance_variable(:@client) if Fenix::Shared::ControlPlane.instance_variable_defined?(:@client)
 
     captured_client = nil
@@ -106,8 +106,7 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
       deliver_reports: true,
       control_plane_context: {
         "base_url" => "https://core-matrix.example.test",
-        "machine_credential" => "program-secret",
-        "execution_machine_credential" => "executor-secret",
+        "agent_connection_credential" => "program-secret",
       }
     )
 
@@ -126,10 +125,10 @@ class Fenix::Runtime::MailboxExecutionJobTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-1",
       "logical_work_id" => "logical-work-1",
       "attempt_no" => 1,
-      "control_plane" => "program",
+      "control_plane" => "agent",
       "payload" => {
         "runtime_context" => {
-          "agent_program_id" => "agent-program-1",
+          "agent_id" => "agent-1",
           "user_id" => "user-1",
         },
         "task_payload" => {

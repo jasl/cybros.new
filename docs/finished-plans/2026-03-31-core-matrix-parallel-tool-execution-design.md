@@ -235,7 +235,7 @@ Good initial candidates:
 - filesystem read helpers
 - search helpers
 - page fetch helpers
-- explicitly audited read-only program tools
+- explicitly audited read-only agent tools
 
 Explicitly out of scope for the first rollout:
 

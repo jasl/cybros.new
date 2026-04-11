@@ -31,7 +31,7 @@ job. No automatic retention policy is implemented here yet.
   - `blocking_resource_type`
   - `blocking_resource_id`
 - `blocking_resource_id` stores durable external-style identifiers only:
-  - `AgentProgramVersion.public_id` for `agent_unavailable`
+  - `AgentSnapshot.public_id` for `agent_unavailable`
   - barrier artifact keys for `subagent_barrier`
   - blocker `public_id` values for `human_interaction`, `retryable_failure`,
     `external_dependency_blocked`, and `policy_gate`
@@ -122,7 +122,7 @@ job. No automatic retention policy is implemented here yet.
   it changes wait state:
   - accepted `human_interaction_request` intents become durable
     `HumanInteractionRequest` rows
-  - accepted `subagent_spawn` intents become durable `SubagentSession`, child
+  - accepted `subagent_spawn` intents become durable `SubagentConnection`, child
     conversation, child turn, child workflow, and child `AgentTaskRun` records
   - those owner-managed yielded nodes are marked `completed` immediately when
     their durable runtime resources are created
@@ -151,29 +151,29 @@ job. No automatic retention policy is implemented here yet.
 
 ## Recovery Behavior
 
-- `AgentProgramVersions::MarkUnavailable` moves active workflows into a waiting
-  state when the pinned deployment becomes unavailable
+- `AgentSnapshots::MarkUnavailable` moves active workflows into a waiting
+  state when the pinned agent snapshot becomes unavailable
 - `agent_unavailable` stores:
-  - `blocking_resource_type = "AgentProgramVersion"`
-  - `blocking_resource_id = <deployment public_id>`
+  - `blocking_resource_type = "AgentSnapshot"`
+  - `blocking_resource_id = <agent snapshot public_id>`
 - if a workflow was already waiting on another blocker, outage pause snapshots
   that original blocker and restores it after recovery instead of erasing it
 - `WorkflowWaitSnapshot` is the explicit parser and restore contract for those
   nested pause payloads
 - wait snapshots are runtime-owned state, not disposable observability rows
-- `AgentProgramVersions::AutoResumeWorkflows` only resumes waiting
+- `AgentSnapshots::AutoResumeWorkflows` only resumes waiting
   `agent_unavailable` workflows while the owning conversation remains retained
 - compatible rotated replacements may auto resume only when they preserve the
   paused turn's frozen execution-runtime choice and capability contract
-- `AgentProgramVersions::ResolveRecoveryTarget` is the one paused-work
+- `AgentSnapshots::ResolveRecoveryTarget` is the one paused-work
   target-resolution contract used by:
-  - `AgentProgramVersions::BuildRecoveryPlan`
+  - `AgentSnapshots::BuildRecoveryPlan`
   - `Workflows::ManualResume`
   - `Workflows::ManualRetry`
-- `AgentProgramVersions::RebindTurn` is the one paused-turn rebinding mutation
+- `AgentSnapshots::RebindTurn` is the one paused-turn rebinding mutation
   owner used by both auto-resume recovery-plan application and manual resume
-- `Conversations::ValidateAgentProgramVersionTarget` stays generic to live
-  conversation deployment switching and only enforces the installation and
+- `Conversations::ValidateAgentSnapshotTarget` stays generic to live
+  conversation agent snapshot switching and only enforces the installation and
   execution-environment boundary
 - `Workflows::ManualResume` and `Workflows::ManualRetry` are explicit recovery
   boundaries for paused workflows and are rejected unless the owning
@@ -261,7 +261,7 @@ job. No automatic retention policy is implemented here yet.
 - turn interrupt targets only mainline blockers:
   - running `AgentTaskRun`
   - blocking `HumanInteractionRequest`
-  - running turn-bound `SubagentSession`
+  - running turn-bound `SubagentConnection`
 - short-lived command execution is no longer a standalone mainline runtime
   resource; it rides under the owning `AgentTaskRun` as tool-invocation
   sub-execution
@@ -279,14 +279,14 @@ job. No automatic retention policy is implemented here yet.
 - the archive close operation immediately blocks new turn entry even while the
   conversation row is still `active`
 - active mainline work is stopped through `turn_interrupt`
-- owned open subagent sessions also receive mailbox-driven close requests
+- owned open subagent connections also receive mailbox-driven close requests
 - detached background processes are closed through mailbox
   `resource_close_request(request_kind = "archive_force_quiesce")`
 - close-request delivery for both archive and interrupt now follows the durable
   mailbox routing contract:
   - `control_plane`
   - `target_ref`
-  - optional `target_executor_program_id`
+  - optional `target_execution_runtime_id`
   rather than payload-based runtime inference
 - `Conversations::ReconcileCloseOperation` is the single writer for archive
   close lifecycle state, `summary_payload`, and archive-side
@@ -312,9 +312,10 @@ job. No automatic retention policy is implemented here yet.
 - the active turn is fenced through `turn_interrupt`
 - detached background processes are closed through mailbox
   `resource_close_request(request_kind = "deletion_force_quiesce")`
-- executor-plane close terminal reports are accepted only from the active
-  executor session for the owning `ExecutorProgram`, and they re-enter close
-  reconciliation through the dedicated close-report handler family
+- execution-runtime-plane close terminal reports are accepted only from the
+  active `ExecutionRuntimeConnection` for the owning `ExecutionRuntime`, and
+  they re-enter close reconciliation through the dedicated close-report
+  handler family
 - delete also records a durable
   `ConversationCloseOperation(intent_kind = "delete")`
 - `Conversations::ReconcileCloseOperation` is the single writer for delete

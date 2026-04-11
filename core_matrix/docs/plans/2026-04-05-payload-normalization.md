@@ -86,7 +86,7 @@
 - Modify: `app/services/workflows/create_for_turn.rb`
 - Modify: `app/services/workflows/re_enter_agent.rb`
 - Modify: `app/services/workflows/resume_paused_turn.rb`
-- Modify: `app/services/agent_program_versions/rebind_turn.rb`
+- Modify: `app/services/agent_snapshots/rebind_turn.rb`
 - Modify: `app/models/turn.rb`
 - Modify: `app/models/workflow_run.rb`
 - Modify: `app/models/turn_execution_snapshot.rb`
@@ -113,8 +113,8 @@
 - Modify: `app/services/agent_control/create_execution_assignment.rb`
 - Modify: `app/models/agent_control_mailbox_item.rb`
 - Modify: `app/services/agent_control/serialize_mailbox_item.rb`
-- Modify: `app/services/provider_execution/prepare_program_round.rb`
-- Modify: `app/services/provider_execution/tool_call_runners/program.rb`
+- Modify: `app/services/provider_execution/prepare_agent_round.rb`
+- Modify: `app/services/provider_execution/tool_call_runners/agent_mediated.rb`
 
 **Step 1: Attach execution contract refs**
 

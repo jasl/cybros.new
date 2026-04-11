@@ -4,8 +4,8 @@ module AgentEnrollments
       new(...).call
     end
 
-    def initialize(agent_program:, actor:, expires_at:)
-      @agent_program = agent_program
+    def initialize(agent:, actor:, expires_at:)
+      @agent = agent
       @actor = actor
       @expires_at = expires_at
     end
@@ -15,18 +15,18 @@ module AgentEnrollments
 
       ApplicationRecord.transaction do
         enrollment = AgentEnrollment.issue!(
-          installation: @agent_program.installation,
-          agent_program: @agent_program,
+          installation: @agent.installation,
+          agent: @agent,
           expires_at: @expires_at
         )
 
         AuditLog.record!(
-          installation: @agent_program.installation,
+          installation: @agent.installation,
           actor: @actor,
           action: "agent_enrollment.issued",
           subject: enrollment,
           metadata: {
-            "agent_program_id" => @agent_program.id,
+            "agent_id" => @agent.id,
           }
         )
 
@@ -37,7 +37,7 @@ module AgentEnrollments
     private
 
     def validate_actor_installation!
-      return if @actor.installation_id == @agent_program.installation_id
+      return if @actor.installation_id == @agent.installation_id
 
       raise ArgumentError, "actor must belong to the same installation"
     end

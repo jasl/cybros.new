@@ -8,8 +8,8 @@ bundled_configuration = {
   display_name: "Acceptance Subagent Runtime",
   visibility: "global",
   lifecycle_state: "active",
-  executor_kind: "local",
-  executor_fingerprint: "acceptance-d-subagents-environment",
+  execution_runtime_kind: "local",
+  execution_runtime_fingerprint: "acceptance-d-subagents-environment",
   connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
   endpoint_metadata: {
     "transport" => "http",
@@ -109,20 +109,20 @@ registry = Installations::RegisterBundledAgentRuntime.call(
   installation: bootstrap.installation,
   configuration: bundled_configuration
 )
-binding = UserProgramBindings::Enable.call(
+binding = UserAgentBindings::Enable.call(
   user: bootstrap.user,
-  agent_program: registry.agent_program
+  agent: registry.agent
 ).binding
 workspace = binding.workspaces.find_by!(is_default: true)
 
 conversation = Conversations::CreateRoot.call(
   workspace: workspace,
-  agent_program: registry.agent_program
+  agent: registry.agent
 )
 turn = Turns::StartUserTurn.call(
   conversation: conversation,
   content: "Delegate both research tasks and wait for them to finish.",
-  agent_program_version: registry.deployment,
+  agent_snapshot: registry.agent_snapshot,
   resolved_config_snapshot: {},
   resolved_model_selection_snapshot: {}
 )
@@ -140,7 +140,7 @@ Workflows::Mutate.call(
     {
       node_key: "agent_turn_step",
       node_type: "turn_step",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {},
     },
   ],
@@ -151,7 +151,7 @@ Workflows::Mutate.call(
 workflow_node = workflow_run.reload.workflow_nodes.find_by!(node_key: "agent_turn_step")
 agent_task_run = AgentTaskRun.create!(
   installation: workflow_run.installation,
-  agent_program: registry.agent_program,
+  agent: registry.agent,
   workflow_run: workflow_run,
   workflow_node: workflow_node,
   conversation: conversation,
@@ -171,9 +171,9 @@ mailbox_item = AgentControl::CreateExecutionAssignment.call(
   execution_hard_deadline_at: 10.minutes.from_now
 )
 
-AgentControl::Poll.call(deployment: registry.deployment, limit: 10)
+AgentControl::Poll.call(agent_snapshot: registry.agent_snapshot, limit: 10)
 AgentControl::Report.call(
-  deployment: registry.deployment,
+  agent_snapshot: registry.agent_snapshot,
   method_id: "execution_started",
   protocol_message_id: "acceptance-subagents-start",
   mailbox_item_id: mailbox_item.public_id,
@@ -183,7 +183,7 @@ AgentControl::Report.call(
   expected_duration_seconds: 30
 )
 AgentControl::Report.call(
-  deployment: registry.deployment,
+  agent_snapshot: registry.agent_snapshot,
   method_id: "execution_complete",
   protocol_message_id: "acceptance-subagents-complete",
   mailbox_item_id: mailbox_item.public_id,
@@ -252,7 +252,7 @@ workflow_run.reload
 before_edges = WorkflowEdge.where(workflow_run: workflow_run).includes(:from_node, :to_node).map do |edge|
   "#{edge.from_node.node_key}->#{edge.to_node.node_key}"
 end.sort
-subagent_sessions = SubagentSession.where(owner_conversation: conversation).order(:created_at).to_a
+subagent_connections = SubagentConnection.where(owner_conversation: conversation).order(:created_at).to_a
 child_tasks = AgentTaskRun.where(origin_turn: turn, kind: "subagent_step").order(:created_at).to_a
 before_state = {
   "conversation_lifecycle_state" => conversation.reload.lifecycle_state,
@@ -260,14 +260,14 @@ before_state = {
   "workflow_wait_state" => workflow_run.wait_state,
   "workflow_wait_reason_kind" => workflow_run.wait_reason_kind,
   "blocking_resource_id" => workflow_run.blocking_resource_id,
-  "subagent_session_ids" => workflow_run.wait_reason_payload["subagent_session_ids"],
+  "subagent_connection_ids" => workflow_run.wait_reason_payload["subagent_connection_ids"],
 }
 
 first_child = child_tasks.first
 first_mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: first_child, item_type: "execution_assignment")
-AgentControl::Poll.call(deployment: registry.deployment, limit: 10)
+AgentControl::Poll.call(agent_snapshot: registry.agent_snapshot, limit: 10)
 AgentControl::Report.call(
-  deployment: registry.deployment,
+  agent_snapshot: registry.agent_snapshot,
   method_id: "execution_started",
   protocol_message_id: "acceptance-subagents-child-1-start",
   mailbox_item_id: first_mailbox_item.public_id,
@@ -277,7 +277,7 @@ AgentControl::Report.call(
   expected_duration_seconds: 30
 )
 AgentControl::Report.call(
-  deployment: registry.deployment,
+  agent_snapshot: registry.agent_snapshot,
   method_id: "execution_complete",
   protocol_message_id: "acceptance-subagents-child-1-complete",
   mailbox_item_id: first_mailbox_item.public_id,
@@ -293,9 +293,9 @@ after_first_child_state = {
 
 second_child = child_tasks.second
 second_mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: second_child, item_type: "execution_assignment")
-AgentControl::Poll.call(deployment: registry.deployment, limit: 10)
+AgentControl::Poll.call(agent_snapshot: registry.agent_snapshot, limit: 10)
 AgentControl::Report.call(
-  deployment: registry.deployment,
+  agent_snapshot: registry.agent_snapshot,
   method_id: "execution_started",
   protocol_message_id: "acceptance-subagents-child-2-start",
   mailbox_item_id: second_mailbox_item.public_id,
@@ -305,7 +305,7 @@ AgentControl::Report.call(
   expected_duration_seconds: 30
 )
 AgentControl::Report.call(
-  deployment: registry.deployment,
+  agent_snapshot: registry.agent_snapshot,
   method_id: "execution_complete",
   protocol_message_id: "acceptance-subagents-child-2-complete",
   mailbox_item_id: second_mailbox_item.public_id,
@@ -334,8 +334,8 @@ payload = {
   "conversation_id" => conversation.public_id,
   "turn_id" => turn.public_id,
   "workflow_run_id" => workflow_run.public_id,
-  "subagent_session_ids" => subagent_sessions.map(&:public_id),
-  "child_conversation_ids" => subagent_sessions.map { |session| session.conversation.public_id },
+  "subagent_connection_ids" => subagent_connections.map(&:public_id),
+  "child_conversation_ids" => subagent_connections.map { |session| session.conversation.public_id },
   "successor_agent_task_run_id" => successor_task.public_id,
   "expected_dag_shape_before" => [
     "root->agent_turn_step",
@@ -360,7 +360,7 @@ payload = {
 }
 
 payload["passed"] =
-  payload["subagent_session_ids"].size == 2 &&
+  payload["subagent_connection_ids"].size == 2 &&
   payload["observed_dag_shape_before"] == ["agent_turn_step->subagent_alpha", "agent_turn_step->subagent_beta", "root->agent_turn_step"] &&
   payload.dig("observed_conversation_state_before", "workflow_wait_state") == "waiting" &&
   payload.dig("observed_conversation_state_before", "workflow_wait_reason_kind") == "subagent_barrier" &&

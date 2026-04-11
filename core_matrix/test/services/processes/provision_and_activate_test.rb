@@ -8,7 +8,7 @@ class Processes::ProvisionAndActivateTest < ActiveSupport::TestCase
 
     provisioned = Processes::Provision.call(
       workflow_node: process_context[:workflow_node],
-      executor_program: process_context[:executor_program],
+      execution_runtime: process_context[:execution_runtime],
       kind: "background_service",
       command_line: "echo hi",
       origin_message: process_context[:origin_message]
@@ -18,7 +18,7 @@ class Processes::ProvisionAndActivateTest < ActiveSupport::TestCase
     assert_equal process_context[:conversation], provisioned.conversation
     assert_equal process_context[:turn], provisioned.turn
     assert_equal process_context[:origin_message], provisioned.origin_message
-    assert_equal process_context[:executor_session].public_id, provisioned.execution_lease&.holder_key
+    assert_equal process_context[:execution_runtime_connection].public_id, provisioned.execution_lease&.holder_key
 
     activated = Processes::Activate.call(process_run: provisioned)
 
@@ -37,7 +37,7 @@ class Processes::ProvisionAndActivateTest < ActiveSupport::TestCase
     process_context = build_process_context!
     provisioned = Processes::Provision.call(
       workflow_node: process_context[:workflow_node],
-      executor_program: process_context[:executor_program],
+      execution_runtime: process_context[:execution_runtime],
       kind: "background_service",
       command_line: "echo hi",
       origin_message: process_context[:origin_message]
@@ -65,13 +65,13 @@ class Processes::ProvisionAndActivateTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Process input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -80,8 +80,8 @@ class Processes::ProvisionAndActivateTest < ActiveSupport::TestCase
 
     {
       conversation: conversation,
-      executor_program: context[:executor_program],
-      executor_session: context[:executor_session],
+      execution_runtime: context[:execution_runtime],
+      execution_runtime_connection: context[:execution_runtime_connection],
       origin_message: turn.selected_input_message,
       turn: turn,
       workflow_node: workflow_node,

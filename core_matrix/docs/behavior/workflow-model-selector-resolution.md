@@ -111,9 +111,9 @@ error instead of silently trying unrelated models.
   - `resolved_model_ref`
   - `resolution_reason`
   - `fallback_count`
-  - `agent_program_version_id`
+  - `agent_snapshot_id`
   - `entitlement_key` when one active entitlement was used
-- Resolution requires a frozen `agent_program_version_id` and pinned program
+- Resolution requires a frozen `agent_snapshot_id` and pinned program
   fingerprint so the workflow turn cannot proceed without a stable capability
   surface reference.
 
@@ -130,7 +130,7 @@ error instead of silently trying unrelated models.
 
 ## Failure Modes
 
-- missing frozen agent program version rejects resolution
+- missing frozen agent agent snapshot rejects resolution
 - unknown model roles reject resolution
 - empty or exhausted role candidate lists reject resolution
 - explicit candidates fail immediately on availability rejection or reservation

@@ -7,7 +7,7 @@ module Acceptance
   module ReviewArtifacts
     module_function
 
-    def write_turns!(path:, scenario_date:, operator_name:, runtime_mode:, conversation:, turn:, workflow_run:, agent_program_version:, executor_program:, selector:, diagnostics_turn:, source_transcript:, provider_breakdown:, subagent_sessions:, proof_artifacts:)
+    def write_turns!(path:, scenario_date:, operator_name:, runtime_mode:, conversation:, turn:, workflow_run:, agent_snapshot:, execution_runtime:, selector:, diagnostics_turn:, source_transcript:, provider_breakdown:, subagent_connections:, proof_artifacts:)
       workflow_node_type_counts = diagnostics_turn.dig("metadata", "workflow_node_type_counts") || {}
       provider_entry = provider_breakdown.first || {}
       message_roles = source_transcript.fetch("items").map { |item| item.fetch("role") }.uniq
@@ -21,8 +21,8 @@ module Acceptance
           conversation_id: conversation.public_id,
           turn_id: turn.public_id,
           workflow_run_id: workflow_run.public_id,
-          agent_program_version_id: agent_program_version.public_id,
-          executor_program_id: executor_program&.public_id || "none",
+          agent_snapshot_id: agent_snapshot.public_id,
+          execution_runtime_id: execution_runtime&.public_id || "none",
           selector: selector,
           provider_handle: provider_entry["provider_handle"] || "n/a",
           model_ref: provider_entry["model_ref"] || "n/a",
@@ -34,14 +34,14 @@ module Acceptance
           turn_lifecycle_state: turn.lifecycle_state,
           message_roles: message_roles,
           selected_output_message_id: diagnostics_turn.dig("metadata", "evidence_refs", "selected_output_message_id") || turn.selected_output_message&.public_id || "none",
-          subagent_sessions: subagent_sessions,
+          subagent_connections: subagent_connections,
           proof_artifacts: proof_artifacts
         )
       )
     end
 
-    def turns_markdown(scenario_date:, operator_name:, runtime_mode:, conversation_id:, turn_id:, workflow_run_id:, agent_program_version_id:, executor_program_id:, selector:, provider_handle:, model_ref:, resolved_model_ref:, workflow_node_type_counts:, total_workflow_nodes:, provider_round_count:, conversation_lifecycle_state:, turn_lifecycle_state:, message_roles:, selected_output_message_id:, subagent_sessions:, proof_artifacts:)
-      subagent_entry = Array(subagent_sessions).first || {}
+    def turns_markdown(scenario_date:, operator_name:, runtime_mode:, conversation_id:, turn_id:, workflow_run_id:, agent_snapshot_id:, execution_runtime_id:, selector:, provider_handle:, model_ref:, resolved_model_ref:, workflow_node_type_counts:, total_workflow_nodes:, provider_round_count:, conversation_lifecycle_state:, turn_lifecycle_state:, message_roles:, selected_output_message_id:, subagent_connections:, proof_artifacts:)
+      subagent_entry = Array(subagent_connections).first || {}
 
       lines = [
         "# Capstone Turns",
@@ -53,8 +53,8 @@ module Acceptance
         "- Conversation `public_id`: `#{conversation_id}`",
         "- Turn `public_id`: `#{turn_id}`",
         "- Workflow-run `public_id`: `#{workflow_run_id}`",
-        "- Agent program version `public_id`: `#{agent_program_version_id}`",
-        "- Executor program `public_id`: `#{executor_program_id}`",
+        "- Agent snapshot `public_id`: `#{agent_snapshot_id}`",
+        "- Execution runtime `public_id`: `#{execution_runtime_id}`",
         "- Runtime mode: `#{runtime_mode}`",
         "- Provider handle: `#{provider_handle}`",
         "- Model ref: `#{model_ref}`",
@@ -74,11 +74,11 @@ module Acceptance
         "  - Message roles: `#{Array(message_roles).join("`, `")}`",
         "  - Output message `public_id`: `#{selected_output_message_id}`",
         "- Subagent work expected: `yes`",
-        "- Subagent work observed: `#{subagent_sessions.any? ? "yes" : "no"}`",
+        "- Subagent work observed: `#{subagent_connections.any? ? "yes" : "no"}`",
       ]
 
-      if subagent_sessions.any?
-        lines << "  - Observed subagent session `public_id`: `#{subagent_entry["subagent_session_id"] || subagent_entry["id"] || "unknown"}`"
+      if subagent_connections.any?
+        lines << "  - Observed subagent connection `public_id`: `#{subagent_entry["subagent_connection_id"] || subagent_entry["id"] || "unknown"}`"
         lines << "  - Observed subagent profile: `#{subagent_entry["profile_name"] || subagent_entry["profile_key"] || subagent_entry["profile_id"] || "unknown"}`"
       end
 
@@ -89,11 +89,11 @@ module Acceptance
       lines.join("\n")
     end
 
-    def write_collaboration_notes!(path:, selector:, host_validation_notes:, subagent_sessions:)
-      write_text(path, collaboration_notes_markdown(selector:, host_validation_notes:, subagent_sessions:))
+    def write_collaboration_notes!(path:, selector:, host_validation_notes:, subagent_connections:)
+      write_text(path, collaboration_notes_markdown(selector:, host_validation_notes:, subagent_connections:))
     end
 
-    def collaboration_notes_markdown(selector:, host_validation_notes:, subagent_sessions:)
+    def collaboration_notes_markdown(selector:, host_validation_notes:, subagent_connections:)
       lines = [
         "# Collaboration Notes",
         "",
@@ -104,8 +104,8 @@ module Acceptance
         "- The final product landed in the mounted host workspace and was independently runnable from the host.",
       ]
 
-      if subagent_sessions.any?
-        lines << "- Real subagent work surfaced during the run through at least one exported subagent session."
+      if subagent_connections.any?
+        lines << "- Real subagent work surfaced during the run through at least one exported subagent connection."
       else
         lines << "- The tool surface stayed stable, but this run did not export subagent evidence, so subagent capability should be probed again on the next capstone rerun."
       end
@@ -127,7 +127,7 @@ module Acceptance
         "## Collaboration Guidance",
         "",
         "- Keep the workspace disposable and expect a host-side dependency reinstall when the container writes platform-specific JavaScript dependencies into a shared mount.",
-        "- Treat the provider-backed loop as the truth for acceptance. The agent message alone was not enough; the durable workflow, subagent session, export bundle, and host playability checks were needed to close the run.",
+        "- Treat the provider-backed loop as the truth for acceptance. The agent message alone was not enough; the durable workflow, subagent connection, export bundle, and host playability checks were needed to close the run.",
         "- Treat built-in runtime behavior as the acceptance baseline; do not depend on staged workflow bootstrap skills to make the capstone pass.",
         "",
       ])
@@ -135,14 +135,14 @@ module Acceptance
       lines.join("\n")
     end
 
-    def write_runtime_and_bindings!(path:, workspace_root:, machine_credential:, executor_machine_credential:, agent_program:, agent_program_version:, executor_program:, docker_container:, runtime_base_url:, runtime_worker_boot:)
-      redacted_machine_credential = Acceptance::CredentialRedaction.redact(machine_credential)
-      redacted_executor_machine_credential = Acceptance::CredentialRedaction.redact(executor_machine_credential)
+    def write_runtime_and_bindings!(path:, workspace_root:, agent_connection_credential:, execution_runtime_connection_credential:, agent:, agent_snapshot:, execution_runtime:, docker_container:, runtime_base_url:, runtime_worker_boot:)
+      redacted_agent_connection_credential = Acceptance::CredentialRedaction.redact(agent_connection_credential)
+      redacted_execution_runtime_connection_credential = Acceptance::CredentialRedaction.redact(execution_runtime_connection_credential)
       worker_commands = Array(runtime_worker_boot&.fetch("worker_commands", nil))
       standalone_solid_queue = runtime_worker_boot&.fetch("standalone_solid_queue", false)
       activation_command = <<~CMD.chomp
-        FENIX_MACHINE_CREDENTIAL=#{redacted_machine_credential} \
-        FENIX_EXECUTION_MACHINE_CREDENTIAL=#{redacted_executor_machine_credential} \
+        FENIX_AGENT_CONNECTION_CREDENTIAL=#{redacted_agent_connection_credential} \
+        FENIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL=#{redacted_execution_runtime_connection_credential} \
         DOCKER_CORE_MATRIX_BASE_URL=http://host.docker.internal:3000 \
         bash acceptance/bin/activate_fenix_docker_runtime.sh
       CMD
@@ -218,14 +218,14 @@ module Acceptance
 
         ## Registration And Worker Start
 
-        Registered the bundled runtime from the published manifest and issued a new machine credential. Public bindings:
+        Registered the bundled runtime from the published manifest and issued a new agent connection credential. Public bindings:
 
-        - Agent program `public_id`: `#{agent_program.public_id}`
-        - Agent program version `public_id`: `#{agent_program_version.public_id}`
-        - Executor program `public_id`: `#{executor_program.public_id}`
+        - Agent `public_id`: `#{agent.public_id}`
+        - Agent snapshot `public_id`: `#{agent_snapshot.public_id}`
+        - Execution runtime `public_id`: `#{execution_runtime.public_id}`
 
         After runtime registration, the top-level automation recreated the
-        Dockerized `Fenix` container with the issued machine credentials in its
+        Dockerized `Fenix` container with the issued connection credentials in its
         environment, then started the persistent runtime worker:
 
         ```bash

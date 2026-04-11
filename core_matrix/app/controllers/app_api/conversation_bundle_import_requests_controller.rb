@@ -6,7 +6,7 @@ module AppAPI
         workspace: workspace,
         user: workspace.user,
         uploaded_file: params[:upload_file],
-        target_agent_program_version_id: current_deployment.public_id
+        target_agent_snapshot_id: current_agent_snapshot.public_id
       )
 
       render json: {
@@ -31,7 +31,7 @@ module AppAPI
     def find_import_request!(request_id)
       ConversationBundleImportRequest.find_by!(
         public_id: request_id,
-        installation_id: current_deployment.installation_id
+        installation_id: current_agent_snapshot.installation_id
       )
     end
 

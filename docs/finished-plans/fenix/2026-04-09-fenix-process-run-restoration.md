@@ -6,7 +6,7 @@ Add failing Fenix-side tests for the restored detached process slice:
 
 - runtime manifest exposes process tools
 - system tool registry includes process tools
-- program tool executor supports:
+- agent tool executor supports:
   - `process_exec`
   - `process_list`
   - `process_read_output`

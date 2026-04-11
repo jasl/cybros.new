@@ -5,13 +5,13 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     anchor_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Checkpoint anchor",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -40,8 +40,8 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     LineageStores::Set.call(
       conversation: root,
@@ -51,7 +51,7 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     anchor_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Checkpoint anchor",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -72,18 +72,18 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     automation_root = Conversations::CreateAutomationRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     automation_turn = Turns::StartAutomationTurn.call(
       conversation: automation_root,
       origin_kind: "system_internal",
       origin_payload: {},
-      source_ref_type: "AgentProgramVersion",
-      source_ref_id: context[:agent_program_version].public_id,
+      source_ref_type: "AgentSnapshot",
+      source_ref_id: context[:agent_snapshot].public_id,
       idempotency_key: "automation-checkpoint-anchor",
       external_event_key: "automation-checkpoint-anchor",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -101,18 +101,18 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     other_root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     foreign_turn = Turns::StartUserTurn.call(
       conversation: other_root,
       content: "Foreign checkpoint anchor",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -135,13 +135,13 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root inherited checkpoint anchor",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -163,13 +163,13 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     anchor_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Checkpoint anchor",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

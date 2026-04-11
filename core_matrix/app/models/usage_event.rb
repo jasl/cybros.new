@@ -23,8 +23,8 @@ class UsageEvent < ApplicationRecord
   belongs_to :installation
   belongs_to :user, optional: true
   belongs_to :workspace, optional: true
-  belongs_to :agent_program, optional: true
-  belongs_to :agent_program_version, optional: true
+  belongs_to :agent, optional: true
+  belongs_to :agent_snapshot, optional: true
 
   validates :provider_handle, presence: true
   validates :model_ref, presence: true
@@ -38,8 +38,8 @@ class UsageEvent < ApplicationRecord
   validate :cached_input_tokens_match_prompt_cache_status
   validate :user_installation_match
   validate :workspace_installation_match
-  validate :agent_program_installation_match
-  validate :agent_program_version_installation_match
+  validate :agent_installation_match
+  validate :agent_snapshot_installation_match
 
   data_lifecycle_kind! :bounded_audit
 
@@ -78,17 +78,17 @@ class UsageEvent < ApplicationRecord
     errors.add(:workspace, "must belong to the same installation")
   end
 
-  def agent_program_installation_match
-    return if agent_program.blank?
-    return if agent_program.installation_id == installation_id
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
 
-    errors.add(:agent_program, "must belong to the same installation")
+    errors.add(:agent, "must belong to the same installation")
   end
 
-  def agent_program_version_installation_match
-    return if agent_program_version.blank?
-    return if agent_program_version.installation_id == installation_id
+  def agent_snapshot_installation_match
+    return if agent_snapshot.blank?
+    return if agent_snapshot.installation_id == installation_id
 
-    errors.add(:agent_program_version, "must belong to the same installation")
+    errors.add(:agent_snapshot, "must belong to the same installation")
   end
 end

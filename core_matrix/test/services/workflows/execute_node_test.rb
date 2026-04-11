@@ -5,13 +5,13 @@ class Workflows::ExecuteNodeTest < ActiveSupport::TestCase
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Node input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -23,7 +23,7 @@ class Workflows::ExecuteNodeTest < ActiveSupport::TestCase
       workflow_run: workflow_run,
       node_key: "node",
       node_type: "turn_step",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
 

@@ -37,7 +37,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert_equal turn.public_id, turn.execution_snapshot.identity["turn_id"]
     assert_equal context[:user].public_id, turn.execution_snapshot.identity["user_id"]
     assert_equal context[:workspace].public_id, turn.execution_snapshot.identity["workspace_id"]
-    assert_equal context[:executor_program].public_id, turn.execution_snapshot.identity["executor_program_id"]
+    assert_equal context[:execution_runtime].public_id, turn.execution_snapshot.identity["execution_runtime_id"]
     assert_equal [attachment.public_id], turn.execution_snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }
     assert_equal [attachment.public_id], turn.execution_snapshot.model_input_attachments.map { |item| item.fetch("attachment_id") }
     assert turn.execution_contract.present?
@@ -132,7 +132,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       kind: "fork",
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
       conversation: child_conversation,
       owner_conversation: owner_conversation,
@@ -158,10 +158,10 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       initial_kind: "subagent_step",
       initial_payload: { "delivery_kind" => "subagent_spawn" },
       origin_turn: owner_turn,
-      subagent_session: subagent_session
+      subagent_connection: subagent_connection
     )
 
-    agent_task_run = AgentTaskRun.find_by!(workflow_run: workflow_run, subagent_session: subagent_session)
+    agent_task_run = AgentTaskRun.find_by!(workflow_run: workflow_run, subagent_connection: subagent_connection)
     mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: agent_task_run, item_type: "execution_assignment")
 
     assert_equal "subagent_step", agent_task_run.kind

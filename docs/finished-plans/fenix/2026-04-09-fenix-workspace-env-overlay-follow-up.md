@@ -47,7 +47,7 @@ The intended user-visible behavior is:
 ## Non-Goals
 
 - no conversation-scoped `.env`
-- no agent-program-version-scoped `.env`
+- no agent-snapshot-scoped `.env`
 - no implicit loading of project-root `.env`
 - no global mutation of Rails/Fenix process `ENV`
 - no browser-host env overlay in the first cut
@@ -66,7 +66,7 @@ Do not read:
 - project-root `.env`
 - project-root `.env.agent`
 - `.fenix/conversations/...`
-- `.fenix/agent_program_versions/...`
+- `.fenix/agent_snapshots/...`
 
 That keeps the feature explicit and avoids accidentally importing the user's
 application secrets or local app config.

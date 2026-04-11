@@ -36,19 +36,19 @@ module Acceptance
       "resume_waiting_workflow" => "resume the waiting workflow",
     }.freeze
 
-    def capture_export_roundtrip!(artifact_dir:, conversation:, machine_credential:, supervision_trace:, prompt:)
+    def capture_export_roundtrip!(artifact_dir:, conversation:, agent_connection_credential:, supervision_trace:, prompt:)
       source_transcript = Acceptance::ManualSupport.app_api_conversation_transcript!(
         conversation_id: conversation.public_id,
-        machine_credential: machine_credential,
+        agent_connection_credential: agent_connection_credential,
         limit: 200
       )
       source_diagnostics_show = Acceptance::ManualSupport.app_api_conversation_diagnostics_show!(
         conversation_id: conversation.public_id,
-        machine_credential: machine_credential
+        agent_connection_credential: agent_connection_credential
       )
       source_diagnostics_turns = Acceptance::ManualSupport.app_api_conversation_diagnostics_turns!(
         conversation_id: conversation.public_id,
-        machine_credential: machine_credential
+        agent_connection_credential: agent_connection_credential
       )
 
       user_bundle_path = artifact_dir.join("exports", "conversation-export.zip")
@@ -56,29 +56,29 @@ module Acceptance
 
       export_result = Acceptance::ManualSupport.app_api_export_conversation!(
         conversation_id: conversation.public_id,
-        machine_credential: machine_credential,
+        agent_connection_credential: agent_connection_credential,
         destination_path: user_bundle_path.to_s
       )
       debug_export_result = Acceptance::ManualSupport.app_api_debug_export_conversation!(
         conversation_id: conversation.public_id,
-        machine_credential: machine_credential,
+        agent_connection_credential: agent_connection_credential,
         destination_path: debug_bundle_path.to_s
       )
       import_result = Acceptance::ManualSupport.app_api_import_conversation_bundle!(
         workspace_id: conversation.workspace.public_id,
         zip_path: user_bundle_path.to_s,
-        machine_credential: machine_credential
+        agent_connection_credential: agent_connection_credential
       )
       imported_conversation_id = import_result.dig("show", "import_request", "imported_conversation_id")
 
       imported_transcript = Acceptance::ManualSupport.app_api_conversation_transcript!(
         conversation_id: imported_conversation_id,
-        machine_credential: machine_credential,
+        agent_connection_credential: agent_connection_credential,
         limit: 200
       )
       imported_diagnostics_show = Acceptance::ManualSupport.app_api_conversation_diagnostics_show!(
         conversation_id: imported_conversation_id,
-        machine_credential: machine_credential
+        agent_connection_credential: agent_connection_credential
       )
 
       source_items = source_transcript.fetch("items").map { |item| item.slice("role", "slot", "variant_index", "content") }
@@ -150,25 +150,25 @@ module Acceptance
       }
     end
 
-    def capture_subagent_runtime_snapshots!(artifact_dir:, subagent_sessions:, machine_credential:)
-      snapshots = Array(subagent_sessions).filter_map do |session|
-        subagent_session_id = session["subagent_session_id"]
+    def capture_subagent_runtime_snapshots!(artifact_dir:, subagent_connections:, agent_connection_credential:)
+      snapshots = Array(subagent_connections).filter_map do |session|
+        subagent_connection_id = session["subagent_connection_id"]
         conversation_id = session["conversation_id"].presence
         next if conversation_id.blank?
 
-        debug_bundle_path = artifact_dir.join("tmp", "subagent-debug-exports", "#{subagent_session_id}.zip")
+        debug_bundle_path = artifact_dir.join("tmp", "subagent-debug-exports", "#{subagent_connection_id}.zip")
         debug_export_result = Acceptance::ManualSupport.app_api_debug_export_conversation!(
           conversation_id: conversation_id,
-          machine_credential: machine_credential,
+          agent_connection_credential: agent_connection_credential,
           destination_path: debug_bundle_path.to_s
         )
         parsed_debug = unpack_debug_bundle!(
           zip_path: debug_bundle_path,
-          destination_dir: artifact_dir.join("tmp", "subagent-debug-unpacked", subagent_session_id)
+          destination_dir: artifact_dir.join("tmp", "subagent-debug-unpacked", subagent_connection_id)
         )
 
         {
-          "subagent_session_id" => subagent_session_id,
+          "subagent_connection_id" => subagent_connection_id,
           "profile_key" => session["profile_key"],
           "conversation_id" => conversation_id,
           "workflow_run_id" => Array(parsed_debug["workflow_nodes.json"]).first&.fetch("workflow_run_id", nil),
@@ -184,7 +184,7 @@ module Acceptance
         artifact_dir.join("evidence", "subagent-runtime-snapshots.json"),
         snapshots.map do |snapshot|
           {
-            "subagent_session_id" => snapshot["subagent_session_id"],
+            "subagent_connection_id" => snapshot["subagent_connection_id"],
             "profile_key" => snapshot["profile_key"],
             "conversation_id" => snapshot["conversation_id"],
             "workflow_run_id" => snapshot["workflow_run_id"],
@@ -268,7 +268,7 @@ module Acceptance
       command_runs = Array(parsed_debug["command_runs.json"])
       process_runs = Array(parsed_debug["process_runs.json"])
       workflow_nodes = Array(parsed_debug["workflow_nodes.json"])
-      subagent_sessions = Array(parsed_debug["subagent_sessions.json"])
+      subagent_connections = Array(parsed_debug["subagent_connections.json"])
 
       <<~MD
         # Export Roundtrip
@@ -290,7 +290,7 @@ module Acceptance
         - command runs exported: `#{command_runs.length}`
         - process runs exported: `#{process_runs.length}`
         - workflow nodes exported: `#{workflow_nodes.length}`
-        - subagent sessions exported: `#{subagent_sessions.length}`
+        - subagent connections exported: `#{subagent_connections.length}`
       MD
     end
 
@@ -519,14 +519,14 @@ module Acceptance
         ["turn_feed.turn_ids", turn_feed_entries(machine_status).map { |entry| entry["turn_id"] }],
         ["conversation_context.message_ids", Array(machine_status.dig("conversation_context", "message_ids"))],
         ["conversation_context.turn_ids", Array(machine_status.dig("conversation_context", "turn_ids"))],
-        ["active_subagents.subagent_session_ids", Array(machine_status["active_subagents"]).map { |entry| entry["subagent_session_id"] }],
+        ["active_subagents.subagent_connection_ids", Array(machine_status["active_subagents"]).map { |entry| entry["subagent_connection_id"] }],
         ["primary_turn_todo_plan.ids", [primary_turn_todo_plan_view(machine_status)["turn_todo_plan_id"], primary_turn_todo_plan_view(machine_status)["agent_task_run_id"], primary_turn_todo_plan_view(machine_status)["turn_id"]]],
         ["primary_turn_todo_plan.item_ids", Array(primary_turn_todo_plan_view(machine_status)["items"]).map { |entry| entry["turn_todo_plan_item_id"] }],
-        ["primary_turn_todo_plan.delegated_subagent_session_ids", Array(primary_turn_todo_plan_view(machine_status)["items"]).map { |entry| entry["delegated_subagent_session_id"] }],
-        ["active_subagent_turn_todo_plan.session_ids", active_subagent_turn_todo_plan_views(machine_status).map { |entry| entry["subagent_session_id"] }],
+        ["primary_turn_todo_plan.delegated_subagent_connection_ids", Array(primary_turn_todo_plan_view(machine_status)["items"]).map { |entry| entry["delegated_subagent_connection_id"] }],
+        ["active_subagent_turn_todo_plan.session_ids", active_subagent_turn_todo_plan_views(machine_status).map { |entry| entry["subagent_connection_id"] }],
         ["active_subagent_turn_todo_plan.plan_ids", active_subagent_turn_todo_plan_views(machine_status).map { |entry| entry["turn_todo_plan_id"] }],
         ["active_subagent_turn_todo_plan.item_ids", active_subagent_turn_todo_plan_views(machine_status).flat_map { |entry| Array(entry["items"]).map { |item| item["turn_todo_plan_item_id"] } }],
-        ["active_subagent_turn_todo_plan.delegated_subagent_session_ids", active_subagent_turn_todo_plan_views(machine_status).flat_map { |entry| Array(entry["items"]).map { |item| item["delegated_subagent_session_id"] } }],
+        ["active_subagent_turn_todo_plan.delegated_subagent_connection_ids", active_subagent_turn_todo_plan_views(machine_status).flat_map { |entry| Array(entry["items"]).map { |item| item["delegated_subagent_connection_id"] } }],
         ["proof_debug.context_message_ids", Array(machine_status.dig("proof_debug", "context_message_ids"))],
         ["proof_debug.feed_entry_ids", Array(machine_status.dig("proof_debug", "feed_entry_ids"))],
         ["runtime_evidence.command_run_public_ids", [

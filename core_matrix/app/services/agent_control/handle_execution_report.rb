@@ -6,10 +6,10 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, executor_session: nil, resource: nil, method_id:, payload:, occurred_at: Time.current, **)
-      @deployment = deployment
-      @agent_session = agent_session
-      @executor_session = executor_session
+    def initialize(agent_snapshot:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current, **)
+      @agent_snapshot = agent_snapshot
+      @agent_connection = agent_connection
+      @execution_runtime_connection = execution_runtime_connection
       @method_id = method_id
       @payload = payload
       @occurred_at = occurred_at
@@ -24,8 +24,9 @@ module AgentControl
 
     def call
       ValidateExecutionReportFreshness.call(
-        deployment: @deployment,
-        agent_session: resolved_agent_session,
+        agent_snapshot: @agent_snapshot,
+        agent_connection: resolved_agent_connection,
+        execution_runtime_connection: @execution_runtime_connection,
         method_id: @method_id,
         payload: @payload,
         mailbox_item: mailbox_item,
@@ -51,7 +52,7 @@ module AgentControl
       agent_task_run.update!(
         lifecycle_state: "running",
         started_at: @occurred_at,
-        holder_agent_session: resolved_agent_session,
+        holder_agent_connection: resolved_agent_connection,
         expected_duration_seconds: @payload["expected_duration_seconds"],
         supervision_state: "running",
         last_progress_at: @occurred_at
@@ -61,12 +62,12 @@ module AgentControl
         started_at: agent_task_run.workflow_node.started_at || @occurred_at,
         finished_at: nil
       )
-      sync_subagent_session_started_state!
+      sync_subagent_connection_started_state!
 
       unless agent_task_run.execution_lease&.active?
         Leases::Acquire.call(
           leased_resource: agent_task_run,
-          holder_key: @deployment.public_id,
+          holder_key: @agent_snapshot.public_id,
           heartbeat_timeout_seconds: mailbox_item.lease_timeout_seconds
         )
       end
@@ -125,7 +126,7 @@ module AgentControl
       if agent_task_run.execution_lease&.active?
         Leases::Release.call(
           execution_lease: agent_task_run.execution_lease,
-          holder_key: @deployment.public_id,
+          holder_key: @agent_snapshot.public_id,
           reason: lifecycle_state,
           released_at: @occurred_at
         )
@@ -186,11 +187,11 @@ module AgentControl
         blocked_summary: nil,
         last_progress_at: @occurred_at
       )
-      sync_subagent_session_terminal_state!(lifecycle_state:, summary:)
+      sync_subagent_connection_terminal_state!(lifecycle_state:, summary:)
 
       AgentTaskRuns::AppendProgressEntry.call(
         agent_task_run: agent_task_run,
-        subagent_session: agent_task_run.progress_entry_subagent_session,
+        subagent_connection: agent_task_run.progress_entry_subagent_connection,
         entry_kind: "execution_#{lifecycle_state}",
         summary: summary,
         details_payload: {},
@@ -198,8 +199,8 @@ module AgentControl
       )
     end
 
-    def sync_subagent_session_started_state!
-      session = agent_task_run.subagent_session
+    def sync_subagent_connection_started_state!
+      session = agent_task_run.subagent_connection
       return if session.blank?
 
       session.update!(
@@ -209,8 +210,8 @@ module AgentControl
       )
     end
 
-    def sync_subagent_session_terminal_state!(lifecycle_state:, summary:)
-      session = agent_task_run.subagent_session
+    def sync_subagent_connection_terminal_state!(lifecycle_state:, summary:)
+      session = agent_task_run.subagent_connection
       return if session.blank?
 
       observed_status =
@@ -256,7 +257,7 @@ module AgentControl
     end
 
     def refresh_related_supervision_states!
-      [agent_task_run.conversation, agent_task_run.subagent_session&.owner_conversation].compact.uniq.each do |conversation|
+      [agent_task_run.conversation, agent_task_run.subagent_connection&.owner_conversation].compact.uniq.each do |conversation|
         Conversations::UpdateSupervisionState.call(
           conversation: conversation,
           occurred_at: @occurred_at,
@@ -265,14 +266,14 @@ module AgentControl
       end
     end
 
-    def resolved_agent_session
-      @resolved_agent_session ||= @agent_session || @deployment.active_agent_session || @deployment.most_recent_agent_session
+    def resolved_agent_connection
+      @resolved_agent_connection ||= @agent_connection || @agent_snapshot.active_agent_connection || @agent_snapshot.most_recent_agent_connection
     end
 
     def heartbeat_task_lease!
       Leases::Heartbeat.call(
         execution_lease: agent_task_run.execution_lease,
-        holder_key: @deployment.public_id,
+        holder_key: @agent_snapshot.public_id,
         occurred_at: @occurred_at
       )
     rescue ArgumentError, Leases::Heartbeat::StaleLeaseError
@@ -302,14 +303,14 @@ module AgentControl
 
     def mailbox_item
       @mailbox_item ||= AgentControlMailboxItem.find_by!(
-        installation_id: @deployment.installation_id,
+        installation_id: @agent_snapshot.installation_id,
         public_id: @payload.fetch("mailbox_item_id")
       )
     end
 
     def agent_task_run
       @agent_task_run ||= AgentTaskRun.find_by!(
-        installation_id: @deployment.installation_id,
+        installation_id: @agent_snapshot.installation_id,
         public_id: @payload.fetch("agent_task_run_id")
       )
     end

@@ -9,33 +9,34 @@ module Acceptance
         manifest: :manifest,
         registration: :registration,
         heartbeat: :heartbeat,
-        machine_credential: :machine_credential,
-        executor_machine_credential: :executor_machine_credential,
-        agent_program_version: :agent_program_version,
-        executor_program: :executor_program,
-        deployment: :deployment,
+        agent_connection_credential: :agent_connection_credential,
+        execution_runtime_connection_credential: :execution_runtime_connection_credential,
+        agent_snapshot: :agent_snapshot,
+        execution_runtime: :execution_runtime,
         runtime: :runtime,
-        agent_program: :agent_program,
-        agent_session: :agent_session,
-        agent_session_id: :agent_session_id,
-        executor_session: :executor_session,
-        executor_session_id: :executor_session_id
+        agent: :agent,
+        agent_connection: :agent_connection,
+        agent_connection_id: :agent_connection_id,
+        execution_runtime_connection: :execution_runtime_connection,
+        execution_runtime_connection_id: :execution_runtime_connection_id,
+        execution_runtime_fingerprint: :execution_runtime_fingerprint,
       }.freeze
 
       attr_reader :manifest,
                   :registration,
                   :heartbeat,
-                  :machine_credential,
-                  :executor_machine_credential,
-                  :agent_program_version,
-                  :executor_program,
+                  :agent_connection_credential,
+                  :execution_runtime_connection_credential,
+                  :agent_snapshot,
+                  :execution_runtime,
                   :runtime
 
       def initialize(
         manifest:,
-        machine_credential:,
-        agent_program_version:, executor_machine_credential: nil,
-        executor_program: nil,
+        agent_connection_credential:,
+        agent_snapshot: nil,
+        execution_runtime_connection_credential: nil,
+        execution_runtime: nil,
         runtime: nil,
         registration: nil,
         heartbeat: nil
@@ -43,35 +44,41 @@ module Acceptance
         @manifest = manifest
         @registration = registration
         @heartbeat = heartbeat
-        @machine_credential = machine_credential
-        @executor_machine_credential = executor_machine_credential.presence || machine_credential
-        @agent_program_version = agent_program_version
-        @executor_program = executor_program
+        @agent_connection_credential = agent_connection_credential
+        @execution_runtime_connection_credential =
+          execution_runtime_connection_credential.presence ||
+          agent_connection_credential
+        @agent_snapshot = agent_snapshot
+        @execution_runtime = execution_runtime
         @runtime = runtime
       end
 
-      def deployment
-        runtime&.deployment || agent_program_version
+      def agent_snapshot
+        runtime&.agent_snapshot || @agent_snapshot
       end
 
-      def agent_program
-        runtime&.agent_program || agent_program_version.try(:agent_program)
+      def agent
+        runtime&.agent || agent_snapshot.try(:agent)
       end
 
-      def agent_session
-        runtime&.agent_session
+      def agent_connection
+        runtime&.agent_connection
       end
 
-      def agent_session_id
-        agent_session&.public_id || registration&.fetch('agent_session_id', nil)
+      def agent_connection_id
+        agent_connection&.public_id || registration&.fetch('agent_connection_id', nil)
       end
 
-      def executor_session
-        runtime&.executor_session
+      def execution_runtime_connection
+        runtime&.execution_runtime_connection
       end
 
-      def executor_session_id
-        executor_session&.public_id || registration&.fetch('executor_session_id', nil)
+      def execution_runtime_connection_id
+        execution_runtime_connection&.public_id || registration&.fetch('execution_runtime_connection_id', nil)
+      end
+
+      def execution_runtime_fingerprint
+        execution_runtime&.execution_runtime_fingerprint || registration&.fetch('execution_runtime_fingerprint', nil)
       end
 
       def fetch(key)

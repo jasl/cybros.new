@@ -8,7 +8,7 @@ class Fenix::Agent::Memory::StoreTest < ActiveSupport::TestCase
       root.join("MEMORY.md").write("Root memory\n")
       summary_path = root.join(".fenix", "conversations", "conversation-1", "context", "summary.md")
       FileUtils.mkdir_p(summary_path.dirname)
-      summary_path.write("Conversation summary\n")
+      summary_path.write("Session summary\n")
 
       payload = Fenix::Agent::Memory::Store.new(
         workspace_root: workspace_root,
@@ -16,9 +16,9 @@ class Fenix::Agent::Memory::StoreTest < ActiveSupport::TestCase
       ).summary_payload
 
       assert_equal "Root memory\n", payload.fetch("root_memory")
-      assert_equal "Conversation summary\n", payload.fetch("conversation_summary")
+      assert_equal "Session summary\n", payload.fetch("session_summary")
       assert_includes payload.fetch("summary"), "Root memory"
-      assert_includes payload.fetch("summary"), "Conversation summary"
+      assert_includes payload.fetch("summary"), "Session summary"
     end
   end
 end

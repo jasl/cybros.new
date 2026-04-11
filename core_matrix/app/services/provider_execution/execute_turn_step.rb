@@ -9,13 +9,13 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, program_exchange: nil)
+    def initialize(workflow_node:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, agent_request_exchange: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
       @turn = workflow_node.turn
       @messages = normalize_messages(messages)
       @adapter = adapter
-      @program_exchange = program_exchange
+      @agent_request_exchange = agent_request_exchange
       @effective_catalog = effective_catalog || ProviderCatalog::EffectiveCatalog.new(installation: @workflow_run.installation, catalog: catalog)
       @request_context = BuildRequestContext.call(
         turn: @turn,
@@ -42,7 +42,7 @@ module ProviderExecution
         transcript: @messages,
         adapter: @adapter,
         effective_catalog: @effective_catalog,
-        program_exchange: @program_exchange
+        agent_request_exchange: @agent_request_exchange
       )
 
       if loop_result.final?
@@ -86,11 +86,11 @@ module ProviderExecution
         )
         result
       end
-    rescue ProviderExecution::ProgramMailboxExchange::PendingResponse => pending
+    rescue ProviderExecution::AgentRequestExchange::PendingResponse => pending
       broadcast_workflow_node_event!(
         "runtime.workflow_node.waiting",
         state: "waiting",
-        wait_reason_kind: "agent_program_request",
+        wait_reason_kind: "agent_request",
         mailbox_item_id: pending.mailbox_item_public_id,
         logical_work_id: pending.logical_work_id,
         request_kind: pending.request_kind

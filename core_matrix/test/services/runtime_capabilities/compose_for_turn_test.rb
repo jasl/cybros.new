@@ -56,17 +56,17 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
     workspace = create_workspace!(
       installation: registration[:installation],
       user: registration[:actor],
-      user_program_binding: create_user_program_binding!(
+      user_agent_binding: create_user_agent_binding!(
         installation: registration[:installation],
         user: registration[:actor],
-        agent_program: registration[:agent_program]
+        agent: registration[:agent]
       )
     )
 
     Conversations::CreateRoot.call(
       workspace: workspace,
-      executor_program: registration[:executor_program],
-      agent_program_version: registration[:deployment]
+      execution_runtime: registration[:execution_runtime],
+      agent_snapshot: registration[:agent_snapshot]
     )
   end
 
@@ -80,15 +80,15 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
         workspace: parent_conversation.workspace,
         parent_conversation: previous_conversation,
         kind: "fork",
-        executor_program: registration[:executor_program],
-        agent_program_version: registration[:deployment],
+        execution_runtime: registration[:execution_runtime],
+        agent_snapshot: registration[:agent_snapshot],
         addressability: "agent_addressable"
       )
-      session = SubagentSession.create!(
+      session = SubagentConnection.create!(
         installation: registration[:installation],
         conversation: conversation,
         owner_conversation: previous_conversation,
-        parent_subagent_session: previous_session,
+        parent_subagent_connection: previous_session,
         scope: "conversation",
         profile_key: profile_key,
         depth: index
@@ -100,7 +100,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
 
     {
       conversation: previous_conversation,
-      subagent_session: previous_session,
+      subagent_connection: previous_session,
     }
   end
 end

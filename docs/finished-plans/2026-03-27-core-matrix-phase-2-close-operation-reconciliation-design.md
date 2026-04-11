@@ -20,9 +20,9 @@ multiple services. That leaves `ConversationCloseOperation` vulnerable to
 drift whenever a blocker reaches terminal state through a path that was not
 explicitly wired back into the current close refresh helpers.
 
-The immediate trigger is the discovered `SubagentSession` gap:
+The immediate trigger is the discovered `SubagentConnection` gap:
 
-- `SubagentSession` is already part of the mainline stop barrier
+- `SubagentConnection` is already part of the mainline stop barrier
 - terminal subagent close reports can clear the last mainline blocker
 - current close progression does not always recalculate after that state change
 
@@ -147,7 +147,7 @@ The reconciliation boundary needs one stable conversation-resolution rule:
 - resources with `turn` may resolve through `turn.conversation`
 - resources with `workflow_run` may resolve through `workflow_run.conversation`
 
-That keeps `SubagentSession` in the same architecture as:
+That keeps `SubagentConnection` in the same architecture as:
 
 - `AgentTaskRun`
 - `ProcessRun`
@@ -227,7 +227,7 @@ Current issue:
 
 - it only refreshes close progression for resources that directly expose
   `conversation`
-- that misses `SubagentSession`
+- that misses `SubagentConnection`
 
 Required adjustment:
 
@@ -243,7 +243,7 @@ The desired close progression flow is:
 3. `ReconcileCloseOperation` writes the first summary and lifecycle state.
 4. Local state changes caused by `RequestTurnInterrupt` re-enter the same
    reconciler.
-5. Mailbox terminal reports for `AgentTaskRun`, `ProcessRun`, or `SubagentSession`
+5. Mailbox terminal reports for `AgentTaskRun`, `ProcessRun`, or `SubagentConnection`
    re-enter the same reconciler.
 6. `FinalizeDeletion` re-enters the same reconciler after the conversation is
    durably `deleted`.
@@ -276,9 +276,9 @@ This follow-up is complete only when all of the following are true:
 - `ConversationCloseOperation` has one application-layer writer
 - `RequestClose`, `FinalizeDeletion`, `RequestTurnInterrupt`, and mailbox
   terminal close reports all converge on that writer
-- a force archive with a `SubagentSession` as the last mainline blocker reaches
+- a force archive with a `SubagentConnection` as the last mainline blocker reaches
   `Conversation.lifecycle_state = archived` without a second archive request
-- a delete flow with a `SubagentSession` as the last mainline blocker refreshes the
+- a delete flow with a `SubagentConnection` as the last mainline blocker refreshes the
   close operation immediately after terminal close reporting
 - archive with remaining detached background residue still reaches
   `disposing` or `degraded`, not a false clean completion

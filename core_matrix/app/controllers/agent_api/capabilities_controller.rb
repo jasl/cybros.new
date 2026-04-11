@@ -5,15 +5,13 @@ module AgentAPI
     end
 
     def create
-      result = AgentProgramVersions::Handshake.call(
-        agent_session: current_agent_session,
-        deployment: current_deployment,
-        executor_program: current_executor_program,
+      result = AgentSnapshots::Handshake.call(
+        agent_connection: current_agent_connection,
+        agent_snapshot: current_agent_snapshot,
+        execution_runtime: current_execution_runtime,
         fingerprint: request_payload.fetch("fingerprint"),
         protocol_version: request_payload.fetch("protocol_version"),
         sdk_version: request_payload.fetch("sdk_version"),
-        executor_capability_payload: request_payload["executor_capability_payload"],
-        executor_tool_catalog: request_payload["executor_tool_catalog"],
         protocol_methods: request_payload.fetch("protocol_methods", []),
         tool_catalog: request_payload.fetch("tool_catalog", []),
         profile_catalog: request_payload.fetch("profile_catalog", {}),
@@ -37,19 +35,19 @@ module AgentAPI
       runtime_capability_contract: nil
     )
       contract = runtime_capability_contract || RuntimeCapabilityContract.build(
-        executor_program: current_executor_program,
-        agent_program_version: current_deployment
+        execution_runtime: current_execution_runtime,
+        agent_snapshot: current_agent_snapshot
       )
 
       contract.capability_response(
         method_id: method_id,
-        executor_program_id: current_executor_program&.public_id,
-        executor_fingerprint: current_executor_program&.executor_fingerprint,
+        execution_runtime_id: current_execution_runtime&.public_id,
+        execution_runtime_fingerprint: current_execution_runtime&.execution_runtime_fingerprint,
         reconciliation_report: reconciliation_report
       ).merge(
         "governed_effective_tool_catalog" => ToolBindings::GovernedCatalog.call(
-          agent_program_version: current_deployment,
-          executor_program: current_executor_program
+          agent_snapshot: current_agent_snapshot,
+          execution_runtime: current_execution_runtime
         )
       )
     end

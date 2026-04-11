@@ -7,13 +7,13 @@ Deferred future plan.
 ## Purpose
 
 Consider extension and plugin packaging only after the kernel and multiple
-agent-program shapes are already stable.
+agent shapes are already stable.
 
 ## Preconditions
 
 - the loop is proven
 - the Web product is usable
-- additional agent programs have validated that the kernel is not Fenix-shaped
+- additional agents have validated that the kernel is not Fenix-shaped
 - trigger and channel work have settled
 
 ## Design Rule

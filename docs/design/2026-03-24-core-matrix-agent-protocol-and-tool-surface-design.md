@@ -24,7 +24,7 @@ Core Matrix needs a stable public contract between the kernel and external agent
 - consistent in naming
 - explicit about which identifiers are protocol methods versus model-visible tool names
 - explicit about which actions remain kernel authority
-- flexible enough to let agent programs expose domain-specific tool surfaces without collapsing the strong-kernel side-effect rule
+- flexible enough to let agents expose domain-specific tool surfaces without collapsing the strong-kernel side-effect rule
 
 This note freezes those boundaries at the contract level. It does not require the current backend batch to implement every future bridge or tool adapter.
 
@@ -125,7 +125,7 @@ Rules:
 - canonical control semantics are mailbox-shaped, not callback-shaped
 - `poll` and `WebSocket` are delivery transports for the same mailbox items
 - long-running agent execution must not depend on one held HTTP request from
-  `Core Matrix` into an agent program
+  `Core Matrix` into an agent
 - short HTTP requests remain the resource-plane transport for transcript,
   variable, human-interaction, and registration APIs
 - `WebSocket` is preferred for low-latency control delivery, but `poll` must
@@ -243,7 +243,7 @@ Rules:
 
 ## Durable Execution Delivery
 
-For agent-program-owned execution that may take non-trivial time, the platform
+For agent-owned execution that may take non-trivial time, the platform
 should prefer durable delivery semantics over synchronous RPC.
 
 Recommended logical method families for follow-up work:
@@ -263,7 +263,7 @@ Recommended logical method families for follow-up work:
 Rules:
 
 - `Core Matrix` remains the source of truth for execution state
-- the agent program receives durable mailbox items rather than blocking
+- the agent receives durable mailbox items rather than blocking
   callbacks from the kernel
 - claimed work should carry stable execution hints such as:
   - likely model or model-profile context

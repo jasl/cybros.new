@@ -172,7 +172,7 @@ class AcceptanceLiveProgressFeedTest < ActiveSupport::TestCase
           "workflow_node_ordinal" => 1,
           "ordinal" => 2,
           "event_kind" => "subagent_progress",
-          "node_type" => "subagent_session",
+          "node_type" => "subagent_connection",
           "actor_type" => "subagent",
           "actor_label" => "researcher#1",
           "actor_public_id" => "sub_123",

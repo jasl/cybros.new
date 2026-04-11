@@ -32,7 +32,7 @@ test "builds request, waiting, subagent, and next-step summaries without interna
     workflow_run: fixture.fetch(:workflow_run),
     workflow_node: fixture.fetch(:workflow_node),
     activity_items: fixture.fetch(:activity_items),
-    active_subagent_sessions: [fixture.fetch(:subagent_session)]
+    active_subagent_connections: [fixture.fetch(:subagent_connection)]
   )
 
   assert_equal "improve the observation progress report for users", work_context.fetch("request_summary")
@@ -159,7 +159,7 @@ def work_context_view
     workflow_run: @workflow_run,
     workflow_node: @workflow_node,
     activity_items: activity_events,
-    active_subagent_sessions: @active_subagent_sessions
+    active_subagent_connections: @active_subagent_connections
   )
 end
 ```

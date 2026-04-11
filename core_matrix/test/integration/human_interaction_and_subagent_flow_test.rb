@@ -9,13 +9,13 @@ class HumanInteractionAndSubagentFlowTest < ActionDispatch::IntegrationTest
     agent_task_run = scenario.fetch(:agent_task_run)
 
     report_execution_started!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
 
     report_execution_complete!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run,
       terminal_payload: {
@@ -61,12 +61,12 @@ class HumanInteractionAndSubagentFlowTest < ActionDispatch::IntegrationTest
     assert_equal "queued", successor_mailbox_item.status
 
     report_execution_started!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: successor_mailbox_item,
       agent_task_run: successor_task
     )
     report_execution_complete!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: successor_mailbox_item,
       agent_task_run: successor_task,
       terminal_payload: { "output" => "Workflow complete" }
@@ -84,13 +84,13 @@ class HumanInteractionAndSubagentFlowTest < ActionDispatch::IntegrationTest
     agent_task_run = scenario.fetch(:agent_task_run)
 
     report_execution_started!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
 
     report_execution_complete!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run,
       terminal_payload: {
@@ -125,14 +125,14 @@ class HumanInteractionAndSubagentFlowTest < ActionDispatch::IntegrationTest
     assert_equal "subagent_barrier", workflow_run.wait_reason_kind
 
     report_subagent_completion!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       agent_task_run: child_tasks.first
     )
 
     assert workflow_run.reload.waiting?
 
     report_subagent_completion!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       agent_task_run: child_tasks.second
     )
 
@@ -155,12 +155,12 @@ class HumanInteractionAndSubagentFlowTest < ActionDispatch::IntegrationTest
     assert_equal "queued", successor_mailbox_item.status
 
     report_execution_started!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: successor_mailbox_item,
       agent_task_run: successor_task
     )
     report_execution_complete!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: successor_mailbox_item,
       agent_task_run: successor_task,
       terminal_payload: { "output" => "Workflow complete" }
@@ -171,19 +171,19 @@ class HumanInteractionAndSubagentFlowTest < ActionDispatch::IntegrationTest
 
   private
 
-  def report_subagent_completion!(deployment:, agent_task_run:)
+  def report_subagent_completion!(agent_snapshot:, agent_task_run:)
     mailbox_item = AgentControlMailboxItem.find_by!(
       agent_task_run: agent_task_run,
       item_type: "execution_assignment"
     )
 
     report_execution_started!(
-      deployment: deployment,
+      agent_snapshot: agent_snapshot,
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
     report_execution_complete!(
-      deployment: deployment,
+      agent_snapshot: agent_snapshot,
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run,
       terminal_payload: { "output" => "done" }

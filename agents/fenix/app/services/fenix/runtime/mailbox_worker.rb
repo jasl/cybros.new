@@ -28,7 +28,7 @@ module Fenix
           "mailbox_item_public_id" => mailbox_item["item_id"],
           "control_plane" => mailbox_item["control_plane"],
           "item_type" => mailbox_item.fetch("item_type", "execution_assignment"),
-          "agent_program_public_id" => runtime_context["agent_program_id"],
+          "agent_public_id" => runtime_context["agent_id"],
           "user_public_id" => runtime_context["user_id"],
           "conversation_public_id" => task["conversation_id"],
           "turn_public_id" => task["turn_id"],
@@ -79,7 +79,7 @@ module Fenix
       def call
         return handle_agent_task_close! if agent_task_close_request?
         return handle_process_run_close! if process_run_close_request?
-        return handle_subagent_session_close! if subagent_session_close_request?
+        return handle_subagent_connection_close! if subagent_connection_close_request?
 
         raise UnsupportedMailboxItemError, "unsupported mailbox item #{@mailbox_item.fetch("item_type", "execution_assignment")}" unless executable_mailbox_item?
 
@@ -92,12 +92,12 @@ module Fenix
         @mailbox_item.fetch("item_type", "execution_assignment") == "execution_assignment"
       end
 
-      def agent_program_request?
-        @mailbox_item.fetch("item_type", nil) == "agent_program_request"
+      def agent_request?
+        @mailbox_item.fetch("item_type", nil) == "agent_request"
       end
 
       def executable_mailbox_item?
-        execution_assignment? || agent_program_request?
+        execution_assignment? || agent_request?
       end
 
       def agent_task_close_request?
@@ -110,9 +110,9 @@ module Fenix
           @mailbox_item.dig("payload", "resource_type") == "ProcessRun"
       end
 
-      def subagent_session_close_request?
+      def subagent_connection_close_request?
         @mailbox_item.fetch("item_type", nil) == "resource_close_request" &&
-          @mailbox_item.dig("payload", "resource_type") == "SubagentSession"
+          @mailbox_item.dig("payload", "resource_type") == "SubagentConnection"
       end
 
       def handle_agent_task_close!
@@ -124,7 +124,7 @@ module Fenix
 
       def handle_process_run_close!
         self.class.instrument_execution(mailbox_item: @mailbox_item) do
-          Fenix::Executor::Processes::Manager.close!(
+          Fenix::ExecutionRuntime::Processes::Manager.close!(
             mailbox_item: @mailbox_item,
             deliver_reports: @deliver_reports,
             control_client: resolved_control_client_if_needed
@@ -132,7 +132,7 @@ module Fenix
         end
       end
 
-      def handle_subagent_session_close!
+      def handle_subagent_connection_close!
         self.class.instrument_execution(mailbox_item: @mailbox_item) do
           report_close_lifecycle! if @deliver_reports
           :handled

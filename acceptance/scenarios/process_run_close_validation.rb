@@ -11,7 +11,7 @@ bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
 bundled = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  executor_fingerprint: "acceptance-process-run-environment",
+  execution_runtime_fingerprint: "acceptance-process-run-environment",
   fingerprint: fingerprint
 )
 
@@ -22,7 +22,7 @@ Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(
   realtime_timeout_seconds: delivery_mode == "realtime" ? 5 : 0
 ) do
   result = begin
-    conversation_context = Acceptance::ManualSupport.create_conversation!(deployment: bundled.deployment)
+    conversation_context = Acceptance::ManualSupport.create_conversation!(agent_snapshot: bundled.agent_snapshot)
     run = Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
       conversation: conversation_context.fetch(:conversation),
       content: "Start a long-running background service and then close it gracefully.",
@@ -34,7 +34,7 @@ Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
-    tool_result = Acceptance::ManualSupport.execute_program_tool_call!(
+    tool_result = Acceptance::ManualSupport.execute_tool_call!(
       workflow_node: workflow_node,
       tool_call: {
         "call_id" => "acceptance-process-exec-1",
@@ -46,7 +46,7 @@ Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
-      agent_program_version: bundled.deployment
+      agent_snapshot: bundled.agent_snapshot
     )
     process_run = ProcessRun.find_by_public_id!(tool_result.result.fetch("process_run_id"))
     Acceptance::ManualSupport.wait_for_process_run_state!(process_run: process_run, lifecycle_states: "running")
@@ -119,9 +119,9 @@ Acceptance::ManualSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      "deployment_id" => bundled.deployment.public_id,
+      "agent_snapshot_id" => bundled.agent_snapshot.public_id,
       "delivery_mode" => delivery_mode,
-      "executor_program_id" => bundled.executor_program.public_id,
+      "execution_runtime_id" => bundled.execution_runtime.public_id,
       "conversation_id" => result.fetch(:conversation).public_id,
       "turn_id" => turn.public_id,
       "workflow_run_id" => workflow_run.public_id,

@@ -8,7 +8,7 @@ class TurnTodoPlanItem < ApplicationRecord
 
   belongs_to :turn_todo_plan, inverse_of: :turn_todo_plan_items
   belongs_to :installation
-  belongs_to :delegated_subagent_session, class_name: "SubagentSession", optional: true
+  belongs_to :delegated_subagent_connection, class_name: "SubagentConnection", optional: true
 
   validates :item_key, :title, :status, :kind, presence: true
   validates :item_key, uniqueness: { scope: :turn_todo_plan_id }
@@ -33,14 +33,14 @@ class TurnTodoPlanItem < ApplicationRecord
       errors.add(:turn_todo_plan, "must belong to the same installation")
     end
 
-    if delegated_subagent_session.present? && delegated_subagent_session.installation_id != installation_id
-      errors.add(:delegated_subagent_session, "must belong to the same installation")
+    if delegated_subagent_connection.present? && delegated_subagent_connection.installation_id != installation_id
+      errors.add(:delegated_subagent_connection, "must belong to the same installation")
     end
 
-    if delegated_subagent_session.present? &&
+    if delegated_subagent_connection.present? &&
         turn_todo_plan.present? &&
-        delegated_subagent_session.owner_conversation_id != turn_todo_plan.conversation_id
-      errors.add(:delegated_subagent_session, "must be owned by the plan conversation")
+        delegated_subagent_connection.owner_conversation_id != turn_todo_plan.conversation_id
+      errors.add(:delegated_subagent_connection, "must be owned by the plan conversation")
     end
   end
 end

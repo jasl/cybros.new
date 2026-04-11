@@ -15,27 +15,34 @@ module Fenix
           read_if_exists(root_memory_path)
         end
 
-        def conversation_summary_path
-          @workspace_root.join(".fenix", "conversations", @conversation_id, "context", "summary.md")
+        def session_summary_path
+          session_summary_candidates.find(&:exist?) || session_summary_candidates.first
         end
 
-        def conversation_summary
-          read_if_exists(conversation_summary_path)
+        def session_summary
+          read_if_exists(session_summary_path)
         end
 
         def summary_payload
           root = root_memory
-          summary = conversation_summary
+          summary = session_summary
           combined = [root.presence, summary.presence].compact.join("\n\n")
 
           {
             "root_memory" => root,
-            "conversation_summary" => summary,
+            "session_summary" => summary,
             "summary" => combined.presence,
           }.compact
         end
 
         private
+
+        def session_summary_candidates
+          [
+            @workspace_root.join(".fenix", "sessions", @conversation_id, "context", "summary.md"),
+            @workspace_root.join(".fenix", "conversations", @conversation_id, "context", "summary.md"),
+          ]
+        end
 
         def read_if_exists(path)
           return "" unless path.exist?

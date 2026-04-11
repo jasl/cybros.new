@@ -3,10 +3,10 @@ module RuntimeCapabilities
     SUBAGENT_TOOL_NAMES = RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES
     DEFAULT_SUBAGENT_PROFILE_ALIAS = RuntimeCapabilityContract::DEFAULT_SUBAGENT_PROFILE_ALIAS
 
-    def initialize(conversation:, agent_program_version:, executor_program:)
+    def initialize(conversation:, agent_snapshot:, execution_runtime:)
       @conversation = conversation
-      @agent_program_version = agent_program_version
-      @executor_program = executor_program
+      @agent_snapshot = agent_snapshot
+      @execution_runtime = execution_runtime
     end
 
     def call
@@ -17,15 +17,15 @@ module RuntimeCapabilities
 
     def contract
       @contract ||= RuntimeCapabilityContract.build(
-        executor_program: @executor_program,
-        agent_program_version: @agent_program_version,
+        execution_runtime: @execution_runtime,
+        agent_snapshot: @agent_snapshot,
         core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
       )
     end
 
     def current_profile_key
       @current_profile_key ||= begin
-        @conversation.subagent_session&.profile_key ||
+        @conversation.subagent_connection&.profile_key ||
           contract.default_config_snapshot.dig("interactive", "profile") ||
           "main"
       end
@@ -88,11 +88,11 @@ module RuntimeCapabilities
 
     def hide_subagent_spawn?
       return false if subagents_disabled?
-      return false unless @conversation.subagent_session.present?
+      return false unless @conversation.subagent_connection.present?
       return true if nested_spawning_disabled?
 
       max_depth = effective_subagent_policy["max_depth"]
-      max_depth.present? && @conversation.subagent_session.depth >= max_depth.to_i
+      max_depth.present? && @conversation.subagent_connection.depth >= max_depth.to_i
     end
 
     def nested_spawning_disabled?

@@ -134,7 +134,7 @@ These are owned through the conversation's workflow runs or turns:
 - `workflow_node_events`
 - `workflow_artifacts`
 - `process_runs`
-- `subagent_sessions`
+- `subagent_connections`
 - `agent_task_runs`
 - `execution_leases`
 
@@ -144,7 +144,7 @@ These rows need explicit owner-resolution logic because they are not always
 reachable through `agent_task_run_id`.
 
 - execution-assignment mailbox items are owned through `agent_task_run_id`
-- resource-close mailbox items for `ProcessRun` and `SubagentSession` can exist with
+- resource-close mailbox items for `ProcessRun` and `SubagentConnection` can exist with
   `agent_task_run_id = nil`, so ownership must also be resolved from
   `payload["resource_type"]` and `payload["resource_id"]`
 - report receipts must be removed by either `mailbox_item_id` or
@@ -176,7 +176,7 @@ This includes:
 - `ExecutionLease`
 - `AgentTaskRun`
 - `ProcessRun`
-- `SubagentSession`
+- `SubagentConnection`
 - `WorkflowNodeEvent`
 - `WorkflowEdge`
 - `WorkflowNode`
@@ -229,7 +229,7 @@ The shipped purge graph executes in this order:
    conversation_events -> human_interaction_requests ->
    conversation_imports -> conversation_summary_segments`
 6. delete task and runtime rows:
-   `agent_task_runs -> process_runs -> subagent_sessions ->
+   `agent_task_runs -> process_runs -> subagent_connections ->
    workflow_node_events -> workflow_edges`
 7. destroy attachment-backed rows:
    `workflow_artifacts` and `message_attachments`
@@ -258,20 +258,20 @@ destroy ordering problems and keeps teardown simple.
 
 ### Subagent self-reference
 
-`SubagentSession` has a self-reference through `parent_subagent_session_id`, but those
+`SubagentConnection` has a self-reference through `parent_subagent_connection_id`, but those
 rows remain in the bulk-delete group. A single bulk delete across the owned
 subagent set is acceptable and avoids per-row ordering problems.
 
 ### Terminal artifact references
 
-`SubagentSession` can point to `WorkflowArtifact` through
-`terminal_summary_artifact_id`. The plan therefore deletes subagent sessions before
+`SubagentConnection` can point to `WorkflowArtifact` through
+`terminal_summary_artifact_id`. The plan therefore deletes subagent connections before
 destroying workflow artifacts.
 
 ### Execution leases
 
 `ExecutionLease` is still deleted through `workflow_run_id`, which already
-covers leases for `AgentTaskRun`, `ProcessRun`, and `SubagentSession`. The design
+covers leases for `AgentTaskRun`, `ProcessRun`, and `SubagentConnection`. The design
 should document that explicitly so future work does not incorrectly duplicate
 lease cleanup.
 

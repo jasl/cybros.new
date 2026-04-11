@@ -8,7 +8,7 @@ class CreateExecutionProfileFacts < ActiveRecord::Migration[8.2]
       t.bigint :turn_id
       t.string :workflow_node_key
       t.bigint :process_run_id
-      t.bigint :subagent_session_id
+      t.bigint :subagent_connection_id
       t.bigint :human_interaction_request_id
       t.string :fact_kind, null: false
       t.string :fact_key, null: false

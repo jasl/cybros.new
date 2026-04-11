@@ -2,28 +2,30 @@ module AgentAPI
   class BaseController < ActionController::API
     include ActionController::HttpAuthentication::Token::ControllerMethods
 
-    before_action :authenticate_agent_session!
+    before_action :authenticate_agent_connection!
 
     rescue_from ActiveRecord::RecordInvalid, with: :render_record_invalid
     rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
-    rescue_from AgentProgramVersions::Register::InvalidEnrollment, with: :render_unprocessable_entity
-    rescue_from AgentProgramVersions::Register::ExpiredEnrollment, with: :render_unprocessable_entity
-    rescue_from AgentProgramVersions::Handshake::FingerprintMismatch, with: :render_unprocessable_entity
-    rescue_from ExecutorPrograms::Reconcile::MissingExecutorFingerprint, with: :render_unprocessable_entity
+    rescue_from AgentSnapshots::Register::InvalidEnrollment, with: :render_unprocessable_entity
+    rescue_from AgentSnapshots::Register::ExpiredEnrollment, with: :render_unprocessable_entity
+    rescue_from AgentSnapshots::Handshake::FingerprintMismatch, with: :render_unprocessable_entity
+    rescue_from ExecutionRuntimes::Register::InvalidEnrollment, with: :render_unprocessable_entity
+    rescue_from ExecutionRuntimes::Register::ExpiredEnrollment, with: :render_unprocessable_entity
+    rescue_from ExecutionRuntimes::Reconcile::MissingExecutionRuntimeFingerprint, with: :render_unprocessable_entity
 
     private
 
-    attr_reader :current_agent_session, :current_deployment, :current_executor_program
+    attr_reader :current_agent_connection, :current_agent_snapshot, :current_execution_runtime
 
-    def authenticate_agent_session!
-      @current_agent_session = authenticate_with_http_token do |token, _options|
-        AgentSession.find_by_plaintext_session_credential(token)
+    def authenticate_agent_connection!
+      @current_agent_connection = authenticate_with_http_token do |token, _options|
+        AgentConnection.find_by_plaintext_connection_credential(token)
       end
-      @current_deployment = @current_agent_session&.agent_program_version
-      @current_executor_program = @current_agent_session&.agent_program&.default_executor_program
-      return if @current_agent_session.present?
+      @current_agent_snapshot = @current_agent_connection&.agent_snapshot
+      @current_execution_runtime = @current_agent_connection&.agent&.default_execution_runtime
+      return if @current_agent_connection.present?
 
-      render json: { error: "session credential is invalid" }, status: :unauthorized
+      render json: { error: "connection credential is invalid" }, status: :unauthorized
     end
 
     def request_payload
@@ -33,14 +35,14 @@ module AgentAPI
     def find_workspace!(workspace_id)
       Workspace.find_by!(
         public_id: workspace_id,
-        installation_id: current_deployment.installation_id
+        installation_id: current_agent_snapshot.installation_id
       )
     end
 
     def find_conversation!(conversation_id, workspace: nil)
       scope = {
         public_id: conversation_id,
-        installation_id: current_deployment.installation_id,
+        installation_id: current_agent_snapshot.installation_id,
         deletion_state: "retained",
       }
       scope[:workspace_id] = workspace.id if workspace.present?
@@ -51,54 +53,54 @@ module AgentAPI
     def find_turn!(turn_id)
       Turn.find_by!(
         public_id: turn_id,
-        installation_id: current_deployment.installation_id
+        installation_id: current_agent_snapshot.installation_id
       )
     end
 
     def find_workflow_run!(workflow_run_id)
       WorkflowRun.find_by!(
         public_id: workflow_run_id,
-        installation_id: current_deployment.installation_id
+        installation_id: current_agent_snapshot.installation_id
       )
     end
 
     def find_workflow_node!(workflow_node_id)
       WorkflowNode.find_by!(
         public_id: workflow_node_id,
-        installation_id: current_deployment.installation_id
+        installation_id: current_agent_snapshot.installation_id
       )
     end
 
     def find_agent_task_run!(agent_task_run_id)
       AgentTaskRun.find_by!(
         public_id: agent_task_run_id,
-        installation_id: current_deployment.installation_id
+        installation_id: current_agent_snapshot.installation_id
       )
     end
 
     def find_tool_invocation!(tool_invocation_id)
       ToolInvocation.find_by!(
         public_id: tool_invocation_id,
-        installation_id: current_deployment.installation_id
+        installation_id: current_agent_snapshot.installation_id
       )
     end
 
     def find_command_run!(command_run_id)
       CommandRun.find_by!(
         public_id: command_run_id,
-        installation_id: current_deployment.installation_id
+        installation_id: current_agent_snapshot.installation_id
       )
     end
 
     def authorize_agent_task_run!(agent_task_run)
       agent_task_run = agent_task_run.reload
-      raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" if agent_task_run.agent_program_id != current_agent_session.agent_program_id
+      raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" if agent_task_run.agent_id != current_agent_connection.agent_id
 
-      if current_executor_program.present?
-        raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" if agent_task_run.turn.executor_program_id != current_executor_program.id
+      if current_execution_runtime.present?
+        raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" if agent_task_run.turn.execution_runtime_id != current_execution_runtime.id
       end
 
-      return if agent_task_run.holder_agent_session_id.blank? || agent_task_run.holder_agent_session_id == current_agent_session.id
+      return if agent_task_run.holder_agent_connection_id.blank? || agent_task_run.holder_agent_connection_id == current_agent_connection.id
 
       raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun"
     end

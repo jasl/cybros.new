@@ -29,7 +29,7 @@ module Workflows
         "resolved_model_ref" => result.model_ref,
         "resolution_reason" => result.resolution_reason,
         "fallback_count" => result.fallback_count,
-        "agent_program_version_id" => @turn.agent_program_version.public_id,
+        "agent_snapshot_id" => @turn.agent_snapshot.public_id,
         "entitlement_key" => result.entitlement&.entitlement_key,
       }.compact
     end

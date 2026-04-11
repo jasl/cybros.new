@@ -2,11 +2,10 @@ module Fenix
   module Runtime
     module Manifest
       class PairingManifest
-        PROTOCOL_VERSION = "agent-program/2026-04-01".freeze
+        PROTOCOL_VERSION = "agent-runtime/2026-04-01".freeze
         SDK_VERSION = "fenix-0.1.0".freeze
-        EXECUTOR_KIND = "local".freeze
-        DEFAULT_EXECUTOR_FINGERPRINT = "bundled-fenix-environment".freeze
-        PROGRAM_TOOL_CATALOG = [
+        DEFAULT_FINGERPRINT = "bundled-fenix-release-0.1.0".freeze
+        AGENT_TOOL_CATALOG = [
           {
             "tool_name" => "compact_context",
             "tool_kind" => "agent_observation",
@@ -37,8 +36,8 @@ module Fenix
           agent_health
           capabilities_handshake
           capabilities_refresh
-          agent_program_completed
-          agent_program_failed
+          agent_completed
+          agent_failed
           execution_started
           execution_progress
           execution_complete
@@ -129,22 +128,15 @@ module Fenix
           {
             "agent_key" => "fenix",
             "display_name" => "Fenix",
-            "includes_executor_program" => true,
-            "executor_kind" => EXECUTOR_KIND,
-            "executor_fingerprint" => executor_fingerprint,
-            "executor_connection_metadata" => endpoint_metadata,
-            "executor_capability_payload" => executor_capability_payload,
-            "executor_tool_catalog" => executor_tool_catalog,
+            "fingerprint" => fingerprint,
             "protocol_version" => PROTOCOL_VERSION,
             "sdk_version" => SDK_VERSION,
             "endpoint_metadata" => endpoint_metadata,
-            "program_contract" => program_contract,
+            "agent_contract" => agent_contract,
             "protocol_methods" => protocol_methods,
-            "tool_catalog" => program_tool_catalog,
+            "tool_catalog" => agent_tool_catalog,
             "profile_catalog" => profile_catalog,
-            "program_plane" => program_plane,
-            "executor_plane" => executor_plane,
-            "effective_tool_catalog" => effective_tool_catalog,
+            "agent_plane" => agent_plane,
             "config_schema_snapshot" => CONFIG_SCHEMA_SNAPSHOT,
             "conversation_override_schema_snapshot" => CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT,
             "default_config_snapshot" => DEFAULT_CONFIG_SNAPSHOT,
@@ -161,18 +153,18 @@ module Fenix
           }
         end
 
-        def executor_fingerprint
-          ENV["FENIX_RUNTIME_FINGERPRINT"].presence || DEFAULT_EXECUTOR_FINGERPRINT
+        def fingerprint
+          ENV["FENIX_RUNTIME_FINGERPRINT"].presence || DEFAULT_FINGERPRINT
         end
 
-        def program_contract
+        def agent_contract
           {
             "version" => "v1",
             "transport" => "mailbox-first",
             "delivery" => %w[websocket_push poll],
             "methods" => %w[
               prepare_round
-              execute_program_tool
+              execute_tool
               supervision_status_refresh
               supervision_guidance
             ],
@@ -183,16 +175,12 @@ module Fenix
           PROTOCOL_METHOD_IDS.map { |method_id| { "method_id" => method_id } }
         end
 
-        def program_tool_catalog
-          PROGRAM_TOOL_CATALOG
-        end
-
-        def executor_tool_catalog
-          Fenix::Executor::SystemToolRegistry.executor_tool_catalog
+        def agent_tool_catalog
+          AGENT_TOOL_CATALOG
         end
 
         def profile_catalog
-          allowed_tool_names = effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
+          allowed_tool_names = agent_tool_catalog.map { |entry| entry.fetch("tool_name") }
 
           {
             "main" => {
@@ -209,37 +197,15 @@ module Fenix
           }
         end
 
-        def program_plane
+        def agent_plane
           {
-            "control_plane" => "program",
+            "control_plane" => "agent",
             "protocol_methods" => protocol_methods,
-            "tool_catalog" => program_tool_catalog,
+            "tool_catalog" => agent_tool_catalog,
             "profile_catalog" => profile_catalog,
             "config_schema_snapshot" => CONFIG_SCHEMA_SNAPSHOT,
             "conversation_override_schema_snapshot" => CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT,
             "default_config_snapshot" => DEFAULT_CONFIG_SNAPSHOT,
-          }
-        end
-
-        def executor_plane
-          {
-            "control_plane" => "executor",
-            "protocol_methods" => protocol_methods,
-            "tool_catalog" => executor_tool_catalog,
-          }
-        end
-
-        def effective_tool_catalog
-          program_tool_catalog + executor_tool_catalog
-        end
-
-        def executor_capability_payload
-          {
-            "runtime_foundation" => {
-              "docker_base_project" => "images/nexus",
-              "canonical_host_os" => "ubuntu-24.04",
-              "bare_metal_validator" => "bin/check-runtime-host",
-            },
           }
         end
       end

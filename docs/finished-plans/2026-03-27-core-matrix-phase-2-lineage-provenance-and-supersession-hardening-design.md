@@ -80,7 +80,7 @@ That contract should:
   - `AgentTaskRun` in `queued` or `running`
   - any `HumanInteractionRequest` in `open`
   - `ProcessRun` in `running`
-  - `SubagentSession` in `running`
+  - `SubagentConnection` in `running`
   - active `ExecutionLease`
 
 This follow-up intentionally chooses strict rejection instead of embedding a new

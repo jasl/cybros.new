@@ -34,9 +34,9 @@ module Conversations
     def collect_owned_rows!
       return if @collected
 
-      owned_subagent_tree = SubagentSessions::OwnedTree.new(owner_conversation: @conversation)
-      @subagent_session_ids, @subagent_session_public_ids = pluck_ids_and_public_ids(
-        SubagentSession.where(id: owned_subagent_tree.session_ids)
+      owned_subagent_tree = SubagentConnections::OwnedTree.new(owner_conversation: @conversation)
+      @subagent_connection_ids, @subagent_connection_public_ids = pluck_ids_and_public_ids(
+        SubagentConnection.where(id: owned_subagent_tree.connection_ids)
       )
       @owned_subagent_conversation_ids = owned_subagent_tree.conversation_ids
       @owned_conversation_ids = [@conversation.id] + @owned_subagent_conversation_ids
@@ -58,8 +58,8 @@ module Conversations
       @execution_capability_snapshot_ids = ExecutionContract.where(id: @execution_contract_ids).pluck(:execution_capability_snapshot_id).compact
       @json_document_ids = collect_json_document_ids
       @session_execution_lease_ids = ExecutionLease.where(
-        leased_resource_type: "SubagentSession",
-        leased_resource_id: @subagent_session_ids
+        leased_resource_type: "SubagentConnection",
+        leased_resource_id: @subagent_connection_ids
       ).pluck(:id)
       @mailbox_item_ids = collect_mailbox_item_ids
       @report_receipt_ids = collect_report_receipt_ids
@@ -83,9 +83,9 @@ module Conversations
           .pluck(:id)
       end
 
-      if @subagent_session_public_ids.any?
+      if @subagent_connection_public_ids.any?
         ids.concat AgentControlMailboxItem.where(item_type: "resource_close_request")
-          .where("payload ->> 'resource_type' = ? AND payload ->> 'resource_id' IN (?)", "SubagentSession", @subagent_session_public_ids)
+          .where("payload ->> 'resource_type' = ? AND payload ->> 'resource_id' IN (?)", "SubagentConnection", @subagent_connection_public_ids)
           .pluck(:id)
       end
 
@@ -138,7 +138,7 @@ module Conversations
     def purge_runtime_rows!
       ProcessRun.where(conversation_id: @owned_conversation_ids).delete_all
       nullify_workflow_node_subagent_references!
-      SubagentSession.where(id: @subagent_session_ids).delete_all if @subagent_session_ids.any?
+      SubagentConnection.where(id: @subagent_connection_ids).delete_all if @subagent_connection_ids.any?
       WorkflowNodeEvent.where(workflow_run_id: @workflow_run_ids).delete_all if @workflow_run_ids.any?
       WorkflowEdge.where(workflow_run_id: @workflow_run_ids).delete_all if @workflow_run_ids.any?
       purge_workflow_artifacts!
@@ -249,8 +249,8 @@ module Conversations
     def nullify_workflow_node_subagent_references!
       WorkflowNode
         .where(workflow_run_id: @workflow_run_ids)
-        .where.not(spawned_subagent_session_id: nil)
-        .update_all(spawned_subagent_session_id: nil, updated_at: Time.current)
+        .where.not(spawned_subagent_connection_id: nil)
+        .update_all(spawned_subagent_connection_id: nil, updated_at: Time.current)
     end
 
     def purge_structural_rows!
@@ -275,7 +275,7 @@ module Conversations
         TurnTodoPlan.where(id: @turn_todo_plan_ids),
         AgentTaskRun.where(id: @agent_task_run_ids),
         ProcessRun.where(id: @process_run_ids),
-        SubagentSession.where(id: @subagent_session_ids),
+        SubagentConnection.where(id: @subagent_connection_ids),
         WorkflowNodeEvent.where(workflow_run_id: @workflow_run_ids),
         WorkflowEdge.where(workflow_run_id: @workflow_run_ids),
         WorkflowArtifact.where(id: @workflow_artifact_ids),

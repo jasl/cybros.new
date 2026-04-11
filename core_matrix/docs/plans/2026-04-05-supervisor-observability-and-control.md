@@ -4,7 +4,7 @@
 
 **Goal:** Replace observation-only progress reporting with a first-class supervision substrate that gives durable, human-meaningful visibility into agent and subagent work, powers natural-language sidechat and lightweight activity feeds, and opens a clean path to limited supervisor control.
 
-**Architecture:** Promote supervision to a first-class runtime concern. Persist canonical conversation-level supervision state outside the sidechat session, add normalized progress facts plus structured plan/progress rows on `AgentTaskRun` and `SubagentSession`, generate a short-lived current-or-previous-turn activity feed from explicit semantic changes, and make sidechat a renderer over frozen supervision snapshots instead of a translator over internal workflow tokens. Put capability enablement and authority in a higher conversation-capability layer, then let future control reuse and extend the mailbox-first `AgentControl` substrate behind a conversation-scoped external control plane with auditable control requests and narrow request kinds.
+**Architecture:** Promote supervision to a first-class runtime concern. Persist canonical conversation-level supervision state outside the sidechat session, add normalized progress facts plus structured plan/progress rows on `AgentTaskRun` and `SubagentConnection`, generate a short-lived current-or-previous-turn activity feed from explicit semantic changes, and make sidechat a renderer over frozen supervision snapshots instead of a translator over internal workflow tokens. Put capability enablement and authority in a higher conversation-capability layer, then let future control reuse and extend the mailbox-first `AgentControl` substrate behind a conversation-scoped external control plane with auditable control requests and narrow request kinds.
 
 **Tech Stack:** Rails 8.2, Active Record/Postgres, JSONB/public-id boundaries, Minitest, ActionDispatch request tests, root acceptance harness under `/Users/jasl/Workspaces/Ruby/cybros/acceptance`
 
@@ -60,7 +60,7 @@ shape execution order:
   - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/manual_resume.rb`
   - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/step_retry.rb`
 - Internal main-agent to subagent delegation is a protected behavior seam.
-  `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/send_message.rb`
+  `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/send_message.rb`
   and
   `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/execute_core_matrix_tool.rb`
   must remain behavior-preserving even if they start sharing lower-level
@@ -131,7 +131,7 @@ tasks on top of a failing intermediate state.
 By the end of this plan, `Core Matrix` should have:
 
 - one canonical `ConversationSupervisionState` per conversation
-- normalized progress facts on `AgentTaskRun` and `SubagentSession`
+- normalized progress facts on `AgentTaskRun` and `SubagentConnection`
 - structured task/plan items and semantic progress entries
 - stable board-lane metadata and board-card projection seams
 - a short-lived supervision activity feed for the current turn, or the
@@ -197,7 +197,7 @@ read:
   "last_terminal_state" => "completed|failed|interrupted|canceled|nil",
   "last_terminal_at" => "...iso8601...",
   "current_owner" => {
-    "kind" => "agent_task_run|subagent_session|workflow_run",
+    "kind" => "agent_task_run|subagent_connection|workflow_run",
     "id" => "...public_id..."
   },
   "request_summary" => "...",
@@ -287,7 +287,7 @@ That implies these rules:
 
 - conversation-level `interrupt` and `close` should directly reuse the
   existing conversation control backend
-- guidance should **not** expose `SubagentSessions::SendMessage` as the
+- guidance should **not** expose `SubagentConnections::SendMessage` as the
   product API; it should flow through a conversation-control translation layer
 - observation and conversation-fact questions stay non-invasive and do not
   mutate transcript state
@@ -635,14 +635,14 @@ git commit -m "refactor: move purge and lifecycle ownership to supervision"
 
 **Files:**
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260326113000_add_agent_control_contract.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260324090038_create_subagent_connections.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260324090031_add_wait_state_to_workflow_runs.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_task_run.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/subagent_session.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/subagent_connection.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/workflow_run.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/concerns/supervision_state_fields.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/agent_task_run_test.rb`
-- Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/subagent_session_test.rb`
+- Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/subagent_connection_test.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/workflow_run_test.rb`
 
 **Step 1: Write failing model tests for the new supervision fields**
@@ -653,7 +653,7 @@ Add tests for:
 - valid `focus_kind` values
 - human-facing summary fields must be short strings or nil
 - `last_progress_at` updates must exist for non-queued states
-- `SubagentSession` can carry supervision rollup text without changing its
+- `SubagentConnection` can carry supervision rollup text without changing its
   `observed_status` semantics
 - `WorkflowRun` exposes derived `blocked?` / `waiting?` helpers that map to the
   new conversation supervision state machine
@@ -676,7 +676,7 @@ t.integer :supervision_sequence, null: false, default: 0
 t.jsonb :supervision_payload, null: false, default: {}
 ```
 
-Extend `subagent_sessions` with the same rollup fields except
+Extend `subagent_connections` with the same rollup fields except
 `supervision_sequence` may remain optional if you prefer session-local ordering
 through progress entries.
 
@@ -705,7 +705,7 @@ columns are the user-facing layer.
 Run:
 
 ```bash
-bin/rails test test/models/agent_task_run_test.rb test/models/subagent_session_test.rb test/models/workflow_run_test.rb
+bin/rails test test/models/agent_task_run_test.rb test/models/subagent_connection_test.rb test/models/workflow_run_test.rb
 ```
 
 Expected: PASS with the new supervision state contract in place.
@@ -727,7 +727,7 @@ git commit -m "feat: add normalized supervision state to runtime resources"
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_task_runs/replace_plan_items.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_task_runs/append_progress_entry.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_task_run.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/subagent_session.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/subagent_connection.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/agent_task_plan_item_test.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/agent_task_progress_entry_test.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_task_runs/replace_plan_items_test.rb`
@@ -739,7 +739,7 @@ Cover:
 
 - one `in_progress` plan item per `AgentTaskRun`
 - optional `parent_plan_item` support for nested plans
-- optional `delegated_subagent_session` link for work handed to a child
+- optional `delegated_subagent_connection` link for work handed to a child
 - append-only progress entry sequencing per task
 - progress entries reject raw internal token summaries like
   `provider_round_3_tool_1`
@@ -753,7 +753,7 @@ create_table :agent_task_plan_items do |t|
   t.references :installation, null: false, foreign_key: true
   t.references :agent_task_run, null: false, foreign_key: true
   t.references :parent_plan_item, foreign_key: { to_table: :agent_task_plan_items }
-  t.references :delegated_subagent_session, foreign_key: { to_table: :subagent_sessions }
+  t.references :delegated_subagent_connection, foreign_key: { to_table: :subagent_connections }
   t.uuid :public_id, null: false, default: -> { "uuidv7()" }
   t.string :item_key, null: false
   t.string :title, null: false
@@ -769,7 +769,7 @@ end
 create_table :agent_task_progress_entries do |t|
   t.references :installation, null: false, foreign_key: true
   t.references :agent_task_run, null: false, foreign_key: true
-  t.references :subagent_session, foreign_key: true
+  t.references :subagent_connection, foreign_key: true
   t.uuid :public_id, null: false, default: -> { "uuidv7()" }
   t.integer :sequence, null: false
   t.string :entry_kind, null: false
@@ -813,17 +813,17 @@ git commit -m "feat: add structured task plans and semantic progress entries"
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/update_supervision_state.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/handle_execution_report.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/handle_close_report.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/handle_agent_program_report.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/handle_agent_report.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/execution_reports/workflow_follow_up.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/spawn.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/wait.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/send_message.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/request_close.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/spawn.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/wait.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/send_message.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/request_close.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/handle_execution_report_test.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/handle_close_report_test.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversations/update_supervision_state_test.rb`
-- Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_sessions/spawn_test.rb`
-- Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_sessions/wait_test.rb`
+- Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_connections/spawn_test.rb`
+- Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_connections/wait_test.rb`
 
 **Step 1: Write failing tests for supervision-aware report ingestion**
 
@@ -872,7 +872,7 @@ This service is the canonical conversation-level projector. It should merge:
 
 - active `WorkflowRun` lifecycle and wait state
 - active or terminal `AgentTaskRun` supervision rollup
-- current `SubagentSession` supervision rollup
+- current `SubagentConnection` supervision rollup
 - latest `AgentTaskProgressEntry`
 - active plan items
 
@@ -885,7 +885,7 @@ later read-side seams can reuse for feed entries and update publishing.
 Run:
 
 ```bash
-bin/rails test test/services/agent_control/handle_execution_report_test.rb test/services/agent_control/handle_close_report_test.rb test/services/conversations/update_supervision_state_test.rb test/services/subagent_sessions/spawn_test.rb test/services/subagent_sessions/wait_test.rb
+bin/rails test test/services/agent_control/handle_execution_report_test.rb test/services/agent_control/handle_close_report_test.rb test/services/conversations/update_supervision_state_test.rb test/services/subagent_connections/spawn_test.rb test/services/subagent_connections/wait_test.rb
 ```
 
 Expected: PASS with conversation-level supervision state updating on material
@@ -894,7 +894,7 @@ runtime changes.
 **Step 5: Commit**
 
 ```bash
-git add app/services/agent_control app/services/conversations app/services/subagent_sessions test/services
+git add app/services/agent_control app/services/conversations app/services/subagent_connections test/services
 git commit -m "feat: project runtime progress into conversation supervision state"
 ```
 
@@ -1275,21 +1275,21 @@ git commit -m "refactor: migrate supervision helper entrypoints"
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversation_control/dispatch_request.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversation_control/resolve_target_runtime.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_conversation_control_request.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_agent_program_request.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_agent_request.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/report_dispatch.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/serialize_mailbox_item.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/request_turn_interrupt.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversations/request_close.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/request_close.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/request_close.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/manual_resume.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/step_retry.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversation_control/create_request_test.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversation_control/authorize_request_test.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversation_control/dispatch_request_test.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/create_agent_program_request_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/create_agent_request_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversations/request_turn_interrupt_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/conversations/request_close_test.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_sessions/request_close_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_connections/request_close_test.rb`
 
 **Step 1: Write failing tests for the first control verbs**
 
@@ -1303,7 +1303,7 @@ Add tests for:
   `Conversations::RequestClose`
 - `send_guidance_to_subagent` creates a durable control request and does not
   directly mutate the target transcript at request-creation time
-- `request_subagent_close` routes through `SubagentSessions::RequestClose`
+- `request_subagent_close` routes through `SubagentConnections::RequestClose`
 - disabled supervision or control capability blocks request creation before
   dispatch begins
 - unauthorized callers are rejected by relationship policy and explicit
@@ -1352,7 +1352,7 @@ close plane.
 - a close request
 - a workflow resume/retry service call
 
-Do not expose `SubagentSessions::SendMessage` as the product control API.
+Do not expose `SubagentConnections::SendMessage` as the product control API.
 If subagent guidance ultimately becomes a child-facing message, that should be
 decided inside the control adapter, not at the sidechat boundary.
 
@@ -1369,7 +1369,7 @@ what happened.
 Run:
 
 ```bash
-bin/rails test test/services/conversation_control/create_request_test.rb test/services/conversation_control/authorize_request_test.rb test/services/conversation_control/dispatch_request_test.rb test/services/agent_control/create_agent_program_request_test.rb test/services/conversations/request_turn_interrupt_test.rb test/services/conversations/request_close_test.rb test/services/subagent_sessions/request_close_test.rb
+bin/rails test test/services/conversation_control/create_request_test.rb test/services/conversation_control/authorize_request_test.rb test/services/conversation_control/dispatch_request_test.rb test/services/agent_control/create_agent_request_test.rb test/services/conversations/request_turn_interrupt_test.rb test/services/conversations/request_close_test.rb test/services/subagent_connections/request_close_test.rb
 ```
 
 Expected: PASS with auditable, authorized, bounded control behavior.
@@ -1377,7 +1377,7 @@ Expected: PASS with auditable, authorized, bounded control behavior.
 **Step 5: Commit**
 
 ```bash
-git add app/services/conversation_control app/services/agent_control app/services/conversations app/services/subagent_sessions app/services/workflows test/services
+git add app/services/conversation_control app/services/agent_control app/services/conversations app/services/subagent_connections app/services/workflows test/services
 git commit -m "feat: add conversation-scoped control plane"
 ```
 
@@ -1390,12 +1390,12 @@ git commit -m "feat: add conversation-scoped control plane"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/embedded_agents/conversation_supervision/responders/builtin.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/embedded_agents/conversation_supervision/build_snapshot.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversation_control/create_request.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/send_message.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/send_message.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/embedded_agents/conversation_supervision/classify_control_intent_test.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/embedded_agents/conversation_supervision/maybe_dispatch_control_intent_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/embedded_agents/conversation_supervision/append_message_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_sessions/send_message_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_connections/send_message_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/app_api/conversation_supervision_messages_test.rb`
 
 **Step 1: Write failing tests for natural-language control intents**
@@ -1413,7 +1413,7 @@ Add tests for:
   target conversation
 - a successful control-intent dispatch produces a human-readable confirmation
   message in side chat
-- existing agent-managed `SubagentSessions::SendMessage` behavior still passes
+- existing agent-managed `SubagentConnections::SendMessage` behavior still passes
   unchanged for internal delegation use cases
 
 **Step 2: Add a bounded intent classifier**
@@ -1462,7 +1462,7 @@ main-agent-to-subagent management.
 Run:
 
 ```bash
-bin/rails test test/services/embedded_agents/conversation_supervision/classify_control_intent_test.rb test/services/embedded_agents/conversation_supervision/maybe_dispatch_control_intent_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/services/subagent_sessions/send_message_test.rb test/requests/app_api/conversation_supervision_messages_test.rb
+bin/rails test test/services/embedded_agents/conversation_supervision/classify_control_intent_test.rb test/services/embedded_agents/conversation_supervision/maybe_dispatch_control_intent_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb test/services/embedded_agents/conversation_supervision/responders/builtin_test.rb test/services/subagent_connections/send_message_test.rb test/requests/app_api/conversation_supervision_messages_test.rb
 ```
 
 Expected: PASS with bounded natural-language control and no regression in
@@ -1471,7 +1471,7 @@ internal child-management behavior.
 **Step 6: Commit**
 
 ```bash
-git add app/services/embedded_agents/conversation_supervision app/services/conversation_control app/services/subagent_sessions test/services/embedded_agents test/services/subagent_sessions test/requests/app_api
+git add app/services/embedded_agents/conversation_supervision app/services/conversation_control app/services/subagent_connections test/services/embedded_agents test/services/subagent_connections test/requests/app_api
 git commit -m "feat: add bounded sidechat control intents"
 ```
 
@@ -1488,7 +1488,7 @@ git commit -m "feat: add bounded sidechat control intents"
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-progress-and-plan-items.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/data-retention-and-lifecycle-classes.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/human-interactions-and-conversation-events.md`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/subagent-connections-and-execution-leases.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-runtime-resource-apis.md`
 
@@ -1646,7 +1646,7 @@ utterances.
   `AgentControlMailboxItem.payload` become de facto UI strings.
 - Use `public_id` at every app-facing boundary, including new supervision
   state and conversation control requests.
-- `SubagentSession` remains the durable child-control aggregate; supervision
+- `SubagentConnection` remains the durable child-control aggregate; supervision
   adds visibility around it, while conversation control reuses it as an
   execution backend rather than exposing its native agent-to-subagent API.
 - `ConversationSupervisionState` is a read model and should be fully

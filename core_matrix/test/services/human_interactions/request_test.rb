@@ -10,13 +10,13 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     agent_task_run = scenario.fetch(:agent_task_run)
 
     report_execution_started!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
 
     report_execution_complete!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run,
       terminal_payload: {
@@ -73,14 +73,14 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     conversation.update!(enabled_feature_ids: Conversation::FEATURE_IDS - ["human_interaction"])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Human interaction input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -98,7 +98,7 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
         {
           node_key: "human_gate",
           node_type: "human_interaction",
-          decision_source: "agent_program",
+          decision_source: "agent",
           metadata: {},
         },
       ],

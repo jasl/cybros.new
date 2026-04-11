@@ -6,9 +6,9 @@ module Conversations
       new(...).call
     end
 
-    def initialize(workspace:, agent_program: nil, purpose: "interactive", **_ignored)
+    def initialize(workspace:, agent: nil, purpose: "interactive", **_ignored)
       @workspace = workspace
-      @agent_program = agent_program || workspace.user_program_binding.agent_program
+      @agent = agent || workspace.user_agent_binding.agent
       @purpose = purpose
     end
 
@@ -16,7 +16,7 @@ module Conversations
       ApplicationRecord.transaction do
         create_root_conversation!(
           workspace: @workspace,
-          agent_program: @agent_program,
+          agent: @agent,
           purpose: @purpose
         )
       end

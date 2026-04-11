@@ -114,7 +114,7 @@ Stop after human-interaction resources and conversation-event projection pass th
 Do not implement these items in this task:
 
 - canonical variable storage
-- subagent session resources
+- subagent connection resources
 - execution leases
 
 ## Completion Record

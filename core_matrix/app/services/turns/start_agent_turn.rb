@@ -6,12 +6,12 @@ module Turns
       new(...).call
     end
 
-    def initialize(conversation:, content:, sender_kind:, sender_conversation: nil, executor_program: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:, **_ignored)
+    def initialize(conversation:, content:, sender_kind:, sender_conversation: nil, execution_runtime: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:, **_ignored)
       @conversation = conversation
       @content = content
       @sender_kind = sender_kind
       @sender_conversation = sender_conversation
-      @executor_program = executor_program
+      @execution_runtime = execution_runtime
       @resolved_config_snapshot = resolved_config_snapshot
       @resolved_model_selection_snapshot = resolved_model_selection_snapshot
     end
@@ -24,31 +24,31 @@ module Turns
         closing_message: "must not accept agent turn entry while close is in progress"
       ) do |conversation|
         raise_invalid!(conversation, :purpose, "must be interactive for agent turn entry") unless conversation.interactive?
-        SubagentSessions::ValidateAddressability.call(
+        SubagentConnections::ValidateAddressability.call(
           conversation: conversation,
           sender_kind: @sender_kind,
           rejection_message: "must be agent_addressable for agent turn entry"
         )
         validate_sender_kind!
 
-        agent_program_version = Turns::FreezeProgramVersion.call(conversation: conversation)
-        executor_program = Turns::SelectExecutorProgram.call(
+        agent_snapshot = Turns::FreezeAgentSnapshot.call(conversation: conversation)
+        execution_runtime = Turns::SelectExecutionRuntime.call(
           conversation: conversation,
-          executor_program: @executor_program
+          execution_runtime: @execution_runtime
         )
 
         turn = Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
-          agent_program_version: agent_program_version,
-          executor_program: executor_program,
+          agent_snapshot: agent_snapshot,
+          execution_runtime: execution_runtime,
           sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "active",
           origin_kind: "system_internal",
           origin_payload: sender_payload,
           source_ref_type: sender_source_ref_type,
           source_ref_id: sender_source_ref_id,
-          pinned_program_version_fingerprint: agent_program_version.fingerprint,
+          pinned_agent_snapshot_fingerprint: agent_snapshot.fingerprint,
           resolved_config_snapshot: @resolved_config_snapshot,
           resolved_model_selection_snapshot: @resolved_model_selection_snapshot
         )
@@ -75,7 +75,7 @@ module Turns
         raise_invalid!(@conversation, :sender_kind, "must be owner_agent, subagent_self, or system")
       end
 
-      if @sender_kind == "owner_agent" && @sender_conversation != @conversation.subagent_session&.owner_conversation
+      if @sender_kind == "owner_agent" && @sender_conversation != @conversation.subagent_connection&.owner_conversation
         raise_invalid!(@conversation, :sender_kind, "must match the owner conversation for owner_agent delivery")
       end
 

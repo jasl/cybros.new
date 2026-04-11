@@ -5,18 +5,18 @@ class AgentControl::ClosableResourceRoutingTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program]
+      execution_runtime: context[:execution_runtime]
     )
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      executor_program: context[:executor_program],
-      agent_program_version: context[:deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: child_conversation,
@@ -27,14 +27,14 @@ class AgentControl::ClosableResourceRoutingTest < ActiveSupport::TestCase
       observed_status: "running"
     )
 
-    assert_equal context[:executor_program], AgentControl::ClosableResourceRouting.executor_program_for(process_run)
+    assert_equal context[:execution_runtime], AgentControl::ClosableResourceRouting.execution_runtime_for(process_run)
     assert_equal context[:conversation], AgentControl::ClosableResourceRouting.conversation_for(process_run)
     assert_equal context[:turn], AgentControl::ClosableResourceRouting.turn_for(process_run)
-    assert_equal context[:agent_program], AgentControl::ClosableResourceRouting.owning_agent_program_for(process_run)
+    assert_equal context[:agent], AgentControl::ClosableResourceRouting.owning_agent_for(process_run)
 
-    assert_equal context[:conversation], AgentControl::ClosableResourceRouting.conversation_for(subagent_session)
-    assert_equal context[:turn], AgentControl::ClosableResourceRouting.turn_for(subagent_session)
-    assert_equal context[:executor_program], AgentControl::ClosableResourceRouting.executor_program_for(subagent_session)
-    assert_equal context[:agent_program], AgentControl::ClosableResourceRouting.owning_agent_program_for(subagent_session)
+    assert_equal context[:conversation], AgentControl::ClosableResourceRouting.conversation_for(subagent_connection)
+    assert_equal context[:turn], AgentControl::ClosableResourceRouting.turn_for(subagent_connection)
+    assert_equal context[:execution_runtime], AgentControl::ClosableResourceRouting.execution_runtime_for(subagent_connection)
+    assert_equal context[:agent], AgentControl::ClosableResourceRouting.owning_agent_for(subagent_connection)
   end
 end

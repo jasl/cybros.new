@@ -31,7 +31,7 @@ def start_mailbox_turn_workflow!(conversation:, task:)
     content: task.fetch(:content),
     root_node_key: 'agent_turn_step',
     root_node_type: 'turn_step',
-    decision_source: 'agent_program',
+    decision_source: 'agent',
     initial_kind: 'turn_step',
     initial_payload: { 'mode' => task.fetch(:mode) }.merge(task.fetch(:extra_payload, {}))
   )
@@ -129,13 +129,13 @@ FileUtils.mkdir_p(fenix_home_root)
 Acceptance::ManualSupport.reset_backend_state!
 bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
 
-external_program_a = Acceptance::ManualSupport.create_external_agent_program!(
+external_program_a = Acceptance::ManualSupport.create_external_agent!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: 'fenix-skills-program-a',
   display_name: 'Fenix Skills Runtime A'
 )
-external_program_b = Acceptance::ManualSupport.create_external_agent_program!(
+external_program_b = Acceptance::ManualSupport.create_external_agent!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: 'fenix-skills-program-b',
@@ -145,18 +145,18 @@ external_program_b = Acceptance::ManualSupport.create_external_agent_program!(
 registration_a = Acceptance::ManualSupport.register_external_runtime!(
   enrollment_token: external_program_a.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
-  executor_fingerprint: 'acceptance-fenix-skills-environment-a',
+  execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-a',
   fingerprint: 'acceptance-fenix-skills-a-v1'
 )
 registration_b = Acceptance::ManualSupport.register_external_runtime!(
   enrollment_token: external_program_b.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
-  executor_fingerprint: 'acceptance-fenix-skills-environment-b',
+  execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-b',
   fingerprint: 'acceptance-fenix-skills-b-v1'
 )
 
-agent_program_version_a = registration_a.agent_program_version
-agent_program_version_b = registration_b.agent_program_version
+agent_snapshot_a = registration_a.agent_snapshot
+agent_snapshot_b = registration_b.agent_snapshot
 
 source_root = Rails.root.join('tmp/acceptance-portable-notes-src/portable-notes')
 FileUtils.rm_rf(source_root.parent)
@@ -176,9 +176,9 @@ File.write(
 )
 File.write(source_root.join('references', 'checklist.md'), "# Checklist\n")
 
-conversation_a = Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version_a)
-conversation_b = Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version_a)
-conversation_c = Acceptance::ManualSupport.create_conversation!(agent_program_version: agent_program_version_b)
+conversation_a = Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot_a)
+conversation_b = Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot_a)
+conversation_c = Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot_b)
 
 install_run = run_mailbox_task_on_conversation!(
   conversation: conversation_a.fetch(:conversation),
@@ -277,16 +277,16 @@ Acceptance::ManualSupport.write_json(
     'different_program_failure' => different_program_failure,
     'registrations' => {
       'program_a' => {
-        'agent_program_version_id' => agent_program_version_a.public_id,
-        'executor_program_id' => registration_a.executor_program&.public_id,
-        'agent_session_id' => registration_a.agent_session_id,
-        'executor_session_id' => registration_a.executor_session_id
+        'agent_snapshot_id' => agent_snapshot_a.public_id,
+        'execution_runtime_id' => registration_a.execution_runtime&.public_id,
+        'agent_connection_id' => registration_a.agent_connection_id,
+        'execution_runtime_connection_id' => registration_a.execution_runtime_connection_id
       },
       'program_b' => {
-        'agent_program_version_id' => agent_program_version_b.public_id,
-        'executor_program_id' => registration_b.executor_program&.public_id,
-        'agent_session_id' => registration_b.agent_session_id,
-        'executor_session_id' => registration_b.executor_session_id
+        'agent_snapshot_id' => agent_snapshot_b.public_id,
+        'execution_runtime_id' => registration_b.execution_runtime&.public_id,
+        'agent_connection_id' => registration_b.agent_connection_id,
+        'execution_runtime_connection_id' => registration_b.execution_runtime_connection_id
       }
     },
     'conversation_a' => {

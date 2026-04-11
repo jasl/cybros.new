@@ -64,18 +64,18 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
 
     unrelated_owner = Conversations::CreateRoot.call(
       workspace: fixture.fetch(:context).fetch(:workspace),
-      agent_program: fixture.fetch(:context).fetch(:agent_program)
+      agent: fixture.fetch(:context).fetch(:agent)
     )
     unrelated_child = create_conversation_record!(
       workspace: fixture.fetch(:context).fetch(:workspace),
       installation: fixture.fetch(:installation),
       parent_conversation: unrelated_owner,
-      executor_program: fixture.fetch(:context).fetch(:executor_program),
-      agent_program_version: fixture.fetch(:context).fetch(:agent_program_version),
+      execution_runtime: fixture.fetch(:context).fetch(:execution_runtime),
+      agent_snapshot: fixture.fetch(:context).fetch(:agent_snapshot),
       kind: "fork",
       addressability: "agent_addressable"
     )
-    unrelated_session = SubagentSession.create!(
+    unrelated_session = SubagentConnection.create!(
       installation: fixture.fetch(:installation),
       owner_conversation: unrelated_owner,
       conversation: unrelated_child,
@@ -86,7 +86,7 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
 
     misaligned_session_item = fixture.fetch(:plan).turn_todo_plan_items.new(
       installation: fixture.fetch(:installation),
-      delegated_subagent_session: unrelated_session,
+      delegated_subagent_connection: unrelated_session,
       item_key: "delegate-misaligned",
       title: "Misaligned delegated session",
       status: "pending",
@@ -97,7 +97,7 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
     )
 
     assert_not misaligned_session_item.valid?
-    assert_includes misaligned_session_item.errors[:delegated_subagent_session], "must be owned by the plan conversation"
+    assert_includes misaligned_session_item.errors[:delegated_subagent_connection], "must be owned by the plan conversation"
   end
 
   private
@@ -109,12 +109,12 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
       workspace: context.fetch(:workspace),
       installation: context.fetch(:installation),
       parent_conversation: context.fetch(:conversation),
-      executor_program: context.fetch(:executor_program),
-      agent_program_version: context.fetch(:agent_program_version),
+      execution_runtime: context.fetch(:execution_runtime),
+      agent_snapshot: context.fetch(:agent_snapshot),
       kind: "fork",
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context.fetch(:installation),
       owner_conversation: context.fetch(:conversation),
       conversation: child_conversation,
@@ -138,7 +138,7 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
       installation: context.fetch(:installation),
       agent_task_run: agent_task_run,
       plan: plan,
-      subagent_session: subagent_session,
+      subagent_connection: subagent_connection,
     }
   end
 end

@@ -27,8 +27,8 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
   teardown do
     clear_enqueued_jobs
     clear_performed_jobs
-    Fenix::Executor::Processes::Manager.reset!
-    Fenix::Executor::Processes::ProxyRegistry.reset!
+    Fenix::ExecutionRuntime::Processes::Manager.reset!
+    Fenix::ExecutionRuntime::Processes::ProxyRegistry.reset!
     Fenix::Shared::Values::MailboxDeliveryTracker.reset!
 
     if @original_control_plane_client == :__undefined__
@@ -51,18 +51,18 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_equal %w[resource_close_acknowledged resource_closed], client.reported_payloads.map { |payload| payload.fetch("method_id") }
   end
 
-  test "subagent session close requests emit close lifecycle reports" do
+  test "subagent connection close requests emit close lifecycle reports" do
     client = build_control_client
 
     result = Fenix::Runtime::MailboxWorker.call(
-      mailbox_item: close_request(resource_type: "SubagentSession", resource_id: "subagent-1"),
+      mailbox_item: close_request(resource_type: "SubagentConnection", resource_id: "subagent-1"),
       deliver_reports: true,
       control_client: client
     )
 
     assert_equal :handled, result
     assert_equal %w[resource_close_acknowledged resource_closed], client.reported_payloads.map { |payload| payload.fetch("method_id") }
-    assert_equal "SubagentSession", client.reported_payloads.last.fetch("resource_type")
+    assert_equal "SubagentConnection", client.reported_payloads.last.fetch("resource_type")
   end
 
   test "close requests without report delivery do not require a configured control plane" do
@@ -92,7 +92,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     client = build_control_client
     process_run_id = "process-#{SecureRandom.uuid}"
 
-    Fenix::Executor::Processes::Manager.spawn!(
+    Fenix::ExecutionRuntime::Processes::Manager.spawn!(
       process_run_id: process_run_id,
       runtime_owner_id: "task-1",
       command_line: "trap 'exit 0' TERM; while :; do sleep 1; done",
@@ -183,8 +183,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
   test "queued executable mailbox items serialize control plane context for out-of-process execution" do
     client = Fenix::Shared::ControlPlane::Client.new(
       base_url: "https://core-matrix.example.test",
-      machine_credential: "program-secret",
-      execution_machine_credential: "executor-secret"
+      agent_connection_credential: "program-secret"
     )
     mailbox_item = execution_assignment_mailbox_item
 
@@ -200,8 +199,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     serialized_context = enqueued_jobs.last.fetch(:args).second.fetch("control_plane_context")
 
     assert_equal "https://core-matrix.example.test", serialized_context.fetch("base_url")
-    assert_equal "program-secret", serialized_context.fetch("machine_credential")
-    assert_equal "executor-secret", serialized_context.fetch("execution_machine_credential")
+    assert_equal "program-secret", serialized_context.fetch("agent_connection_credential")
   end
 
   test "inline executable mailbox items emit terminal failure reports" do
@@ -233,7 +231,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "item_id" => "mailbox-item-close-#{resource_id}",
       "logical_work_id" => "logical-work-close-#{resource_id}",
       "attempt_no" => 1,
-      "control_plane" => "executor",
+      "control_plane" => "agent",
       "payload" => {
         "resource_type" => resource_type,
         "resource_id" => resource_id,
@@ -248,7 +246,7 @@ class Fenix::Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-1",
       "logical_work_id" => "logical-work-1",
       "attempt_no" => 1,
-      "control_plane" => "program",
+      "control_plane" => "agent",
       "payload" => {
         "task" => {
           "agent_task_run_id" => "task-1",

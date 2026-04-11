@@ -6,8 +6,8 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
 
     assert_equal context[:installation], conversation.installation

@@ -4,10 +4,10 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, executor_session: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
-      @deployment = deployment
-      @agent_session = agent_session
-      @executor_session = executor_session
+    def initialize(agent_snapshot:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
+      @agent_snapshot = agent_snapshot
+      @agent_connection = agent_connection
+      @execution_runtime_connection = execution_runtime_connection
       @resource = resource
       @method_id = method_id
       @payload = payload
@@ -72,7 +72,7 @@ module AgentControl
 
       Leases::Heartbeat.call(
         execution_lease: execution_lease,
-        holder_key: resolved_executor_session.public_id,
+        holder_key: resolved_execution_runtime_connection.public_id,
         occurred_at: @occurred_at
       )
     rescue ArgumentError, Leases::Heartbeat::StaleLeaseError
@@ -90,7 +90,7 @@ module AgentControl
 
       Leases::Heartbeat.call(
         execution_lease: execution_lease,
-        holder_key: resolved_executor_session.public_id,
+        holder_key: resolved_execution_runtime_connection.public_id,
         occurred_at: @occurred_at
       )
     rescue ArgumentError, Leases::Heartbeat::StaleLeaseError
@@ -99,7 +99,7 @@ module AgentControl
 
     def process_run
       @process_run ||= @resource || AgentControl::ClosableResourceRegistry.find!(
-        installation_id: @deployment.installation_id,
+        installation_id: @agent_snapshot.installation_id,
         resource_type: @payload.fetch("resource_type"),
         public_id: @payload.fetch("resource_id")
       )
@@ -156,11 +156,11 @@ module AgentControl
       raise Report::StaleReportError
     end
 
-    def resolved_executor_session
-      @resolved_executor_session ||= begin
-        session = @executor_session || ExecutorSessions::ResolveActiveSession.call(executor_program: process_run.executor_program)
+    def resolved_execution_runtime_connection
+      @resolved_execution_runtime_connection ||= begin
+        session = @execution_runtime_connection || ExecutionRuntimeConnections::ResolveActiveConnection.call(execution_runtime: process_run.execution_runtime)
         stale! if session.blank?
-        stale! unless session.executor_program_id == process_run.executor_program_id
+        stale! unless session.execution_runtime_id == process_run.execution_runtime_id
 
         session
       end

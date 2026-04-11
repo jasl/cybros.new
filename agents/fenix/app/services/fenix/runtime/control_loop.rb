@@ -28,7 +28,7 @@ module Fenix
       end
 
       def call
-        realtime_result = build_realtime_session.call
+        realtime_result = build_realtime_connection.call
         poll_results = recover_pending_mailbox_work(realtime_result: realtime_result)
 
         if realtime_result.processed_count.positive?
@@ -85,12 +85,12 @@ module Fenix
         "mailbox-item:#{mailbox_item_id}"
       end
 
-      def build_realtime_session
+      def build_realtime_connection
         return @session_factory.call if @session_factory.present?
 
-        Fenix::Runtime::RealtimeSession.new(
+        Fenix::Runtime::RealtimeConnection.new(
           base_url: ENV.fetch("CORE_MATRIX_BASE_URL"),
-          machine_credential: ENV.fetch("CORE_MATRIX_MACHINE_CREDENTIAL"),
+          agent_connection_credential: ENV.fetch("CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL"),
           timeout_seconds: @timeout_seconds,
           stop_after_first_mailbox_item: @stop_after_first_mailbox_item,
           mailbox_item_timeout_seconds: @mailbox_item_timeout_seconds,

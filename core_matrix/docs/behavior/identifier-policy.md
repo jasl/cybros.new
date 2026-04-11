@@ -25,9 +25,9 @@ agent-facing boundaries:
 - `Invitation`
 - `Session`
 - `Workspace`
-- `AgentProgram`
-- `ExecutorProgram`
-- `AgentProgramVersion`
+- `Agent`
+- `ExecutionRuntime`
+- `AgentSnapshot`
 - `AgentControlMailboxItem`
 - `Conversation`
 - `Turn`
@@ -36,7 +36,7 @@ agent-facing boundaries:
 - `WorkflowRun`
 - `WorkflowNode`
 - `AgentTaskRun`
-- `SubagentSession`
+- `SubagentConnection`
 - `ToolBinding`
 - `ToolDefinition`
 - `ToolImplementation`

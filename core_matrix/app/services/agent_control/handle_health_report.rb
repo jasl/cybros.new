@@ -4,9 +4,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, payload:, occurred_at: Time.current, **)
-      @deployment = deployment
-      @agent_session = agent_session
+    def initialize(agent_snapshot:, agent_connection: nil, payload:, occurred_at: Time.current, **)
+      @agent_snapshot = agent_snapshot
+      @agent_connection = agent_connection
       @payload = payload
       @occurred_at = occurred_at
     end
@@ -16,10 +16,10 @@ module AgentControl
     end
 
     def call
-      resolved_agent_session.update!(
+      resolved_agent_connection.update!(
         health_status: @payload.fetch("health_status"),
         health_metadata: @payload.fetch("health_metadata", {}),
-        auto_resume_eligible: @payload.fetch("auto_resume_eligible", resolved_agent_session.auto_resume_eligible),
+        auto_resume_eligible: @payload.fetch("auto_resume_eligible", resolved_agent_connection.auto_resume_eligible),
         unavailability_reason: @payload["unavailability_reason"],
         last_heartbeat_at: @occurred_at,
         last_health_check_at: @occurred_at
@@ -28,9 +28,9 @@ module AgentControl
 
     private
 
-    def resolved_agent_session
-      @resolved_agent_session ||= @agent_session || @deployment.active_agent_session || @deployment.most_recent_agent_session ||
-        raise(ActiveRecord::RecordNotFound, "Couldn't find AgentSession")
+    def resolved_agent_connection
+      @resolved_agent_connection ||= @agent_connection || @agent_snapshot.active_agent_connection || @agent_snapshot.most_recent_agent_connection ||
+        raise(ActiveRecord::RecordNotFound, "Couldn't find AgentConnection")
     end
   end
 end

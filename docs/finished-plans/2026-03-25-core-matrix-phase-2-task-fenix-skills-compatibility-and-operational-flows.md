@@ -9,7 +9,7 @@ Use this task document together with:
 3. `docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md`
 4. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
 5. `docs/finished-plans/2026-03-25-core-matrix-phase-2-task-fenix-runtime-surface-and-execution-hooks.md`
-6. `docs/finished-plans/2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-deployment-rotation.md`
+6. `docs/finished-plans/2026-03-25-core-matrix-phase-2-task-external-fenix-pairing-and-agent-snapshot-rotation.md`
 
 Load this file as the detailed skills execution unit for `Fenix` inside
 Phase 2. Treat the milestone and preceding `Fenix` task documents as ordering
@@ -76,7 +76,7 @@ Expected:
 
 Rules:
 
-- skills remain agent-program-owned
+- skills remain agent-owned
 - `Fenix` must install and use standard third-party Agent Skills when they fit
   the supported surface
 - `.system` holds bundled reserved system skills

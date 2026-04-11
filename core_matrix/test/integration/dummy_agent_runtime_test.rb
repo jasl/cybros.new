@@ -12,8 +12,8 @@ class DummyAgentRuntimeTest < ActiveSupport::TestCase
         DummyAgentRuntime.new(["register"]).send(:register_payload)
       end
 
-    assert_equal "dummy-host-a", payload["executor_fingerprint"]
-    refute payload.key?("executor_program_id")
+    assert_equal "dummy-host-a", payload["execution_runtime_fingerprint"]
+    refute payload.key?("execution_runtime_id")
   end
 
   private

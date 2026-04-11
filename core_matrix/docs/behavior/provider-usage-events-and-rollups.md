@@ -20,8 +20,8 @@ long-horizon reporting.
 
 - `UsageEvent` records one usage fact at a point in time.
 - Events can attach to existing installation-owned dimensions that already
-  exist in this phase, such as user, workspace, agent program, and agent
-  deployment.
+  exist in this phase, such as user, workspace, agent, and agent
+  agent snapshot.
 - Event rows also preserve nullable generic references for later runtime roots:
   `conversation_id`, `turn_id`, and `workflow_node_key`.
 - Provider and model identity are stored as explicit strings on the event.
@@ -106,8 +106,8 @@ long-horizon reporting.
 
 ## Failure Modes
 
-- cross-installation references for user, workspace, agent program, or
-  agent program version are rejected
+- cross-installation references for user, workspace, agent, or
+  agent agent snapshot are rejected
 - negative token, media-unit, latency, or cost values are rejected
 - duplicate rollups for the same bucket and dimension digest are rejected
 - malformed or missing operation and bucket kinds are rejected

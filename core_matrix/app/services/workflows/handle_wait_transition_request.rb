@@ -63,7 +63,7 @@ module Workflows
 
       spawned_sessions = stage_nodes.select { |node| subagent_spawn_node?(node) }.map do |node|
         payload = node.intent_payload
-        result = SubagentSessions::Spawn.call(
+        result = SubagentConnections::Spawn.call(
           conversation: @workflow_run.conversation,
           origin_turn: @workflow_run.turn,
           content: payload.fetch("content"),
@@ -72,15 +72,15 @@ module Workflows
           task_payload: payload.fetch("task_payload", {})
         )
         node.update!(
-          spawned_subagent_session: SubagentSession.find_by!(public_id: result.fetch("subagent_session_id"))
+          spawned_subagent_connection: SubagentConnection.find_by!(public_id: result.fetch("subagent_connection_id"))
         )
         Workflows::CompleteNode.call(
           workflow_node: node,
           event_payload: {
-            "subagent_session_id" => result.fetch("subagent_session_id"),
+            "subagent_connection_id" => result.fetch("subagent_connection_id"),
           }
         )
-        node.spawned_subagent_session
+        node.spawned_subagent_connection
       end
 
       return unless stage.fetch("completion_barrier") == "wait_all"

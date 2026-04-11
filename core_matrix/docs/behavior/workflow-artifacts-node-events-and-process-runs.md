@@ -14,7 +14,7 @@ runtime resources that later tasks now build on are:
 - `WorkflowNodeEvent`
 - `AgentTaskRun`
 - `ProcessRun`
-- `SubagentSession`
+- `SubagentConnection`
 
 ## Workflow Artifacts
 
@@ -82,7 +82,7 @@ runtime resources that later tasks now build on are:
   - `HumanInteractions::Request` when a yielded `human_interaction` node is
     consumed into a durable request resource
   - `Workflows::HandleWaitTransitionRequest` when a yielded `subagent_spawn`
-    node is consumed into a durable subagent session
+    node is consumed into a durable subagent connection
   - `Processes::Provision`, `Processes::Activate`, and `Processes::Exit` for
     environment-owned process resources
 - Current yield materialization records:
@@ -96,11 +96,11 @@ runtime resources that later tasks now build on are:
 
 - `ProcessRun` is now a first-class runtime resource instead of an opaque tool
   side effect.
-- `ProcessRun` is `ExecutorProgram`-owned, not `AgentProgramVersion`-owned.
+- `ProcessRun` is `ExecutionRuntime`-owned, not `AgentSnapshot`-owned.
 - Every process run belongs to:
   - one installation
   - one workflow node
-  - one executor program
+  - one execution runtime
   - one conversation
   - one turn
   - optionally one originating transcript-bearing `Message`
@@ -117,8 +117,8 @@ runtime resources that later tasks now build on are:
   - `failed`
   - `lost`
 - detached background services are kernel-first:
-  - `POST /executor_api/process_runs` provisions the durable `ProcessRun`
-  - the executor program then reports `process_started` when the local handle
+  - `POST /execution_runtime_api/process_runs` provisions the durable `ProcessRun`
+  - the execution runtime then reports `process_started` when the local handle
     is live
   - if the process exits without a close request, the runtime reports
     `process_exited`
@@ -134,10 +134,10 @@ runtime resources that later tasks now build on are:
   - `close_outcome_kind`
   - `close_outcome_payload`
 - mailbox close for `ProcessRun` now rides the `executor` control plane:
-  - mailbox `target_ref` is the owning `ExecutorProgram.public_id`
-  - delivery goes to the currently active `ExecutorSession` for that executor
+  - mailbox `target_ref` is the owning `ExecutionRuntime.public_id`
+  - delivery goes to the currently active `ExecutionRuntimeConnection` for that executor
     program
-  - deployment rotation does not change process ownership
+  - agent snapshot rotation does not change process ownership
 
 ## Agent Task Runs
 
@@ -145,12 +145,12 @@ runtime resources that later tasks now build on are:
   agent work
 - every agent task run belongs to:
   - one installation
-  - one agent program
+  - one agent
   - one workflow run
   - one workflow node
   - one conversation
   - one turn
-  - optionally one accepted holder deployment
+  - optionally one accepted holder agent snapshot
 - task kinds are explicit and validated:
   - `turn_step`
   - `agent_tool_call`
@@ -166,7 +166,7 @@ runtime resources that later tasks now build on are:
   mailbox-delivery retries
 - `execution_started` is the durable acceptance point that:
   - moves the task to `running`
-  - records the accepted holder deployment
+  - records the accepted holder agent snapshot
   - acquires an `ExecutionLease`
 - mailbox execution also keeps the backing `WorkflowNode` aligned:
   - assignment creation moves the node to `queued`
@@ -201,20 +201,24 @@ runtime resources that later tasks now build on are:
   runtime resources so later interrupt and close orchestration can target one
   stable execution aggregate
 
-## Subagent Sessions
+## Subagent Connections
 
 - delegated subagent work now owns a child conversation plus a
-  `SubagentSession`
+  `SubagentConnection`
 - the durable execution instance remains
   `AgentTaskRun(kind = "subagent_step")`
 - yielded `subagent_spawn` workflow nodes are owner-managed and are marked
-  `completed` as soon as the child session and initial child work are created
-- later parent waiting comes from the barrier/session state, not from leaving a
+  `completed` as soon as the child connection and initial child work are
+  created
+- later parent waiting comes from the barrier/connection state, not from
+  leaving a
   `subagent_spawn` node in `pending`
-- session close requests use the same mailbox-driven close machinery as other
+- connection close requests use the same mailbox-driven close machinery as
+  other
   closable runtime resources
-- when a session close request has no active lease holder, delivery falls back
-  to the owner conversation's logical `agent_program`
+- when a connection close request has no active lease holder, delivery falls
+  back
+  to the owner conversation's logical `agent`
 
 ## Timeout And Ownership Rules
 
@@ -223,8 +227,8 @@ runtime resources that later tasks now build on are:
 - `turn_id` must match the owning workflow run turn.
 - `origin_message_id`, when present, must belong to the same conversation and
   turn as the process run.
-- `AgentTaskRun.agent_program_id` must match the turn program version logical
-  agent program.
+- `AgentTaskRun.agent_id` must match the turn agent snapshot logical
+  agent.
 - `ExecutionLease.holder_key` is only a routing and heartbeat hint for the
   current runtime endpoint; it does not redefine the owner of a process run.
 - `started_at` is defaulted during validation for new records so model-level
@@ -284,7 +288,7 @@ runtime resources that later tasks now build on are:
 - process runs reject bounded timeouts on background services
 - stop requests reject non-running process runs instead of silently mutating
   terminal rows
-- agent task runs reject turn, conversation, workflow, or agent-program
+- agent task runs reject turn, conversation, workflow, or agent
   projection drift
 - closable runtime resources reject incomplete close lifecycle pairings
 

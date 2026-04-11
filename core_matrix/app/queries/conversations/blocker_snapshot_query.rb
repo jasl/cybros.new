@@ -4,10 +4,10 @@ module Conversations
       new(...).call
     end
 
-    def initialize(conversation:, turns: conversation.turns, owned_subagent_session_ids: nil, owned_subagent_conversation_ids: nil)
+    def initialize(conversation:, turns: conversation.turns, owned_subagent_connection_ids: nil, owned_subagent_conversation_ids: nil)
       @conversation = conversation
       @turns = turns
-      @explicit_owned_subagent_session_ids = owned_subagent_session_ids
+      @explicit_owned_subagent_connection_ids = owned_subagent_connection_ids
       @explicit_owned_subagent_conversation_ids = owned_subagent_conversation_ids
     end
 
@@ -157,8 +157,8 @@ module Conversations
       end
     end
 
-    def owned_subagent_session_ids
-      @owned_subagent_session_ids ||= @explicit_owned_subagent_session_ids || owned_subagent_tree.session_ids
+    def owned_subagent_connection_ids
+      @owned_subagent_connection_ids ||= @explicit_owned_subagent_connection_ids || owned_subagent_tree.connection_ids
     end
 
     def owned_subagent_conversation_ids
@@ -166,11 +166,11 @@ module Conversations
     end
 
     def owned_subagent_tree
-      @owned_subagent_tree ||= SubagentSessions::OwnedTree.new(owner_conversation: @conversation)
+      @owned_subagent_tree ||= SubagentConnections::OwnedTree.new(owner_conversation: @conversation)
     end
 
     def owned_subagent_scope
-      @owned_subagent_scope ||= SubagentSession.where(id: owned_subagent_session_ids)
+      @owned_subagent_scope ||= SubagentConnection.where(id: owned_subagent_connection_ids)
     end
 
     def aggregate_counts(scope, aggregates)

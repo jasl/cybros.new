@@ -12,7 +12,7 @@ Replace the current `Fenix` Phase 2 execution/debug surface with the real
 product execution/control protocol:
 
 - runtime connects outbound to `Core Matrix`
-- realtime mailbox delivery over `AgentControlChannel` is the primary path
+- realtime mailbox delivery over `ControlPlaneChannel` is the primary path
 - `poll/report` remains the durable fallback path
 - tool side effects are created through machine-facing public APIs before local
   execution begins
@@ -71,7 +71,7 @@ This leaves four problems:
 
 The canonical product protocol is:
 
-- realtime mailbox delivery over `AgentControlChannel`
+- realtime mailbox delivery over `ControlPlaneChannel`
 - fallback mailbox delivery over `POST /agent_api/control/poll`
 - runtime reports over `POST /agent_api/control/report`
 - machine-facing create APIs for runtime-side durable resources
@@ -350,7 +350,7 @@ later.
 - `POST /agent_api/process_runs`
 - `POST /agent_api/control/poll`
 - `POST /agent_api/control/report`
-- `/cable` `AgentControlChannel`
+- `/cable` `ControlPlaneChannel`
 
 ### Remove from product path
 

@@ -43,8 +43,8 @@ Reference capture for this task:
 
 Cover at least:
 
-- machine credential authentication
-- registration exchanging enrollment token for durable machine credential
+- connection credential authentication
+- registration exchanging enrollment token for durable connection credential
 - heartbeat update behavior
 - health check response shape
 - capabilities refresh response shape
@@ -151,4 +151,4 @@ Do not implement these items in this task:
   - Rails autoloading for `app/controllers/agent_api` resolves to `AgentAPI`,
     so the controller module namespace must use the acronym form
   - `ActionController::API` needs explicit inclusion of HTTP token
-    authentication helpers for bearer-token machine credentials
+    authentication helpers for bearer-token connection credentials

@@ -6,7 +6,7 @@ class WorkflowRun < ApplicationRecord
     manual_recovery_required
     human_interaction
     agent_unavailable
-    agent_program_request
+    agent_request
   ].freeze
 
   WAIT_DETAIL_ATTRIBUTE_NAMES = Workflows::WaitState::DETAIL_ATTRIBUTE_NAMES.map(&:to_s).freeze
@@ -34,7 +34,7 @@ class WorkflowRun < ApplicationRecord
       policy_gate: "policy_gate",
       retryable_failure: "retryable_failure",
       external_dependency_blocked: "external_dependency_blocked",
-      agent_program_request: "agent_program_request",
+      agent_request: "agent_request",
     },
     validate: { allow_nil: true }
   enum :cancellation_reason_kind,
@@ -216,14 +216,14 @@ class WorkflowRun < ApplicationRecord
 
     scope = workflow_nodes
       .where(intent_batch_id: batch_id, stage_index: stage_index)
-      .where.not(spawned_subagent_session_id: nil)
+      .where.not(spawned_subagent_connection_id: nil)
       .order(:ordinal)
     scope = scope.where(yielding_workflow_node_id: artifact.workflow_node_id) if artifact.workflow_node_id.present?
     scope
   end
 
   def subagent_barrier_sessions
-    subagent_barrier_spawn_nodes.includes(:spawned_subagent_session).filter_map(&:spawned_subagent_session)
+    subagent_barrier_spawn_nodes.includes(:spawned_subagent_connection).filter_map(&:spawned_subagent_connection)
   end
 
   private

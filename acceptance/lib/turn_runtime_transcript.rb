@@ -4,7 +4,7 @@ module Acceptance
 
     SEGMENT_ORDER = %w[plan build runtime validate deliver].freeze
 
-    def build(conversation_id:, turn_id:, phase_events:, workflow_node_events:, usage_events:, tool_invocations:, command_runs:, process_runs:, subagent_sessions:, subagent_runtime_snapshots: [], agent_task_runs:, supervision_trace:, summary:)
+    def build(conversation_id:, turn_id:, phase_events:, workflow_node_events:, usage_events:, tool_invocations:, command_runs:, process_runs:, subagent_connections:, subagent_runtime_snapshots: [], agent_task_runs:, supervision_trace:, summary:)
       report = ConversationRuntime::BuildTurnEventStream.call(
         conversation_id: conversation_id,
         turn_id: turn_id,
@@ -14,7 +14,7 @@ module Acceptance
         tool_invocations: tool_invocations,
         command_runs: command_runs,
         process_runs: process_runs,
-        subagent_sessions: subagent_sessions,
+        subagent_connections: subagent_connections,
         subagent_runtime_snapshots: subagent_runtime_snapshots,
         agent_task_runs: agent_task_runs,
         supervision_trace: supervision_trace,
@@ -28,7 +28,7 @@ module Acceptance
           "command_event_count" => Array(command_runs).length,
           "process_event_count" => Array(process_runs).length,
           "provider_round_count" => Array(usage_events).count { |event| event["workflow_node_key"].to_s.match?(/\A(provider_round_|turn_step\z)/) },
-          "subagent_session_count" => Array(subagent_sessions).length,
+          "subagent_connection_count" => Array(subagent_connections).length,
           "subagent_runtime_snapshot_count" => Array(subagent_runtime_snapshots).length,
           "has_subagent_lane" => report.fetch("lanes").any? { |lane| lane["actor_type"] == "subagent" },
         }
@@ -134,20 +134,20 @@ module Acceptance
       end
     end
 
-    private_class_method def build_subagent_events(subagent_sessions, subagent_labels:)
-      Array(subagent_sessions).flat_map do |session|
-        actor_label = subagent_labels.fetch(session["subagent_session_id"], "subagent")
+    private_class_method def build_subagent_events(subagent_connections, subagent_labels:)
+      Array(subagent_connections).flat_map do |session|
+        actor_label = subagent_labels.fetch(session["subagent_connection_id"], "subagent")
         created_event = {
           "timestamp" => session["created_at"],
           "actor_type" => "subagent",
           "actor_label" => actor_label,
-          "actor_public_id" => session["subagent_session_id"],
+          "actor_public_id" => session["subagent_connection_id"],
           "phase" => "build",
           "kind" => "subagent_spawned",
           "status" => "started",
           "summary" => "#{actor_label} started delegated work",
           "detail" => "Profile `#{session["profile_key"] || "unknown"}` opened with scope `#{session["scope"] || "unknown"}`.",
-          "source_refs" => ["subagent_sessions.json"],
+          "source_refs" => ["subagent_connections.json"],
           "sort_order" => 25,
         }
 
@@ -158,13 +158,13 @@ module Acceptance
               "timestamp" => session["updated_at"] || session["created_at"],
               "actor_type" => "subagent",
               "actor_label" => actor_label,
-              "actor_public_id" => session["subagent_session_id"],
+              "actor_public_id" => session["subagent_connection_id"],
               "phase" => "build",
               "kind" => "subagent_update",
               "status" => close_status,
               "summary" => "#{actor_label} completed its assigned work",
               "detail" => "Observed status `#{close_status}`.",
-              "source_refs" => ["subagent_sessions.json"],
+              "source_refs" => ["subagent_connections.json"],
               "sort_order" => 75,
             }
           end
@@ -175,8 +175,8 @@ module Acceptance
 
     private_class_method def build_subagent_runtime_snapshot_events(subagent_runtime_snapshots, subagent_labels:)
       Array(subagent_runtime_snapshots).flat_map do |snapshot|
-        actor_label = subagent_labels.fetch(snapshot["subagent_session_id"], snapshot["profile_key"].presence || "subagent")
-        actor_public_id = snapshot["subagent_session_id"]
+        actor_label = subagent_labels.fetch(snapshot["subagent_connection_id"], snapshot["profile_key"].presence || "subagent")
+        actor_public_id = snapshot["subagent_connection_id"]
 
         events = []
         events.concat(
@@ -414,7 +414,7 @@ module Acceptance
           "detail" => "Path `#{request_arguments["path"] || "unknown"}`.",
         }
       when "subagent_spawn"
-        subagent_label = subagent_labels.fetch(response_payload["subagent_session_id"], response_payload["profile_key"] || "subagent")
+        subagent_label = subagent_labels.fetch(response_payload["subagent_connection_id"], response_payload["profile_key"] || "subagent")
         {
           "actor_type" => "main_agent",
           "actor_label" => "main",
@@ -450,13 +450,13 @@ module Acceptance
       ["Executed a shell command", "runtime"]
     end
 
-    private_class_method def build_subagent_labels(subagent_sessions)
+    private_class_method def build_subagent_labels(subagent_connections)
       counts = Hash.new(0)
 
-      Array(subagent_sessions).sort_by { |session| parse_time(session["created_at"]) || Time.at(0).utc }.each_with_object({}) do |session, memo|
+      Array(subagent_connections).sort_by { |session| parse_time(session["created_at"]) || Time.at(0).utc }.each_with_object({}) do |session, memo|
         profile_key = session["profile_key"].presence || "subagent"
         counts[profile_key] += 1
-        memo[session["subagent_session_id"]] = "#{profile_key}##{counts[profile_key]}"
+        memo[session["subagent_connection_id"]] = "#{profile_key}##{counts[profile_key]}"
       end
     end
 
@@ -464,9 +464,9 @@ module Acceptance
       return { "actor_type" => "main_agent", "actor_label" => "main", "actor_public_id" => nil } if entry.blank?
 
       task_run = agent_task_runs_by_id[entry["agent_task_run_id"]]
-      subagent_session_id = task_run&.fetch("subagent_session_id", nil)
-      subagent_label = subagent_labels[subagent_session_id]
-      return { "actor_type" => "subagent", "actor_label" => subagent_label, "actor_public_id" => subagent_session_id } if subagent_label.present?
+      subagent_connection_id = task_run&.fetch("subagent_connection_id", nil)
+      subagent_label = subagent_labels[subagent_connection_id]
+      return { "actor_type" => "subagent", "actor_label" => subagent_label, "actor_public_id" => subagent_connection_id } if subagent_label.present?
 
       { "actor_type" => "main_agent", "actor_label" => "main", "actor_public_id" => nil }
     end

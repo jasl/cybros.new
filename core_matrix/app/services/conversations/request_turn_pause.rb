@@ -67,7 +67,7 @@ module Conversations
       relations = [
         AgentTaskRun.where(turn: turn, lifecycle_state: "running"),
         reusable_subagent_step_scope(turn:),
-        turn_scoped_subagent_session_scope(turn:),
+        turn_scoped_subagent_connection_scope(turn:),
       ]
 
       Conversations::RequestResourceCloses.call(
@@ -88,7 +88,7 @@ module Conversations
     def mainline_resource_blockers_cleared?(turn)
       AgentTaskRun.where(turn: turn, lifecycle_state: "running").none? &&
         reusable_subagent_step_scope(turn:).none? &&
-        turn_scoped_subagent_session_scope(turn:).merge(SubagentSession.close_pending_or_open).none?
+        turn_scoped_subagent_connection_scope(turn:).merge(SubagentConnection.close_pending_or_open).none?
     end
 
     def primary_running_task_run(turn:)
@@ -97,17 +97,17 @@ module Conversations
 
     def reusable_subagent_step_scope(turn:)
       AgentTaskRun
-        .joins(:subagent_session)
+        .joins(:subagent_connection)
         .where(
           origin_turn: turn,
           kind: "subagent_step",
           lifecycle_state: "running",
-          subagent_sessions: { scope: "conversation" }
+          subagent_connections: { scope: "conversation" }
         )
     end
 
-    def turn_scoped_subagent_session_scope(turn:)
-      SubagentSession.where(
+    def turn_scoped_subagent_connection_scope(turn:)
+      SubagentConnection.where(
         owner_conversation: turn.conversation,
         origin_turn: turn
       )

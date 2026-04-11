@@ -5,17 +5,17 @@ class AgentEnrollment < ApplicationRecord
   include HasPlaintextToken
 
   belongs_to :installation
-  belongs_to :agent_program
+  belongs_to :agent
 
   validates :token_digest, presence: true, uniqueness: true
   validates :expires_at, presence: true
-  validate :agent_program_installation_match
+  validate :agent_installation_match
 
-  def self.issue!(installation:, agent_program:, expires_at:)
+  def self.issue!(installation:, agent:, expires_at:)
     token, digest = generate_unique_token_pair
     create!(
       installation: installation,
-      agent_program: agent_program,
+      agent: agent,
       token_digest: digest,
       expires_at: expires_at
     ).attach_plaintext_token(token)
@@ -56,10 +56,10 @@ class AgentEnrollment < ApplicationRecord
   end
   private_class_method :generate_unique_token_pair
 
-  def agent_program_installation_match
-    return if agent_program.blank?
-    return if agent_program.installation_id == installation_id
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
 
-    errors.add(:agent_program, "must belong to the same installation")
+    errors.add(:agent, "must belong to the same installation")
   end
 end

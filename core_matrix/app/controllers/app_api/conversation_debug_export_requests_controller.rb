@@ -44,7 +44,7 @@ module AppAPI
     def find_debug_export_request!(request_id)
       ConversationDebugExportRequest.find_by!(
         public_id: request_id,
-        installation_id: current_deployment.installation_id
+        installation_id: current_agent_snapshot.installation_id
       )
     end
 

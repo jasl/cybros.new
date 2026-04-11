@@ -68,7 +68,7 @@ Cover at least:
 - rebind only on explicit new attempt or recovery
 - reserved-prefix enforcement
 - whitelist-only versus replaceable policy
-- one kernel-owned tool path and one agent-program-exposed tool path sharing
+- one kernel-owned tool path and one agent-exposed tool path sharing
   the same invocation model
 
 **Step 2: Run the targeted tests to confirm failure**
@@ -89,7 +89,7 @@ Expected:
 Rules:
 
 - breaking changes are allowed in Phase 2
-- provider tools, agent-program tools, and later MCP-backed tools must share
+- provider tools, agent tools, and later MCP-backed tools must share
   the same durable binding and invocation model
 - binding decisions freeze when `AgentTaskRun` is created from the current
   execution snapshot
@@ -127,7 +127,7 @@ git -C .. commit -m "feat: add unified capability governance"
 
 ## Stop Point
 
-Stop after one kernel tool path and one agent-program tool path share the same
+Stop after one kernel tool path and one agent tool path share the same
 governance and invocation model.
 
 Do not implement these items in this task:

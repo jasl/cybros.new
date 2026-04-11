@@ -92,7 +92,7 @@ Include:
 - `agent_installations` with installation FK, visibility, owner user FK, key, display name, lifecycle state
 - `execution_environments` with installation FK, kind, connection metadata, lifecycle state
 - `agent_enrollments` with installation FK, agent installation FK, token digest, expires_at, consumed_at
-- `agent_deployments` with installation FK, agent installation FK, execution environment FK, machine credential digest, endpoint metadata, fingerprint, health fields, bootstrap state
+- `agent_deployments` with installation FK, agent installation FK, execution environment FK, connection credential digest, endpoint metadata, fingerprint, health fields, bootstrap state
 - `capability_snapshots` with deployment FK, version, protocol-method metadata, tool-catalog metadata, config schema snapshots, conversation-override schema snapshot, and default config snapshot
 - active deployment uniqueness scoped to `agent_installation_id`, not the top-level `Installation`
 - enrollment issuance and successful registration must create audit rows

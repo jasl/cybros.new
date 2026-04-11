@@ -40,12 +40,12 @@ class LeasesAcquireTest < ActiveSupport::TestCase
 
     lease = Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:agent_snapshot].public_id,
       heartbeat_timeout_seconds: 30
     )
 
     assert_equal agent_task_run, lease.leased_resource
-    assert_equal context[:deployment].public_id, lease.holder_key
+    assert_equal context[:agent_snapshot].public_id, lease.holder_key
     assert lease.active?
   end
 end

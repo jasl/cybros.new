@@ -58,7 +58,7 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
       }
     )
     workflow_run = nil
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       workflow_run = create_openrouter_turn_step_workflow_run!
@@ -69,7 +69,7 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
         adapter: adapter,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -134,12 +134,12 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
       }
     )
     workflow_run = nil
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       context = create_workspace_context!
-      capability_snapshot = create_capability_snapshot!(agent_program_version: context[:agent_program_version])
-      adopt_agent_program_version!(context, capability_snapshot, turn: nil)
+      capability_snapshot = create_capability_snapshot!(agent_snapshot: context[:agent_snapshot])
+      adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
       ProviderEntitlement.create!(
         installation: context[:installation],
         provider_handle: "openrouter",
@@ -161,13 +161,13 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
 
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
-        executor_program: context[:executor_program],
-        agent_program_version: context[:agent_program_version]
+        execution_runtime: context[:execution_runtime],
+        agent_snapshot: context[:agent_snapshot]
       )
       first_turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "First input",
-        agent_program_version: context[:agent_program_version],
+        agent_snapshot: context[:agent_snapshot],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -175,7 +175,7 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
       follow_up_turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Second input",
-        agent_program_version: context[:agent_program_version],
+        agent_snapshot: context[:agent_snapshot],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -196,7 +196,7 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
         adapter: adapter,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -209,8 +209,8 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
 
   def create_openrouter_turn_step_workflow_run!
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_program_version: context[:agent_program_version])
-    adopt_agent_program_version!(context, capability_snapshot, turn: nil)
+    capability_snapshot = create_capability_snapshot!(agent_snapshot: context[:agent_snapshot])
+    adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
     ProviderEntitlement.create!(
       installation: context[:installation],
       provider_handle: "openrouter",
@@ -232,13 +232,13 @@ class ProviderBackedTurnExecutionTest < ActionDispatch::IntegrationTest
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "OpenRouter input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

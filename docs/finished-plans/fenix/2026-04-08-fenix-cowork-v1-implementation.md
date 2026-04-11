@@ -44,7 +44,7 @@ register the new projects in root docs and CI.
   executor planes
 - `agents/fenix` can receive and settle real mailbox work through a persistent
   runtime worker
-- the executor-plane tool surface is sufficient to build, test, run, and
+- the execution-runtime-plane tool surface is sufficient to build, test, run, and
   browser-verify the 2048 app
 - `fenix` uses layered prompt assembly, plan-first instructions, and optional
   app-local skills/memory
@@ -57,7 +57,7 @@ register the new projects in root docs and CI.
 
 - `CoreMatrix` must remain neutral across `fenix.old` and the new `fenix`
 - capability additions must stay optional
-- `Memory` and `Skills` remain on the agent-program side
+- `Memory` and `Skills` remain on the agent side
 - no compatibility shim or development-data backfill is required
 - Docker and bare-metal are both supported, but `images/nexus` is Docker-only
 - `codex-universal` is a structure reference, not our version source of truth
@@ -165,12 +165,12 @@ executor tool slice exist.
 
 - the manifest must reflect the new cowork runtime, not `fenix.old`
 - publish both:
-  - `program_plane`
+  - `agent_plane`
   - `executor_plane`
 - include:
   - `agent_key`
   - `display_name`
-  - `includes_executor_program`
+  - `includes_execution_runtime`
   - `executor_kind`
   - `executor_fingerprint`
   - `executor_connection_metadata`
@@ -191,8 +191,8 @@ executor tool slice exist.
 **Important note:**
 
 This task is not complete if the manifest only exposes `prepare_round` and
-`execute_program_tool`. The current acceptance and registration flow expects a
-bundled runtime with an executor-plane contract and the current registration
+`execute_tool`. The current acceptance and registration flow expects a
+bundled runtime with an execution-runtime-plane contract and the current registration
 fields used by `RegisterBundledAgentRuntime` and the acceptance harness.
 
 **Acceptance for this task:**
@@ -208,7 +208,7 @@ fields used by `RegisterBundledAgentRuntime` and the acceptance harness.
 - Modify: `agents/fenix/Gemfile.lock`
 - Create: `agents/fenix/app/services/fenix/runtime/control_client.rb`
 - Create: `agents/fenix/app/services/fenix/runtime/control_plane.rb`
-- Create: `agents/fenix/app/services/fenix/runtime/realtime_session.rb`
+- Create: `agents/fenix/app/services/fenix/runtime/realtime_connection.rb`
 - Create: `agents/fenix/app/services/fenix/runtime/mailbox_pump.rb`
 - Create: `agents/fenix/app/services/fenix/runtime/mailbox_worker.rb`
 - Create: `agents/fenix/app/services/fenix/runtime/control_loop.rb`
@@ -225,7 +225,7 @@ fields used by `RegisterBundledAgentRuntime` and the acceptance harness.
 **Requirements:**
 
 - support websocket-first delivery with poll fallback
-- support both program-plane and executor-plane mailbox items
+- support both agent-plane and execution-runtime-plane mailbox items
 - support incremental report delivery back to `CoreMatrix`
 - provide a persistent runtime worker entrypoint
 - make `bin/runtime-worker` boot the mailbox control path together with whatever
@@ -253,7 +253,7 @@ fields used by `RegisterBundledAgentRuntime` and the acceptance harness.
 - Create: `agents/fenix/pnpm-lock.yaml`
 - Create: `agents/fenix/scripts/browser/session_host.mjs`
 - Create: `agents/fenix/app/services/fenix/runtime/system_tool_registry.rb`
-- Create: `agents/fenix/app/services/fenix/runtime/program_tool_executor.rb`
+- Create: `agents/fenix/app/services/fenix/runtime/tool_executor.rb`
 - Create: `agents/fenix/app/services/fenix/runtime/command_run_registry.rb`
 - Create: `agents/fenix/app/services/fenix/browser/session_manager.rb`
 - Create: the concrete executor tool classes and result projectors needed to back
@@ -313,7 +313,7 @@ fields used by `RegisterBundledAgentRuntime` and the acceptance harness.
 - Create: `agents/fenix/app/services/fenix/skills/catalog.rb`
 - Create: `agents/fenix/app/services/fenix/application/build_round_instructions.rb`
 - Create: `agents/fenix/app/services/fenix/runtime/prepare_round.rb`
-- Create: `agents/fenix/app/services/fenix/runtime/execute_program_tool.rb`
+- Create: `agents/fenix/app/services/fenix/runtime/execute_tool.rb`
 - Create: `agents/fenix/app/services/fenix/runtime/payload_context.rb`
 - Create: prompt/runtime tests under `agents/fenix/test/services/fenix/`
 
@@ -328,7 +328,7 @@ fields used by `RegisterBundledAgentRuntime` and the acceptance harness.
   - execution-local memory/context
   - transcript
 - skills must remain optional and lazy
-- memory and skills remain agent-program-side
+- memory and skills remain agent-side
 - `prepare_round` must use neutral `CoreMatrix` facts, not infer durable state
   from transcript alone
 - cowork instructions must explicitly require:
@@ -346,11 +346,11 @@ dependency of the base cowork behavior.
 **Files:**
 
 - Create: `core_matrix/app/services/provider_execution/build_work_context_view.rb`
-- Modify: `core_matrix/app/services/provider_execution/prepare_program_round.rb`
-- Modify: `core_matrix/app/services/subagent_sessions/spawn.rb`
-- Modify: `core_matrix/app/services/subagent_sessions/wait.rb`
+- Modify: `core_matrix/app/services/provider_execution/prepare_agent_round.rb`
+- Modify: `core_matrix/app/services/subagent_connections/spawn.rb`
+- Modify: `core_matrix/app/services/subagent_connections/wait.rb`
 - Modify: related tests under `core_matrix/test/services/provider_execution/`
-  and `core_matrix/test/services/subagent_sessions/`
+  and `core_matrix/test/services/subagent_connections/`
 
 **Requirements:**
 
@@ -359,7 +359,7 @@ dependency of the base cowork behavior.
   - conversation and turn public ids
   - primary turn todo plan summary/view
   - active child-state projection built from current turn-todo read models and
-    subagent session summaries
+    subagent connection summaries
   - current supervision snapshot
 - do not expose internal numeric ids at this agent-facing boundary
 - preserve generic naming

@@ -4,7 +4,7 @@ module ExecutionProfiling
       new(...).call
     end
 
-    def initialize(installation:, user: nil, workspace: nil, conversation_id: nil, turn_id: nil, workflow_node_key: nil, process_run_id: nil, subagent_session_id: nil, human_interaction_request_id: nil, fact_kind:, fact_key:, provider_request_id: nil, provider_handle: nil, model_ref: nil, api_model: nil, wire_api: nil, total_tokens: nil, recommended_compaction_threshold: nil, threshold_crossed: nil, error_class: nil, error_message: nil, count_value: nil, duration_ms: nil, success: nil, metadata: {}, occurred_at: Time.current)
+    def initialize(installation:, user: nil, workspace: nil, conversation_id: nil, turn_id: nil, workflow_node_key: nil, process_run_id: nil, subagent_connection_id: nil, human_interaction_request_id: nil, fact_kind:, fact_key:, provider_request_id: nil, provider_handle: nil, model_ref: nil, api_model: nil, wire_api: nil, total_tokens: nil, recommended_compaction_threshold: nil, threshold_crossed: nil, error_class: nil, error_message: nil, count_value: nil, duration_ms: nil, success: nil, metadata: {}, occurred_at: Time.current)
       @installation = installation
       @user = user
       @workspace = workspace
@@ -12,7 +12,7 @@ module ExecutionProfiling
       @turn_id = turn_id
       @workflow_node_key = workflow_node_key
       @process_run_id = process_run_id
-      @subagent_session_id = subagent_session_id
+      @subagent_connection_id = subagent_connection_id
       @human_interaction_request_id = human_interaction_request_id
       @fact_kind = fact_kind
       @fact_key = fact_key
@@ -42,7 +42,7 @@ module ExecutionProfiling
         turn_id: @turn_id,
         workflow_node_key: @workflow_node_key,
         process_run_id: @process_run_id,
-        subagent_session_id: @subagent_session_id,
+        subagent_connection_id: @subagent_connection_id,
         human_interaction_request_id: @human_interaction_request_id,
         fact_kind: @fact_kind,
         fact_key: @fact_key,

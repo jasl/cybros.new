@@ -123,7 +123,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       }
     )
     workflow_run = nil
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       workflow_run = create_mock_turn_step_workflow_run!(
@@ -142,7 +142,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
         adapter: adapter,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -198,7 +198,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       end
     end.new
     workflow_run = nil
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
@@ -209,7 +209,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
         adapter: adapter,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -249,7 +249,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
         },
       }
     )
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
@@ -257,7 +257,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
           adapter: adapter,
-          program_exchange: program_exchange
+          agent_request_exchange: agent_request_exchange
         )
       end
 
@@ -285,7 +285,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
       status: 429,
       response_body: { error: { message: "too_late" } }
     )
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       error = assert_raises(ProviderExecution::ExecuteTurnStep::StaleExecutionError) do
@@ -293,7 +293,7 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: workflow_run.execution_snapshot.conversation_projection.fetch("messages").map { |entry| entry.slice("role", "content") },
           adapter: adapter,
-          program_exchange: program_exchange
+          agent_request_exchange: agent_request_exchange
         )
       end
 
@@ -353,8 +353,8 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
 
   def create_mock_turn_step_workflow_run!(resolved_config_snapshot:)
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_program_version: context[:agent_program_version])
-    adopt_agent_program_version!(context, capability_snapshot, turn: nil)
+    capability_snapshot = create_capability_snapshot!(agent_snapshot: context[:agent_snapshot])
+    adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
     ProviderEntitlement.create!(
       installation: context[:installation],
       provider_handle: "dev",
@@ -368,12 +368,12 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      agent_program: context[:agent_program]
+      agent: context[:agent]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Execute run input",
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: resolved_config_snapshot,
       resolved_model_selection_snapshot: {}
     )

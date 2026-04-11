@@ -65,7 +65,7 @@ module Workflows
 
         retried_task = AgentTaskRun.create!(
           installation: paused_task.installation,
-          agent_program: paused_task.agent_program,
+          agent: paused_task.agent,
           workflow_run: paused_task.workflow_run,
           workflow_node: paused_task.workflow_node,
           conversation: paused_task.conversation,

@@ -8,7 +8,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
     session = create_conversation_supervision_session!(fixture)
 
     assert_difference("ConversationControlRequest.count", 1) do
-      assert_difference("AgentControlMailboxItem.where(item_type: 'agent_program_request').count", 1) do
+      assert_difference("AgentControlMailboxItem.where(item_type: 'agent_request').count", 1) do
         request = ConversationControl::CreateRequest.call(
           actor: fixture.fetch(:user),
           conversation_supervision_session: session,
@@ -32,20 +32,20 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
     session = create_conversation_supervision_session!(fixture)
 
     assert_difference("ConversationControlRequest.count", 1) do
-      assert_no_difference(-> { fixture.fetch(:subagent_session).conversation.messages.count }) do
+      assert_no_difference(-> { fixture.fetch(:subagent_connection).conversation.messages.count }) do
         request = ConversationControl::CreateRequest.call(
           actor: fixture.fetch(:user),
           conversation_supervision_session: session,
           request_kind: "send_guidance_to_subagent",
           request_payload: {
-            "subagent_session_id" => fixture.fetch(:subagent_session).public_id,
+            "subagent_connection_id" => fixture.fetch(:subagent_connection).public_id,
             "content" => "Please stop and summarize your current status.",
           }
         )
 
         assert_equal "dispatched", request.lifecycle_state
-        assert_equal "subagent_session", request.target_kind
-        assert_equal fixture.fetch(:subagent_session).public_id, request.target_public_id
+        assert_equal "subagent_connection", request.target_kind
+        assert_equal fixture.fetch(:subagent_connection).public_id, request.target_public_id
       end
     end
   end
@@ -70,7 +70,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
     end
   end
 
-  test "request_status_refresh targets the active runtime deployment after a runtime rotation" do
+  test "request_status_refresh targets the active runtime agent_snapshot after a runtime rotation" do
     context = build_rotated_runtime_context!
     ConversationCapabilityPolicy.create!(
       installation: context.fetch(:installation),
@@ -103,7 +103,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
     mailbox_item = AgentControlMailboxItem.order(:id).last
 
     assert_equal "dispatched", request.lifecycle_state
-    assert_equal context.fetch(:replacement_deployment), mailbox_item.target_agent_program_version
+    assert_equal context.fetch(:replacement_agent_snapshot), mailbox_item.target_agent_snapshot
   end
 
   test "resume_waiting_workflow uses the authorized requester as the recovery audit actor" do
@@ -148,8 +148,8 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
     )
     captured = nil
     original_call = Workflows::ManualResume.method(:call)
-    Workflows::ManualResume.singleton_class.define_method(:call) do |workflow_run:, deployment:, actor:, conversation_control_request: nil, **_rest|
-      captured = [workflow_run.public_id, deployment.public_id, actor.public_id, conversation_control_request&.public_id]
+    Workflows::ManualResume.singleton_class.define_method(:call) do |workflow_run:, agent_snapshot:, actor:, conversation_control_request: nil, **_rest|
+      captured = [workflow_run.public_id, agent_snapshot.public_id, actor.public_id, conversation_control_request&.public_id]
       workflow_run
     end
 
@@ -168,7 +168,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
 
     assert_equal [
       context.fetch(:workflow_run).public_id,
-      context.fetch(:deployment).public_id,
+      context.fetch(:agent_snapshot).public_id,
       outsider.public_id,
       request.public_id,
     ], captured

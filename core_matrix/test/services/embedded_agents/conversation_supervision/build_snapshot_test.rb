@@ -17,7 +17,7 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     assert_equal fixture.fetch(:policy).public_id,
       snapshot.conversation_capability_policy_public_id
     assert_equal fixture.fetch(:current_turn).public_id, snapshot.anchor_turn_public_id
-    assert_equal [fixture.fetch(:subagent_session).public_id], snapshot.active_subagent_session_public_ids
+    assert_equal [fixture.fetch(:subagent_connection).public_id], snapshot.active_subagent_connection_public_ids
 
     bundle = snapshot.bundle_payload
     assert_equal %w[active_subagent_turn_todo_plan_views active_subagents activity_feed capability_authority conversation_context_view primary_turn_todo_plan_view proof_debug runtime_evidence turn_feed],
@@ -94,7 +94,7 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
       lifecycle_state: "running",
       started_at: 30.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
     session = ConversationSupervisionSession.create!(

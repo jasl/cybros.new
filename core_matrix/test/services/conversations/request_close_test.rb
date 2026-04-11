@@ -81,15 +81,15 @@ class Conversations::RequestCloseTest < ActiveSupport::TestCase
   test "keeps nested owned subagent close orchestration under query budget" do
     context = create_workspace_context!
     conversation = create_root_conversation!(context: context)
-    first_session = create_owned_subagent_session!(
+    first_session = create_owned_subagent_connection!(
       context: context,
       owner_conversation: conversation
     )
-    second_session = create_owned_subagent_session!(
+    second_session = create_owned_subagent_connection!(
       context: context,
       owner_conversation: first_session.conversation
     )
-    create_owned_subagent_session!(
+    create_owned_subagent_connection!(
       context: context,
       owner_conversation: second_session.conversation
     )
@@ -149,23 +149,23 @@ class Conversations::RequestCloseTest < ActiveSupport::TestCase
   def create_root_conversation!(context:)
     Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
   end
 
-  def create_owned_subagent_session!(context:, owner_conversation:)
+  def create_owned_subagent_connection!(context:, owner_conversation:)
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       addressability: "agent_addressable"
     )
 
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,

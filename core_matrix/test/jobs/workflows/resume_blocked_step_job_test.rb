@@ -55,7 +55,7 @@ class Workflows::ResumeBlockedStepJobTest < ActiveJob::TestCase
     workflow_run.turn.update!(lifecycle_state: "waiting")
     workflow_run.update!(
       wait_state: "waiting",
-      wait_reason_kind: "agent_program_request",
+      wait_reason_kind: "agent_request",
       wait_reason_payload: {},
       wait_retry_scope: "step",
       wait_resume_mode: "same_step",

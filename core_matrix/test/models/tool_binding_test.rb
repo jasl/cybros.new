@@ -5,11 +5,11 @@ class ToolBindingTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_program_version: context.fetch(:agent_program_version),
+      agent_snapshot: context.fetch(:agent_snapshot),
       tool_name: "compact_context"
     )
     implementation = definition.tool_implementations.find_by!(
@@ -32,11 +32,11 @@ class ToolBindingTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_program_version: context.fetch(:agent_program_version),
+      agent_snapshot: context.fetch(:agent_snapshot),
       tool_name: "compact_context"
     )
     implementation = definition.tool_implementations.find_by!(
@@ -66,11 +66,11 @@ class ToolBindingTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_program_version: context.fetch(:agent_program_version),
+      agent_snapshot: context.fetch(:agent_snapshot),
       tool_name: "compact_context"
     )
     implementation = definition.tool_implementations.find_by!(
@@ -95,11 +95,11 @@ class ToolBindingTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_program_version: context.fetch(:agent_program_version),
+      agent_snapshot: context.fetch(:agent_snapshot),
       tool_name: "compact_context"
     )
     implementation = definition.tool_implementations.find_by!(
@@ -132,7 +132,7 @@ class ToolBindingTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     binding = ToolBindings::FreezeForWorkflowNode.call(

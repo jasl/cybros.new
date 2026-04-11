@@ -26,7 +26,7 @@ module ConversationDiagnostics
       tool_invocations = tool_invocation_scope(turn)
       command_runs = command_run_scope(turn)
       process_runs = ProcessRun.where(turn_id: turn.id)
-      subagent_sessions = SubagentSession.where(origin_turn_id: turn.id)
+      subagent_connections = SubagentConnection.where(origin_turn_id: turn.id)
       agent_task_runs = AgentTaskRun.where(turn_id: turn.id)
 
       snapshot = TurnDiagnosticsSnapshot.find_or_initialize_by(turn: turn)
@@ -56,7 +56,7 @@ module ConversationDiagnostics
       snapshot.command_failure_count = command_runs.where(lifecycle_state: FAILURE_COMMAND_STATES).count
       snapshot.process_run_count = process_runs.count
       snapshot.process_failure_count = process_runs.where(lifecycle_state: FAILURE_PROCESS_STATES).count
-      snapshot.subagent_session_count = subagent_sessions.count
+      snapshot.subagent_connection_count = subagent_connections.count
       snapshot.input_variant_count = turn.messages.where(slot: "input").count
       snapshot.output_variant_count = turn.messages.where(slot: "output").count
       snapshot.resume_attempt_count = agent_task_runs.where("task_payload ->> 'delivery_kind' = 'turn_resume'").count
@@ -75,7 +75,7 @@ module ConversationDiagnostics
         "workflow_node_type_counts" => stringify_hash(workflow_nodes.group(:node_type).count),
         "tool_breakdown" => tool_breakdown(tool_invocations),
         "command_lifecycle_state_counts" => stringify_hash(command_runs.group(:lifecycle_state).count),
-        "subagent_status_counts" => stringify_hash(subagent_sessions.group(:observed_status).count),
+        "subagent_status_counts" => stringify_hash(subagent_connections.group(:observed_status).count),
         }
       )
       snapshot.save!

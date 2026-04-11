@@ -49,7 +49,7 @@ module Acceptance
         tool_invocations: [],
         command_runs: [],
         process_runs: [],
-        subagent_sessions: [],
+        subagent_connections: [],
         subagent_runtime_snapshots: [],
         agent_task_runs: [],
         supervision_trace: {},
@@ -95,22 +95,22 @@ module Acceptance
       return entries if owner_conversation.blank?
 
       subagent_labels = build_subagent_labels(owner_conversation)
-      entries.concat(build_subagent_session_progress_entries(owner_conversation, subagent_labels: subagent_labels))
+      entries.concat(build_subagent_connection_progress_entries(owner_conversation, subagent_labels: subagent_labels))
       active_workflow_runs_for_subagents(owner_conversation).each do |entry|
         entries.concat(
           serialize_workflow_run_events(
             workflow_run: entry.fetch("workflow_run"),
             actor_type: "subagent",
-            actor_label: subagent_labels.fetch(entry.fetch("subagent_session_id"), entry.fetch("profile_key", "subagent")),
-            actor_public_id: entry.fetch("subagent_session_id")
+            actor_label: subagent_labels.fetch(entry.fetch("subagent_connection_id"), entry.fetch("profile_key", "subagent")),
+            actor_public_id: entry.fetch("subagent_connection_id")
           )
         )
       end
       entries
     end
 
-    private_class_method def build_subagent_session_progress_entries(owner_conversation, subagent_labels:)
-      owner_conversation.owned_subagent_sessions.order(:created_at, :id).flat_map do |session|
+    private_class_method def build_subagent_connection_progress_entries(owner_conversation, subagent_labels:)
+      owner_conversation.owned_subagent_connections.order(:created_at, :id).flat_map do |session|
         label = subagent_labels.fetch(session.public_id, session.profile_key.presence || "subagent")
         sequence = session.attributes["supervision_sequence"] || session.updated_at&.to_i || 0
         timestamp = session.last_progress_at || session.updated_at || session.created_at
@@ -128,7 +128,7 @@ module Acceptance
             "workflow_run_public_id" => workflow_run_public_id,
             "workflow_node_key" => "subagent:#{session.public_id}:status:#{sequence}",
             "workflow_node_ordinal" => 0,
-            "node_type" => "subagent_session",
+            "node_type" => "subagent_connection",
             "state" => session.supervision_state,
             "summary" => "#{label} is #{session.supervision_state}",
             "detail" => session.current_focus_summary.presence || session.request_summary,
@@ -147,7 +147,7 @@ module Acceptance
             "workflow_run_public_id" => workflow_run_public_id,
             "workflow_node_key" => "subagent:#{session.public_id}:progress:#{sequence}",
             "workflow_node_ordinal" => 1,
-            "node_type" => "subagent_session",
+            "node_type" => "subagent_connection",
             "state" => session.supervision_state,
             "summary" => "#{label}: #{progress_summary}",
             "detail" => session.next_step_hint.presence || session.waiting_summary.presence || session.blocked_summary,
@@ -159,7 +159,7 @@ module Acceptance
     end
 
     private_class_method def active_workflow_runs_for_subagents(owner_conversation)
-      sessions = owner_conversation.owned_subagent_sessions.includes(:conversation).order(:created_at, :id).to_a
+      sessions = owner_conversation.owned_subagent_connections.includes(:conversation).order(:created_at, :id).to_a
       latest_runs_by_conversation_id = WorkflowRun.where(conversation_id: sessions.map(&:conversation_id))
         .order(created_at: :desc, id: :desc)
         .group_by(&:conversation_id)
@@ -170,7 +170,7 @@ module Acceptance
         next if workflow_run.blank?
 
         {
-          "subagent_session_id" => session.public_id,
+          "subagent_connection_id" => session.public_id,
           "profile_key" => session.profile_key,
           "workflow_run" => workflow_run,
         }
@@ -179,7 +179,7 @@ module Acceptance
 
     private_class_method def build_subagent_labels(owner_conversation)
       counts = Hash.new(0)
-      owner_conversation.owned_subagent_sessions.order(:created_at, :id).each_with_object({}) do |session, memo|
+      owner_conversation.owned_subagent_connections.order(:created_at, :id).each_with_object({}) do |session, memo|
         profile_key = session.profile_key.presence || "subagent"
         counts[profile_key] += 1
         memo[session.public_id] = "#{profile_key}##{counts[profile_key]}"

@@ -80,7 +80,7 @@ class DummyAgentRuntime
   def register_payload
     {
       "enrollment_token" => ENV.fetch("CORE_MATRIX_ENROLLMENT_TOKEN"),
-      "executor_fingerprint" => ENV.fetch("CORE_MATRIX_RUNTIME_FINGERPRINT", "dummy-runtime-environment"),
+      "execution_runtime_fingerprint" => ENV.fetch("CORE_MATRIX_RUNTIME_FINGERPRINT", "dummy-runtime-environment"),
       "fingerprint" => ENV.fetch("CORE_MATRIX_FINGERPRINT", "dummy-runtime"),
       "endpoint_metadata" => {
         "transport" => "http",

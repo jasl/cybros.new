@@ -16,8 +16,8 @@ module RuntimeCapabilities
 
     def call
       {
-        "executor_program_id" => @turn.executor_program&.public_id,
-        "agent_program_version_id" => @turn.agent_program_version.public_id,
+        "execution_runtime_id" => @turn.execution_runtime&.public_id,
+        "agent_snapshot_id" => @turn.agent_snapshot.public_id,
         "tool_catalog" => visible_tool_catalog,
       }.compact
     end
@@ -44,8 +44,8 @@ module RuntimeCapabilities
     def visible_tool_catalog_composer
       @visible_tool_catalog_composer ||= RuntimeCapabilities::ComposeVisibleToolCatalog.new(
         conversation: @turn.conversation,
-        agent_program_version: @turn.agent_program_version,
-        executor_program: @turn.executor_program
+        agent_snapshot: @turn.agent_snapshot,
+        execution_runtime: @turn.execution_runtime
       )
     end
   end

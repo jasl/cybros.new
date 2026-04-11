@@ -43,7 +43,7 @@ module ConversationDiagnostics
       snapshot.command_failure_count = sum(turn_snapshots, :command_failure_count)
       snapshot.process_run_count = sum(turn_snapshots, :process_run_count)
       snapshot.process_failure_count = sum(turn_snapshots, :process_failure_count)
-      snapshot.subagent_session_count = sum(turn_snapshots, :subagent_session_count)
+      snapshot.subagent_connection_count = sum(turn_snapshots, :subagent_connection_count)
       snapshot.input_variant_count = sum(turn_snapshots, :input_variant_count)
       snapshot.output_variant_count = sum(turn_snapshots, :output_variant_count)
       snapshot.resume_attempt_count = sum(turn_snapshots, :resume_attempt_count)

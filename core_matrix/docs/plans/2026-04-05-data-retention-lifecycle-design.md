@@ -120,7 +120,7 @@ Examples:
 - `ConversationEvent`
 - `ToolInvocation`
 - `AgentTaskRun`
-- `SubagentSession`
+- `SubagentConnection`
 - `HumanInteractionRequest`
 
 ### `reference_owned`
@@ -245,7 +245,7 @@ Examples:
 - `WorkflowNodeEvent`: `owner_bound`
 - `ToolInvocation`: `owner_bound`
 - `AgentTaskRun`: `owner_bound`
-- `SubagentSession`: `owner_bound`
+- `SubagentConnection`: `owner_bound`
 - `HumanInteractionRequest`: `owner_bound`
 
 ### Normalized payload and contract domain

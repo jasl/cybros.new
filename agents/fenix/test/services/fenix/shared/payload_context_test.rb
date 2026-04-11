@@ -8,7 +8,7 @@ class Fenix::Shared::PayloadContextTest < ActiveSupport::TestCase
       root.join("MEMORY.md").write("Workspace memory\n")
       summary_root = root.join(".fenix", "conversations", "conversation-1", "context")
       FileUtils.mkdir_p(summary_root)
-      summary_root.join("summary.md").write("Conversation summary\n")
+      summary_root.join("summary.md").write("Session summary\n")
 
       context = Fenix::Shared::PayloadContext.call(
         payload: {
@@ -30,7 +30,7 @@ class Fenix::Shared::PayloadContextTest < ActiveSupport::TestCase
           },
           "provider_context" => {},
           "runtime_context" => {
-            "agent_program_version_id" => "agent-program-version-1",
+            "agent_snapshot_id" => "agent-snapshot-1",
           },
           "workspace_context" => {
             "workspace_root" => workspace_root,
@@ -46,7 +46,7 @@ class Fenix::Shared::PayloadContextTest < ActiveSupport::TestCase
       )
 
       assert_includes context.dig("memory_context", "summary"), "Workspace memory"
-      assert_includes context.dig("memory_context", "summary"), "Conversation summary"
+      assert_includes context.dig("memory_context", "summary"), "Session summary"
       assert_equal ["deploy-agent"], context.dig("skill_context", "active_skill_names")
       assert_includes context.dig("skill_context", "active_skill_contents", 0), "Use evidence-backed deploy steps."
     end

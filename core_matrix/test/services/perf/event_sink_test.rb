@@ -36,7 +36,7 @@ class Perf::EventSinkTest < ActiveSupport::TestCase
         "perf.test",
         "conversation_public_id" => "conv_public",
         "conversation_id" => 42,
-        "executor_session_id" => "executor-session-01",
+        "execution_runtime_connection_id" => "execution-runtime-connection-01",
         "success" => true,
         "metadata" => {
           "phase" => "poll",
@@ -52,7 +52,7 @@ class Perf::EventSinkTest < ActiveSupport::TestCase
       assert_equal "core-matrix-01", payload.fetch("instance_label")
       assert_equal "perf.test", payload.fetch("event_name")
       assert_equal "conv_public", payload.fetch("conversation_public_id")
-      assert_equal "executor-session-01", payload.fetch("executor_session_id")
+      assert_equal "execution-runtime-connection-01", payload.fetch("execution_runtime_connection_id")
       assert_equal true, payload.fetch("success")
       assert_equal({ "phase" => "poll" }, payload.fetch("metadata"))
       refute_includes payload.keys, "conversation_id"

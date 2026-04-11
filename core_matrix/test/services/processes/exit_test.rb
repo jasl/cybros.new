@@ -7,7 +7,7 @@ class Processes::ExitTest < ActiveSupport::TestCase
     process_context = build_process_context!
     process_run = Processes::Provision.call(
       workflow_node: process_context[:workflow_node],
-      executor_program: process_context[:executor_program],
+      execution_runtime: process_context[:execution_runtime],
       kind: "background_service",
       command_line: "bin/dev",
       origin_message: process_context[:origin_message]
@@ -30,7 +30,7 @@ class Processes::ExitTest < ActiveSupport::TestCase
     process_context = build_process_context!
     process_run = Processes::Provision.call(
       workflow_node: process_context[:workflow_node],
-      executor_program: process_context[:executor_program],
+      execution_runtime: process_context[:execution_runtime],
       kind: "background_service",
       command_line: "bin/dev",
       origin_message: process_context[:origin_message]
@@ -60,13 +60,13 @@ class Processes::ExitTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Process input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -75,7 +75,7 @@ class Processes::ExitTest < ActiveSupport::TestCase
 
     {
       conversation: conversation,
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       origin_message: turn.selected_input_message,
       turn: turn,
       workflow_node: workflow_node,

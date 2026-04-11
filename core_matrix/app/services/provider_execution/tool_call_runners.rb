@@ -2,9 +2,9 @@ module ProviderExecution
   module ToolCallRunners
     REGISTRY = {
       "mcp" => "ProviderExecution::ToolCallRunners::MCP",
-      "agent" => "ProviderExecution::ToolCallRunners::Program",
-      "kernel" => "ProviderExecution::ToolCallRunners::Program",
-      "executor_program" => "ProviderExecution::ToolCallRunners::Program",
+      "agent" => "ProviderExecution::ToolCallRunners::AgentMediated",
+      "kernel" => "ProviderExecution::ToolCallRunners::AgentMediated",
+      "execution_runtime" => "ProviderExecution::ToolCallRunners::AgentMediated",
       "core_matrix" => "ProviderExecution::ToolCallRunners::CoreMatrix",
     }.freeze
 

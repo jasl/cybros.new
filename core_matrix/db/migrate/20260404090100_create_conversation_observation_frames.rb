@@ -12,7 +12,7 @@ class CreateConversationObservationFrames < ActiveRecord::Migration[8.2]
       t.integer :conversation_event_projection_sequence_snapshot
       t.string :active_workflow_run_public_id
       t.string :active_workflow_node_public_id
-      t.jsonb :active_subagent_session_public_ids, null: false, default: []
+      t.jsonb :active_subagent_connection_public_ids, null: false, default: []
       t.jsonb :bundle_payload, null: false, default: {}
       t.jsonb :machine_status_payload, null: false, default: {}
 

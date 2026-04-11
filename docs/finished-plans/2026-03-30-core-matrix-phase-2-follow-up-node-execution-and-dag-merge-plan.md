@@ -196,7 +196,7 @@ Expected after implementation:
 - Modify: `core_matrix/app/services/workflows/re_enter_agent.rb`
 - Modify: `core_matrix/app/services/workflows/resume_after_wait_resolution.rb`
 - Modify: `core_matrix/test/services/agent_control/report_test.rb`
-- Modify: `core_matrix/test/services/subagent_sessions/spawn_test.rb`
+- Modify: `core_matrix/test/services/subagent_connections/spawn_test.rb`
 - Modify: `core_matrix/test/integration/human_interaction_and_subagent_flow_test.rb`
 - Modify: `core_matrix/test/integration/workflow_scheduler_flow_test.rb`
 
@@ -204,7 +204,7 @@ Run first:
 
 ```bash
 cd core_matrix
-bin/rails test test/services/agent_control/report_test.rb test/services/subagent_sessions/spawn_test.rb test/integration/human_interaction_and_subagent_flow_test.rb test/integration/workflow_scheduler_flow_test.rb
+bin/rails test test/services/agent_control/report_test.rb test/services/subagent_connections/spawn_test.rb test/integration/human_interaction_and_subagent_flow_test.rb test/integration/workflow_scheduler_flow_test.rb
 ```
 
 Expected before implementation:
@@ -258,7 +258,7 @@ Run:
 ```bash
 cd core_matrix
 bin/rails db:drop db:create db:migrate db:test:prepare
-bin/rails test test/services/workflows/scheduler_test.rb test/services/workflows/dispatch_runnable_nodes_test.rb test/jobs/workflows/execute_node_job_test.rb test/services/workflows/execute_run_test.rb test/services/agent_control/report_test.rb test/services/subagent_sessions/spawn_test.rb test/integration/workflow_scheduler_flow_test.rb test/integration/provider_backed_turn_execution_test.rb test/integration/human_interaction_and_subagent_flow_test.rb
+bin/rails test test/services/workflows/scheduler_test.rb test/services/workflows/dispatch_runnable_nodes_test.rb test/jobs/workflows/execute_node_job_test.rb test/services/workflows/execute_run_test.rb test/services/agent_control/report_test.rb test/services/subagent_connections/spawn_test.rb test/integration/workflow_scheduler_flow_test.rb test/integration/provider_backed_turn_execution_test.rb test/integration/human_interaction_and_subagent_flow_test.rb
 ```
 
 Expected:

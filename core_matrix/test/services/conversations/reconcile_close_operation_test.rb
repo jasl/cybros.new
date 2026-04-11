@@ -27,7 +27,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil,
       started_at: close_requested_at
@@ -50,8 +50,8 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     close_operation = create_close_operation!(
       conversation: conversation,
@@ -71,8 +71,8 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     conversation.update!(deletion_state: "pending_delete", deleted_at: close_requested_at)
     close_operation = create_close_operation!(
@@ -91,7 +91,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil,
       started_at: close_requested_at
@@ -113,13 +113,13 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     anchor_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Parent fork anchor",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -149,7 +149,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     context = build_fork_close_context!
     create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       lifecycle_state: "lost",
       timeout_seconds: nil,
@@ -180,7 +180,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     context = build_fork_close_context!
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil,
       started_at: close_requested_at
@@ -236,8 +236,8 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     conversation.update!(deletion_state: "deleted", deleted_at: close_requested_at)
     close_operation = create_close_operation!(
@@ -333,13 +333,13 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Fork close anchor",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -350,7 +350,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Fork close work",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

@@ -30,7 +30,7 @@ class TestHTTPXAdapter < Minitest::Test
     end
   end
 
-  class FakeClient < ::HTTPX::Session
+  class FakeClient < ::HTTPX::Conversation
     def self.build(response)
       obj = allocate
       obj.instance_variable_set(:@response, response)
@@ -87,7 +87,7 @@ class TestHTTPXAdapter < Minitest::Test
     first = SimpleInference::HTTPAdapters::HTTPX.default_client
     second = SimpleInference::HTTPAdapters::HTTPX.default_client
 
-    assert_kind_of ::HTTPX::Session, first
+    assert_kind_of ::HTTPX::Conversation, first
     assert_same first, second
   end
 

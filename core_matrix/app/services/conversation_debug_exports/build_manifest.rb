@@ -13,7 +13,7 @@ module ConversationDebugExports
       "tool_invocations" => "tool_invocations.json",
       "command_runs" => "command_runs.json",
       "process_runs" => "process_runs.json",
-      "subagent_sessions" => "subagent_sessions.json",
+      "subagent_connections" => "subagent_connections.json",
       "usage_events" => "usage_events.json",
     }.freeze
 
@@ -47,7 +47,7 @@ module ConversationDebugExports
           "tool_invocation_count" => @payload.fetch("tool_invocations").length,
           "command_run_count" => @payload.fetch("command_runs").length,
           "process_run_count" => @payload.fetch("process_runs").length,
-          "subagent_session_count" => @payload.fetch("subagent_sessions").length,
+          "subagent_connection_count" => @payload.fetch("subagent_connections").length,
           "usage_event_count" => @payload.fetch("usage_events").length,
         },
         "generator" => {

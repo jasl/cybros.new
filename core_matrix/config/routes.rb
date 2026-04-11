@@ -44,7 +44,10 @@ Rails.application.routes.draw do
     post "control/report", to: "control#report"
   end
 
-  namespace :executor_api do
+  namespace :execution_runtime_api do
+    resources :registrations, only: :create
+    resource :health, only: :show, controller: :health
+    resource :capabilities, only: [:show, :create], controller: :capabilities
     resources :command_runs, only: :create do
       post :activate, on: :member
     end

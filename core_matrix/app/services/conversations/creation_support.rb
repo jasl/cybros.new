@@ -2,11 +2,11 @@ module Conversations
   module CreationSupport
     private
 
-    def create_root_conversation!(workspace:, agent_program:, purpose:)
+    def create_root_conversation!(workspace:, agent:, purpose:)
       conversation = Conversation.create!(
         installation: workspace.installation,
         workspace: workspace,
-        agent_program: agent_program,
+        agent: agent,
         kind: "root",
         purpose: purpose,
         lifecycle_state: "active"
@@ -28,7 +28,7 @@ module Conversations
       Conversation.new(
         installation: parent.installation,
         workspace: parent.workspace,
-        agent_program: parent.agent_program,
+        agent: parent.agent,
         parent_conversation: parent,
         kind: kind,
         purpose: parent.purpose,
@@ -41,7 +41,7 @@ module Conversations
     def refresh_child_conversation_from_parent!(conversation:, parent:)
       conversation.installation = parent.installation
       conversation.workspace = parent.workspace
-      conversation.agent_program = parent.agent_program
+      conversation.agent = parent.agent
       conversation.parent_conversation = parent
       conversation.purpose = parent.purpose
       conversation.lifecycle_state = "active"

@@ -5,13 +5,13 @@ class ConversationBundleImportsExecuteRequestTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Execute import question",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -23,7 +23,7 @@ class ConversationBundleImportsExecuteRequestTest < ActiveSupport::TestCase
       user: context[:user],
       lifecycle_state: "queued",
       request_payload: {
-        "target_agent_program_version_id" => context[:agent_program_version].public_id,
+        "target_agent_snapshot_id" => context[:agent_snapshot].public_id,
       }
     )
     request.upload_file.attach(

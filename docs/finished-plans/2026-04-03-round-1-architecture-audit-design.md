@@ -10,7 +10,7 @@
 ## Scope
 
 Round 1 focuses on the highest-value structural problems that are still present
-after the accepted agent-program / execution-runtime reset:
+after the accepted agent / execution-runtime reset:
 
 1. code layering, module boundaries, and responsibility placement
 2. schema, aggregates, and source-of-truth cleanup
@@ -45,7 +45,7 @@ Largest active hotspots during this audit:
 - `core_matrix/app/services/agent_control/handle_execution_report.rb`
 - `core_matrix/app/services/provider_execution/route_tool_call.rb`
 - `core_matrix/app/services/workflows/build_execution_snapshot.rb`
-- `core_matrix/app/services/provider_execution/program_mailbox_exchange.rb`
+- `core_matrix/app/services/provider_execution/agent_request_exchange.rb`
 - `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
 - `agents/fenix/app/services/fenix/hooks/project_tool_result.rb`
 - `agents/fenix/app/services/fenix/processes/manager.rb`
@@ -72,7 +72,7 @@ Evidence:
 - [core_matrix/app/services/agent_control/create_execution_assignment.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_execution_assignment.rb#L31) persists a mailbox item whose payload duplicates that envelope.
 - [agents/fenix/app/services/fenix/runtime/mailbox_worker.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/mailbox_worker.rb#L43) persists the full mailbox item again in `RuntimeExecution`.
 - [agents/fenix/app/models/runtime_execution.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/models/runtime_execution.rb#L12) validates and stores full mailbox payloads plus reports, trace, and output.
-- [agents/fenix/app/services/fenix/context/build_execution_context.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/context/build_execution_context.rb#L12), [agents/fenix/app/services/fenix/runtime/prepare_round.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/prepare_round.rb#L34), and [agents/fenix/app/services/fenix/runtime/execute_program_tool.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/execute_program_tool.rb#L51) each rebuild nearly the same context graph.
+- [agents/fenix/app/services/fenix/context/build_execution_context.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/context/build_execution_context.rb#L12), [agents/fenix/app/services/fenix/runtime/prepare_round.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/prepare_round.rb#L34), and [agents/fenix/app/services/fenix/runtime/execute_tool.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/execute_tool.rb#L51) each rebuild nearly the same context graph.
 
 Why it matters:
 
@@ -89,27 +89,27 @@ Recommended reset:
 - make `RuntimeExecution` persist only operational data needed for replay,
   cancellation, queueing, and proof, not the full mailbox payload
 - introduce one shared `Fenix` payload-to-context builder reused by assignment,
-  `prepare_round`, and `execute_program_tool`
+  `prepare_round`, and `execute_tool`
 
 ### P1: mailbox target modeling is still transitional and leaks legacy compatibility
 
 Symptoms:
 
-- mailbox items carry `target_agent_program`, optional
-  `target_agent_program_version`, optional `target_execution_runtime`,
+- mailbox items carry `target_agent`, optional
+  `target_agent_snapshot`, optional `target_execution_runtime`,
   `target_kind`, `target_ref`, and `runtime_plane`
 - `target_ref` is only a duplicated durable identifier
 - legacy `"agent"` / `"environment"` plane names are still normalized instead
   of being rejected
 - routing logic still derives execution delivery from
-  `agent_program.default_execution_runtime_id`
+  `agent.default_execution_runtime_id`
 
 Evidence:
 
 - [core_matrix/app/models/agent_control_mailbox_item.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_control_mailbox_item.rb#L33) stores three potential target relations plus `target_kind` and `target_ref`.
 - [core_matrix/app/models/agent_control_mailbox_item.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_control_mailbox_item.rb#L161) validates `target_ref` against data already present in the row.
 - [core_matrix/app/models/agent_control_mailbox_item.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_control_mailbox_item.rb#L191) still accepts old runtime-plane aliases.
-- [core_matrix/app/services/agent_control/resolve_target_runtime.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/resolve_target_runtime.rb#L30) routes execution work through `deployment.agent_program.default_execution_runtime_id`.
+- [core_matrix/app/services/agent_control/resolve_target_runtime.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/resolve_target_runtime.rb#L30) routes execution work through `deployment.agent.default_execution_runtime_id`.
 
 Why it matters:
 
@@ -132,13 +132,13 @@ Symptoms:
 
 - `execution_assignment` is always sent on the `"program"` plane
 - `Fenix::Runtime::ExecuteAssignment` rejects any non-program runtime plane
-- execution-runtime tools are still executed through `ProgramMailboxExchange`
+- execution-runtime tools are still executed through `AgentRequestExchange`
 
 Evidence:
 
 - [core_matrix/app/services/agent_control/create_execution_assignment.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_execution_assignment.rb#L36) always creates `"program"`-plane assignments.
 - [agents/fenix/app/services/fenix/runtime/execute_assignment.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/execute_assignment.rb#L26) explicitly rejects anything except `"program"`.
-- [core_matrix/app/services/provider_execution/route_tool_call.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/route_tool_call.rb#L33) sends `"execution_runtime"` tools through `ProgramMailboxExchange`.
+- [core_matrix/app/services/provider_execution/route_tool_call.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/route_tool_call.rb#L33) sends `"execution_runtime"` tools through `AgentRequestExchange`.
 - [core_matrix/test/services/provider_execution/route_tool_call_test.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/provider_execution/route_tool_call_test.rb#L65) documents that this current behavior is intentional.
 
 Why it matters:
@@ -152,7 +152,7 @@ Why it matters:
 Recommended round-1 decision:
 
 - make the current contract explicit: user-visible assignment work is
-  program-plane only; execution plane exists for resource control, process
+  agent-plane only; execution plane exists for resource control, process
   supervision, attachment access, and close/report APIs
 - remove tests and helpers that pretend execution-plane assignments are a valid
   runtime path
@@ -165,7 +165,7 @@ Symptoms:
 
 - `WorkflowRun` stores `workspace`, `conversation`, `turn`, and
   `feature_policy_snapshot`, then mostly delegates back into `turn`
-- `AgentTaskRun` stores `agent_program`, `workflow_run`, `workflow_node`,
+- `AgentTaskRun` stores `agent`, `workflow_run`, `workflow_node`,
   `conversation`, `turn`, and its own feature policy snapshot
 - both models spend significant code validating duplicated relationships
 
@@ -239,7 +239,7 @@ Symptoms:
 Evidence:
 
 - [core_matrix/app/services/runtime_capabilities/preview_for_conversation.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/preview_for_conversation.rb) now represents the explicit preview surface.
-- [core_matrix/app/services/subagent_sessions/spawn.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/spawn.rb#L101) is the main consumer of that preview object.
+- [core_matrix/app/services/subagent_connections/spawn.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/spawn.rb#L101) is the main consumer of that preview object.
 
 Why it matters:
 
@@ -260,7 +260,7 @@ Recommended reset:
 2. Simplify mailbox targeting by removing `target_ref`, removing legacy
    runtime-plane alias normalization, and routing execution work by
    `target_execution_runtime_id`.
-3. Make the current program-plane / execution-plane contract explicit and
+3. Make the current agent-plane / execution-plane contract explicit and
    delete fake execution-plane assignment paths.
 4. Extract the largest cross-layer service objects into smaller collaborators.
 
@@ -272,7 +272,7 @@ Recommended reset:
 
 ### Optional
 
-1. Reduce `ProgramMailboxExchange` polling pressure once the payload and target
+1. Reduce `AgentRequestExchange` polling pressure once the payload and target
    model are simplified.
 2. Revisit proof/debug persistence breadth after the runtime envelope has been
    collapsed.
@@ -287,7 +287,7 @@ Recommended reset:
 
 Round 1 should treat these as explicit product-level decisions:
 
-- `execution_assignment` is a program-plane concept
+- `execution_assignment` is a agent-plane concept
 - execution plane is for resource lifecycle and resource materialization, not
   top-level assignment orchestration
 - `Turn` remains the durable execution snapshot owner

@@ -119,7 +119,7 @@ mailbox handlers.
   termination still fails
 - detached `background_service` processes should be targeted only by archive
   and delete close flows, not by plain `turn_interrupt`
-- process-oriented agent-program tool runs should inherit the same close
+- process-oriented agent tool runs should inherit the same close
   semantics when they are modeled as `ProcessRun`
 - `MCP` or long-lived network calls should close by cancellation or connection
   abort, but still record a terminal close outcome in durable state

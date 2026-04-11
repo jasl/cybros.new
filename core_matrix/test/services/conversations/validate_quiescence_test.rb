@@ -1,19 +1,19 @@
 require "test_helper"
 
 class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
-  test "archival rejects open owned subagent sessions" do
+  test "archival rejects open owned subagent connections" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
-    session = create_owned_subagent_session!(
+    session = create_owned_subagent_connection!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: conversation,
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -25,23 +25,23 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
     end
 
     assert_equal conversation.id, error.record.id
-    assert_includes error.record.errors[:base], "must not have open subagent sessions before archival"
+    assert_includes error.record.errors[:base], "must not have open subagent connections before archival"
     assert session.reload.close_open?
   end
 
-  test "purge rejects close-pending owned subagent sessions" do
+  test "purge rejects close-pending owned subagent connections" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
-    session = create_owned_subagent_session!(
+    session = create_owned_subagent_connection!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: conversation,
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     session.update!(
       close_state: "requested",
@@ -60,7 +60,7 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
     end
 
     assert_equal conversation.id, error.record.id
-    assert_includes error.record.errors[:base], "must not have open or close-pending subagent sessions before purge"
+    assert_includes error.record.errors[:base], "must not have open or close-pending subagent connections before purge"
     assert_equal "close_requested", session.reload.derived_close_status
   end
 
@@ -85,7 +85,7 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
     )
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
@@ -108,17 +108,17 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
 
   private
 
-  def create_owned_subagent_session!(installation:, workspace:, owner_conversation:, executor_program:, agent_program_version:)
+  def create_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_snapshot:)
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
-      executor_program: executor_program,
-      agent_program_version: agent_program_version,
+      execution_runtime: execution_runtime,
+      agent_snapshot: agent_snapshot,
       addressability: "agent_addressable"
     )
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: installation,
       owner_conversation: owner_conversation,
       conversation: child_conversation,

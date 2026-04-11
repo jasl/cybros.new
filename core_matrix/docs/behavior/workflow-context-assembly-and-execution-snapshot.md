@@ -53,14 +53,14 @@ freezes a per-turn execution snapshot that preserves:
   - `workspace_id`
   - `conversation_id`
   - `turn_id`
-  - `executor_program_id`
-  - `agent_program_version_id`
+  - `execution_runtime_id`
+  - `agent_snapshot_id`
 - these identity fields are public ids for the referenced resources, not raw
   internal `bigint` primary keys
 - `turn_origin` preserves the current turn's origin kind, origin payload, and
   source reference metadata
 - when `turn_origin.source_ref_type` points at an in-scope resource such as
-  `User` or `AgentProgramVersion`, `turn_origin.source_ref_id` is that resource's
+  `User` or `AgentSnapshot`, `turn_origin.source_ref_id` is that resource's
   public id rather than its internal row id
 - automation-origin turns therefore assemble successfully even when they do not
   have a selected transcript-bearing input message
@@ -124,12 +124,12 @@ freezes a per-turn execution snapshot that preserves:
 ## Capability Projection
 
 - `capability_projection` freezes the runtime-owned execution metadata that
-  agent programs consume directly:
+  agents consume directly:
   - `tool_surface`
   - `profile_key`
   - `is_subagent`
-  - `subagent_session_id`
-  - `parent_subagent_session_id`
+  - `subagent_connection_id`
+  - `parent_subagent_connection_id`
   - `subagent_depth`
   - `owner_conversation_id`
   - `subagent_policy`
@@ -185,8 +185,8 @@ freezes a per-turn execution snapshot that preserves:
   - `round_context.projection_fingerprint`
   - `agent_context.profile`
   - `agent_context.is_subagent`
-  - `agent_context.subagent_session_id`
-  - `agent_context.parent_subagent_session_id`
+  - `agent_context.subagent_connection_id`
+  - `agent_context.parent_subagent_connection_id`
   - `agent_context.subagent_depth`
   - `agent_context.owner_conversation_id`
   - `agent_context.allowed_tool_names`
@@ -194,7 +194,7 @@ freezes a per-turn execution snapshot that preserves:
   - `runtime_context`
 - `prepare_round` does not carry `prior_tool_results`; prior tool results are
   appended later by Core Matrix when it materializes the next provider request
-- `execute_program_tool` also uses compact `agent_context` instead of shipping
+- `execute_tool` also uses compact `agent_context` instead of shipping
   the full frozen `tool_surface`
 - `prepare_round` responses now return `visible_tool_names` instead of a full
   repeated `tool_surface` schema array
@@ -242,14 +242,14 @@ freezes a per-turn execution snapshot that preserves:
   `attachment_diagnostics` with `reason=unsupported_modality`
 - execution-runtime attachment delivery is not precomputed into the snapshot
 - execution tooling must request concrete attachment handles through
-  `POST /executor_api/attachments/request`
+  `POST /execution_runtime_api/attachments/request`
 
 ## Aggregate And Read-Side Boundaries
 
 - `Turn` keeps aggregate invariants and row ownership only:
   - lifecycle
   - origin metadata and selected-message pointers
-  - frozen agent-program-version / execution-runtime identity
+  - frozen agent-agent-snapshot / execution-runtime identity
   - resolved config snapshot row
   - resolved model-selection snapshot row
   - execution contract pointer

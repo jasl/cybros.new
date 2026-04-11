@@ -83,7 +83,7 @@ Expected:
 Rules:
 
 - breaking changes are allowed in Phase 2; do not preserve legacy loop shapes
-- keep prompt building and compaction agent-program-owned
+- keep prompt building and compaction agent-owned
 - if a kernel-local execution helper is added for this task, keep it as a thin
   caller that passes already-prepared provider messages into the reusable
   provider-execution path instead of rebuilding a general prompt composer
@@ -97,7 +97,7 @@ Rules:
   accounting and advisory logic
 - keep the existing `UsageEvent` + `UsageRollup` naming and event-truth model;
   do not introduce a parallel `ProviderUsageEvent` wrapper for the same facts
-- make likely-model hints available when known so the agent program can do
+- make likely-model hints available when known so the agent can do
   model-aware prompt sizing
 - resolved provider execution settings from the model catalog must be carried
   into the real API request path rather than stopping at selector resolution or

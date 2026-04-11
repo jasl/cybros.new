@@ -5,7 +5,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     bindings = ToolBindings::FreezeForWorkflowNode.call(
@@ -22,7 +22,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     first = ToolBindings::FreezeForWorkflowNode.call(
@@ -35,7 +35,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     assert_equal first, second
   end
 
-  test "materializes round-scoped program tools that are absent from the static capability snapshot" do
+  test "materializes round-scoped agent tools that are absent from the static capability snapshot" do
     context = build_governed_tool_context!
 
     bindings = ProviderExecution::MaterializeRoundTools.call(
@@ -94,7 +94,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     binding = ToolBindings::FreezeForWorkflowNode.call(

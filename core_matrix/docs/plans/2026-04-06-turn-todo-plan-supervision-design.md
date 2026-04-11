@@ -222,7 +222,7 @@ Ownership rules:
 - `TurnTodoPlan` belongs directly to `AgentTaskRun`
 - each active `AgentTaskRun` may have at most one active `TurnTodoPlan`
 - child-agent plans are also owned by their own `AgentTaskRun`, not by
-  `SubagentSession`
+  `SubagentConnection`
 
 Implementation note:
 
@@ -254,7 +254,7 @@ Recommended fields:
 - `position`
 - `kind`
 - `details_payload`
-- `delegated_subagent_session_id`
+- `delegated_subagent_connection_id`
 - `depends_on_item_keys`
 - `last_status_changed_at`
 
@@ -400,7 +400,7 @@ This is the stable UI and API resource for checklist rendering.
   "owner": {
     "kind": "agent_task_run",
     "id": "task_...",
-    "subagent_session_id": null
+    "subagent_connection_id": null
   },
   "status": "active",
   "goal_summary": "Rebuild conversation supervision around turn todo plans",
@@ -422,7 +422,7 @@ This is the stable UI and API resource for checklist rendering.
       "status": "completed",
       "position": 0,
       "kind": "implementation",
-      "delegated_subagent_session_id": null,
+      "delegated_subagent_connection_id": null,
       "depends_on_item_keys": []
     }
   ],

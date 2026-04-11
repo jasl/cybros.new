@@ -133,7 +133,7 @@ governance stay separate concerns:
   implementations inside an installation
 - the current source kinds are:
   - `core_matrix`
-  - `executor_program`
+  - `execution_runtime`
   - `agent`
   - `kernel`
   - `mcp`
@@ -143,7 +143,7 @@ governance stay separate concerns:
 #### `ToolDefinition`
 
 - `ToolDefinition` records one logical governed tool for one
-  `AgentProgramVersion`
+  `AgentSnapshot`
 - each definition keeps:
   - logical `tool_name`
   - effective `tool_kind`
@@ -170,7 +170,7 @@ governance stay separate concerns:
 - `ToolBinding` freezes one `ToolDefinition -> ToolImplementation` decision on
   one `AgentTaskRun`
 - bindings are created automatically when `AgentTaskRun` is created
-- the binding stores the freeze reason plus the program-version metadata
+- the binding stores the freeze reason plus the agent-snapshot metadata
   used to make the decision
 - retries inside the same task attempt reuse the same binding
 - new attempts receive a fresh binding set instead of mutating the previous
@@ -189,8 +189,8 @@ governance stay separate concerns:
 
 #### `ToolBindings::ProjectCapabilitySnapshot`
 
-- projects durable governed rows from one `AgentProgramVersion` plus the bound
-  `ExecutorProgram`
+- projects durable governed rows from one `AgentSnapshot` plus the bound
+  `ExecutionRuntime`
 - resolves the effective tool winner through the existing
   `RuntimeCapabilityContract`
 - persists all candidate implementations for each projected logical tool and

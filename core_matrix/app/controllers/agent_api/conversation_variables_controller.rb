@@ -108,7 +108,7 @@ module AgentAPI
       variable = Variables::PromoteToWorkspace.call(
         conversation: conversation,
         key: request_payload.fetch("key"),
-        writer: current_deployment
+        writer: current_agent_snapshot
       )
 
       render json: {

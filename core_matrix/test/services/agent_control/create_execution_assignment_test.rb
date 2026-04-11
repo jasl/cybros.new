@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
-  test "materializes deployment-targeted routing for execution assignments" do
+  test "materializes execution-runtime-targeted routing for execution assignments" do
     context = build_agent_control_context!
     agent_task_run = create_agent_task_run!(
       workflow_node: context[:workflow_node],
@@ -17,8 +17,10 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       execution_hard_deadline_at: 10.minutes.from_now
     )
 
-    assert_equal context[:deployment], mailbox_item.target_agent_program_version
-    assert_equal context[:agent_program], mailbox_item.target_agent_program
+    assert_equal "execution_runtime", mailbox_item.control_plane
+    assert_equal context[:agent], mailbox_item.target_agent
+    assert_equal context[:agent_snapshot], mailbox_item.target_agent_snapshot
+    assert_equal context[:execution_runtime], mailbox_item.target_execution_runtime
   end
 
   test "does not reinterpret top-level envelope extras as task payload" do
@@ -42,40 +44,41 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     assert_equal(
       context.fetch(:turn).execution_snapshot.runtime_context.merge(
         "logical_work_id" => agent_task_run.logical_work_id,
-        "attempt_no" => agent_task_run.attempt_no
+        "attempt_no" => agent_task_run.attempt_no,
+        "control_plane" => "execution_runtime"
       ),
       mailbox_item.payload.fetch("runtime_context")
     )
   end
 
-  test "serializes the subagent execution assignment envelope that fenix consumes" do
+  test "serializes the subagent execution assignment envelope that nexus consumes" do
     installation = Installation.first || create_installation!(name: "Execution Assignment Contract #{SecureRandom.uuid}")
     user = create_user!(installation: installation)
-    agent_program = create_agent_program!(installation: installation)
-    executor_program = create_executor_program!(installation: installation)
-    agent_program_version = create_agent_program_version!(
+    agent = create_agent!(installation: installation)
+    execution_runtime = create_execution_runtime!(installation: installation)
+    agent_snapshot = create_agent_snapshot!(
       installation: installation,
-      agent_program: agent_program,
-      executor_program: executor_program
+      agent: agent,
+      execution_runtime: execution_runtime
     )
-    user_program_binding = create_user_program_binding!(
+    user_agent_binding = create_user_agent_binding!(
       installation: installation,
       user: user,
-      agent_program: agent_program
+      agent: agent
     )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_program_binding: user_program_binding
+      user_agent_binding: user_agent_binding
     )
     context = prepare_workflow_execution_setup!(
       {
         installation: installation,
         user: user,
-        agent_program: agent_program,
-        executor_program: executor_program,
-        agent_program_version: agent_program_version,
-        user_program_binding: user_program_binding,
+        agent: agent,
+        execution_runtime: execution_runtime,
+        agent_snapshot: agent_snapshot,
+        user_agent_binding: user_agent_binding,
         workspace: workspace,
       }
     )
@@ -87,19 +90,19 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
       default_config_snapshot: profile_aware_default_config_snapshot
     )
-    context[:executor_session] = create_executor_session!(
+    context[:execution_runtime_connection] = create_execution_runtime_connection!(
       installation: context[:installation],
-      executor_program: context[:executor_program]
+      execution_runtime: context[:execution_runtime]
     )
 
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      agent_program: context[:agent_program]
+      agent: context[:agent]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate work",
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: { "temperature" => 0.2 },
       resolved_model_selection_snapshot: {}
     )
@@ -108,10 +111,10 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      agent_program: context[:agent_program],
+      agent: context[:agent],
       addressability: "agent_addressable"
     )
-    parent_session = SubagentSession.create!(
+    parent_session = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,
@@ -125,17 +128,17 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: child_conversation,
       kind: "fork",
-      agent_program: context[:agent_program],
+      agent: context[:agent],
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: subagent_conversation,
       origin_turn: owner_turn,
       scope: "conversation",
       profile_key: "researcher",
-      parent_subagent_session: parent_session,
+      parent_subagent_connection: parent_session,
       depth: 1
     )
     turn = Turns::StartAgentTurn.call(
@@ -143,7 +146,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       content: "Please calculate 2 + 2.",
       sender_kind: "owner_agent",
       sender_conversation: owner_conversation,
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: { "temperature" => 0.2 },
       resolved_model_selection_snapshot: {}
     )
@@ -159,20 +162,20 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       workflow_node = workflow_run.workflow_nodes.first
       agent_task_run = AgentTaskRun.create!(
         installation: context[:installation],
-        agent_program: context[:agent_program],
+        agent: context[:agent],
         workflow_run: workflow_run,
         workflow_node: workflow_node,
         conversation: subagent_conversation,
         turn: turn,
         kind: "subagent_step",
         lifecycle_state: "queued",
-        logical_work_id: "subagent-step:#{subagent_session.public_id}:#{turn.public_id}",
+        logical_work_id: "subagent-step:#{subagent_connection.public_id}:#{turn.public_id}",
         attempt_no: 1,
         task_payload: { "mode" => "deterministic_tool", "expression" => "2 + 2" },
         progress_payload: {},
         terminal_payload: {},
         origin_turn: owner_turn,
-        subagent_session: subagent_session
+        subagent_connection: subagent_connection
       )
 
       mailbox_item = AgentControl::CreateExecutionAssignment.call(
@@ -195,7 +198,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
 
   def execution_assignment_contract_fixture
     ::JSON.parse(
-      File.read(Rails.root.join("..", "shared", "fixtures", "contracts", "core_matrix_fenix_execution_assignment.json"))
+      File.read(Rails.root.join("..", "shared", "fixtures", "contracts", "core_matrix_nexus_execution_assignment.json"))
     )
   end
 
@@ -258,21 +261,21 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     )
     payload["capability_projection"] = payload.fetch("capability_projection").merge(
       "tool_surface" => payload.fetch("capability_projection").fetch("tool_surface").map { |entry| { "tool_name" => entry.fetch("tool_name") } },
-      "subagent_session_id" => "subagent-session-public-id",
-      "parent_subagent_session_id" => "parent-subagent-session-public-id",
+      "subagent_connection_id" => "subagent-connection-public-id",
+      "parent_subagent_connection_id" => "parent-subagent-connection-public-id",
       "owner_conversation_id" => "owner-conversation-public-id"
     )
     payload["runtime_context"] = payload.fetch("runtime_context").merge(
-      "logical_work_id" => "subagent-step:subagent-session-public-id:subagent-turn-public-id",
-      "agent_program_version_id" => "agent-program-version-public-id",
-      "agent_program_id" => "agent-program-public-id",
+      "logical_work_id" => "subagent-step:subagent-connection-public-id:subagent-turn-public-id",
+      "agent_snapshot_id" => "agent-snapshot-public-id",
+      "agent_id" => "agent-public-id",
       "user_id" => "user-public-id",
-      "executor_program_id" => "execution-runtime-public-id"
+      "execution_runtime_id" => "execution-runtime-public-id"
     )
 
     serialized.merge(
       "item_id" => "mailbox-item-public-id",
-      "logical_work_id" => "subagent-step:subagent-session-public-id:subagent-turn-public-id",
+      "logical_work_id" => "subagent-step:subagent-connection-public-id:subagent-turn-public-id",
       "protocol_message_id" => "kernel-assignment-message-id",
       "payload" => payload
     )

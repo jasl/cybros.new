@@ -72,9 +72,9 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
   test "capstone orchestrator reads executor bootstrap credentials from state while preserving runtime env wiring" do
     script = Rails.root.join("../acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh").read
 
-    assert_includes script, 'state.fetch("executor_machine_credential")'
-    assert_includes script, 'executor_machine_credential="$('
-    assert_includes script, 'FENIX_EXECUTION_MACHINE_CREDENTIAL="${executor_machine_credential}"'
+    assert_includes script, 'state.fetch("execution_runtime_connection_credential")'
+    assert_includes script, 'execution_runtime_connection_credential="$('
+    assert_includes script, 'FENIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL="${execution_runtime_connection_credential}"'
   end
 
   test "capstone scenario derives its artifact stamp from the environment before using a timestamped fallback" do

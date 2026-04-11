@@ -71,10 +71,10 @@ class RuntimeParallelWorkTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-#{index}",
       "logical_work_id" => "logical-work-#{index}",
       "attempt_no" => 1,
-      "control_plane" => "program",
+      "control_plane" => "agent",
       "payload" => {
         "runtime_context" => {
-          "agent_program_id" => "agent-program-1",
+          "agent_id" => "agent-1",
           "user_id" => "user-1",
         },
         "task_payload" => {

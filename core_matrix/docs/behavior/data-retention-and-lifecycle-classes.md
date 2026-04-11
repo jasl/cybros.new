@@ -73,7 +73,7 @@ Representative models:
 - `WorkflowNodeEvent`
 - `ToolInvocation`
 - `AgentTaskRun`
-- `SubagentSession`
+- `SubagentConnection`
 - `HumanInteractionRequest`
 
 ### `reference_owned`

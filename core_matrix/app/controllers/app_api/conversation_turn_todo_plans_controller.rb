@@ -22,7 +22,7 @@ module AppAPI
     end
 
     def active_subagent_turn_todo_plan_views(conversation)
-      conversation.owned_subagent_sessions
+      conversation.owned_subagent_connections
         .close_pending_or_open
         .where(observed_status: ACTIVE_SUBAGENT_OBSERVED_STATUSES)
         .order(:created_at)
@@ -40,7 +40,7 @@ module AppAPI
       return if agent_task_run&.turn_todo_plan.blank?
 
       TurnTodoPlans::BuildView.call(turn_todo_plan: agent_task_run.turn_todo_plan).merge(
-        "subagent_session_id" => session.public_id,
+        "subagent_connection_id" => session.public_id,
         "profile_key" => session.profile_key,
         "observed_status" => session.observed_status,
         "supervision_state" => session.supervision_state,

@@ -10,7 +10,7 @@ module ConversationSupervisionFixtureBuilder
     current_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Has this turn already committed to the 2048 acceptance flow work?",
-      agent_program_version: context.fetch(:agent_program_version),
+      agent_snapshot: context.fetch(:agent_snapshot),
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -26,7 +26,7 @@ module ConversationSupervisionFixtureBuilder
         metadata: {}
       )
       capability_snapshot = create_capability_snapshot!(
-        agent_program_version: context.fetch(:agent_program_version),
+        agent_snapshot: context.fetch(:agent_snapshot),
         config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
         default_config_snapshot: default_default_config_snapshot(include_selector_slots: true).deep_merge(
           "model_slots" => {
@@ -34,7 +34,7 @@ module ConversationSupervisionFixtureBuilder
           }
         )
       )
-      adopt_agent_program_version!(context, capability_snapshot, turn: current_turn)
+      adopt_agent_snapshot!(context, capability_snapshot, turn: current_turn)
       current_turn = current_turn.reload
     end
     current_output = attach_selected_output!(current_turn, content: "The 2048 acceptance flow is already wired.")
@@ -45,7 +45,7 @@ module ConversationSupervisionFixtureBuilder
       node_type: "turn_step",
       lifecycle_state: "running",
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       started_at: 3.minutes.ago,
       metadata: {}
     )
@@ -101,11 +101,11 @@ module ConversationSupervisionFixtureBuilder
       workspace: context.fetch(:workspace),
       parent_conversation: conversation,
       kind: "fork",
-      executor_program: context.fetch(:executor_program),
-      agent_program_version: context.fetch(:agent_program_version),
+      execution_runtime: context.fetch(:execution_runtime),
+      agent_snapshot: context.fetch(:agent_snapshot),
       addressability: "agent_addressable"
     )
-    subagent_session = SubagentSession.create!(
+    subagent_connection = SubagentConnection.create!(
       installation: context.fetch(:installation),
       owner_conversation: conversation,
       conversation: child_conversation,
@@ -161,7 +161,7 @@ module ConversationSupervisionFixtureBuilder
       workflow_run: workflow_run.reload,
       workflow_node: workflow_node.reload,
       agent_task_run: agent_task_run.reload,
-      subagent_session: subagent_session.reload,
+      subagent_connection: subagent_connection.reload,
       policy: policy
     )
   end
@@ -189,7 +189,7 @@ module ConversationSupervisionFixtureBuilder
   def prepare_conversation_supervision_context_with_turn_todo_plan!(**kwargs)
     fixture = prepare_conversation_supervision_context!(**kwargs)
 
-    child_conversation = fixture.fetch(:subagent_session).conversation
+    child_conversation = fixture.fetch(:subagent_connection).conversation
     child_turn = Turns::StartAgentTurn.call(
       conversation: child_conversation,
       content: "Verify the capstone acceptance path",
@@ -218,8 +218,8 @@ module ConversationSupervisionFixtureBuilder
       workflow_node: child_workflow_node,
       conversation: child_conversation,
       turn: child_turn,
-      agent_program: fixture.fetch(:agent_task_run).agent_program,
-      subagent_session: fixture.fetch(:subagent_session),
+      agent: fixture.fetch(:agent_task_run).agent,
+      subagent_connection: fixture.fetch(:subagent_connection),
       origin_turn: fixture.fetch(:current_turn),
       kind: "subagent_step",
       lifecycle_state: "running",
@@ -273,7 +273,7 @@ module ConversationSupervisionFixtureBuilder
       started_at: 2.minutes.ago,
       finished_at: 90.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       provider_round_index: 1,
       metadata: {}
     )
@@ -294,7 +294,7 @@ module ConversationSupervisionFixtureBuilder
       started_at: 80.seconds.ago,
       finished_at: 70.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       tool_call_document: completed_tool_call,
       provider_round_index: 1,
       metadata: {}
@@ -316,7 +316,7 @@ module ConversationSupervisionFixtureBuilder
       lifecycle_state: "running",
       started_at: 30.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       provider_round_index: 2,
       metadata: {}
     )
@@ -328,7 +328,7 @@ module ConversationSupervisionFixtureBuilder
       lifecycle_state: "running",
       started_at: 20.seconds.ago,
       presentation_policy: "ops_trackable",
-      decision_source: "agent_program",
+      decision_source: "agent",
       provider_round_index: 2,
       metadata: {}
     )
@@ -382,7 +382,7 @@ module ConversationSupervisionFixtureBuilder
   def create_exec_command_execution!(context:, workflow_node:, command_line:, tool_status:, command_state:, started_at:, finished_at: nil)
     tool_definition = ToolDefinition.find_or_create_by!(
       installation: context.fetch(:installation),
-      agent_program_version: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       tool_name: "exec_command"
     ) do |definition|
       definition.tool_kind = "function"

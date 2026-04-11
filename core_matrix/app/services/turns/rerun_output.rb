@@ -63,7 +63,7 @@ module Turns
       rerun_turn = Turns::StartUserTurn.call(
         conversation: branch,
         content: source_input_message.content,
-        agent_program_version: turn.agent_program_version,
+        agent_snapshot: turn.agent_snapshot,
         resolved_config_snapshot: turn.resolved_config_snapshot,
         resolved_model_selection_snapshot: turn.resolved_model_selection_snapshot
       )

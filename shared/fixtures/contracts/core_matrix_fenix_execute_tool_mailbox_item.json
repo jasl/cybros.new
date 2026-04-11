@@ -1,0 +1,67 @@
+{
+  "item_id": "mailbox-item-tool-public-id",
+  "item_type": "agent_request",
+  "control_plane": "agent",
+  "logical_work_id": "tool-call:workflow-node-public-id:tool-call-public-id",
+  "attempt_no": 1,
+  "delivery_no": 0,
+  "protocol_message_id": "kernel-program-tool-message-id",
+  "priority": 1,
+  "status": "queued",
+  "lease_timeout_seconds": 30,
+  "payload": {
+    "protocol_version": "agent-runtime/2026-04-01",
+    "request_kind": "execute_tool",
+    "task": {
+      "workflow_node_id": "workflow-node-public-id",
+      "conversation_id": "conversation-public-id",
+      "turn_id": "turn-public-id",
+      "kind": "turn_step"
+    },
+    "agent_context": {
+      "profile": "main",
+      "is_subagent": false,
+      "allowed_tool_names": [
+        "calculator"
+      ]
+    },
+    "provider_context": {
+      "provider_execution": {
+        "wire_api": "responses",
+        "execution_settings": {
+          "temperature": 0.2
+        }
+      },
+      "model_context": {
+        "provider_handle": "openai",
+        "model_ref": "gpt-4.1-mini",
+        "api_model": "gpt-4.1-mini",
+        "wire_api": "responses",
+        "transport": "http",
+        "tokenizer_hint": "o200k_base",
+        "provider_metadata": {},
+        "model_metadata": {}
+      }
+    },
+    "runtime_context": {
+      "control_plane": "agent",
+      "logical_work_id": "tool-call:workflow-node-public-id:tool-call-public-id",
+      "attempt_no": 1,
+      "agent_snapshot_id": "agent-snapshot-public-id"
+    },
+    "tool_call": {
+      "call_id": "tool-call-public-id",
+      "tool_name": "calculator",
+      "arguments": {
+        "expression": "2 + 2"
+      }
+    },
+    "runtime_resource_refs": {
+      "tool_invocation": {
+        "tool_invocation_id": "tool-invocation-public-id"
+      },
+      "command_run": null,
+      "process_run": null
+    }
+  }
+}

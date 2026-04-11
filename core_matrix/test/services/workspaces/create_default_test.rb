@@ -7,38 +7,38 @@ class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
   test "creates or reuses one default workspace inside the binding ownership boundary" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_program_binding!(installation: installation, user: user)
+    binding = create_user_agent_binding!(installation: installation, user: user)
 
-    first = Workspaces::CreateDefault.call(user_program_binding: binding)
-    second = Workspaces::CreateDefault.call(user_program_binding: binding)
+    first = Workspaces::CreateDefault.call(user_agent_binding: binding)
+    second = Workspaces::CreateDefault.call(user_agent_binding: binding)
 
     assert_equal first, second
     assert_equal installation, first.installation
     assert_equal user, first.user
     assert first.private_workspace?
-    assert_equal 1, Workspace.where(user_program_binding: binding, is_default: true).count
+    assert_equal 1, Workspace.where(user_agent_binding: binding, is_default: true).count
   end
 
   test "reuses the existing default workspace when a concurrent uniqueness validation wins the race" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_program_binding!(installation: installation, user: user)
+    binding = create_user_agent_binding!(installation: installation, user: user)
     existing_workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_program_binding: binding,
+      user_agent_binding: binding,
       is_default: true
     )
     invalid_workspace = Workspace.new(
       installation: installation,
       user: user,
-      user_program_binding: binding,
+      user_agent_binding: binding,
       name: "Default Workspace",
       privacy: "private",
       is_default: true
     )
-    invalid_workspace.errors.add(:user_program_binding_id, "already has a default workspace")
-    create_default = Workspaces::CreateDefault.new(user_program_binding: binding)
+    invalid_workspace.errors.add(:user_agent_binding_id, "already has a default workspace")
+    create_default = Workspaces::CreateDefault.new(user_agent_binding: binding)
     lookup_calls = 0
 
     create_default.define_singleton_method(:existing_workspace) do

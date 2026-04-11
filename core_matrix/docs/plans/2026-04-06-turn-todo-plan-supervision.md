@@ -171,7 +171,7 @@ Add a test that proves:
 
 - item statuses are limited to `pending in_progress completed blocked canceled failed`
 - `item_key` is unique per plan
-- delegated subagent sessions must belong to the plan conversation
+- delegated subagent connections must belong to the plan conversation
 - `depends_on_item_keys` must be an array
 
 ```ruby
@@ -228,14 +228,14 @@ Create `turn_todo_plan_items` with:
 - `position`
 - `kind`
 - `details_payload`
-- `delegated_subagent_session_id`
+- `delegated_subagent_connection_id`
 - `depends_on_item_keys`
 - `last_status_changed_at`
 
 Implement the validations from the test and add:
 
 - `belongs_to :turn_todo_plan`
-- `belongs_to :delegated_subagent_session, optional: true`
+- `belongs_to :delegated_subagent_connection, optional: true`
 - installation and conversation alignment checks
 - database foreign key should cascade on plan deletion
 
@@ -370,13 +370,13 @@ test "execution_progress applies turn_todo_plan_update through the dedicated pla
   scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
 
   report_execution_started!(
-    deployment: context.fetch(:deployment),
+    agent snapshot: context.fetch(:agent snapshot),
     mailbox_item: scenario.fetch(:mailbox_item),
     agent_task_run: scenario.fetch(:agent_task_run)
   )
 
   AgentControl::HandleExecutionReport.call(
-    deployment: context.fetch(:deployment),
+    agent snapshot: context.fetch(:agent snapshot),
     method_id: "execution_progress",
     payload: {
       "mailbox_item_id" => scenario.fetch(:mailbox_item).public_id,
@@ -768,7 +768,7 @@ git commit -m "feat: expose turn todo plan and feed api contracts"
 - Delete: `core_matrix/app/services/agent_task_runs/replace_plan_items.rb`
 - Modify: `core_matrix/app/services/agent_control/apply_supervision_update.rb`
 - Modify: `core_matrix/app/models/agent_task_run.rb`
-- Modify: `core_matrix/app/models/subagent_session.rb`
+- Modify: `core_matrix/app/models/subagent_connection.rb`
 - Modify: `core_matrix/app/services/conversations/purge_plan.rb`
 - Modify: `core_matrix/docs/behavior/agent-progress-and-plan-items.md`
 - Modify: `core_matrix/test/services/agent_control/handle_execution_report_test.rb`
@@ -791,14 +791,14 @@ test "rejects legacy plan updates and old feed semantics" do
   scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
 
   report_execution_started!(
-    deployment: context.fetch(:deployment),
+    agent snapshot: context.fetch(:agent snapshot),
     mailbox_item: scenario.fetch(:mailbox_item),
     agent_task_run: scenario.fetch(:agent_task_run)
   )
 
   assert_raises(ArgumentError) do
     AgentControl::HandleExecutionReport.call(
-      deployment: context.fetch(:deployment),
+      agent snapshot: context.fetch(:agent snapshot),
       method_id: "execution_progress",
       payload: {
         "mailbox_item_id" => scenario.fetch(:mailbox_item).public_id,
@@ -835,7 +835,7 @@ Expected: FAIL because the legacy path is still accepted.
 - add a migration that drops `agent_task_plan_items`
 - remove the old model and service
 - remove old associations from `AgentTaskRun`
-- remove old delegated item associations from `SubagentSession`
+- remove old delegated item associations from `SubagentConnection`
 - reject old plan payloads explicitly
 - update `Conversations::PurgePlan` to account for `TurnTodoPlan` ownership and
   cleanup
@@ -859,7 +859,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-git add db/migrate/20260406120000_drop_agent_task_plan_items.rb db/schema.rb app/services/agent_control/apply_supervision_update.rb app/models/agent_task_run.rb app/models/subagent_session.rb app/services/conversations/purge_plan.rb docs/behavior/agent-progress-and-plan-items.md test/services/agent_control/handle_execution_report_test.rb test/support/conversation_supervision_fixture_builder.rb test/services/conversation_supervision/publish_update_test.rb test/integration/turn_todo_plan_cleanup_contract_test.rb
+git add db/migrate/20260406120000_drop_agent_task_plan_items.rb db/schema.rb app/services/agent_control/apply_supervision_update.rb app/models/agent_task_run.rb app/models/subagent_connection.rb app/services/conversations/purge_plan.rb docs/behavior/agent-progress-and-plan-items.md test/services/agent_control/handle_execution_report_test.rb test/support/conversation_supervision_fixture_builder.rb test/services/conversation_supervision/publish_update_test.rb test/integration/turn_todo_plan_cleanup_contract_test.rb
 git rm app/models/agent_task_plan_item.rb app/services/agent_task_runs/replace_plan_items.rb
 git commit -m "refactor: delete legacy supervision plan path"
 ```

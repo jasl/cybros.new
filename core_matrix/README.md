@@ -7,7 +7,7 @@ household, and small-team use. It owns agent-loop execution, conversation and
 workflow state, human-interaction primitives, runtime supervision, trigger
 governance, and platform-level auditability.
 
-Domain behavior lives in external agent programs. Core Matrix is not the
+Domain behavior lives in external agents. Core Matrix is not the
 business agent itself, not an enterprise multi-tenant platform, and not the
 built-in home for every memory, knowledge, or web capability.
 
@@ -92,7 +92,7 @@ claims real loop behavior, validation must include:
   `../acceptance/bin/*`, and are intended to be run through
   `bin/rails runner ../acceptance/scenarios/...`.
 - `ruby script/manual/dummy_agent_runtime.rb register` now pairs the runtime by
-  stable `executor_fingerprint`; the manual checklist currently exports that
+  stable `execution_runtime_fingerprint`; the manual checklist currently exports that
   through `CORE_MATRIX_ENVIRONMENT_FINGERPRINT` alongside
   `CORE_MATRIX_ENROLLMENT_TOKEN`.
 - Publication verification remains service-level in phase 1 because public

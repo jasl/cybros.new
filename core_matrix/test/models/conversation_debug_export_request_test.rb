@@ -5,8 +5,8 @@ class ConversationDebugExportRequestTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
 
     request = ConversationDebugExportRequest.create!(
@@ -29,8 +29,8 @@ class ConversationDebugExportRequestTest < ActiveSupport::TestCase
     foreign_user.installation_id = -1
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
 
     installation_mismatch = ConversationDebugExportRequest.new(

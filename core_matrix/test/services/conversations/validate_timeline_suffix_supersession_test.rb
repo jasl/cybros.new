@@ -81,7 +81,7 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
             workflow_node: context[:workflow_node],
             conversation: context[:conversation],
             turn: context[:later_turn],
-            executor_program: context[:executor_program],
+            execution_runtime: context[:execution_runtime],
             lifecycle_state: "running"
           )
         end,
@@ -95,12 +95,12 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
             workspace: context[:workspace],
             parent_conversation: context[:conversation],
             kind: "fork",
-            executor_program: context[:executor_program],
-            agent_program_version: context[:agent_program_version],
+            execution_runtime: context[:execution_runtime],
+            agent_snapshot: context[:agent_snapshot],
             addressability: "agent_addressable"
           )
 
-          SubagentSession.create!(
+          SubagentConnection.create!(
             installation: context[:installation],
             owner_conversation: context[:conversation],
             conversation: child_conversation,
@@ -120,13 +120,13 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
             workflow_node: context[:workflow_node],
             conversation: context[:conversation],
             turn: context[:later_turn],
-            executor_program: context[:executor_program],
+            execution_runtime: context[:execution_runtime],
             lifecycle_state: "stopped",
             ended_at: Time.current
           )
           Leases::Acquire.call(
             leased_resource: process_run,
-            holder_key: context[:agent_program_version].public_id,
+            holder_key: context[:agent_snapshot].public_id,
             heartbeat_timeout_seconds: 30
           )
         end,
@@ -153,13 +153,13 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
   def build_suffix_supersession_context!(context: create_workspace_context!, later_turn_state: "completed")
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     target_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Earlier input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -169,7 +169,7 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
     later_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Later input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

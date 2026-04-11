@@ -43,7 +43,7 @@ Cover at least:
 - one workflow per turn
 - workflow graph mutation appending nodes or edges at runtime while preserving acyclic shape
 - workflow node ordinal uniqueness
-- workflow node decision-source enum for `llm`, `agent_program`, `system`, and `user`
+- workflow node decision-source enum for `llm`, `agent`, `system`, and `user`
 - workflow node metadata carrying explicit policy-sensitive markers when needed for audit decisions
 - edge ordering and same-workflow integrity
 - expanding the workflow graph after initial creation without replacing the run

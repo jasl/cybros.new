@@ -68,13 +68,13 @@ class CommandRunsTerminalizeTest < ActiveSupport::TestCase
 
   def build_workflow_node_command_context!
     context = build_governed_tool_context!(
-      executor_tool_catalog: [],
+      execution_runtime_tool_catalog: [],
       agent_tool_catalog: runtime_command_tool_catalog,
       profile_catalog: runtime_command_profile_catalog
     )
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     context
@@ -99,13 +99,13 @@ class CommandRunsTerminalizeTest < ActiveSupport::TestCase
 
   def build_runtime_command_context!
     context = build_governed_tool_context!(
-      executor_tool_catalog: [],
+      execution_runtime_tool_catalog: [],
       agent_tool_catalog: runtime_command_tool_catalog,
       profile_catalog: runtime_command_profile_catalog
     )
     ToolBindings::ProjectCapabilitySnapshot.call(
       capability_snapshot: context.fetch(:capability_snapshot),
-      executor_program: context.fetch(:executor_program)
+      execution_runtime: context.fetch(:execution_runtime)
     )
 
     agent_task_run = create_agent_task_run!(

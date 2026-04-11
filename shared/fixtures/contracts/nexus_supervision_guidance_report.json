@@ -1,0 +1,29 @@
+{
+  "method_id": "agent_completed",
+  "mailbox_item_id": "mailbox-item-supervision-public-id",
+  "logical_work_id": "conversation-control:conversation-control-request-public-id:supervision_guidance",
+  "attempt_no": 1,
+  "control_plane": "execution_runtime",
+  "request_kind": "supervision_guidance",
+  "conversation_id": "conversation-public-id",
+  "response_payload": {
+    "status": "ok",
+    "handled_request_kind": "supervision_guidance",
+    "conversation_control": {
+      "conversation_control_request_id": "conversation-control-request-public-id",
+      "conversation_id": "conversation-public-id",
+      "request_kind": "send_guidance_to_active_agent",
+      "target_kind": "conversation",
+      "target_public_id": "conversation-public-id"
+    },
+    "control_outcome": {
+      "outcome_kind": "guidance_acknowledged",
+      "conversation_control_request_id": "conversation-control-request-public-id",
+      "conversation_id": "conversation-public-id",
+      "control_request_kind": "send_guidance_to_active_agent",
+      "target_kind": "conversation",
+      "target_public_id": "conversation-public-id",
+      "content": "Stop and summarize."
+    }
+  }
+}

@@ -125,7 +125,7 @@ Do not implement these items in this task:
   - updated the manual checklist for bootstrap, outage, manual resume, and
     manual retry validation
   - added
-    `core_matrix/docs/behavior/deployment-bootstrap-and-recovery-flows.md`
+    `core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md`
 - plan alignment notes:
   - drift now blocks silent continuation and requires either explicit manual
     resume or explicit manual retry

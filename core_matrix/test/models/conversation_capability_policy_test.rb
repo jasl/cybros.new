@@ -6,8 +6,8 @@ class ConversationCapabilityPolicyTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      executor_program: context[:executor_program],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
     )
 
     policy = ConversationCapabilityPolicy.create!(
@@ -36,8 +36,8 @@ class ConversationCapabilityPolicyTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
-      executor_program: context[:executor_program],
-      agent_program: context[:agent_program]
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
     )
     ConversationCapabilityPolicy.create!(
       installation: context[:installation],

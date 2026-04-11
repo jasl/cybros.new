@@ -51,7 +51,7 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, transcript:, adapter: nil, catalog: nil, effective_catalog: nil, program_exchange: nil, max_rounds: nil)
+    def initialize(workflow_node:, transcript:, adapter: nil, catalog: nil, effective_catalog: nil, agent_request_exchange: nil, max_rounds: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
       @request_context = ProviderExecution::BuildRequestContext.call(
@@ -61,17 +61,17 @@ module ProviderExecution
       @transcript = Array(transcript).map { |entry| entry.deep_stringify_keys }
       @adapter = adapter
       @effective_catalog = effective_catalog || ProviderCatalog::EffectiveCatalog.new(installation: @workflow_run.installation, catalog: catalog)
-      @program_exchange = program_exchange || ProviderExecution::ProgramMailboxExchange.new(agent_program_version: workflow_node.turn.agent_program_version)
+      @agent_request_exchange = agent_request_exchange || ProviderExecution::AgentRequestExchange.new(agent_snapshot: workflow_node.turn.agent_snapshot)
       @max_rounds = max_rounds || configured_max_rounds
     end
 
     def call
       prior_tool_results = ProviderExecution::LoadPriorToolResults.call(workflow_node: @workflow_node)
       core_matrix_binding_ids = visible_core_matrix_binding_ids
-      prepared_round = ProviderExecution::PrepareProgramRound.call(
+      prepared_round = ProviderExecution::PrepareAgentRound.call(
         workflow_node: @workflow_node,
         transcript: @transcript,
-        program_exchange: @program_exchange
+        agent_request_exchange: @agent_request_exchange
       )
       program_binding_ids = ProviderExecution::MaterializeRoundTools.call(
         workflow_node: @workflow_node,
@@ -152,7 +152,7 @@ module ProviderExecution
         provider_request_id: error.provider_request_id,
         messages_count: prepared_round.fetch("messages").length
       )
-    rescue ProviderExecution::ProgramMailboxExchange::ExchangeError => error
+    rescue ProviderExecution::AgentRequestExchange::ExchangeError => error
       raise RoundRequestFailed.new(
         error: error,
         duration_ms: 0,
@@ -294,7 +294,7 @@ module ProviderExecution
       implementation_source = entry.fetch("implementation_source", nil)
 
       return false if implementation_source == "core_matrix"
-      return false if tool_name.start_with?(AgentProgramVersion::RESERVED_CORE_MATRIX_PREFIX)
+      return false if tool_name.start_with?(AgentSnapshot::RESERVED_CORE_MATRIX_PREFIX)
       return false if RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES.include?(tool_name)
 
       true

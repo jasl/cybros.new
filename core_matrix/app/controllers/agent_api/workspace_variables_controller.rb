@@ -47,7 +47,7 @@ module AgentAPI
         workspace: workspace,
         key: request_payload.fetch("key"),
         typed_value_payload: request_payload.fetch("typed_value_payload"),
-        writer: current_deployment,
+        writer: current_agent_snapshot,
         source_kind: request_payload.fetch("source_kind"),
         source_turn: optional_turn(request_payload["source_turn_id"]),
         source_workflow_run: optional_workflow_run(request_payload["source_workflow_run_id"]),

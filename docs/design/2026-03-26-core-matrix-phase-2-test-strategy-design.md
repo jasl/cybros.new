@@ -25,7 +25,7 @@ mixing protocol confidence with future UI productization work.
 
 ### Phase 2: Protocol E2E
 
-Phase 2 must treat `Core Matrix <-> agent program` communication as its primary
+Phase 2 must treat `Core Matrix <-> agent` communication as its primary
 end-to-end test surface.
 
 `Protocol E2E` means:
@@ -34,7 +34,7 @@ end-to-end test surface.
 - no DOM assertions
 - no dependency on future Web product routes or controls
 - one real Rails app instance
-- one headless runtime harness that behaves like an agent program
+- one headless runtime harness that behaves like an agent
 - the same mailbox semantics exercised through:
   - `poll`
   - `WebSocket`

@@ -6,7 +6,7 @@ class LineageStoreTest < ActiveSupport::TestCase
     other_workspace = create_workspace!(
       installation: context[:installation],
       user: context[:user],
-      user_program_binding: context[:user_program_binding]
+      user_agent_binding: context[:user_agent_binding]
     )
     root_conversation = create_conversation_record!(workspace: context[:workspace])
 

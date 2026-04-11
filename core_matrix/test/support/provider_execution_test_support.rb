@@ -1,14 +1,14 @@
 module ProviderExecutionTestSupport
   FakeHttpResponse = Struct.new(:code, :body, :headers, keyword_init: true)
 
-  class FakeProgramExchange
-    attr_reader :prepare_round_requests, :execute_program_tool_requests
+  class FakeAgentRequestExchange
+    attr_reader :prepare_round_requests, :execute_tool_requests
 
-    def initialize(prepared_rounds: nil, program_tool_results: nil)
+    def initialize(prepared_rounds: nil, tool_results: nil)
       @prepared_rounds = Array(prepared_rounds).map { |entry| deep_copy(entry) }
-      @program_tool_results = (program_tool_results || {}).deep_stringify_keys
+      @tool_results = (tool_results || {}).deep_stringify_keys
       @prepare_round_requests = []
-      @execute_program_tool_requests = []
+      @execute_tool_requests = []
     end
 
     def prepare_round(payload:)
@@ -25,16 +25,16 @@ module ProviderExecutionTestSupport
       deep_copy(round)
     end
 
-    def execute_program_tool(payload:)
+    def execute_tool(payload:)
       payload = payload.deep_stringify_keys
-      @execute_program_tool_requests << payload
+      @execute_tool_requests << payload
 
       responder =
-        @program_tool_results.dig("program_tool_call", payload.dig("program_tool_call", "call_id")) ||
-        @program_tool_results[payload.dig("program_tool_call", "call_id")] ||
-        @program_tool_results[payload.dig("program_tool_call", "tool_name")] ||
-        @program_tool_results[payload["tool_call_id"]] ||
-        @program_tool_results[payload["tool_name"]]
+        @tool_results.dig("tool_call", payload.dig("tool_call", "call_id")) ||
+        @tool_results[payload.dig("tool_call", "call_id")] ||
+        @tool_results[payload.dig("tool_call", "tool_name")] ||
+        @tool_results[payload["tool_call_id"]] ||
+        @tool_results[payload["tool_name"]]
       response = responder.respond_to?(:call) ? responder.call(payload: payload) : responder
 
       deep_copy(response || {
@@ -206,11 +206,11 @@ module ProviderExecutionTestSupport
     with_stubbed_provider_catalog(catalog) do
       context = create_workspace_context!
       capability_snapshot = create_capability_snapshot!(
-        agent_program_version: context[:agent_program_version],
+        agent_snapshot: context[:agent_snapshot],
         tool_catalog: tool_catalog || default_tool_catalog("exec_command") + [default_agent_observation_tool_entry("calculator")],
         profile_catalog: profile_catalog || {}
       )
-      adopt_agent_program_version!(context, capability_snapshot, turn: nil)
+      adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
       ProviderEntitlement.create!(
         installation: context[:installation],
         provider_handle: "dev",
@@ -224,12 +224,12 @@ module ProviderExecutionTestSupport
 
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
-        agent_program: context[:agent_program]
+        agent: context[:agent]
       )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Execute turn step input",
-        executor_program: context[:executor_program],
+        execution_runtime: context[:execution_runtime],
         resolved_config_snapshot: resolved_config_snapshot,
         resolved_model_selection_snapshot: {}
       )

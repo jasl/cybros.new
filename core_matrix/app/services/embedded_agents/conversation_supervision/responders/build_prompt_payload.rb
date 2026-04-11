@@ -68,7 +68,7 @@ module EmbeddedAgents
 
         def compact_subagent_turn_todo_plan(plan_view)
           compact_turn_todo_plan(plan_view, include_current_item: true).to_h.merge(
-            "subagent_session_id" => plan_view["subagent_session_id"],
+            "subagent_connection_id" => plan_view["subagent_connection_id"],
             "profile_key" => plan_view["profile_key"],
             "observed_status" => plan_view["observed_status"],
             "supervision_state" => plan_view["supervision_state"],

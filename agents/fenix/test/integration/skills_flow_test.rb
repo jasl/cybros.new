@@ -67,7 +67,7 @@ class SkillsFlowTest < ActiveSupport::TestCase
       "protocol_message_id" => "protocol-message-#{mode}-#{conversation_id}",
       "logical_work_id" => "logical-work-#{mode}-#{conversation_id}",
       "attempt_no" => 1,
-      "control_plane" => "program",
+      "control_plane" => "agent",
       "payload" => {
         "request_kind" => "execution_assignment",
         "task" => {
@@ -79,9 +79,9 @@ class SkillsFlowTest < ActiveSupport::TestCase
           "kind" => "turn_step",
         },
         "runtime_context" => {
-          "agent_program_id" => "agent-program-1",
+          "agent_id" => "agent-1",
           "user_id" => "user-1",
-          "agent_program_version_id" => "agent-program-version-1",
+          "agent_snapshot_id" => "agent-snapshot-1",
         },
         "task_payload" => {
           "mode" => mode,

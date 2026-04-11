@@ -29,14 +29,18 @@ module AgentControl
     end
 
     def call
+      execution_runtime = @agent_task_run.turn.execution_runtime
+      raise ArgumentError, "execution runtime is required for execution assignments" if execution_runtime.blank?
+
       mailbox_item = AgentControlMailboxItem.create!(
         installation: @agent_task_run.installation,
-        target_agent_program: @agent_task_run.agent_program,
-        target_agent_program_version: @agent_task_run.turn.agent_program_version,
+        target_agent: @agent_task_run.agent,
+        target_agent_snapshot: @agent_task_run.turn.agent_snapshot,
+        target_execution_runtime: execution_runtime,
         agent_task_run: @agent_task_run,
         execution_contract: @agent_task_run.turn.execution_contract,
         item_type: "execution_assignment",
-        control_plane: "program",
+        control_plane: "execution_runtime",
         logical_work_id: @agent_task_run.logical_work_id,
         attempt_no: @agent_task_run.attempt_no,
         protocol_message_id: @protocol_message_id,

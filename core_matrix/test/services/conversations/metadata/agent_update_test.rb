@@ -97,7 +97,7 @@ class Conversations::Metadata::AgentUpdateTest < ActiveSupport::TestCase
       workflow_node_id
       agent_task_run_id
       tool_invocation_id
-      subagent_session_id
+      subagent_connection_id
       command_run_id
       process_run_id
     ]

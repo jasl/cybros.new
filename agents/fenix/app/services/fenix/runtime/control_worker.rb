@@ -76,11 +76,11 @@ module Fenix
       end
 
       def cleanup!
-        Fenix::Executor::CommandRunRegistry.reset!
+        Fenix::ExecutionRuntime::CommandRunRegistry.reset!
       end
 
       def sweep_local_process_handles!
-        Fenix::Executor::Processes::Manager.prune_terminated_handles!
+        Fenix::ExecutionRuntime::Processes::Manager.prune_terminated_handles!
       end
 
       def run_control_loop
@@ -100,7 +100,7 @@ module Fenix
 
         Fenix::Runtime::ControlLoop::Result.new(
           transport: "error",
-          realtime_result: Fenix::Runtime::RealtimeSession::Result.new(
+          realtime_result: Fenix::Runtime::RealtimeConnection::Result.new(
             status: "failed",
             processed_count: 0,
             subscription_confirmed: false,

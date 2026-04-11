@@ -35,7 +35,7 @@ class ConversationSupervisionSnapshot < ApplicationRecord
   end
 
   def snapshot_payloads_must_be_hashes_or_arrays
-    errors.add(:active_subagent_session_public_ids, "must be an array") unless active_subagent_session_public_ids.is_a?(Array)
+    errors.add(:active_subagent_connection_public_ids, "must be an array") unless active_subagent_connection_public_ids.is_a?(Array)
     errors.add(:bundle_payload, "must be a hash") unless bundle_payload.is_a?(Hash)
     errors.add(:machine_status_payload, "must be a hash") unless machine_status_payload.is_a?(Hash)
   end

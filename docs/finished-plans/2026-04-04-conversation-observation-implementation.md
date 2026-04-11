@@ -84,7 +84,7 @@ Known blockers to watch:
   - `anchor_turn_public_id`
   - `active_workflow_run_public_id`
   - `active_workflow_node_public_id`
-  - `active_subagent_session_public_ids`
+  - `active_subagent_connection_public_ids`
 
 Run:
 
@@ -265,7 +265,7 @@ Expected: FAIL because the builders do not exist yet.
 - workflow: read current workflow run, node, wait state, and blocker
 - activity: read the live-projection tail of runtime `ConversationEvent` rows
 - diagnostics: reuse `ConversationDiagnostics::RecomputeConversationSnapshot`
-- subagents: read current `SubagentSession` rows
+- subagents: read current `SubagentConnection` rows
 - memory: return an empty or minimal conversation-scoped summary in v1 if no
   dedicated memory store exists yet
 

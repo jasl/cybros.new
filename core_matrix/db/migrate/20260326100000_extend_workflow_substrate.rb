@@ -18,7 +18,7 @@ class ExtendWorkflowSubstrate < ActiveRecord::Migration[8.2]
       t.references :turn, foreign_key: true
       t.references :yielding_workflow_node, foreign_key: { to_table: :workflow_nodes }
       t.references :opened_human_interaction_request, foreign_key: { to_table: :human_interaction_requests }
-      t.references :spawned_subagent_session, foreign_key: { to_table: :subagent_sessions }
+      t.references :spawned_subagent_connection, foreign_key: { to_table: :subagent_connections }
       t.string :intent_kind
       t.integer :provider_round_index
       t.text :prior_tool_node_keys, array: true, null: false, default: []

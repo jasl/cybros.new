@@ -16,8 +16,8 @@ module RuntimeCapabilities
 
     def call
       {
-        "executor_program_id" => executor_program&.public_id,
-        "agent_program_version_id" => agent_program_version.public_id,
+        "execution_runtime_id" => execution_runtime&.public_id,
+        "agent_snapshot_id" => agent_snapshot.public_id,
         "tool_catalog" => visible_tool_catalog,
       }.compact
     end
@@ -33,12 +33,12 @@ module RuntimeCapabilities
       @visible_tool_catalog ||= visible_tool_catalog_composer.call
     end
 
-    def agent_program_version
-      @agent_program_version ||= Turns::FreezeProgramVersion.call(conversation: @conversation)
+    def agent_snapshot
+      @agent_snapshot ||= Turns::FreezeAgentSnapshot.call(conversation: @conversation)
     end
 
-    def executor_program
-      @executor_program ||= Turns::SelectExecutorProgram.call(conversation: @conversation)
+    def execution_runtime
+      @execution_runtime ||= Turns::SelectExecutionRuntime.call(conversation: @conversation)
     rescue ActiveRecord::RecordInvalid
       nil
     end
@@ -46,8 +46,8 @@ module RuntimeCapabilities
     def visible_tool_catalog_composer
       @visible_tool_catalog_composer ||= RuntimeCapabilities::ComposeVisibleToolCatalog.new(
         conversation: @conversation,
-        agent_program_version: agent_program_version,
-        executor_program: executor_program
+        agent_snapshot: agent_snapshot,
+        execution_runtime: execution_runtime
       )
     end
   end

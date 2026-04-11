@@ -42,7 +42,7 @@ module Workflows
           "- Date: #{@metadata["date"] || Date.current.iso8601}",
           "- Operator: #{@metadata["operator"]}",
           "- Environment: #{@metadata["environment"] || Rails.env}",
-          "- Deployment Identifier: #{@metadata["deployment_identifier"]}",
+          "- Deployment Identifier: #{@metadata["agent_snapshot_identifier"]}",
           "- Runtime Mode: #{@metadata["runtime_mode"]}",
           "- Provider: #{@metadata["provider"] || @bundle.workflow_run.fetch("provider_handle")}",
           "- Model: #{@metadata["model"] || @bundle.workflow_run.fetch("model_ref")}",

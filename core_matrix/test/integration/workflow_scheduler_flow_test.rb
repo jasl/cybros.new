@@ -68,13 +68,13 @@ class WorkflowSchedulerFlowTest < ActionDispatch::IntegrationTest
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Primary input",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -92,13 +92,13 @@ class WorkflowSchedulerFlowTest < ActionDispatch::IntegrationTest
         {
           node_key: "left",
           node_type: "tool_call",
-          decision_source: "agent_program",
+          decision_source: "agent",
           metadata: {},
         },
         {
           node_key: "right",
           node_type: "tool_call",
-          decision_source: "agent_program",
+          decision_source: "agent",
           metadata: {},
         },
         {

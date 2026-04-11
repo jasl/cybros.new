@@ -4,15 +4,15 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
   test "supports generic execution fact kinds and runtime references" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_program_binding!(
+    binding = create_user_agent_binding!(
       installation: installation,
       user: user,
-      agent_program: create_agent_program!(installation: installation)
+      agent: create_agent!(installation: installation)
     )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_program_binding: binding
+      user_agent_binding: binding
     )
 
     tool_call = ExecutionProfileFact.create!(
@@ -55,7 +55,7 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
       installation: installation,
       fact_kind: "subagent_outcome",
       fact_key: "planner",
-      subagent_session_id: 303,
+      subagent_connection_id: 303,
       success: false,
       occurred_at: Time.utc(2026, 3, 24, 12, 5, 0),
       metadata: { "reason" => "timeout" }

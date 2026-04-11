@@ -5,8 +5,8 @@ class ConversationExportRequestTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
 
     request = ConversationExportRequest.create!(
@@ -39,13 +39,13 @@ class ConversationExportRequestTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     other_workspace = create_workspace!(
       installation: context[:installation],
       user: context[:user],
-      user_program_binding: context[:user_program_binding]
+      user_agent_binding: context[:user_agent_binding]
     )
 
     workspace_mismatch = ConversationExportRequest.new(

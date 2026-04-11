@@ -4,10 +4,10 @@ require Rails.root.join("../acceptance/lib/perf/runtime_registration_matrix")
 require Rails.root.join("../acceptance/lib/perf/workload_executor")
 
 class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
-  AgentProgramDouble = Struct.new(:public_id)
-  AgentProgramVersionDouble = Struct.new(:agent_program)
+  AgentDouble = Struct.new(:public_id)
+  AgentSnapshotDouble = Struct.new(:agent)
   ConversationDouble = Struct.new(:public_id)
-  RuntimeRegistrationDouble = Struct.new(:machine_credential, keyword_init: true)
+  RuntimeRegistrationDouble = Struct.new(:agent_connection_credential, keyword_init: true)
 
   test "routes execution-assignment tasks through the mailbox runner" do
     mailbox_calls = []
@@ -28,7 +28,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
           "workflow_run_public_id" => "workflow-mailbox",
         }
       end,
-      run_program_exchange: lambda do |**kwargs|
+      run_agent_request_exchange: lambda do |**kwargs|
         provider_calls << kwargs
         raise "provider path should not run"
       end,
@@ -63,7 +63,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
         mailbox_calls << kwargs
         raise "mailbox path should not run"
       end,
-      run_program_exchange: lambda do |conversation:, registration:, task:, slot_index:|
+      run_agent_request_exchange: lambda do |conversation:, registration:, task:, slot_index:|
         provider_calls << {
           conversation: conversation,
           registration: registration,
@@ -86,7 +86,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
     result = executor.call(
       conversation: { "public_id" => "conversation-2" },
       registration: perf_registration("fenix-02", "program-2"),
-      task: { "content" => "3", "selector_source" => "manual", "selector" => "role:mock", "workload_kind" => "program_exchange_mock" },
+      task: { "content" => "3", "selector_source" => "manual", "selector" => "role:mock", "workload_kind" => "agent_request_exchange_mock" },
       slot_index: 2,
       event_output_path: "/tmp/fenix-02.ndjson"
     )
@@ -94,16 +94,16 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
     assert_empty mailbox_calls
     assert_equal 1, provider_calls.length
     assert_equal "role:mock", provider_calls.first.dig(:task, "selector")
-    assert_equal "program_exchange_mock", provider_calls.first.dig(:task, "workload_kind")
+    assert_equal "agent_request_exchange_mock", provider_calls.first.dig(:task, "workload_kind")
     assert_equal "completed", result.fetch("status")
     assert_equal 2_000.0, events.first.dig(:payload, "duration_ms")
-    assert_equal "program-2", events.first.dig(:payload, "agent_program_public_id")
+    assert_equal "program-2", events.first.dig(:payload, "agent_public_id")
   end
 
   test "rejects unsupported workload kinds" do
     executor = Acceptance::Perf::WorkloadExecutor.new(
       run_execution_assignment: ->(**) { raise "should not run" },
-      run_program_exchange: ->(**) { raise "should not run" },
+      run_agent_request_exchange: ->(**) { raise "should not run" },
       append_event: ->(**) { raise "should not emit" }
     )
 
@@ -131,7 +131,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
           "workflow_run_public_id" => "workflow-object",
         }
       end,
-      run_program_exchange: ->(**) { raise "provider path should not run" },
+      run_agent_request_exchange: ->(**) { raise "provider path should not run" },
       append_event: lambda do |path:, payload:|
         events << { path:, payload: }
       end,
@@ -156,13 +156,12 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
       slot_label: slot_label,
       runtime_base_url: "http://127.0.0.1:3101",
       event_output_path: "/tmp/#{slot_label}.ndjson",
-      runtime_registration: RuntimeRegistrationDouble.new(machine_credential: "machine-#{slot_label}"),
+      runtime_registration: RuntimeRegistrationDouble.new(agent_connection_credential: "machine-#{slot_label}"),
       runtime_task_env: {},
-      agent_program: "program-#{slot_label}",
-      agent_program_version: AgentProgramVersionDouble.new(AgentProgramDouble.new(program_public_id)),
-      deployment: "deployment-#{slot_label}",
-      machine_credential: "machine-#{slot_label}",
-      executor_machine_credential: "executor-#{slot_label}"
+      agent: "program-#{slot_label}",
+      agent_snapshot: AgentSnapshotDouble.new(AgentDouble.new(program_public_id)),
+      agent_connection_credential: "machine-#{slot_label}",
+      execution_runtime_connection_credential: "executor-#{slot_label}"
     )
   end
 end

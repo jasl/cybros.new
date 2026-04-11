@@ -52,7 +52,7 @@ proposal.
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/payload_context.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/context/build_execution_context.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/prepare_round.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/execute_program_tool.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/execute_tool.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/test/services/fenix/runtime/prepare_round_test.rb`
 - Test: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb`
@@ -61,7 +61,7 @@ proposal.
 **Steps:**
 1. Write failing tests that assert the shared builder produces the same
    normalized context for assignment, `prepare_round`, and
-   `execute_program_tool`.
+   `execute_tool`.
 2. Extract a single payload-context object that owns:
    - task ids
    - logical work metadata
@@ -116,7 +116,7 @@ proposal.
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/schema.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_control_mailbox_item.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_execution_assignment.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_agent_program_request.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_agent_request.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_resource_close_request.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/resolve_target_runtime.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/serialize_mailbox_item.rb`
@@ -156,7 +156,7 @@ proposal.
 
 **Steps:**
 1. Write failing tests that describe the intended round-1 contract:
-   - assignments are program-plane work
+   - assignments are agent-plane work
    - execution plane remains resource-API work
    - invalid execution-plane assignment fixtures are removed
 2. Remove or rewrite code paths and tests that assume execution-plane
@@ -239,9 +239,9 @@ proposal.
 
 **Files:**
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/preview_for_conversation.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_sessions/spawn.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/spawn.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/runtime_capabilities/preview_for_conversation_test.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_sessions/spawn_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_connections/spawn_test.rb`
 - Scan: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test`
 - Scan: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/test`
 

@@ -28,17 +28,17 @@ class Fenix::Agent::Skills::CatalogTest < ActiveSupport::TestCase
     end
   end
 
-  test "reads only the live root for the selected agent program and user scope" do
+  test "reads only the live root for the selected agent and user scope" do
     with_skill_fixture_roots do |roots|
       repository_a = Fenix::Agent::Skills::Repository.new(
-        agent_program_id: "agent-program-1",
+        agent_id: "agent-1",
         user_id: "user-1",
         home_root: roots.fetch(:home_root),
         system_root: roots.fetch(:system_root),
         curated_root: roots.fetch(:curated_root)
       )
       repository_b = Fenix::Agent::Skills::Repository.new(
-        agent_program_id: "agent-program-2",
+        agent_id: "agent-2",
         user_id: "user-1",
         home_root: roots.fetch(:home_root),
         system_root: roots.fetch(:system_root),

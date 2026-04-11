@@ -31,22 +31,22 @@ module ProviderExecution
     end
 
     def active_children
-      active_child_sessions.map do |session|
-        task_run = active_child_task_runs_by_conversation_id[session.conversation_id]
+      active_child_connections.map do |connection|
+        task_run = active_child_task_runs_by_conversation_id[connection.conversation_id]
         plan_summary = child_plan_summary(task_run)
 
         {
-          "child_session_id" => session.public_id,
-          "conversation_id" => session.conversation.public_id,
-          "scope" => session.scope,
-          "profile_key" => session.profile_key,
-          "observed_status" => session.observed_status,
-          "supervision_state" => session.supervision_state,
-          "request_summary" => plan_summary&.fetch("goal_summary", nil) || task_run&.request_summary || session.request_summary,
-          "current_focus_summary" => plan_summary&.fetch("current_item_title", nil) || task_run&.current_focus_summary || session.current_focus_summary,
-          "waiting_summary" => task_run&.waiting_summary || session.waiting_summary,
-          "blocked_summary" => task_run&.blocked_summary || session.blocked_summary,
-          "next_step_hint" => task_run&.next_step_hint || session.next_step_hint,
+          "subagent_connection_id" => connection.public_id,
+          "conversation_id" => connection.conversation.public_id,
+          "scope" => connection.scope,
+          "profile_key" => connection.profile_key,
+          "observed_status" => connection.observed_status,
+          "supervision_state" => connection.supervision_state,
+          "request_summary" => plan_summary&.fetch("goal_summary", nil) || task_run&.request_summary || connection.request_summary,
+          "current_focus_summary" => plan_summary&.fetch("current_item_title", nil) || task_run&.current_focus_summary || connection.current_focus_summary,
+          "waiting_summary" => task_run&.waiting_summary || connection.waiting_summary,
+          "blocked_summary" => task_run&.blocked_summary || connection.blocked_summary,
+          "next_step_hint" => task_run&.next_step_hint || connection.next_step_hint,
           "plan_summary" => plan_summary,
         }.compact
       end
@@ -102,8 +102,8 @@ module ProviderExecution
         .first
     end
 
-    def active_child_sessions
-      @active_child_sessions ||= @conversation.owned_subagent_sessions
+    def active_child_connections
+      @active_child_connections ||= @conversation.owned_subagent_connections
         .includes(:conversation)
         .close_pending_or_open
         .where(observed_status: ACTIVE_CHILD_OBSERVED_STATUSES)
@@ -112,15 +112,15 @@ module ProviderExecution
     end
 
     def active_child_task_runs_by_conversation_id
-      @active_child_task_runs_by_conversation_id ||= active_child_sessions.each_with_object({}) do |session, index|
+      @active_child_task_runs_by_conversation_id ||= active_child_connections.each_with_object({}) do |connection, index|
         task_run = AgentTaskRun
-          .where(conversation: session.conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
+          .where(conversation: connection.conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
           .includes(turn_todo_plan: :turn_todo_plan_items)
           .order(created_at: :desc)
           .first
         next if task_run.blank?
 
-        index[session.conversation_id] = task_run
+        index[connection.conversation_id] = task_run
       end
     end
 

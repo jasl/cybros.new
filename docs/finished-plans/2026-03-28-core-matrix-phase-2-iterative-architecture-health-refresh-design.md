@@ -12,7 +12,7 @@ Read together with:
 5. `docs/plans/2026-03-28-core-matrix-phase-2-plan-structural-consolidation-follow-up.md`
 6. `docs/plans/2026-03-28-core-matrix-phase-2-plan-post-consolidation-repair-loop.md`
 7. `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
-8. `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
+8. `core_matrix/docs/behavior/subagent-connections-and-execution-leases.md`
 9. `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
 10. `core_matrix/docs/behavior/agent-registration-and-capability-handshake.md`
 11. `core_matrix/docs/behavior/agent-runtime-resource-apis.md`
@@ -27,7 +27,7 @@ This audit answers a narrower and more urgent question than the earlier
 follow-up:
 
 - after the previous audit, structural consolidation, repair-loop work, and
-  conversation-first subagent-session changes, what structural problems still
+  conversation-first subagent-connection changes, what structural problems still
   remain
 - which earlier concerns have actually been resolved
 - what new high-confidence risks have appeared around the newest Phase 2
@@ -46,7 +46,7 @@ The system shape has moved since then:
 - provider execution has already been split once
 - deployment recovery has already been refactored once
 - lifecycle and mutation contracts have already been partially consolidated
-- `SubagentSession` and conversation-first delegation are now first-class
+- `SubagentConnection` and conversation-first delegation are now first-class
   architecture, not proposed future shape
 
 That means a good new audit must do two things at once:
@@ -76,7 +76,7 @@ Focused hotspot surfaces inside that whole-system audit:
 - runtime control and close reconciliation
 - runtime capability composition and projection
 - execution snapshot shaping
-- `SubagentSession` ownership and delegation flows
+- `SubagentConnection` ownership and delegation flows
 - `core_matrix <-> agents/fenix` responsibility boundaries
 
 Secondary references, used only to confirm or reject a candidate conclusion:
@@ -124,7 +124,7 @@ itself to only the latest Phase 2 files.
 However, some surfaces deserve deeper review because they are both new and
 structurally central:
 
-- `SubagentSession`
+- `SubagentConnection`
 - runtime capability composition
 - close and reconcile control
 - execution snapshots
@@ -210,7 +210,7 @@ Re-scan the system through the main architecture boundaries:
 
 Deep-read the newest and most sensitive surfaces:
 
-- `SubagentSession`
+- `SubagentConnection`
 - runtime capability composition
 - close and reconcile flows
 - execution snapshots

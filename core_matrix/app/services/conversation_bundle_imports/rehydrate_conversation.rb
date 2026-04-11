@@ -13,7 +13,7 @@ module ConversationBundleImports
       ApplicationRecord.transaction do
         conversation = Conversations::CreateRoot.call(
           workspace: @request.workspace,
-          agent_program: target_agent_program_version.agent_program
+          agent: target_agent_snapshot.agent
         )
         restore_conversation_timestamps!(conversation)
         rehydrate_turns!(conversation)
@@ -23,10 +23,10 @@ module ConversationBundleImports
 
     private
 
-    def target_agent_program_version
-      @target_agent_program_version ||= AgentProgramVersion.find_by!(
+    def target_agent_snapshot
+      @target_agent_snapshot ||= AgentSnapshot.find_by!(
         installation_id: @request.installation_id,
-        public_id: @request.request_payload.fetch("target_agent_program_version_id")
+        public_id: @request.request_payload.fetch("target_agent_snapshot_id")
       )
     end
 
@@ -38,8 +38,8 @@ module ConversationBundleImports
       @parsed_bundle.fetch("file_bytes")
     end
 
-    def target_executor_program
-      @target_executor_program ||= target_agent_program_version.agent_program.default_executor_program
+    def target_execution_runtime
+      @target_execution_runtime ||= target_agent_snapshot.agent.default_execution_runtime
     end
 
     def restore_conversation_timestamps!(conversation)
@@ -69,8 +69,8 @@ module ConversationBundleImports
         turn = Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
-          agent_program_version: target_agent_program_version,
-          executor_program: target_executor_program,
+          agent_snapshot: target_agent_snapshot,
+          execution_runtime: target_execution_runtime,
           sequence: index + 1,
           lifecycle_state: "completed",
           origin_kind: "system_internal",
@@ -80,7 +80,7 @@ module ConversationBundleImports
           },
           source_ref_type: "ConversationBundleImportRequest",
           source_ref_id: @request.public_id,
-          pinned_program_version_fingerprint: target_agent_program_version.fingerprint,
+          pinned_agent_snapshot_fingerprint: target_agent_snapshot.fingerprint,
           resolved_config_snapshot: {},
           resolved_model_selection_snapshot: {},
           created_at: created_at,

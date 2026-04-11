@@ -9,8 +9,8 @@ class UsageRollup < ApplicationRecord
     conversation_id
     turn_id
     workflow_node_key
-    agent_program_id
-    agent_program_version_id
+    agent_id
+    agent_snapshot_id
     provider_handle
     model_ref
     operation_kind
@@ -27,8 +27,8 @@ class UsageRollup < ApplicationRecord
   belongs_to :installation
   belongs_to :user, optional: true
   belongs_to :workspace, optional: true
-  belongs_to :agent_program, optional: true
-  belongs_to :agent_program_version, optional: true
+  belongs_to :agent, optional: true
+  belongs_to :agent_snapshot, optional: true
 
   validates :provider_handle, :model_ref, :bucket_key, :dimension_digest, presence: true
   validates :dimension_digest, uniqueness: { scope: [:installation_id, :bucket_kind, :bucket_key] }
@@ -41,8 +41,8 @@ class UsageRollup < ApplicationRecord
     numericality: { greater_than_or_equal_to: 0 }
   validate :user_installation_match
   validate :workspace_installation_match
-  validate :agent_program_installation_match
-  validate :agent_program_version_installation_match
+  validate :agent_installation_match
+  validate :agent_snapshot_installation_match
 
   data_lifecycle_kind! :retained_aggregate
 
@@ -70,17 +70,17 @@ class UsageRollup < ApplicationRecord
     errors.add(:workspace, "must belong to the same installation")
   end
 
-  def agent_program_installation_match
-    return if agent_program.blank?
-    return if agent_program.installation_id == installation_id
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
 
-    errors.add(:agent_program, "must belong to the same installation")
+    errors.add(:agent, "must belong to the same installation")
   end
 
-  def agent_program_version_installation_match
-    return if agent_program_version.blank?
-    return if agent_program_version.installation_id == installation_id
+  def agent_snapshot_installation_match
+    return if agent_snapshot.blank?
+    return if agent_snapshot.installation_id == installation_id
 
-    errors.add(:agent_program_version, "must belong to the same installation")
+    errors.add(:agent_snapshot, "must belong to the same installation")
   end
 end

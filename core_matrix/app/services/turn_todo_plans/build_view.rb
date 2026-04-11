@@ -53,7 +53,7 @@ module TurnTodoPlans
         "kind" => item.kind,
         "details_payload" => item.details_payload,
         "depends_on_item_keys" => item.depends_on_item_keys,
-        "delegated_subagent_session_id" => item.delegated_subagent_session&.public_id,
+        "delegated_subagent_connection_id" => item.delegated_subagent_connection&.public_id,
       }.compact
     end
   end

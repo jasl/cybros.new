@@ -30,7 +30,7 @@ runtime details such as:
 That approach does not scale. It overfits the `2048` acceptance benchmark and
 violates the product boundary:
 
-- `Agent Program` knows the task semantics
+- `Agent` knows the task semantics
 - `Core Matrix` knows the runtime, the conversation, and the durable state
 
 This contract replaces runtime-first semantic guessing with plan-first
@@ -38,9 +38,9 @@ supervision.
 
 ## Responsibility Split
 
-### Agent Program Responsibilities
+### Agent Responsibilities
 
-The `Agent Program` runs inside `Core Matrix` and is optional at every semantic
+The `Agent` runs inside `Core Matrix` and is optional at every semantic
 boundary except one:
 
 - it may emit `turn_todo_plan_update`
@@ -51,7 +51,7 @@ high-quality supervision.
 `turn_todo_plan_update` is optional, not mandatory. If it is missing, the
 system must still provide coarse supervision using runtime and lifecycle data.
 
-The `Agent Program` must not be required to emit extra supervision-only fields
+The `Agent` must not be required to emit extra supervision-only fields
 such as:
 
 - `active_form`
@@ -74,7 +74,7 @@ Those remain derived concerns owned by `Core Matrix`.
 - acceptance and replay evaluation dumps
 
 This means `Core Matrix` must derive user-facing supervision from durable
-inputs it already owns, not by asking the `Agent Program` for extra product
+inputs it already owns, not by asking the `Agent` for extra product
 copy.
 
 ## Hard Rules
@@ -203,7 +203,7 @@ The stream may derive from:
 - command runs
 - process runs
 - plan feed entries
-- subagent session updates
+- subagent connection updates
 - validation milestones
 - artifact publication milestones
 
@@ -235,7 +235,7 @@ Supervision needs compact, reusable context that survives across snapshots and
 can be safely passed to a responder prompt.
 
 This context is owned by `Core Matrix` and extracted from the main
-conversation. It is not requested from the `Agent Program`.
+conversation. It is not requested from the `Agent`.
 
 ### Principle Absorbed From Claude `/btw`
 

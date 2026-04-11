@@ -44,7 +44,7 @@ not modeled as separate workflow nodes.
 ### 2. Initial naming is synchronous and cheap
 
 The first title must be available immediately after the first user message is
-persisted. That path must not depend on agent-program cooperation and should
+persisted. That path must not depend on agent cooperation and should
 not require a provider call.
 
 ### 3. User edits are authoritative

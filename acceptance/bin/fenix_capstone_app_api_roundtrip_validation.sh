@@ -23,17 +23,17 @@ CAPSTONE_PHASE=bootstrap \
 CAPSTONE_SKIP_BACKEND_RESET=true \
 bin/rails runner "${REPO_ROOT}/acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb"
 
-machine_credential="$(
-  ruby -rjson -e 'state = JSON.parse(File.read(ARGV[0])); puts state.fetch("machine_credential")' \
+agent_connection_credential="$(
+  ruby -rjson -e 'state = JSON.parse(File.read(ARGV[0])); puts state.fetch("agent_connection_credential")' \
     "${BOOTSTRAP_STATE_PATH}"
 )"
-executor_machine_credential="$(
-  ruby -rjson -e 'state = JSON.parse(File.read(ARGV[0])); puts state.fetch("executor_machine_credential")' \
+execution_runtime_connection_credential="$(
+  ruby -rjson -e 'state = JSON.parse(File.read(ARGV[0])); puts state.fetch("execution_runtime_connection_credential")' \
     "${BOOTSTRAP_STATE_PATH}"
 )"
 
-FENIX_MACHINE_CREDENTIAL="${machine_credential}" \
-FENIX_EXECUTION_MACHINE_CREDENTIAL="${executor_machine_credential}" \
+FENIX_AGENT_CONNECTION_CREDENTIAL="${agent_connection_credential}" \
+FENIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL="${execution_runtime_connection_credential}" \
 CAPSTONE_RUNTIME_WORKER_BOOT_PATH="${RUNTIME_WORKER_BOOT_PATH}" \
 bash "${SCRIPT_DIR}/activate_fenix_docker_runtime.sh"
 

@@ -33,13 +33,13 @@ class FenixSharedArchitectureBoundariesTest < ActiveSupport::TestCase
     assert_equal [], offenders
   end
 
-  test "executor implementation files do not depend on runtime or legacy executor namespaces" do
-    executor_root = Rails.root.join("app/services/fenix/executor")
-    executor_files = Dir.glob(executor_root.join("**/*.rb"))
+  test "execution runtime implementation files do not depend on runtime or legacy executor namespaces" do
+    execution_runtime_root = Rails.root.join("app/services/fenix/execution_runtime")
+    execution_runtime_files = Dir.glob(execution_runtime_root.join("**/*.rb"))
 
-    assert_predicate executor_files, :any?, "expected executor implementation files to exist"
+    assert_predicate execution_runtime_files, :any?, "expected execution runtime implementation files to exist"
 
-    offenders = executor_files.filter_map do |path|
+    offenders = execution_runtime_files.filter_map do |path|
       contents = File.read(path)
       next unless contents.match?(/\bFenix::Runtime::|\bFenix::(Processes|Browser|Hooks)\b/)
 

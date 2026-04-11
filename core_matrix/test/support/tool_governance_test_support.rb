@@ -1,12 +1,12 @@
 module ToolGovernanceTestSupport
   private
 
-  def governed_executor_tool_catalog
+  def governed_execution_runtime_tool_catalog
     [
       {
         "tool_name" => "exec_command",
-        "tool_kind" => "executor_program",
-        "implementation_source" => "executor_program",
+        "tool_kind" => "execution_runtime",
+        "implementation_source" => "execution_runtime",
         "implementation_ref" => "env/exec_command",
         "input_schema" => { "type" => "object", "properties" => {} },
         "result_schema" => { "type" => "object", "properties" => {} },
@@ -62,12 +62,12 @@ module ToolGovernanceTestSupport
   end
 
   def build_governed_tool_context!(
-    executor_tool_catalog: governed_executor_tool_catalog,
+    execution_runtime_tool_catalog: governed_execution_runtime_tool_catalog,
     agent_tool_catalog: governed_agent_tool_catalog,
     profile_catalog: governed_profile_catalog
   )
     context = build_agent_control_context!
-    context.fetch(:executor_program).update!(tool_catalog: executor_tool_catalog)
+    context.fetch(:execution_runtime).update!(tool_catalog: execution_runtime_tool_catalog)
 
     activate_program_version!(
       context,
@@ -77,14 +77,14 @@ module ToolGovernanceTestSupport
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     context.fetch(:turn).update!(
-      agent_program_version: context.fetch(:agent_program_version),
-      pinned_program_version_fingerprint: context.fetch(:agent_program_version).fingerprint
+      agent_snapshot: context.fetch(:agent_snapshot),
+      pinned_agent_snapshot_fingerprint: context.fetch(:agent_snapshot).fingerprint
     )
     Workflows::BuildExecutionSnapshot.call(turn: context.fetch(:turn))
 
     context.merge(
-      capability_snapshot: context.fetch(:agent_program_version),
-      deployment: context.fetch(:agent_program_version),
+      capability_snapshot: context.fetch(:agent_snapshot),
+      agent_snapshot: context.fetch(:agent_snapshot),
       turn: context.fetch(:turn).reload,
       workflow_node: context.fetch(:workflow_node).reload
     )

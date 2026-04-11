@@ -8,22 +8,22 @@ class UsageEventTest < ActiveSupport::TestCase
   test "captures usage dimensions for token-based events" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    agent_program = create_agent_program!(installation: installation)
-    executor_program = create_executor_program!(installation: installation)
-    agent_program_version = create_agent_program_version!(
+    agent = create_agent!(installation: installation)
+    execution_runtime = create_execution_runtime!(installation: installation)
+    agent_snapshot = create_agent_snapshot!(
       installation: installation,
-      agent_program: agent_program,
-      executor_program: executor_program
+      agent: agent,
+      execution_runtime: execution_runtime
     )
-    binding = create_user_program_binding!(
+    binding = create_user_agent_binding!(
       installation: installation,
       user: user,
-      agent_program: agent_program
+      agent: agent
     )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_program_binding: binding
+      user_agent_binding: binding
     )
 
     event = UsageEvent.create!(
@@ -33,8 +33,8 @@ class UsageEventTest < ActiveSupport::TestCase
       conversation_id: 101,
       turn_id: 202,
       workflow_node_key: "planner-step",
-      agent_program: agent_program,
-      agent_program_version: agent_program_version,
+      agent: agent,
+      agent_snapshot: agent_snapshot,
       provider_handle: "openai",
       model_ref: "gpt-5.3-chat-latest",
       operation_kind: "text_generation",

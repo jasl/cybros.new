@@ -90,7 +90,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal false, captured_inline_if_queued
   end
 
-  test "execute_program_tool_call! retries deferred mailbox exchanges until a terminal result arrives" do
+  test "execute_tool_call! retries deferred mailbox exchanges until a terminal result arrives" do
     workflow_node = Object.new
     round_bindings = [:binding]
     tool_call = {
@@ -98,7 +98,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       "tool_name" => "process_exec",
       "arguments" => {},
     }
-    deployment = Object.new
+    agent_snapshot = Object.new
     result = Struct.new(:tool_invocation, :result).new(:invocation, { "process_run_id" => "process-1" })
     attempts = 0
     captured_kwargs = []
@@ -111,21 +111,21 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         captured_kwargs << kwargs
 
         if attempts == 1
-          raise ProviderExecution::ProgramMailboxExchange::PendingResponse.new(
+          raise ProviderExecution::AgentRequestExchange::PendingResponse.new(
             mailbox_item_public_id: "mailbox-item-1",
-            logical_work_id: "program-tool:node:call-1",
-            request_kind: "execute_program_tool"
+            logical_work_id: "tool-call:node:call-1",
+            request_kind: "execute_tool"
           )
         end
 
         result
       end
     ) do
-      returned = Acceptance::ManualSupport.execute_program_tool_call!(
+      returned = Acceptance::ManualSupport.execute_tool_call!(
         workflow_node: workflow_node,
         tool_call: tool_call,
         round_bindings: round_bindings,
-        agent_program_version: deployment,
+        agent_snapshot: agent_snapshot,
         timeout_seconds: 1,
         poll_interval_seconds: 0.0
       )
@@ -138,7 +138,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       assert_equal workflow_node, kwargs.fetch(:workflow_node)
       assert_equal tool_call, kwargs.fetch(:tool_call)
       assert_equal round_bindings, kwargs.fetch(:round_bindings)
-      assert_instance_of ProviderExecution::ProgramMailboxExchange, kwargs.fetch(:program_exchange)
+      assert_instance_of ProviderExecution::AgentRequestExchange, kwargs.fetch(:agent_request_exchange)
     end
   end
 
@@ -271,7 +271,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal [:disconnect, :reset], calls
   end
 
-  test "run_database_reset_command! invokes rails db:reset with the drop safety override" do
+  test "run_database_reset_command! rebuilds the schema from migrations before db:reset" do
     captured = nil
 
     with_redefined_singleton_method(Bundler, :with_unbundled_env, ->(&block) { block.call }) do
@@ -285,9 +285,14 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       end
     end
 
-    env, command, task = captured.fetch(:args)
-    assert_equal "bin/rails", command
-    assert_equal "db:reset", task
+    env, command, shell_flag, script = captured.fetch(:args)
+    assert_equal "bash", command
+    assert_equal "-lc", shell_flag
+    assert_includes script, "bin/rails db:drop"
+    assert_includes script, "rm -f db/schema.rb"
+    assert_includes script, "bin/rails db:create"
+    assert_includes script, "bin/rails db:migrate"
+    assert_includes script, "bin/rails db:reset"
     assert_equal ENV.fetch("RAILS_ENV", "development"), env.fetch("RAILS_ENV")
     assert_equal "1", env.fetch("DISABLE_DATABASE_ENVIRONMENT_CHECK")
     assert_equal Rails.root.to_s, captured.fetch(:kwargs).fetch(:chdir)
@@ -310,8 +315,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         ) do
           result = Acceptance::ManualSupport.run_fenix_runtime_task!(
             task_name: "runtime:control_loop_once",
-            machine_credential: "program-secret",
-            executor_machine_credential: "execution-secret",
+            agent_connection_credential: "program-secret",
+            execution_runtime_connection_credential: "execution-secret",
             env: {}
           )
 
@@ -347,8 +352,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         ) do
           Acceptance::ManualSupport.run_fenix_runtime_task!(
             task_name: "runtime:control_loop_once",
-            machine_credential: "program-secret",
-            executor_machine_credential: "execution-secret",
+            agent_connection_credential: "program-secret",
+            execution_runtime_connection_credential: "execution-secret",
             env: {
               "FENIX_HOME_ROOT" => "/tmp/fenix-slot-home",
               "CYBROS_PERF_EVENTS_PATH" => "/tmp/fenix-slot-events.ndjson",
@@ -386,8 +391,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
               -> { Pathname.new("/tmp/fenix-project") }
             ) do
               Acceptance::ManualSupport.with_fenix_control_worker!(
-                machine_credential: "program-secret",
-                executor_machine_credential: "execution-secret",
+                agent_connection_credential: "program-secret",
+                execution_runtime_connection_credential: "execution-secret",
                 env: {
                   "FENIX_HOME_ROOT" => "/tmp/fenix-slot-home",
                   "CYBROS_PERF_EVENTS_PATH" => "/tmp/fenix-slot-events.ndjson",
@@ -415,9 +420,9 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     captured = nil
     registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
-      machine_credential: "program-secret",
-      executor_machine_credential: "execution-secret",
-      agent_program_version: "apv"
+      agent_connection_credential: "program-secret",
+      execution_runtime_connection_credential: "execution-secret",
+      agent_snapshot: "apv"
     )
 
     with_redefined_singleton_method(
@@ -436,8 +441,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       assert_equal({ "items" => [] }, result)
     end
 
-    assert_equal "program-secret", captured.fetch(:machine_credential)
-    assert_equal "execution-secret", captured.fetch(:executor_machine_credential)
+    assert_equal "program-secret", captured.fetch(:agent_connection_credential)
+    assert_equal "execution-secret", captured.fetch(:execution_runtime_connection_credential)
     assert_equal 3, captured.fetch(:limit)
   end
 
@@ -446,8 +451,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     yielded = nil
     registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
-      machine_credential: "program-secret",
-      agent_program_version: "apv"
+      agent_connection_credential: "program-secret",
+      agent_snapshot: "apv"
     )
 
     with_redefined_singleton_method(
@@ -466,8 +471,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       end
     end
 
-    assert_equal "program-secret", captured.fetch(:machine_credential)
-    assert_equal "program-secret", captured.fetch(:executor_machine_credential)
+    assert_equal "program-secret", captured.fetch(:agent_connection_credential)
+    assert_equal "program-secret", captured.fetch(:execution_runtime_connection_credential)
     assert_equal 2, captured.fetch(:limit)
     assert_equal "pid-123", yielded
   end
@@ -475,19 +480,19 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
   test "runtime registration exposes session ids without reaching into raw registration payloads" do
     registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
-      machine_credential: "program-secret",
-      executor_machine_credential: "execution-secret",
-      agent_program_version: "apv",
+      agent_connection_credential: "program-secret",
+      execution_runtime_connection_credential: "execution-secret",
+      agent_snapshot: "apv",
       registration: {
-        "agent_session_id" => "agent-session-public-id",
-        "executor_session_id" => "executor-session-public-id",
+        "agent_connection_id" => "agent-session-public-id",
+        "execution_runtime_connection_id" => "execution-runtime-connection-public-id",
       }
     )
 
-    assert_equal "agent-session-public-id", registration.agent_session_id
-    assert_equal "executor-session-public-id", registration.executor_session_id
-    assert_equal "agent-session-public-id", registration.fetch(:agent_session_id)
-    assert_equal "executor-session-public-id", registration.fetch(:executor_session_id)
+    assert_equal "agent-session-public-id", registration.agent_connection_id
+    assert_equal "execution-runtime-connection-public-id", registration.execution_runtime_connection_id
+    assert_equal "agent-session-public-id", registration.fetch(:agent_connection_id)
+    assert_equal "execution-runtime-connection-public-id", registration.fetch(:execution_runtime_connection_id)
   end
 
   test "reconnect_application_record! re-establishes and checks out through with_connection" do
@@ -505,12 +510,12 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal [:establish, :with_connection], calls
   end
 
-  test "register_external_runtime! returns the executor machine credential from the registration payload" do
+  test "register_external_runtime! returns the execution runtime connection credential from the registration payload" do
     registration_calls = []
     heartbeat_calls = []
     manifest = {
       "endpoint_metadata" => { "runtime_manifest_path" => "/runtime/manifest" },
-      "protocol_version" => "agent-program/2026-04-01",
+      "protocol_version" => "agent-runtime/2026-04-01",
       "sdk_version" => "fenix-0.1.0",
       "protocol_methods" => [],
       "tool_catalog" => [],
@@ -518,8 +523,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       "config_schema_snapshot" => {},
       "conversation_override_schema_snapshot" => {},
       "default_config_snapshot" => {},
-      "executor_capability_payload" => {},
-      "executor_tool_catalog" => [],
+      "execution_runtime_capability_payload" => {},
+      "execution_runtime_tool_catalog" => [],
     }
 
     with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
@@ -530,10 +535,10 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           if url.end_with?("/agent_api/registrations")
             registration_calls << [url, payload, headers]
             {
-              "machine_credential" => "program-secret",
-              "executor_machine_credential" => "execution-secret",
-              "agent_program_version_id" => "apv_123",
-              "executor_program_id" => "rt_123",
+              "agent_connection_credential" => "program-secret",
+              "execution_runtime_connection_credential" => "execution-secret",
+              "agent_snapshot_id" => "apv_123",
+              "execution_runtime_id" => "rt_123",
             }
           else
             heartbeat_calls << [url, payload, headers]
@@ -541,20 +546,20 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           end
         end
       ) do
-        with_redefined_singleton_method(AgentProgramVersion, :find_by_public_id!, ->(public_id) { public_id }) do
-          with_redefined_singleton_method(ExecutorProgram, :find_by_public_id!, ->(public_id) { public_id }) do
+        with_redefined_singleton_method(AgentSnapshot, :find_by_public_id!, ->(public_id) { public_id }) do
+          with_redefined_singleton_method(ExecutionRuntime, :find_by_public_id!, ->(public_id) { public_id }) do
             result = Acceptance::ManualSupport.register_external_runtime!(
               enrollment_token: "enrollment-token",
               runtime_base_url: "http://127.0.0.1:3101",
-              executor_fingerprint: "runtime-fingerprint",
+              execution_runtime_fingerprint: "runtime-fingerprint",
               fingerprint: "program-fingerprint"
             )
 
             assert_instance_of Acceptance::ManualSupport::RuntimeRegistration, result
-            assert_equal "program-secret", result.machine_credential
-            assert_equal "execution-secret", result.executor_machine_credential
-            assert_equal "apv_123", result.agent_program_version
-            assert_equal "rt_123", result.executor_program
+            assert_equal "program-secret", result.agent_connection_credential
+            assert_equal "execution-secret", result.execution_runtime_connection_credential
+            assert_equal "apv_123", result.agent_snapshot
+            assert_equal "rt_123", result.execution_runtime
             assert_equal 1, registration_calls.length
             assert_equal 1, heartbeat_calls.length
             registration_payload = registration_calls.first.fetch(1)
@@ -564,7 +569,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
                 "transport" => "http",
                 "base_url" => "http://127.0.0.1:3101",
               },
-              registration_payload.fetch(:executor_connection_metadata)
+              registration_payload.fetch(:execution_runtime_connection_metadata)
             )
           end
         end
@@ -574,7 +579,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
 
   test "register_bundled_runtime_from_manifest! preserves explicit executor connection metadata from the manifest" do
     manifest = bundled_runtime_manifest(
-      "executor_connection_metadata" => {
+      "execution_runtime_connection_metadata" => {
         "transport" => "unix",
         "socket_path" => "/tmp/fenix-runtime.sock",
       },
@@ -585,16 +590,16 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       with_redefined_singleton_method(
         Installations::RegisterBundledAgentRuntime,
         :call,
-        lambda do |installation:, session_credential:, executor_session_credential:, configuration:|
+        lambda do |installation:, agent_connection_credential:, execution_runtime_connection_credential:, configuration:|
           captured_configuration = configuration
           Struct.new(
-            :session_credential,
-            :executor_session_credential,
-            :deployment,
-            :executor_program
+            :agent_connection_credential,
+            :execution_runtime_connection_credential,
+            :agent_snapshot,
+            :execution_runtime
           ).new(
-            session_credential,
-            executor_session_credential,
+            agent_connection_credential,
+            execution_runtime_connection_credential,
             "apv_123",
             "rt_123"
           )
@@ -603,36 +608,36 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         result = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
           installation: "installation",
           runtime_base_url: "http://127.0.0.1:3101",
-          executor_fingerprint: "runtime-fingerprint",
+          execution_runtime_fingerprint: "runtime-fingerprint",
           fingerprint: "program-fingerprint"
         )
 
         assert_instance_of Acceptance::ManualSupport::RuntimeRegistration, result
-        assert_equal manifest.fetch("executor_connection_metadata"), captured_configuration.fetch(:connection_metadata)
-        assert result.machine_credential.present?
-        assert result.executor_machine_credential.present?
+        assert_equal manifest.fetch("execution_runtime_connection_metadata"), captured_configuration.fetch(:connection_metadata)
+        assert result.agent_connection_credential.present?
+        assert result.execution_runtime_connection_credential.present?
       end
     end
   end
 
   test "register_bundled_runtime_from_manifest! falls back to the runtime base url when executor connection metadata is omitted" do
-    manifest = bundled_runtime_manifest.except("executor_connection_metadata")
+    manifest = bundled_runtime_manifest.except("execution_runtime_connection_metadata")
     captured_configuration = nil
 
     with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
       with_redefined_singleton_method(
         Installations::RegisterBundledAgentRuntime,
         :call,
-        lambda do |installation:, session_credential:, executor_session_credential:, configuration:|
+        lambda do |installation:, agent_connection_credential:, execution_runtime_connection_credential:, configuration:|
           captured_configuration = configuration
           Struct.new(
-            :session_credential,
-            :executor_session_credential,
-            :deployment,
-            :executor_program
+            :agent_connection_credential,
+            :execution_runtime_connection_credential,
+            :agent_snapshot,
+            :execution_runtime
           ).new(
-            session_credential,
-            executor_session_credential,
+            agent_connection_credential,
+            execution_runtime_connection_credential,
             "apv_123",
             "rt_123"
           )
@@ -641,7 +646,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
           installation: "installation",
           runtime_base_url: "http://127.0.0.1:3101",
-          executor_fingerprint: "runtime-fingerprint",
+          execution_runtime_fingerprint: "runtime-fingerprint",
           fingerprint: "program-fingerprint"
         )
       end
@@ -657,7 +662,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal manifest.fetch("endpoint_metadata"), captured_configuration.fetch(:endpoint_metadata)
   end
 
-  test "run_fenix_mailbox_task! forwards the execution machine credential and resolves mailbox_result summaries" do
+  test "run_fenix_mailbox_task! forwards the execution runtime connection credential and resolves mailbox_result summaries" do
     conversation = ReloadableDouble.new("conversation")
     workflow_run = ReloadableDouble.new("workflow")
     turn = ReloadableDouble.new("turn")
@@ -665,12 +670,12 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     mailbox_items = Object.new
     mailbox_items.define_singleton_method(:order) { |_created_at, _id| [mailbox_item] }
     agent_task_run = AgentTaskRunDouble.new("agent-task-1", mailbox_items)
-    captured_executor_machine_credential = nil
+    captured_execution_runtime_connection_credential = nil
 
     with_redefined_singleton_method(
       Acceptance::ManualSupport,
       :create_conversation!,
-      ->(agent_program_version:) { { conversation: conversation } }
+      ->(agent_snapshot:) { { conversation: conversation } }
     ) do
       with_redefined_singleton_method(
         Acceptance::ManualSupport,
@@ -687,8 +692,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         with_redefined_singleton_method(
           Acceptance::ManualSupport,
           :run_fenix_control_loop_once!,
-          lambda do |machine_credential:, executor_machine_credential:, **_kwargs|
-            captured_executor_machine_credential = executor_machine_credential
+          lambda do |agent_connection_credential:, execution_runtime_connection_credential:, **_kwargs|
+            captured_execution_runtime_connection_credential = execution_runtime_connection_credential
             {
               "items" => [
                 {
@@ -710,9 +715,9 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           ) do
             with_redefined_singleton_method(Acceptance::ManualSupport, :report_results_for, ->(agent_task_run:) { [] }) do
               result = Acceptance::ManualSupport.run_fenix_mailbox_task!(
-                agent_program_version: "apv",
-                machine_credential: "program-secret",
-                executor_machine_credential: "execution-secret",
+                agent_snapshot: "apv",
+                agent_connection_credential: "program-secret",
+                execution_runtime_connection_credential: "execution-secret",
                 content: "hello",
                 mode: "deterministic_tool"
               )
@@ -725,7 +730,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       end
     end
 
-    assert_equal "execution-secret", captured_executor_machine_credential
+    assert_equal "execution-secret", captured_execution_runtime_connection_credential
   end
 
   test "create_conversation_supervision_session! calls the create-session service and serializes the result" do
@@ -875,8 +880,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     {
       "agent_key" => "fenix",
       "display_name" => "Fenix",
-      "executor_kind" => "local",
-      "executor_connection_metadata" => {
+      "execution_runtime_kind" => "local",
+      "execution_runtime_connection_metadata" => {
         "transport" => "http",
         "base_url" => "http://127.0.0.1:3101/runtime",
       },
@@ -885,7 +890,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         "base_url" => "http://127.0.0.1:3101",
         "runtime_manifest_path" => "/runtime/manifest",
       },
-      "protocol_version" => "agent-program/2026-04-01",
+      "protocol_version" => "agent-runtime/2026-04-01",
       "sdk_version" => "fenix-0.1.0",
       "protocol_methods" => [],
       "tool_catalog" => [],
@@ -893,8 +898,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       "config_schema_snapshot" => {},
       "conversation_override_schema_snapshot" => {},
       "default_config_snapshot" => {},
-      "executor_capability_payload" => {},
-      "executor_tool_catalog" => [],
+      "execution_runtime_capability_payload" => {},
+      "execution_runtime_tool_catalog" => [],
     }.merge(overrides)
   end
 end

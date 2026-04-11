@@ -36,18 +36,18 @@ module AgentControl
 
     def create_mailbox_item!
       requested_at = Time.current
-      target_session = delivery_endpoint
-      target_agent_program =
-        if target_session.is_a?(AgentSession)
-          target_session.agent_program
+      target_connection = delivery_endpoint
+      target_agent =
+        if target_connection.is_a?(AgentConnection)
+          target_connection.agent
         else
-          ClosableResourceRouting.owning_agent_program_for(@resource)
+          ClosableResourceRouting.owning_agent_for(@resource)
         end
-      target_deployment =
-        if executor_plane?
+      target_agent_snapshot =
+        if execution_runtime_plane?
           nil
         else
-          resolved_target_deployment(target_session:, target_agent_program:)
+          resolved_target_agent_snapshot(target_connection:, target_agent:)
         end
 
       resource_updates = {
@@ -62,9 +62,9 @@ module AgentControl
 
       mailbox_item = AgentControlMailboxItem.create!(
         installation: @resource.installation,
-        target_agent_program: target_agent_program,
-        target_agent_program_version: target_deployment,
-        target_executor_program: executor_plane? ? ClosableResourceRouting.executor_program_for(@resource) : nil,
+        target_agent: target_agent,
+        target_agent_snapshot: target_agent_snapshot,
+        target_execution_runtime: execution_runtime_plane? ? ClosableResourceRouting.execution_runtime_for(@resource) : nil,
         agent_task_run: agent_task_run,
         item_type: "resource_close_request",
         control_plane: control_plane,
@@ -93,13 +93,13 @@ module AgentControl
       mailbox_item
     end
 
-    def resolved_target_deployment(target_session:, target_agent_program:)
-      return target_session.agent_program_version if target_session.is_a?(AgentSession)
-      return if target_agent_program.blank?
+    def resolved_target_agent_snapshot(target_connection:, target_agent:)
+      return target_connection.agent_snapshot if target_connection.is_a?(AgentConnection)
+      return if target_agent.blank?
 
-      target_agent_program.current_agent_program_version ||
-        AgentSession.where(agent_program: target_agent_program).order(created_at: :desc, id: :desc).limit(1).pick(:agent_program_version_id)&.yield_self do |agent_program_version_id|
-          AgentProgramVersion.find_by(id: agent_program_version_id)
+      target_agent.current_agent_snapshot ||
+        AgentConnection.where(agent: target_agent).order(created_at: :desc, id: :desc).limit(1).pick(:agent_snapshot_id)&.yield_self do |agent_snapshot_id|
+          AgentSnapshot.find_by(id: agent_snapshot_id)
         end
     end
 
@@ -110,19 +110,19 @@ module AgentControl
     end
 
     def delivery_endpoint
-      if executor_plane?
-        executor_program = ClosableResourceRouting.executor_program_for(@resource)
-        return if executor_program.blank?
+      if execution_runtime_plane?
+        execution_runtime = ClosableResourceRouting.execution_runtime_for(@resource)
+        return if execution_runtime.blank?
 
-        return ExecutorSessions::ResolveActiveSession.call(executor_program: executor_program)
+        return ExecutionRuntimeConnections::ResolveActiveConnection.call(execution_runtime: execution_runtime)
       end
 
-      return @resource.holder_agent_session if @resource.respond_to?(:holder_agent_session)
+      return @resource.holder_agent_connection if @resource.respond_to?(:holder_agent_connection)
 
       execution_lease = @resource.try(:execution_lease)
       return if execution_lease.blank?
 
-      AgentSession.find_by(public_id: execution_lease.holder_key)
+      AgentConnection.find_by(public_id: execution_lease.holder_key)
     end
 
     def agent_task_run
@@ -130,10 +130,10 @@ module AgentControl
     end
 
     def control_plane
-      executor_plane? ? "executor" : "program"
+      execution_runtime_plane? ? "execution_runtime" : "agent"
     end
 
-    def executor_plane?
+    def execution_runtime_plane?
       @resource.is_a?(ProcessRun)
     end
   end

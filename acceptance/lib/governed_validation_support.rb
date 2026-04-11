@@ -32,13 +32,13 @@ module GovernedValidationSupport
   def bootstrap_runtime!(
     agent_key:,
     display_name:,
-    executor_fingerprint:,
+    execution_runtime_fingerprint:,
     fingerprint:,
     tool_catalog:,
     profile_catalog:,
     default_config_snapshot:,
-    executor_capability_payload: {},
-    executor_tool_catalog: []
+    execution_runtime_capability_payload: {},
+    execution_runtime_tool_catalog: []
   )
     raise "expected an empty database; run core_matrix_reset_backend_state first" if Installation.exists?
 
@@ -59,8 +59,8 @@ module GovernedValidationSupport
         display_name: display_name,
         visibility: "global",
         lifecycle_state: "active",
-        executor_kind: "local",
-        executor_fingerprint: executor_fingerprint,
+        execution_runtime_kind: "local",
+        execution_runtime_fingerprint: execution_runtime_fingerprint,
         connection_metadata: {
           "transport" => "http",
           "base_url" => "http://127.0.0.1:4100",
@@ -70,8 +70,8 @@ module GovernedValidationSupport
           "base_url" => "http://127.0.0.1:4100",
           "runtime_manifest_path" => "/runtime/manifest",
         },
-        executor_capability_payload: executor_capability_payload,
-        executor_tool_catalog: executor_tool_catalog,
+        execution_runtime_capability_payload: execution_runtime_capability_payload,
+        execution_runtime_tool_catalog: execution_runtime_tool_catalog,
         fingerprint: fingerprint,
         protocol_version: "2026-03-24",
         sdk_version: "fenix-0.1.0",
@@ -87,9 +87,9 @@ module GovernedValidationSupport
       }
     )
 
-    user_binding = UserProgramBindings::Enable.call(
+    user_binding = UserAgentBindings::Enable.call(
       user: bootstrap.user,
-      agent_program: runtime.agent_program
+      agent: runtime.agent
     ).binding
 
     ProviderEntitlement.find_or_create_by!(
@@ -113,7 +113,7 @@ module GovernedValidationSupport
 
   def create_task_context!(
     workspace:,
-    deployment:,
+    agent_snapshot:,
     capability_snapshot:,
     content:,
     allowed_tool_names:,
@@ -123,13 +123,13 @@ module GovernedValidationSupport
   )
     conversation = Conversations::CreateRoot.call(
       workspace: workspace,
-      agent_program: deployment.agent_program
+      agent: agent_snapshot.agent
     )
 
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: content,
-      agent_program_version: deployment,
+      execution_runtime: agent_snapshot.agent.default_execution_runtime,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: resolved_model_selection_snapshot(
         capability_snapshot: capability_snapshot,
@@ -172,7 +172,7 @@ module GovernedValidationSupport
       node_key: node_key,
       node_type: node_type,
       presentation_policy: "internal_only",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
 
@@ -186,7 +186,7 @@ module GovernedValidationSupport
 
     agent_task_run = AgentTaskRun.create!(
       installation: workflow_run.installation,
-      agent_program: deployment.agent_program,
+      agent: agent_snapshot.agent,
       workflow_run: workflow_run,
       workflow_node: workflow_node,
       conversation: conversation,

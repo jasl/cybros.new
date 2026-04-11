@@ -9,7 +9,7 @@ class Fenix::Runtime::ControlWorkerTest < ActiveSupport::TestCase
       control_client: :fake_control_client,
       session_factory: lambda {
         -> {
-          Fenix::Runtime::RealtimeSession::Result.new(
+          Fenix::Runtime::RealtimeConnection::Result.new(
             status: "failed",
             processed_count: 0,
             subscription_confirmed: false,
@@ -38,7 +38,7 @@ class Fenix::Runtime::ControlWorkerTest < ActiveSupport::TestCase
       received_kwargs << kwargs
       Fenix::Runtime::ControlLoop::Result.new(
         transport: "realtime",
-        realtime_result: Fenix::Runtime::RealtimeSession::Result.new(
+        realtime_result: Fenix::Runtime::RealtimeConnection::Result.new(
           status: "disconnected",
           processed_count: 0,
           subscription_confirmed: true,
@@ -71,7 +71,7 @@ class Fenix::Runtime::ControlWorkerTest < ActiveSupport::TestCase
 
       Fenix::Runtime::ControlLoop::Result.new(
         transport: "poll",
-        realtime_result: Fenix::Runtime::RealtimeSession::Result.new(
+        realtime_result: Fenix::Runtime::RealtimeConnection::Result.new(
           status: "timed_out",
           processed_count: 0,
           subscription_confirmed: false,

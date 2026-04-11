@@ -1,31 +1,25 @@
 module WorkflowWaitTransitionTestSupport
   private
 
-  def report_execution_started!(deployment:, mailbox_item:, agent_task_run:, occurred_at: Time.current)
-    AgentControl::Poll.call(deployment: deployment, limit: 10, occurred_at: occurred_at)
-
-    AgentControl::Report.call(
-      deployment: deployment,
+  def report_execution_started!(agent_snapshot:, mailbox_item:, agent_task_run:, occurred_at: Time.current)
+    dispatch_execution_report!(
+      agent_snapshot: agent_snapshot,
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run,
       method_id: "execution_started",
       protocol_message_id: "agent-start-#{next_test_sequence}",
-      mailbox_item_id: mailbox_item.public_id,
-      agent_task_run_id: agent_task_run.public_id,
-      logical_work_id: agent_task_run.logical_work_id,
-      attempt_no: agent_task_run.attempt_no,
       expected_duration_seconds: 30,
       occurred_at: occurred_at
     )
   end
 
-  def report_execution_complete!(deployment:, mailbox_item:, agent_task_run:, terminal_payload:, occurred_at: Time.current)
-    AgentControl::Report.call(
-      deployment: deployment,
+  def report_execution_complete!(agent_snapshot:, mailbox_item:, agent_task_run:, terminal_payload:, occurred_at: Time.current)
+    dispatch_execution_report!(
+      agent_snapshot: agent_snapshot,
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run,
       method_id: "execution_complete",
       protocol_message_id: "agent-complete-#{next_test_sequence}",
-      mailbox_item_id: mailbox_item.public_id,
-      agent_task_run_id: agent_task_run.public_id,
-      logical_work_id: agent_task_run.logical_work_id,
-      attempt_no: agent_task_run.attempt_no,
       terminal_payload: terminal_payload,
       occurred_at: occurred_at
     )
@@ -33,7 +27,7 @@ module WorkflowWaitTransitionTestSupport
 
   def promote_subagent_runtime_context!(context, profile_catalog: default_profile_catalog)
     capability_snapshot = create_capability_snapshot!(
-      agent_program_version: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       version: 2,
       tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
       profile_catalog: profile_catalog,
@@ -42,7 +36,7 @@ module WorkflowWaitTransitionTestSupport
       default_config_snapshot: profile_aware_default_config_snapshot
     )
 
-    adopt_agent_program_version!(context, capability_snapshot)
+    adopt_agent_snapshot!(context, capability_snapshot)
   end
 
   def human_task_wait_transition_payload(batch_id:, successor_node_key:, instructions:, node_key: "human_gate")
@@ -126,6 +120,48 @@ module WorkflowWaitTransitionTestSupport
         },
       },
     }
+  end
+
+  def dispatch_execution_report!(agent_snapshot:, mailbox_item:, agent_task_run:, method_id:, protocol_message_id:, occurred_at:, **payload)
+    if mailbox_item.execution_runtime_plane?
+      execution_runtime_connection = mailbox_item.target_execution_runtime&.active_execution_runtime_connection ||
+        mailbox_item.target_execution_runtime&.execution_runtime_connections&.order(created_at: :desc)&.first
+
+      raise "execution runtime connection is required for runtime-plane reports" if execution_runtime_connection.blank?
+
+      AgentControl::Poll.call(
+        execution_runtime_connection: execution_runtime_connection,
+        limit: 10,
+        occurred_at: occurred_at
+      ) if method_id == "execution_started"
+
+      AgentControl::Report.call(
+        agent_snapshot: agent_snapshot,
+        execution_runtime_connection: execution_runtime_connection,
+        method_id: method_id,
+        protocol_message_id: protocol_message_id,
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        occurred_at: occurred_at,
+        **payload
+      )
+    else
+      AgentControl::Poll.call(agent_snapshot: agent_snapshot, limit: 10, occurred_at: occurred_at) if method_id == "execution_started"
+
+      AgentControl::Report.call(
+        agent_snapshot: agent_snapshot,
+        method_id: method_id,
+        protocol_message_id: protocol_message_id,
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        occurred_at: occurred_at,
+        **payload
+      )
+    end
   end
 end
 

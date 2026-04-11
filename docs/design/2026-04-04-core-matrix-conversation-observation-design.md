@@ -23,7 +23,7 @@ agent-driven work:
 - `Conversation`, `Turn`, and `WorkflowRun` own execution truth
 - `ConversationEvent` is the append-only operational projection layer
 - transcript-bearing `Message` rows remain separate from operational events
-- `SubagentSession` already models delegated runtime work
+- `SubagentConnection` already models delegated runtime work
 
 What the platform does not yet have is a first-class way to ask:
 
@@ -50,9 +50,9 @@ This design builds on the current landed behavior in:
 
 - [`core_matrix/docs/behavior/human-interactions-and-conversation-events.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/human-interactions-and-conversation-events.md)
 - [`core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md)
-- [`core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md)
+- [`core_matrix/docs/behavior/subagent-connections-and-execution-leases.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/subagent-connections-and-execution-leases.md)
 - [`docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md`](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
-- [`docs/design/2026-04-01-agent-program-runtime-contract.md`](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-04-01-agent-program-runtime-contract.md)
+- [`docs/design/2026-04-01-agent-runtime-contract.md`](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-04-01-agent-runtime-contract.md)
 
 It preserves these existing boundaries:
 
@@ -255,7 +255,7 @@ Recommended fields:
 - `active_workflow_node_id`
 - `wait_state`
 - `wait_reason_kind`
-- `active_subagent_session_ids`
+- `active_subagent_connection_ids`
 - `runtime_state_snapshot`
 - `assessment_payload`
 - timestamps
@@ -377,7 +377,7 @@ Purpose:
 
 Contents:
 
-- active subagent session public ids
+- active subagent connection public ids
 - scope
 - profile key
 - observed status
@@ -429,7 +429,7 @@ Recommended event families:
 - `runtime.workflow_node.entered`
 - `runtime.workflow_node.state_changed`
 - `runtime.wait_state.changed`
-- `runtime.subagent_session.state_changed`
+- `runtime.subagent_connection.state_changed`
 - `runtime.tool_activity.changed`
 - `runtime.progress_heartbeat`
 
@@ -456,7 +456,7 @@ Recommended responder kinds:
 - `builtin`
   - platform-owned observer implementation
 - `program_contract`
-  - a dedicated responder method on an `AgentProgramVersion`
+  - a dedicated responder method on an `AgentSnapshot`
 
 The responder contract is separate from ordinary turn execution.
 
@@ -569,7 +569,7 @@ Every identifier in this payload must be a `public_id`.
 - workflow run public id
 - workflow node public id
 - selected message public ids
-- subagent session public ids
+- subagent connection public ids
 - conversation event stream keys when useful
 
 ## Acceptance Harness Integration
@@ -638,7 +638,7 @@ API.
 The relationship should be:
 
 - `agent_observation` remains the runtime capability category for observation
-  tools visible to agent programs
+  tools visible to agents
 - `ConversationObservation` is the higher-level platform feature for side-band
   supervision
 - future reserved tools such as `core_matrix__observe_expand` may reuse the
@@ -685,7 +685,7 @@ The lower layers must not depend on the app-facing controller layer.
 - supervisor status and proof text do not diverge because they derive from the
   same canonical assessment
 - observation bundle assembly must tolerate missing optional surfaces such as
-  empty memory summaries or zero active subagent sessions
+  empty memory summaries or zero active subagent connections
 
 ## Implementation Notes
 

@@ -89,7 +89,7 @@ class Conversation < ApplicationRecord
 
   belongs_to :installation
   belongs_to :workspace
-  belongs_to :agent_program
+  belongs_to :agent
   belongs_to :parent_conversation, class_name: "Conversation", optional: true
   belongs_to :historical_anchor_message, class_name: "Message", optional: true
 
@@ -126,13 +126,13 @@ class Conversation < ApplicationRecord
     dependent: :restrict_with_exception,
     inverse_of: :target_conversation
   has_many :conversation_close_operations, dependent: :restrict_with_exception
-  has_many :owned_subagent_sessions,
-    class_name: "SubagentSession",
+  has_many :owned_subagent_connections,
+    class_name: "SubagentConnection",
     foreign_key: :owner_conversation_id,
     dependent: :restrict_with_exception,
     inverse_of: :owner_conversation
   has_one :publication, dependent: :restrict_with_exception
-  has_one :subagent_session,
+  has_one :subagent_connection,
     dependent: :restrict_with_exception,
     inverse_of: :conversation
   has_one :lineage_store_reference, as: :owner, dependent: :restrict_with_exception
@@ -157,11 +157,11 @@ class Conversation < ApplicationRecord
     inverse_of: :ancestor_conversation
 
   validate :workspace_installation_match
-  validate :agent_program_installation_match
-  validate :workspace_agent_program_match
+  validate :agent_installation_match
+  validate :workspace_agent_match
   validate :parent_lineage_rules
   validate :parent_workspace_match
-  validate :parent_agent_program_match
+  validate :parent_agent_match
   validate :historical_anchor_membership
   validate :automation_rules
   validate :override_payload_must_be_hash
@@ -258,18 +258,18 @@ class Conversation < ApplicationRecord
     errors.add(:workspace, "must belong to the same installation")
   end
 
-  def agent_program_installation_match
-    return if agent_program.blank?
-    return if agent_program.installation_id == installation_id
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
 
-    errors.add(:agent_program, "must belong to the same installation")
+    errors.add(:agent, "must belong to the same installation")
   end
 
-  def workspace_agent_program_match
-    return if workspace.blank? || agent_program.blank?
-    return if workspace.user_program_binding.agent_program_id == agent_program_id
+  def workspace_agent_match
+    return if workspace.blank? || agent.blank?
+    return if workspace.user_agent_binding.agent_id == agent_id
 
-    errors.add(:agent_program, "must match the workspace agent program")
+    errors.add(:agent, "must match the workspace agent")
   end
 
   def parent_lineage_rules
@@ -312,11 +312,11 @@ class Conversation < ApplicationRecord
     errors.add(:workspace, "must match the parent conversation workspace")
   end
 
-  def parent_agent_program_match
+  def parent_agent_match
     return if parent_conversation.blank?
-    return if parent_conversation.agent_program_id == agent_program_id
+    return if parent_conversation.agent_id == agent_id
 
-    errors.add(:agent_program, "must match the parent conversation agent program")
+    errors.add(:agent, "must match the parent conversation agent")
   end
 
   def override_payload_must_be_hash

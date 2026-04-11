@@ -65,7 +65,7 @@ class ConversationControl::DispatchRequestTest < ActiveSupport::TestCase
     assert_equal [fixture.fetch(:conversation).public_id, "archive", request.public_id], captured
   end
 
-  test "request_subagent_close routes through SubagentSessions::RequestClose" do
+  test "request_subagent_close routes through SubagentConnections::RequestClose" do
     fixture = prepare_conversation_supervision_context!(control_enabled: true)
     session = create_conversation_supervision_session!(fixture)
     request = ConversationControlRequest.create!(
@@ -73,28 +73,28 @@ class ConversationControl::DispatchRequestTest < ActiveSupport::TestCase
       conversation_supervision_session: session,
       target_conversation: fixture.fetch(:conversation),
       request_kind: "request_subagent_close",
-      target_kind: "subagent_session",
-      target_public_id: fixture.fetch(:subagent_session).public_id,
+      target_kind: "subagent_connection",
+      target_public_id: fixture.fetch(:subagent_connection).public_id,
       lifecycle_state: "queued",
       request_payload: { "strictness" => "graceful" },
       result_payload: {}
     )
     captured = nil
 
-    original_call = SubagentSessions::RequestClose.method(:call)
-    SubagentSessions::RequestClose.singleton_class.define_method(:call) do |subagent_session:, request_kind:, reason_kind:, strictness:, conversation_control_request: nil, **_rest|
-      captured = [subagent_session.public_id, request_kind, reason_kind, strictness, conversation_control_request&.public_id]
-      subagent_session
+    original_call = SubagentConnections::RequestClose.method(:call)
+    SubagentConnections::RequestClose.singleton_class.define_method(:call) do |subagent_connection:, request_kind:, reason_kind:, strictness:, conversation_control_request: nil, **_rest|
+      captured = [subagent_connection.public_id, request_kind, reason_kind, strictness, conversation_control_request&.public_id]
+      subagent_connection
     end
 
     begin
       ConversationControl::DispatchRequest.call(conversation_control_request: request)
     ensure
-      SubagentSessions::RequestClose.singleton_class.define_method(:call, original_call)
+      SubagentConnections::RequestClose.singleton_class.define_method(:call, original_call)
     end
 
     assert_equal [
-      fixture.fetch(:subagent_session).public_id,
+      fixture.fetch(:subagent_connection).public_id,
       "request_subagent_close",
       "supervision_subagent_close_requested",
       "graceful",
@@ -126,8 +126,8 @@ class ConversationControl::DispatchRequestTest < ActiveSupport::TestCase
     captured = nil
 
     original_call = Workflows::ManualResume.method(:call)
-    Workflows::ManualResume.singleton_class.define_method(:call) do |workflow_run:, deployment:, actor:, conversation_control_request: nil, **_rest|
-      captured = [workflow_run.public_id, deployment.public_id, actor.public_id, conversation_control_request&.public_id]
+    Workflows::ManualResume.singleton_class.define_method(:call) do |workflow_run:, agent_snapshot:, actor:, conversation_control_request: nil, **_rest|
+      captured = [workflow_run.public_id, agent_snapshot.public_id, actor.public_id, conversation_control_request&.public_id]
       workflow_run
     end
 
@@ -139,7 +139,7 @@ class ConversationControl::DispatchRequestTest < ActiveSupport::TestCase
 
     assert_equal [
       fixture.fetch(:workflow_run).public_id,
-      fixture.fetch(:agent_program_version).public_id,
+      fixture.fetch(:agent_snapshot).public_id,
       fixture.fetch(:user).public_id,
       request.public_id,
     ], captured

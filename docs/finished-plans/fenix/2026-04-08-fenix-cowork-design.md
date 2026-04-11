@@ -6,7 +6,7 @@
 
 ## Goal
 
-Build `agents/fenix` as a cowork-first agent program that fits the
+Build `agents/fenix` as a cowork-first agent that fits the
 `CoreMatrix` agent loop, mirrors the proven cowork behavior of
 `references/claude-code-sourcemap/restored-src`, and reaches the `2048`
 acceptance capstone through native plan, delegation, and delivery behavior.
@@ -125,16 +125,16 @@ multi-language universal development workstation.
 `CoreMatrix` remains the neutral kernel and orchestration platform. It owns:
 
 - turn, workflow, and runtime durability
-- agent-program communication contracts
+- agent communication contracts
 - tool visibility and routing
-- subagent session durability
+- subagent connection durability
 - supervision state and turn feeds
 - app-facing read models and future UI/API surfaces
 - acceptance-harness execution entry points
 
 All platform changes for this work must remain:
 
-- agent-program-neutral
+- agent-neutral
 - semantically generic
 - capability-optional
 
@@ -151,10 +151,10 @@ All platform changes for this work must remain:
 - defining delegation packages and result synthesis
 - building final delivery responses
 - prompt layout and prompt assembly
-- agent-program-side `Memory`
-- agent-program-side `Skills`
+- agent-side `Memory`
+- agent-side `Skills`
 
-Those remain inside the agent program even if `CoreMatrix` later exposes richer
+Those remain inside the agent even if `CoreMatrix` later exposes richer
 neutral runtime surfaces.
 
 ### No Second Truth
@@ -184,7 +184,7 @@ Rules:
 - `fenix.old` and `fenix` should still be treated as sibling consumers of a
   neutral platform
 
-Breaking changes are acceptable only when they improve multi-agent-program
+Breaking changes are acceptable only when they improve multi-agent
 platform quality rather than embedding `fenix` product logic in the kernel.
 
 ## Reference Strategy
@@ -211,7 +211,7 @@ Use `agents/fenix.old` for:
 
 - runtime-control patterns
 - bundled runtime registration and mailbox execution
-- executor-plane tool execution
+- execution-runtime-plane tool execution
 - browser/process/command runtime patterns
 - previous acceptance integration lessons
 
@@ -231,7 +231,7 @@ Do not treat its pinned versions or language matrix as our truth.
 
 `fenix` should explicitly copy the style of the reference prompt system: layered
 layout, deterministic assembly, lazy context expansion, and clear separation
-between durable platform facts and agent-program semantics.
+between durable platform facts and agent semantics.
 
 ### Prompt Layout
 
@@ -275,7 +275,7 @@ mixed with Rails transport or local infrastructure details.
 Owns:
 
 - `prepare_round`
-- `execute_program_tool`
+- `execute_tool`
 - mailbox payload validation
 - response serialization
 
@@ -288,11 +288,11 @@ Owns:
 - runtime manifest and registration metadata
 - mailbox polling and realtime delivery
 - persistent runtime worker entrypoints
-- executor-plane tool execution
+- execution-runtime-plane tool execution
 - runtime-local resource registries
 
 This layer is where `fenix` becomes a real bundled runtime rather than only an
-agent-program prompt adapter.
+agent prompt adapter.
 
 ### 3. Application Layer
 
@@ -339,11 +339,11 @@ needs platform refinements.
 
 The following platform surfaces are already a strong basis for v1:
 
-- versioned mailbox-first agent-program exchange
+- versioned mailbox-first agent exchange
 - runtime capability contracts and visible tool surfaces
 - durable turn todo plan write path
 - turn todo plan read models
-- durable subagent session substrate
+- durable subagent connection substrate
 - supervision state and snapshot read models
 - acceptance execution through `CoreMatrix`
 
@@ -369,9 +369,9 @@ that proves the new architecture can deliver the 2048 capstone.
 - `images/nexus`
 - bundled runtime registration with both program and executor planes
 - mailbox runtime worker and control loop
-- enough executor-plane tools to build, run, and browser-verify the 2048 app
+- enough execution-runtime-plane tools to build, run, and browser-verify the 2048 app
 - layered prompt assembly
-- agent-program-side memory and skills support
+- agent-side memory and skills support
 - neutral `CoreMatrix` work-context and delegation/result contracts
 - a `fenix`-specific 2048 acceptance path with no `using-superpowers`
   dependency
@@ -407,7 +407,7 @@ produced through:
 
 - the real mailbox/runtime path
 - the real plan and delegation path
-- the real executor-plane tool surface
+- the real execution-runtime-plane tool surface
 - a `fenix` runtime that starts with the necessary toolchain already available
 
 That is the minimum proof that the new architecture is better, not merely

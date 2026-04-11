@@ -76,8 +76,9 @@ extra throughput tier from Ruby fiber scheduler rollout.
 
 ## Fenix
 
-`fenix` is intentionally single-host today because it also acts as the
-effective `ExecutorProgram` and owns registry-backed runtime state.
+`fenix` is intentionally single-host today because it still owns
+registry-backed runtime state and remains coupled to the default bundled
+runtime path during this transition.
 
 This assumption is now explicit in code and docs. Scale it up on one machine;
 do not treat it as a stateless horizontal worker pool.
@@ -106,8 +107,8 @@ Routing:
 Operationally, the persistent mailbox control loop is not sufficient by itself
 when `Fenix` runs with `solid_queue`. External runtime instances must also have
 queue processing active under the same `CORE_MATRIX_BASE_URL` and
-`CORE_MATRIX_MACHINE_CREDENTIAL`, plus
-`CORE_MATRIX_EXECUTION_MACHINE_CREDENTIAL` when executor-plane resources are
+`CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL`, plus
+`CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL` when execution-runtime-plane resources are
 enabled.
 
 By default, Puma embeds the Solid Queue supervisor, so the extra long-lived

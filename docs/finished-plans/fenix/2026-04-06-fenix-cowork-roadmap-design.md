@@ -36,7 +36,7 @@ exploration notes.
 The parts of the April 6 thesis that still hold are:
 
 - `CoreMatrix` should remain the kernel and platform substrate.
-- `Fenix` should remain the default bundled cowork agent program.
+- `Fenix` should remain the default bundled cowork agent.
 - simple requests should stay conversational and lightweight
 - complex requests should move into a structured work loop with planning,
   execution, supervision, and evidence-backed delivery
@@ -122,9 +122,9 @@ hardening, acceptance hardening, and UI/wording cleanup.
 Current state:
 
 - subagent tools already exist: spawn, send, wait, close, and list
-- runtime payloads already carry `is_subagent`, `subagent_session_id`,
-  `parent_subagent_session_id`, `subagent_depth`, and allowed tool surfaces
-- `CoreMatrix` already tracks subagent sessions and exposes subagent activity
+- runtime payloads already carry `is_subagent`, `subagent_connection_id`,
+  `parent_subagent_connection_id`, `subagent_depth`, and allowed tool surfaces
+- `CoreMatrix` already tracks subagent connections and exposes subagent activity
   into supervision surfaces
 
 What is still missing:
@@ -184,7 +184,7 @@ Current state:
 What is still missing:
 
 - continued cleanup of semantic boundaries so platform-owned supervision stays
-  generic and agent-owned task semantics stay in the agent program
+  generic and agent-owned task semantics stay in the agent
 - continued convergence between cowork wording, verbose wording, and acceptance
   replay surfaces
 
@@ -224,8 +224,8 @@ described as `K1` and `K2`, plus part of `K3`.
 
 That includes:
 
-- `AgentProgram`, `AgentProgramVersion`, `ExecutorProgram`, `AgentSession`, and
-  `ExecutorSession`
+- `Agent`, `AgentSnapshot`, `ExecutionRuntime`, `AgentConnection`, and
+  `ExecutionRuntimeConnection`
 - turn-scoped runtime binding and capability freezing
 - automation turn entry
 - supervision state and turn todo plans
@@ -233,9 +233,9 @@ That includes:
 
 The main remaining kernel question is not whether the kernel exists. It is
 whether the kernel is still carrying product semantics that should move outward
-to the agent program boundary.
+to the agent boundary.
 
-### Fenix: `landed as bundled default agent program, still maturing as product`
+### Fenix: `landed as bundled default agent, still maturing as product`
 
 `Fenix` already owns:
 
@@ -286,8 +286,8 @@ runtime file-system fact.
 
 Current runtime state is actually organized around:
 
-- `.fenix/agent_program_versions/<id>/memory/...`
-- `.fenix/agent_program_versions/<id>/conversations/<id>/context/...`
+- `.fenix/agent_snapshots/<id>/memory/...`
+- `.fenix/agent_snapshots/<id>/conversations/<id>/context/...`
 
 Any future `user / workspace / conversation` model should be introduced as an
 explicit design decision, not treated as if it already exists.
@@ -398,7 +398,7 @@ automation and runtime-recovery substrate.
 ## Summary
 
 `Fenix` is no longer a mostly hypothetical cowork roadmap. It is already a real
-bundled agent program with meaningful runtime, supervision, customization, and
+bundled agent with meaningful runtime, supervision, customization, and
 acceptance surfaces.
 
 The next stage of planning should therefore stop treating the project as a

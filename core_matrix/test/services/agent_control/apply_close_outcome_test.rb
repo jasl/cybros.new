@@ -6,11 +6,11 @@ class AgentControl::ApplyCloseOutcomeTest < ActiveSupport::TestCase
     occurred_at = Time.zone.parse("2026-03-29 18:30:00 UTC")
     process_run = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program]
+      execution_runtime: context[:execution_runtime]
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:agent_snapshot].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(

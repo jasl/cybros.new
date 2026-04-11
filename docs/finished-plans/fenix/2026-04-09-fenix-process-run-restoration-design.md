@@ -79,7 +79,7 @@ Also tighten one old behavior while porting:
 The restored slice is not complete until all of these are true:
 
 - runtime manifest and executor tool catalog expose the process tools
-- program tool execution can launch and inspect owned process runs
+- agent tool execution can launch and inspect owned process runs
 - local manager emits the expected `process_*` reports
 - mailbox worker can settle `ProcessRun` close requests through the manager
 - `core_matrix` and `fenix` contract tests stay green with the restored slice

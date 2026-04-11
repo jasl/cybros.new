@@ -6,10 +6,10 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment: nil, agent_session: nil, executor_session: nil, limit: DEFAULT_LIMIT, occurred_at: Time.current)
-      @deployment = deployment
-      @agent_session = agent_session
-      @executor_session = executor_session
+    def initialize(agent_snapshot: nil, agent_connection: nil, execution_runtime_connection: nil, limit: DEFAULT_LIMIT, occurred_at: Time.current)
+      @agent_snapshot = agent_snapshot
+      @agent_connection = agent_connection
+      @execution_runtime_connection = execution_runtime_connection
       @limit = [limit.to_i, 1].max
       @occurred_at = occurred_at
     end
@@ -34,7 +34,7 @@ module AgentControl
 
           leased_item = LeaseMailboxItem.call(
             mailbox_item: mailbox_item,
-            deployment: lease_owner,
+            agent_snapshot: lease_owner,
             resolved_delivery_endpoint: resolved_delivery_endpoint_for(mailbox_item),
             occurred_at: @occurred_at
           )
@@ -53,9 +53,13 @@ module AgentControl
     private
 
     def touch_runtime_activity!
-      return if @executor_session.present?
+      return if @execution_runtime_connection.present?
 
-      TouchDeploymentActivity.call(deployment: @deployment, agent_session: @agent_session, occurred_at: @occurred_at)
+      TouchAgentConnectionActivity.call(
+        agent_snapshot: @agent_snapshot,
+        agent_connection: @agent_connection,
+        occurred_at: @occurred_at
+      )
     end
 
     def progress_close_requests!
@@ -90,22 +94,22 @@ module AgentControl
     def candidate_scope_relation(relation)
       if execution_poll?
         relation.where(
-          control_plane: "executor",
-          target_executor_program_id: @executor_session.executor_program_id
+          control_plane: "execution_runtime",
+          target_execution_runtime_id: @execution_runtime_connection.execution_runtime_id
         )
       else
         relation.where(
-          control_plane: "program"
+          control_plane: "agent"
         ).where(
           <<~SQL.squish,
-            target_agent_program_version_id = :deployment_id
+            target_agent_snapshot_id = :agent_snapshot_id
             OR (
-              target_agent_program_version_id IS NULL
-              AND target_agent_program_id = :agent_program_id
+              target_agent_snapshot_id IS NULL
+              AND target_agent_id = :agent_id
             )
           SQL
-          deployment_id: @deployment.id,
-          agent_program_id: @deployment.agent_program_id
+          agent_snapshot_id: @agent_snapshot.id,
+          agent_id: @agent_snapshot.agent_id
         )
       end
     end
@@ -118,10 +122,10 @@ module AgentControl
         return true
       end
 
-      mailbox_item.target_agent_program_version_id == @deployment.id ||
+      mailbox_item.target_agent_snapshot_id == @agent_snapshot.id ||
         (
-          mailbox_item.target_agent_program_version_id.blank? &&
-          mailbox_item.target_agent_program_id == @deployment.agent_program_id
+          mailbox_item.target_agent_snapshot_id.blank? &&
+          mailbox_item.target_agent_id == @agent_snapshot.agent_id
         )
     end
 
@@ -134,39 +138,39 @@ module AgentControl
     end
 
     def execution_poll?
-      @executor_session.present?
+      @execution_runtime_connection.present?
     end
 
     def resolved_delivery_endpoint_for(mailbox_item)
-      return @executor_session if execution_poll?
-      return @agent_session if @agent_session&.agent_program_version_id == mailbox_item.target_agent_program_version_id
+      return @execution_runtime_connection if execution_poll?
+      return @agent_connection if @agent_connection&.agent_snapshot_id == mailbox_item.target_agent_snapshot_id
 
-      target_agent_program_version = mailbox_item.target_agent_program_version
-      return target_agent_program_version.active_agent_session || target_agent_program_version.most_recent_agent_session if target_agent_program_version.present?
+      target_agent_snapshot = mailbox_item.target_agent_snapshot
+      return target_agent_snapshot.active_agent_connection || target_agent_snapshot.most_recent_agent_connection if target_agent_snapshot.present?
 
-      @agent_session || @deployment&.active_agent_session || @deployment&.most_recent_agent_session
+      @agent_connection || @agent_snapshot&.active_agent_connection || @agent_snapshot&.most_recent_agent_connection
     end
 
     def lease_owner
-      execution_poll? ? @executor_session : @deployment
+      execution_poll? ? @execution_runtime_connection : @agent_snapshot
     end
 
     def installation_id
-      execution_poll? ? @executor_session.executor_program.installation_id : @deployment.installation_id
+      execution_poll? ? @execution_runtime_connection.execution_runtime.installation_id : @agent_snapshot.installation_id
     end
 
     def poll_event_payload
       payload = {
-        "control_plane" => execution_poll? ? "executor" : "program",
+        "control_plane" => execution_poll? ? "execution_runtime" : "agent",
         "delivery_count" => 0,
         "success" => false,
       }
 
       if execution_poll?
-        payload["executor_session_public_id"] = @executor_session.public_id
+        payload["execution_runtime_connection_public_id"] = @execution_runtime_connection.public_id
       else
-        payload["agent_program_public_id"] = @deployment.agent_program.public_id
-        payload["agent_session_public_id"] = resolved_agent_session&.public_id
+        payload["agent_public_id"] = @agent_snapshot.agent.public_id
+        payload["agent_connection_public_id"] = resolved_agent_connection&.public_id
       end
 
       payload
@@ -175,22 +179,22 @@ module AgentControl
     def publish_mailbox_lease_event!(mailbox_item)
       AgentControl::PublishMailboxLeaseEvent.call(
         mailbox_item: mailbox_item,
-        agent_program_public_id: execution_poll? ? nil : deployment_agent_program_public_id,
-        agent_session_public_id: execution_poll? ? nil : resolved_agent_session&.public_id,
-        executor_session_public_id: execution_poll? ? @executor_session.public_id : nil
+        agent_public_id: execution_poll? ? nil : agent_public_id,
+        agent_connection_public_id: execution_poll? ? nil : resolved_agent_connection&.public_id,
+        execution_runtime_connection_public_id: execution_poll? ? @execution_runtime_connection.public_id : nil
       )
     end
 
-    def deployment_agent_program_public_id
+    def agent_public_id
       return nil if execution_poll?
 
-      @deployment_agent_program_public_id ||= @deployment.agent_program.public_id
+      @agent_public_id ||= @agent_snapshot.agent.public_id
     end
 
-    def resolved_agent_session
-      return @resolved_agent_session if defined?(@resolved_agent_session)
+    def resolved_agent_connection
+      return @resolved_agent_connection if defined?(@resolved_agent_connection)
 
-      @resolved_agent_session = @agent_session || @deployment&.active_agent_session || @deployment&.most_recent_agent_session
+      @resolved_agent_connection = @agent_connection || @agent_snapshot&.active_agent_connection || @agent_snapshot&.most_recent_agent_connection
     end
   end
 end

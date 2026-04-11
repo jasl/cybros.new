@@ -19,7 +19,7 @@ module ConversationRuntime
         tool_invocations: tool_invocations.map { |invocation| serialize_tool_invocation(invocation) },
         command_runs: command_runs.map { |command_run| serialize_command_run(command_run) },
         process_runs: process_runs.map { |process_run| serialize_process_run(process_run) },
-        subagent_sessions: subagent_sessions.map { |session| serialize_subagent_session(session) },
+        subagent_connections: subagent_connections.map { |session| serialize_subagent_connection(session) },
         subagent_runtime_snapshots: [],
         agent_task_runs: agent_task_runs.map { |task_run| serialize_agent_task_run(task_run) },
         supervision_trace: {},
@@ -68,7 +68,7 @@ module ConversationRuntime
     def agent_task_runs
       @agent_task_runs ||= AgentTaskRun
         .where(conversation: @conversation, turn: @turn)
-        .includes(:workflow_run, :workflow_node, :subagent_session, :origin_turn)
+        .includes(:workflow_run, :workflow_node, :subagent_connection, :origin_turn)
         .order(:created_at, :id)
     end
 
@@ -76,10 +76,10 @@ module ConversationRuntime
       @usage_events ||= UsageEvent.where(conversation_id: @conversation.id, turn_id: @turn.id).order(:occurred_at, :id)
     end
 
-    def subagent_sessions
-      @subagent_sessions ||= SubagentSession
+    def subagent_connections
+      @subagent_connections ||= SubagentConnection
         .where(owner_conversation: @conversation, origin_turn: @turn)
-        .or(SubagentSession.where(conversation: @conversation, origin_turn: @turn))
+        .or(SubagentConnection.where(conversation: @conversation, origin_turn: @turn))
         .order(:created_at, :id)
     end
 
@@ -169,9 +169,9 @@ module ConversationRuntime
       }.compact
     end
 
-    def serialize_subagent_session(session)
+    def serialize_subagent_connection(session)
       {
-        "subagent_session_id" => session.public_id,
+        "subagent_connection_id" => session.public_id,
         "owner_conversation_id" => session.owner_conversation.public_id,
         "conversation_id" => session.conversation.public_id,
         "origin_turn_id" => session.origin_turn&.public_id,
@@ -190,7 +190,7 @@ module ConversationRuntime
         "workflow_node_id" => task_run.workflow_node.public_id,
         "conversation_id" => task_run.conversation.public_id,
         "turn_id" => task_run.turn.public_id,
-        "subagent_session_id" => task_run.subagent_session&.public_id,
+        "subagent_connection_id" => task_run.subagent_connection&.public_id,
         "origin_turn_id" => task_run.origin_turn&.public_id,
         "kind" => task_run.kind,
         "lifecycle_state" => task_run.lifecycle_state,

@@ -4,11 +4,11 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_node:, messages: nil, adapter: nil, program_exchange: nil, catalog: nil)
+    def initialize(workflow_node:, messages: nil, adapter: nil, agent_request_exchange: nil, catalog: nil)
       @workflow_node = workflow_node
       @messages = messages
       @adapter = adapter
-      @program_exchange = program_exchange
+      @agent_request_exchange = agent_request_exchange
       @catalog = catalog
     end
 
@@ -23,13 +23,13 @@ module Workflows
           workflow_node: current_node,
           messages: @messages || default_messages(current_node),
           adapter: @adapter,
-          program_exchange: @program_exchange,
+          agent_request_exchange: @agent_request_exchange,
           catalog: @catalog
         )
       when "tool_call"
         ProviderExecution::ExecuteToolNode.call(
           workflow_node: current_node,
-          program_exchange: @program_exchange
+          agent_request_exchange: @agent_request_exchange
         )
       when "turn_root", "barrier_join"
         complete_coordination_node!(current_node)

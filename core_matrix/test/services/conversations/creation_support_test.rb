@@ -13,7 +13,7 @@ class Conversations::CreationSupportTest < ActiveSupport::TestCase
     context = create_workspace_context!
     parent = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      agent_program: context[:agent_program]
+      agent: context[:agent]
     )
     parent.lineage_store_reference.delete
     parent.association(:lineage_store_reference).reset
@@ -31,19 +31,19 @@ class Conversations::CreationSupportTest < ActiveSupport::TestCase
     parent_context = create_workspace_context!
     parent = Conversations::CreateRoot.call(
       workspace: parent_context[:workspace],
-      agent_program: parent_context[:agent_program]
+      agent: parent_context[:agent]
     )
-    alternate_agent_program = create_agent_program!(installation: parent_context[:installation])
+    alternate_agent = create_agent!(installation: parent_context[:installation])
     alternate_workspace = create_workspace!(
       installation: parent_context[:installation],
       user: parent_context[:user],
-      user_program_binding: parent_context[:user_program_binding],
+      user_agent_binding: parent_context[:user_agent_binding],
       name: "Alternate Workspace #{next_test_sequence}"
     )
     harness = CreationSupportHarness.new
     child = harness.build_child_conversation(parent: parent, kind: "fork")
     child.workspace = alternate_workspace
-    child.agent_program = alternate_agent_program
+    child.agent = alternate_agent
     child.purpose = "automation"
     child.lifecycle_state = "archived"
 
@@ -52,7 +52,7 @@ class Conversations::CreationSupportTest < ActiveSupport::TestCase
     assert_same child, refreshed
     assert_equal parent.installation, refreshed.installation
     assert_equal parent.workspace, refreshed.workspace
-    assert_equal parent.agent_program, refreshed.agent_program
+    assert_equal parent.agent, refreshed.agent
     assert_equal parent, refreshed.parent_conversation
     assert_equal parent.purpose, refreshed.purpose
     assert refreshed.active?

@@ -61,7 +61,7 @@ It does not try to be:
 
 ### Fenix
 
-Fenix is the default out-of-the-box agent program for Core Matrix.
+Fenix is the default out-of-the-box agent for Core Matrix.
 
 It has two roles:
 
@@ -69,7 +69,7 @@ It has two roles:
 - serve as the first technical validation program for the Core Matrix loop
 
 Fenix is not the long-term home for every product shape. Future products such as
-an `OpenAlice`-style system should be validated through separate agent programs.
+an `OpenAlice`-style system should be validated through separate agents.
 
 ## Terminology And Disambiguation
 
@@ -80,7 +80,7 @@ It may be provided by the kernel itself or by an external system.
 
 Examples:
 
-- a tool implementation exposed by an agent program
+- a tool implementation exposed by an agent
 - an MCP-backed external integration
 - a platform-owned execution primitive
 
@@ -134,7 +134,7 @@ belongs to the client and channel surface, not to loop-core tool execution.
 decision came from:
 
 - `llm`
-- `agent_program`
+- `agent`
 - `system`
 - `user`
 
@@ -142,11 +142,11 @@ decision came from:
 
 - keep the kernel small, orthogonal, and authoritative
 - prove real loop execution before widening ecosystem scope
-- let external agent programs own domain behavior and experimental capability
+- let external agents own domain behavior and experimental capability
   implementations
 - use `Fenix` as the first validation program without turning it into a
   universal product shell
-- keep future product validation possible through additional agent programs
+- keep future product validation possible through additional agents
 - make destructive correction acceptable while the platform shape is still being
   validated
 
@@ -202,7 +202,7 @@ This phase should expose:
 
 Validate that Core Matrix is not overfit to `Fenix`.
 
-This phase should add one or more new agent programs to test materially
+This phase should add one or more new agents to test materially
 different product shapes, such as an `OpenAlice`-style system.
 
 ### Phase 5: Trigger And Delivery
@@ -217,7 +217,7 @@ surfaces.
 
 ### Phase 7: Extension And Plugin
 
-Only after the kernel and multiple agent programs are stable should Core Matrix
+Only after the kernel and multiple agents are stable should Core Matrix
 consider extension and plugin packaging.
 
 ## Phase 2 Success Criteria
@@ -307,7 +307,7 @@ Agent programs own:
 
 Rules:
 
-- likely model or model-profile hints may be exposed to the agent program even
+- likely model or model-profile hints may be exposed to the agent even
   though prompt building remains agent-owned
 - advisory thresholds such as `recommended_compaction_threshold` are not
   retroactive hard failures
@@ -358,7 +358,7 @@ The model should supervise at least:
 
 - kernel-owned tool surfaces
 - Streamable HTTP MCP capability implementations
-- agent-program-exposed tool implementations
+- agent-exposed tool implementations
 
 Binding-freeze rules:
 
@@ -386,7 +386,7 @@ Rules:
 - reserved prefixes are platform-owned and may not be overridden
 - whitelist-only definitions may bind only approved implementation sources or
   refs
-- replaceable definitions may be rebound by an agent program when policy allows
+- replaceable definitions may be rebound by an agent when policy allows
 - every binding decision must be visible in capability snapshots and audit
   history
 
@@ -459,7 +459,7 @@ programs so the kernel does not collapse into Fenix-specific assumptions.
 
 ## Future Product Validation Strategy
 
-Do not force all future references into a single agent program.
+Do not force all future references into a single agent.
 
 The platform should instead validate different shapes through additional agent
 programs, for example:
@@ -504,5 +504,5 @@ Then:
 3. validate alternative product shapes before widening triggers, channels, or
    plugins
 
-Keep the kernel authoritative, keep agent programs flexible, and keep product
+Keep the kernel authoritative, keep agents flexible, and keep product
 shape validation ahead of ecosystem expansion.

@@ -6,9 +6,10 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    lease_execution_assignment!(context:)
 
-    post "/agent_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "execution_started",
         protocol_message_id: "agent-start-#{next_test_sequence}",
@@ -17,15 +18,14 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
         logical_work_id: agent_task_run.logical_work_id,
         attempt_no: agent_task_run.attempt_no,
         expected_duration_seconds: 30,
-      },
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
     assert_equal "accepted", JSON.parse(response.body).fetch("result")
     assert_equal "acked", mailbox_item.reload.status
     assert_equal "running", agent_task_run.reload.lifecycle_state
-    assert_equal context[:deployment], agent_task_run.holder_agent_program_version
+    assert_equal context[:agent_snapshot], agent_task_run.holder_agent_snapshot
   end
 
   test "execution_started report stays under a request query budget" do
@@ -33,10 +33,11 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    lease_execution_assignment!(context:)
 
     queries = capture_sql_queries do
-      post "/agent_api/control/report",
+      execution_runtime_report(
+        context: context,
         params: {
           method_id: "execution_started",
           protocol_message_id: "agent-start-budget-#{next_test_sequence}",
@@ -45,13 +46,12 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
           logical_work_id: agent_task_run.logical_work_id,
           attempt_no: agent_task_run.attempt_no,
           expected_duration_seconds: 30,
-        },
-        headers: agent_api_headers(context[:machine_credential]),
-        as: :json
+        }
+      )
     end
 
     assert_response :success
-    assert_operator queries.length, :<=, 72, "Expected execution_started report to stay under 72 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+    assert_operator queries.length, :<=, 73, "Expected execution_started report to stay under 73 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
   end
 
   test "execution_progress and execution_complete update durable task state through the public report api" do
@@ -59,9 +59,10 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    lease_execution_assignment!(context:)
 
-    post "/agent_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "execution_started",
         protocol_message_id: "agent-start-#{next_test_sequence}",
@@ -70,14 +71,14 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
         logical_work_id: agent_task_run.logical_work_id,
         attempt_no: agent_task_run.attempt_no,
         expected_duration_seconds: 30,
-      },
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
     assert_equal "accepted", JSON.parse(response.body).fetch("result")
 
-    post "/agent_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "execution_progress",
         protocol_message_id: "agent-progress-#{next_test_sequence}",
@@ -86,9 +87,8 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
         logical_work_id: agent_task_run.logical_work_id,
         attempt_no: agent_task_run.attempt_no,
         progress_payload: { "state" => "working", "percent" => 50 },
-      },
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
     assert_equal "accepted", JSON.parse(response.body).fetch("result")
@@ -96,7 +96,8 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_equal "running", agent_task_run.lifecycle_state
     assert agent_task_run.execution_lease.reload.active?
 
-    post "/agent_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "execution_complete",
         protocol_message_id: "agent-complete-#{next_test_sequence}",
@@ -105,9 +106,8 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
         logical_work_id: agent_task_run.logical_work_id,
         attempt_no: agent_task_run.attempt_no,
         terminal_payload: { "output" => "done" },
-      },
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
     assert_equal "accepted", JSON.parse(response.body).fetch("result")
@@ -128,9 +128,10 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    lease_execution_assignment!(context:)
     AgentControl::Report.call(
-      deployment: context[:deployment],
+      agent_snapshot: context[:agent_snapshot],
+      execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "execution_started",
       protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
@@ -150,18 +151,12 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       terminal_payload: { "output" => "done" },
     }
 
-    post "/agent_api/control/report",
-      params: params,
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+    execution_runtime_report(context: context, params: params)
 
     assert_response :success
     first_updated_at = agent_task_run.reload.updated_at
 
-    post "/agent_api/control/report",
-      params: params,
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+    execution_runtime_report(context: context, params: params)
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -175,9 +170,10 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    lease_execution_assignment!(context:)
 
-    post "/agent_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "execution_started",
         protocol_message_id: "agent-start-interrupt-#{next_test_sequence}",
@@ -186,13 +182,13 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
         logical_work_id: agent_task_run.logical_work_id,
         attempt_no: agent_task_run.attempt_no,
         expected_duration_seconds: 30,
-      },
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
 
-    post "/agent_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "execution_interrupted",
         protocol_message_id: "agent-interrupted-#{next_test_sequence}",
@@ -201,9 +197,8 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
         logical_work_id: agent_task_run.logical_work_id,
         attempt_no: agent_task_run.attempt_no,
         terminal_payload: { "reason" => "operator_interrupt" },
-      },
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
     assert_equal "accepted", JSON.parse(response.body).fetch("result")
@@ -217,10 +212,10 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_not agent_task_run.execution_lease.reload.active?
   end
 
-  test "agent_program_completed completes a leased mailbox request and reconstructs workflow refs through the public report api" do
+  test "agent_completed completes a leased mailbox request and reconstructs workflow refs through the public report api" do
     context = build_agent_control_context!
-    mailbox_item = AgentControl::CreateAgentProgramRequest.call(
-      agent_program_version: context.fetch(:deployment),
+    mailbox_item = AgentControl::CreateAgentRequest.call(
+      agent_snapshot: context.fetch(:agent_snapshot),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -234,12 +229,12 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}",
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
-    protocol_message_id = "agent-program-complete-#{next_test_sequence}"
+    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    protocol_message_id = "agent-complete-#{next_test_sequence}"
 
     post "/agent_api/control/report",
       params: {
-        method_id: "agent_program_completed",
+        method_id: "agent_completed",
         protocol_message_id: protocol_message_id,
         mailbox_item_id: mailbox_item.public_id,
         logical_work_id: mailbox_item.logical_work_id,
@@ -252,7 +247,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
           "trace" => [],
         },
       },
-      headers: agent_api_headers(context[:machine_credential]),
+      headers: agent_api_headers(context[:agent_connection_credential]),
       as: :json
 
     assert_response :success
@@ -271,7 +266,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     refute_includes response.body, %("#{context.fetch(:workflow_node).id}")
   end
 
-  test "agent_program_failed fails a linked conversation control request through the public report api" do
+  test "agent_failed fails a linked conversation control request through the public report api" do
     context = build_agent_control_context!
     supervision_session = ConversationSupervisionSession.create!(
       installation: context[:installation],
@@ -295,28 +290,28 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_program_version: context[:deployment],
+      agent_snapshot: context[:agent_snapshot],
       request_kind: "supervision_guidance",
       payload: { "content" => "Stop and summarize." },
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
 
     post "/agent_api/control/report",
       params: {
-        method_id: "agent_program_failed",
-        protocol_message_id: "agent-program-failed-#{next_test_sequence}",
+        method_id: "agent_failed",
+        protocol_message_id: "agent-failed-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         logical_work_id: mailbox_item.logical_work_id,
         attempt_no: mailbox_item.attempt_no,
         error_payload: {
           "classification" => "runtime",
-          "code" => "program_request_failed",
+          "code" => "agent_request_failed",
           "message" => "guidance could not be delivered",
           "retryable" => false,
         },
       },
-      headers: agent_api_headers(context[:machine_credential]),
+      headers: agent_api_headers(context[:agent_connection_credential]),
       as: :json
 
     assert_response :success
@@ -325,10 +320,10 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_equal "failed", control_request.reload.lifecycle_state
     assert_equal mailbox_item.public_id, control_request.result_payload.fetch("mailbox_item_id")
     assert_equal "failed", control_request.result_payload.fetch("mailbox_status")
-    assert_equal "program_request_failed", control_request.result_payload.dig("error_payload", "code")
+    assert_equal "agent_request_failed", control_request.result_payload.dig("error_payload", "code")
   end
 
-  test "agent_program_completed persists structured supervision response payloads on the linked control request" do
+  test "agent_completed persists structured supervision response payloads on the linked control request" do
     context = build_agent_control_context!
     supervision_session = ConversationSupervisionSession.create!(
       installation: context[:installation],
@@ -352,17 +347,17 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_program_version: context[:deployment],
+      agent_snapshot: context[:agent_snapshot],
       request_kind: "supervision_status_refresh",
       payload: {},
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
 
     post "/agent_api/control/report",
       params: {
-        method_id: "agent_program_completed",
-        protocol_message_id: "agent-program-supervision-complete-#{next_test_sequence}",
+        method_id: "agent_completed",
+        protocol_message_id: "agent-supervision-complete-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         logical_work_id: mailbox_item.logical_work_id,
         attempt_no: mailbox_item.attempt_no,
@@ -377,7 +372,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
           },
         },
       },
-      headers: agent_api_headers(context[:machine_credential]),
+      headers: agent_api_headers(context[:agent_connection_credential]),
       as: :json
 
     assert_response :success
@@ -392,9 +387,10 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context, attempt_no: 2)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    lease_execution_assignment!(context:)
 
-    post "/agent_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "execution_progress",
         protocol_message_id: "agent-progress-#{next_test_sequence}",
@@ -403,9 +399,8 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
         logical_work_id: agent_task_run.logical_work_id,
         attempt_no: 1,
         progress_payload: { "state" => "late" },
-      },
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+      }
+    )
 
     assert_response :conflict
     assert_equal "stale", JSON.parse(response.body).fetch("result")
@@ -416,9 +411,10 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    lease_execution_assignment!(context:)
     AgentControl::Report.call(
-      deployment: context[:deployment],
+      agent_snapshot: context[:agent_snapshot],
+      execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "execution_started",
       protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
@@ -428,7 +424,8 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       expected_duration_seconds: 30
     )
 
-    post "/agent_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "execution_fail",
         protocol_message_id: "agent-fail-#{next_test_sequence}",
@@ -442,9 +439,8 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
           "failure_kind" => "tool_failure",
           "last_error_summary" => "exit status 1",
         },
-      },
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
 
@@ -465,9 +461,10 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    lease_execution_assignment!(context:)
     AgentControl::Report.call(
-      deployment: context[:deployment],
+      agent_snapshot: context[:agent_snapshot],
+      execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "execution_started",
       protocol_message_id: "agent-start-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
@@ -479,7 +476,8 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
 
     Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: Time.current)
 
-    post "/agent_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "execution_progress",
         protocol_message_id: "agent-progress-#{next_test_sequence}",
@@ -488,15 +486,14 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
         logical_work_id: agent_task_run.logical_work_id,
         attempt_no: agent_task_run.attempt_no,
         progress_payload: { "state" => "late" },
-      },
-      headers: agent_api_headers(context[:machine_credential]),
-      as: :json
+      }
+    )
 
     assert_response :conflict
     assert_equal "stale", JSON.parse(response.body).fetch("result")
   end
 
-  test "agent_program_completed accepts the shared supervision guidance report fixture through the public report api" do
+  test "agent_completed accepts the shared supervision guidance report fixture through the public report api" do
     context = build_agent_control_context!
     supervision_session = ConversationSupervisionSession.create!(
       installation: context[:installation],
@@ -520,12 +517,12 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_program_version: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       request_kind: "supervision_guidance",
       payload: { "content" => "Stop and summarize." },
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
 
     report = supervision_guidance_report_fixture.deep_dup.merge(
       "mailbox_item_id" => mailbox_item.public_id,
@@ -542,7 +539,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
 
     post "/agent_api/control/report",
       params: report.merge("protocol_message_id" => "supervision-guidance-contract-#{next_test_sequence}"),
-      headers: agent_api_headers(context[:machine_credential]),
+      headers: agent_api_headers(context[:agent_connection_credential]),
       as: :json
 
     assert_response :success
@@ -552,31 +549,56 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       control_request.result_payload.dig("response_payload", "control_outcome", "outcome_kind")
   end
 
-  test "deployment_health_report refreshes control activity and piggybacks pending mailbox items" do
+  test "agent_health_report refreshes control activity and piggybacks pending mailbox items" do
     context = build_agent_control_context!
-    MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    AgentControl::CreateAgentRequest.call(
+      agent_snapshot: context.fetch(:agent_snapshot),
+      request_kind: "prepare_round",
+      payload: {
+        "task" => {
+          "kind" => "turn_step",
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+        },
+      },
+      logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}",
+      dispatch_deadline_at: 5.minutes.from_now
+    )
 
     post "/agent_api/control/report",
       params: {
-        method_id: "deployment_health_report",
+        method_id: "agent_health_report",
         protocol_message_id: "health-#{next_test_sequence}",
         health_status: "healthy",
         health_metadata: { "source" => "runtime" },
       },
-      headers: agent_api_headers(context[:machine_credential]),
+      headers: agent_api_headers(context[:agent_connection_credential]),
       as: :json
 
     assert_response :success
 
     response_body = JSON.parse(response.body)
-    deployment = context[:deployment].reload
+    agent_snapshot = context[:agent_snapshot].reload
 
-    assert_equal "active_control", deployment.control_activity_state
-    assert_equal "healthy", deployment.health_status
+    assert_equal "active_control", agent_snapshot.control_activity_state
+    assert_equal "healthy", agent_snapshot.health_status
     assert_equal 1, response_body.fetch("mailbox_items").size
   end
 
   private
+
+  def lease_execution_assignment!(context:)
+    AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10)
+  end
+
+  def execution_runtime_report(context:, params:)
+    post "/execution_runtime_api/control/report",
+      params: params,
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
+      as: :json
+  end
 
   def supervision_guidance_report_fixture
     JSON.parse(

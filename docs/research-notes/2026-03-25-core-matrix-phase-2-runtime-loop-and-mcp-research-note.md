@@ -12,10 +12,10 @@ useful even if `references/` changes later.
 
 - Do not restore prompt building as a `Core Matrix` kernel responsibility.
 - Preserve execution-time budget and context hints as a runtime contract for
-  agent programs rather than as kernel-owned prompt assembly.
+  agents rather than as kernel-owned prompt assembly.
 - Split token-related controls into hard kernel or provider limits versus
   advisory runtime hints.
-- Preserve a stage-shaped agent-program customization surface equivalent to the
+- Preserve a stage-shaped agent customization surface equivalent to the
   legacy lifecycle hooks:
   - `prepare_turn`
   - `compact_context`
@@ -27,7 +27,7 @@ useful even if `references/` changes later.
   - `estimate_tokens`
   - `estimate_messages`
 - Treat context compaction, summary generation, and tool-result projection as
-  agent-program concerns in Phase 2 unless the kernel must enforce a policy
+  agent concerns in Phase 2 unless the kernel must enforce a policy
   boundary.
 - Treat provider- or tool-returned usage as the authoritative token-usage fact
   when available; agent-side estimates remain advisory.
@@ -62,7 +62,7 @@ Durable patterns worth keeping:
 The local legacy context-management code also reinforces an important boundary:
 
 - tool-output pruning and summarization are best treated as strategies that can
-  vary by agent program
+  vary by agent
 - the kernel should persist execution context and governance facts, but it does
   not need to own one universal compaction algorithm in Phase 2
 
@@ -86,20 +86,20 @@ programs or their SDK layer:
 
 This contract should remain advisory. The kernel uses it to support
 customization and accounting, not to take prompt-building ownership back from
-the agent program.
+the agent.
 
 Recommended split:
 
 - `Core Matrix` owns hard budget lines such as provider or policy-enforced
   output ceilings, timeout ceilings, and authoritative usage accounting
-- the agent program owns proactive estimation, preflight prompt sizing, and
+- the agent owns proactive estimation, preflight prompt sizing, and
   voluntary `compact_context` behavior before a request is sent
 - after a provider response returns, `Core Matrix` may evaluate advisory
   compaction-threshold crossings using the authoritative usage numbers it now
   has, but this remains a hint or follow-up signal rather than a retroactive
   execution failure
 - when the kernel knows the likely model or model profile before prompt
-  construction, it should expose that hint to the agent program so local
+  construction, it should expose that hint to the agent so local
   token-estimation strategy can adapt before the request is sent
 
 ## Stable Findings From SimpleInference
@@ -168,7 +168,7 @@ Re-open this note when one of these becomes true:
 
 - `Core Matrix` starts taking prompt-building ownership back from agent
   programs
-- multiple agent programs need a shared SDK for runtime-stage hooks and budget
+- multiple agents need a shared SDK for runtime-stage hooks and budget
   helpers
 - the loop needs richer provider-native event handling than the current
   `simple_inference` contracts expose

@@ -16,8 +16,8 @@ the parts covered here. Use it as the source of truth for:
 
 Phase 2 needs one coherent model that covers:
 
-- how `Core Matrix` delivers work to agent programs
-- how agent programs report progress and terminal state
+- how `Core Matrix` delivers work to agents
+- how agents report progress and terminal state
 - how `Stop`, archive, and delete interact with active work
 - how retries behave without reviving superseded work
 
@@ -28,7 +28,7 @@ durable mailbox model with leases, deadlines, and idempotent handlers.
 
 - Canonical control semantics are `mailbox / MQ + lease + deadlines`.
 - `poll` and `WebSocket` are delivery transports for the same mailbox items.
-- `Core Matrix` must never require a reverse callback into an agent program.
+- `Core Matrix` must never require a reverse callback into an agent.
 - `turn_interrupt` is a first-class kernel primitive and is orthogonal to
   archive and delete.
 - archive and delete both reuse `turn_interrupt`, then add disposal behavior
@@ -364,7 +364,7 @@ The kernel result is:
 - turn-scoped tool call
 - user shell command
 - `ProcessRun(kind = turn_command)`
-- turn-bound `SubagentSession`
+- turn-bound `SubagentConnection`
 
 It does not, by itself, guarantee termination of detached background resources.
 
@@ -435,7 +435,7 @@ resource-specific behavior:
   - normal `turn_interrupt` does not target it
   - archive and delete close flows do target it through the generic
     resource-close protocol
-- agent-program-owned tool processes:
+- agent-owned tool processes:
   - if they are modeled as `ProcessRun`, they inherit the same `SIGINT /
     SIGKILL / residual_abandoned` behavior
   - this matches the current Phase 2 validation shape where `Fenix` tools are
@@ -452,7 +452,7 @@ Add durable close fields to closable runtime resources:
 
 - `AgentTaskRun`
 - `ProcessRun`
-- `SubagentSession`
+- `SubagentConnection`
 
 Recommended fields:
 

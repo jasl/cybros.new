@@ -8,11 +8,11 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, executor_session: nil, resource: nil, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
+    def initialize(agent_snapshot:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
       raw_payload = payload.presence || kwargs
-      @deployment = deployment
-      @agent_session = agent_session
-      @executor_session = executor_session
+      @agent_snapshot = agent_snapshot
+      @agent_connection = agent_connection
+      @execution_runtime_connection = execution_runtime_connection
       @resource = resource
       @payload = raw_payload.deep_stringify_keys
       @method_id = method_id || @payload.fetch("method_id")
@@ -21,9 +21,9 @@ module AgentControl
     end
 
     def call
-      @resolved_agent_session = TouchDeploymentActivity.call(
-        deployment: @deployment,
-        agent_session: @agent_session,
+      @resolved_agent_connection = TouchAgentConnectionActivity.call(
+        agent_snapshot: @agent_snapshot,
+        agent_connection: @agent_connection,
         occurred_at: @occurred_at
       )
 
@@ -64,9 +64,9 @@ module AgentControl
 
     def create_receipt!
       receipt = AgentControlReportReceipt.new(
-        installation_id: @deployment.installation_id,
-        agent_session: resolved_agent_session,
-        executor_session: @executor_session,
+        installation_id: @agent_snapshot.installation_id,
+        agent_connection: resolved_agent_connection,
+        execution_runtime_connection: @execution_runtime_connection,
         protocol_message_id: @protocol_message_id,
         method_id: @method_id,
         logical_work_id: @payload["logical_work_id"],
@@ -80,7 +80,7 @@ module AgentControl
     end
 
     def find_existing_receipt
-      AgentControlReportReceipt.find_by(installation_id: @deployment.installation_id, protocol_message_id: @protocol_message_id)
+      AgentControlReportReceipt.find_by(installation_id: @agent_snapshot.installation_id, protocol_message_id: @protocol_message_id)
     end
 
     def process_report!(receipt)
@@ -91,9 +91,9 @@ module AgentControl
 
     def report_handler
       @report_handler ||= ReportDispatch.call(
-        deployment: @deployment,
-        agent_session: resolved_agent_session,
-        executor_session: @executor_session,
+        agent_snapshot: @agent_snapshot,
+        agent_connection: resolved_agent_connection,
+        execution_runtime_connection: @execution_runtime_connection,
         resource: @resource,
         method_id: @method_id,
         payload: @payload,
@@ -101,8 +101,8 @@ module AgentControl
       )
     end
 
-    def resolved_agent_session
-      @resolved_agent_session ||= @agent_session || @deployment.active_agent_session || @deployment.most_recent_agent_session
+    def resolved_agent_connection
+      @resolved_agent_connection ||= @agent_connection || @agent_snapshot.active_agent_connection || @agent_snapshot.most_recent_agent_connection
     end
 
     def persist_receipt_attributes!(receipt, attrs)
@@ -129,10 +129,10 @@ module AgentControl
         occurred_at: @occurred_at,
       }
 
-      if @executor_session.present?
-        Poll.call(executor_session: @executor_session, **poll_arguments)
+      if @execution_runtime_connection.present?
+        Poll.call(execution_runtime_connection: @execution_runtime_connection, **poll_arguments)
       else
-        Poll.call(deployment: @deployment, agent_session: resolved_agent_session, **poll_arguments)
+        Poll.call(agent_snapshot: @agent_snapshot, agent_connection: resolved_agent_connection, **poll_arguments)
       end
     end
   end

@@ -11,9 +11,19 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(deployment:, agent_session: nil, method_id:, payload:, mailbox_item:, agent_task_run:, occurred_at: Time.current)
-      @deployment = deployment
-      @agent_session = agent_session
+    def initialize(
+      agent_snapshot:,
+      agent_connection: nil,
+      execution_runtime_connection: nil,
+      method_id:,
+      payload:,
+      mailbox_item:,
+      agent_task_run:,
+      occurred_at: Time.current
+    )
+      @agent_snapshot = agent_snapshot
+      @agent_connection = agent_connection
+      @execution_runtime_connection = execution_runtime_connection
       @method_id = method_id
       @payload = payload
       @mailbox_item = mailbox_item
@@ -36,12 +46,13 @@ module AgentControl
 
     def validate_offer_fresh!
       stale! unless @mailbox_item.execution_assignment?
-      stale! unless @mailbox_item.leased_to?(@deployment)
+      stale! unless @mailbox_item.leased_to?(lease_owner)
       stale! if @mailbox_item.lease_stale?(at: @occurred_at)
       stale! unless @mailbox_item.agent_task_run_id == @agent_task_run.id
       stale! unless @mailbox_item.logical_work_id == @payload["logical_work_id"]
       stale! unless @mailbox_item.attempt_no == @payload["attempt_no"].to_i
       stale! unless @agent_task_run.queued?
+      validate_execution_runtime_alignment! if @mailbox_item.execution_runtime_plane?
     end
 
     def validate_active_execution_holder!
@@ -49,13 +60,31 @@ module AgentControl
       stale! unless @agent_task_run.logical_work_id == @payload["logical_work_id"]
       stale! unless @agent_task_run.attempt_no == @payload["attempt_no"].to_i
       stale! unless @agent_task_run.running?
-      stale! unless @agent_task_run.holder_agent_session_id == resolved_agent_session&.id
+      stale! unless @agent_task_run.holder_agent_connection_id == resolved_agent_connection&.id
       stale! unless @agent_task_run.execution_lease&.active?
       stale! if @agent_task_run.close_requested_at.present?
+      validate_execution_runtime_alignment! if @mailbox_item.execution_runtime_plane?
     end
 
-    def resolved_agent_session
-      @resolved_agent_session ||= @agent_session || @deployment.active_agent_session || @deployment.most_recent_agent_session
+    def validate_execution_runtime_alignment!
+      runtime_id = @mailbox_item.target_execution_runtime_id
+      stale! if runtime_id.blank?
+
+      if @execution_runtime_connection.present?
+        stale! unless @execution_runtime_connection.execution_runtime_id == runtime_id
+      else
+        stale! unless ExecutionRuntimeConnection.exists?(execution_runtime_id: runtime_id, lifecycle_state: "active")
+      end
+    end
+
+    def lease_owner
+      return @execution_runtime_connection if @mailbox_item.execution_runtime_plane?
+
+      @agent_snapshot
+    end
+
+    def resolved_agent_connection
+      @resolved_agent_connection ||= @agent_connection || @agent_snapshot.active_agent_connection || @agent_snapshot.most_recent_agent_connection
     end
 
     def stale!

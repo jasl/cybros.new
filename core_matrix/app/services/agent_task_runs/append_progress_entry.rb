@@ -4,13 +4,13 @@ module AgentTaskRuns
       new(...).call
     end
 
-    def initialize(agent_task_run:, entry_kind:, summary:, details_payload: {}, occurred_at: Time.current, subagent_session: nil)
+    def initialize(agent_task_run:, entry_kind:, summary:, details_payload: {}, occurred_at: Time.current, subagent_connection: nil)
       @agent_task_run = agent_task_run
       @entry_kind = entry_kind
       @summary = summary
       @details_payload = details_payload.deep_stringify_keys
       @occurred_at = occurred_at
-      @subagent_session = subagent_session
+      @subagent_connection = subagent_connection
     end
 
     def call
@@ -23,7 +23,7 @@ module AgentTaskRuns
           next_sequence = @agent_task_run.agent_task_progress_entries.maximum(:sequence).to_i + 1
           entry = @agent_task_run.agent_task_progress_entries.create!(
             installation: @agent_task_run.installation,
-            subagent_session: @subagent_session,
+            subagent_connection: @subagent_connection,
             sequence: next_sequence,
             entry_kind: @entry_kind,
             summary: @summary,

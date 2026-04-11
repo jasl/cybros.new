@@ -11,14 +11,14 @@ Web product surface exist.
 
 ## Goals
 
-- add one or more new agent programs with materially different product shapes
+- add one or more new agents with materially different product shapes
 - validate that Core Matrix is not overfit to `Fenix`
 - use real product experiments to decide whether later trigger, channel, and
   ecosystem work should proceed unchanged or be adjusted
 
 ## Candidate Validation Work
 
-- build an `OpenAlice`-style agent program
+- build an `OpenAlice`-style agent
 - validate alternative conversation feature policies and UI affordances
 - confirm that capability governance, human interaction, and recovery semantics
   still hold under a different product surface

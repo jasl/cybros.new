@@ -65,8 +65,8 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal context[:workspace].public_id, snapshot.identity.fetch("workspace_id")
     assert_equal conversation.public_id, snapshot.identity.fetch("conversation_id")
     assert_equal current_turn.public_id, snapshot.identity.fetch("turn_id")
-    assert_equal context[:executor_program].public_id, snapshot.identity.fetch("executor_program_id")
-    assert_equal context[:agent_program_version].public_id, snapshot.identity.fetch("agent_program_version_id")
+    assert_equal context[:execution_runtime].public_id, snapshot.identity.fetch("execution_runtime_id")
+    assert_equal context[:agent_snapshot].public_id, snapshot.identity.fetch("agent_snapshot_id")
     assert_equal "codex_subscription", snapshot.model_context.fetch("provider_handle")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("model_ref")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("api_model")
@@ -172,9 +172,9 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal "automation_schedule", snapshot.task.fetch("origin_kind")
   end
 
-  test "keeps canonical attachments even when executor program does not advertise request_attachment access" do
+  test "keeps canonical attachments even when execution runtime does not advertise request_attachment access" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    context[:executor_program].update!(capability_payload: { "attachment_access" => { "request_attachment" => false } })
+    context[:execution_runtime].update!(capability_payload: { "attachment_access" => { "request_attachment" => false } })
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
@@ -436,8 +436,8 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     assert_equal "main", snapshot.capability_projection.fetch("profile_key")
     assert_equal false, snapshot.capability_projection.fetch("is_subagent")
-    assert_nil snapshot.capability_projection["subagent_session_id"]
-    assert_nil snapshot.capability_projection["parent_subagent_session_id"]
+    assert_nil snapshot.capability_projection["subagent_connection_id"]
+    assert_nil snapshot.capability_projection["parent_subagent_connection_id"]
     assert_nil snapshot.capability_projection["subagent_depth"]
     assert_equal(
       RuntimeCapabilities::ComposeForTurn.call(turn: turn).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
@@ -463,7 +463,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       conversation: child_chain.fetch(:conversation),
       content: "Delegated input",
       sender_kind: "owner_agent",
-      sender_conversation: child_chain.fetch(:subagent_session).owner_conversation,
+      sender_conversation: child_chain.fetch(:subagent_connection).owner_conversation,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -472,8 +472,8 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     assert_equal "researcher", snapshot.capability_projection.fetch("profile_key")
     assert_equal true, snapshot.capability_projection.fetch("is_subagent")
-    assert_equal child_chain.fetch(:subagent_session).public_id, snapshot.capability_projection.fetch("subagent_session_id")
-    assert_equal child_chain.fetch(:parent_subagent_session).public_id, snapshot.capability_projection.fetch("parent_subagent_session_id")
+    assert_equal child_chain.fetch(:subagent_connection).public_id, snapshot.capability_projection.fetch("subagent_connection_id")
+    assert_equal child_chain.fetch(:parent_subagent_connection).public_id, snapshot.capability_projection.fetch("parent_subagent_connection_id")
     assert_equal 1, snapshot.capability_projection.fetch("subagent_depth")
     assert_equal(
       RuntimeCapabilities::ComposeForTurn.call(turn: turn).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
@@ -508,11 +508,11 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
         kind: "fork",
         addressability: "agent_addressable"
       )
-      session = SubagentSession.create!(
+      session = SubagentConnection.create!(
         installation: context[:installation],
         conversation: conversation,
         owner_conversation: previous_conversation,
-        parent_subagent_session: previous_session,
+        parent_subagent_connection: previous_session,
         scope: "conversation",
         profile_key: profile_key,
         depth: index
@@ -524,8 +524,8 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     {
       conversation: previous_conversation,
-      subagent_session: previous_session,
-      parent_subagent_session: previous_session.parent_subagent_session,
+      subagent_connection: previous_session,
+      parent_subagent_connection: previous_session.parent_subagent_connection,
     }
   end
 

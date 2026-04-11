@@ -24,8 +24,8 @@ module ConversationControl
       :target_public_id,
       :active_turn,
       :workflow_run,
-      :subagent_session,
-      :agent_program_version,
+      :subagent_connection,
+      :agent_snapshot,
       keyword_init: true
     )
 
@@ -36,7 +36,7 @@ module ConversationControl
     def self.target_kind_for(request_kind)
       request_kind = request_kind.to_s
       return "conversation" if CONVERSATION_REQUEST_KINDS.include?(request_kind)
-      return "subagent_session" if SUBAGENT_REQUEST_KINDS.include?(request_kind)
+      return "subagent_connection" if SUBAGENT_REQUEST_KINDS.include?(request_kind)
       return "workflow_run" if WORKFLOW_REQUEST_KINDS.include?(request_kind)
 
       raise ArgumentError, "unsupported conversation control request #{request_kind}"
@@ -52,7 +52,7 @@ module ConversationControl
       case self.class.target_kind_for(@request_kind)
       when "conversation"
         build_conversation_result
-      when "subagent_session"
+      when "subagent_connection"
         build_subagent_result
       when "workflow_run"
         build_workflow_result
@@ -73,24 +73,24 @@ module ConversationControl
         target_public_id: @conversation.public_id,
         active_turn: active_turn,
         workflow_run: active_workflow_run,
-        agent_program_version: resolved_agent_program_version
+        agent_snapshot: resolved_agent_snapshot
       )
     end
 
     def build_subagent_result
-      subagent_session = requested_subagent_session
+      subagent_connection = requested_subagent_connection
 
       Result.new(
         conversation: @conversation,
         request_kind: @request_kind,
         request_payload: @request_payload,
-        target_record: subagent_session,
-        target_kind: "subagent_session",
-        target_public_id: subagent_session&.public_id,
+        target_record: subagent_connection,
+        target_kind: "subagent_connection",
+        target_public_id: subagent_connection&.public_id,
         active_turn: active_turn,
         workflow_run: active_workflow_run,
-        subagent_session: subagent_session,
-        agent_program_version: resolved_agent_program_version
+        subagent_connection: subagent_connection,
+        agent_snapshot: resolved_agent_snapshot
       )
     end
 
@@ -106,7 +106,7 @@ module ConversationControl
         target_public_id: workflow_run&.public_id,
         active_turn: workflow_run&.turn || active_turn,
         workflow_run: workflow_run,
-        agent_program_version: resolved_agent_program_version
+        agent_snapshot: resolved_agent_snapshot
       )
     end
 
@@ -118,24 +118,24 @@ module ConversationControl
       @active_workflow_run ||= @conversation.workflow_runs.where(lifecycle_state: "active").order(:created_at, :id).last
     end
 
-    def requested_subagent_session
-      scope = @conversation.owned_subagent_sessions.close_pending_or_open.order(:created_at, :id)
-      subagent_session_id = @request_payload["subagent_session_id"].presence
-      return scope.find_by(public_id: subagent_session_id) if subagent_session_id.present?
+    def requested_subagent_connection
+      scope = @conversation.owned_subagent_connections.close_pending_or_open.order(:created_at, :id)
+      subagent_connection_id = @request_payload["subagent_connection_id"].presence
+      return scope.find_by(public_id: subagent_connection_id) if subagent_connection_id.present?
 
       scope.detect { |session| !session.terminal_for_wait? } || scope.last
     end
 
-    def resolved_agent_program_version
-      active_agent_session&.agent_program_version ||
-        active_turn&.agent_program_version ||
-        active_workflow_run&.turn&.agent_program_version ||
-        @conversation.turns.order(:created_at, :id).last&.agent_program_version
+    def resolved_agent_snapshot
+      active_agent_connection&.agent_snapshot ||
+        active_turn&.agent_snapshot ||
+        active_workflow_run&.turn&.agent_snapshot ||
+        @conversation.turns.order(:created_at, :id).last&.agent_snapshot
     end
 
-    def active_agent_session
-      @active_agent_session ||= AgentSession.find_by(
-        agent_program: @conversation.agent_program,
+    def active_agent_connection
+      @active_agent_connection ||= AgentConnection.find_by(
+        agent: @conversation.agent,
         lifecycle_state: "active"
       )
     end

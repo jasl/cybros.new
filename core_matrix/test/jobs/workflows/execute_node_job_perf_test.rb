@@ -27,7 +27,7 @@ class Workflows::ExecuteNodeJobPerfTest < ActiveSupport::TestCase
     assert_equal workflow_node.workspace.public_id, queue_events.first.fetch("workspace_public_id")
     assert_equal workflow_node.conversation.public_id, queue_events.first.fetch("conversation_public_id")
     assert_equal workflow_node.turn.public_id, queue_events.first.fetch("turn_public_id")
-    assert_equal workflow_node.conversation.agent_program.public_id, queue_events.first.fetch("agent_program_public_id")
+    assert_equal workflow_node.conversation.agent.public_id, queue_events.first.fetch("agent_public_id")
     assert_equal "workflow_default", queue_events.first.fetch("queue_name")
     assert_operator queue_events.first.fetch("queue_delay_ms"), :>=, 1500.0
   end

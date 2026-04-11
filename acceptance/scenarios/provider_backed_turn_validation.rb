@@ -15,14 +15,14 @@ bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
 bundled = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
-  executor_fingerprint: "acceptance-provider-backed-environment",
+  execution_runtime_fingerprint: "acceptance-provider-backed-environment",
   fingerprint: fingerprint
 )
 conversation_context = nil
 run = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: bundled) do
-  conversation_context = Acceptance::ManualSupport.create_conversation!(deployment: bundled.deployment)
+  conversation_context = Acceptance::ManualSupport.create_conversation!(agent_snapshot: bundled.agent_snapshot)
   run = Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
     conversation: conversation_context.fetch(:conversation),
     content: content,
@@ -65,8 +65,8 @@ Acceptance::ManualSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      "deployment_id" => bundled.deployment.public_id,
-      "executor_program_id" => bundled.executor_program.public_id,
+      "agent_snapshot_id" => bundled.agent_snapshot.public_id,
+      "execution_runtime_id" => bundled.execution_runtime.public_id,
       "conversation_id" => conversation_context.fetch(:conversation).public_id,
       "turn_id" => turn.public_id,
       "workflow_run_id" => workflow_run.public_id,

@@ -47,13 +47,13 @@ class ConversationSupervision::PruneFeedWindowTest < ActiveSupport::TestCase
     Turn.create!(
       installation: template_turn.installation,
       conversation: conversation,
-      agent_program_version: template_turn.agent_program_version,
-      executor_program: template_turn.executor_program,
+      agent_snapshot: template_turn.agent_snapshot,
+      execution_runtime: template_turn.execution_runtime,
       sequence: sequence,
       lifecycle_state: lifecycle_state,
       origin_kind: "system_internal",
       origin_payload: {},
-      pinned_program_version_fingerprint: template_turn.agent_program_version.fingerprint,
+      pinned_agent_snapshot_fingerprint: template_turn.agent_snapshot.fingerprint,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}

@@ -82,7 +82,7 @@ Update any remaining broken tests, helper methods, or docs that still reference 
 ### Task 4: Verify the renamed contracts end to end
 
 **Files:**
-- Test: focused model/service/integration files for agent control, workflows, and subagent sessions
+- Test: focused model/service/integration files for agent control, workflows, and subagent connections
 
 **Step 1: Run focused red/green checks**
 

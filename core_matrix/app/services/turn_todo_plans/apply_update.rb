@@ -57,7 +57,7 @@ module TurnTodoPlans
       @payload.fetch("items").each_with_index do |entry, index|
         plan.turn_todo_plan_items.create!(
           installation: plan.installation,
-          delegated_subagent_session: delegated_subagent_session_for(entry["delegated_subagent_session_public_id"]),
+          delegated_subagent_connection: delegated_subagent_connection_for(entry["delegated_subagent_connection_public_id"]),
           item_key: entry.fetch("item_key"),
           title: entry.fetch("title"),
           status: entry.fetch("status", "pending"),
@@ -70,10 +70,10 @@ module TurnTodoPlans
       end
     end
 
-    def delegated_subagent_session_for(public_id)
+    def delegated_subagent_connection_for(public_id)
       return if public_id.blank?
 
-      @agent_task_run.conversation.owned_subagent_sessions.find_by!(public_id: public_id)
+      @agent_task_run.conversation.owned_subagent_connections.find_by!(public_id: public_id)
     end
 
     def append_feed_entries!(previous_plan:, current_plan:)

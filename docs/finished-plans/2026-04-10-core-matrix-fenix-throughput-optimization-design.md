@@ -16,7 +16,7 @@ Verified local baselines show:
 
 The system is not database-bound first. The dominant costs are:
 
-1. worker threads held by synchronous `ProgramMailboxExchange` receipt polling
+1. worker threads held by synchronous `AgentRequestExchange` receipt polling
 2. mailbox routing work repeated in the `Poll` hot path
 3. queue-family contention between heavy execution and lightweight orchestration
 
@@ -24,14 +24,14 @@ The system is not database-bound first. The dominant costs are:
 
 ### 1. Make program mailbox requests resumable instead of synchronously blocking
 
-`ProviderExecution::ProgramMailboxExchange` currently creates a mailbox request and then holds a worker thread while polling `AgentControlReportReceipt`.
+`ProviderExecution::AgentRequestExchange` currently creates a mailbox request and then holds a worker thread while polling `AgentControlReportReceipt`.
 
 We will replace that model with:
 
 - create mailbox request
 - persist workflow wait state on the current `WorkflowNode`
 - release the worker thread immediately
-- when the terminal agent-program report arrives, resume the blocked workflow step
+- when the terminal agent report arrives, resume the blocked workflow step
 
 This keeps worker threads doing useful work instead of sleeping on receipt polling.
 
@@ -65,7 +65,7 @@ This should reduce head-of-line blocking and improve tail latency under stress.
 
 - CoreMatrix runtime topology and queue defaults
 - mailbox item routing materialization
-- workflow wait/resume behavior for agent-program requests
+- workflow wait/resume behavior for agent requests
 - report-handling follow-up that resumes blocked workflow work
 - acceptance/perf gates and docs updates
 

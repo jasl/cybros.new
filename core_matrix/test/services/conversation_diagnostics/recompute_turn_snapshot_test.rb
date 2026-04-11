@@ -28,7 +28,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
 
     create_process_run!(
       workflow_node: workflow_node,
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       conversation: context[:conversation],
       turn: turn,
       lifecycle_state: "lost",
@@ -39,12 +39,12 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       kind: "fork",
       addressability: "agent_addressable"
     )
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: child_conversation,
@@ -138,7 +138,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     assert_equal 1, snapshot.command_failure_count
     assert_equal 1, snapshot.process_run_count
     assert_equal 1, snapshot.process_failure_count
-    assert_equal 1, snapshot.subagent_session_count
+    assert_equal 1, snapshot.subagent_connection_count
     assert_equal 2, snapshot.input_variant_count
     assert_equal 2, snapshot.output_variant_count
     assert_equal 1, snapshot.resume_attempt_count
@@ -230,11 +230,11 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
   private
 
   def create_tool_execution!(context:, workflow_node:, tool_status:, command_line:, command_state:)
-    capability_snapshot = context[:deployment]
+    capability_snapshot = context[:agent_snapshot]
 
     tool_definition = ToolDefinition.find_or_create_by!(
       installation: context[:installation],
-      agent_program_version: capability_snapshot,
+      agent_snapshot: capability_snapshot,
       tool_name: "exec_command"
     ) do |definition|
       definition.tool_kind = "function"
@@ -306,8 +306,8 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       conversation_id: context[:conversation].id,
       turn_id: context[:turn].id,
       workflow_node_key: workflow_node.node_key,
-      agent_program: context[:agent_program],
-      agent_program_version: context[:deployment],
+      agent: context[:agent],
+      agent_snapshot: context[:agent_snapshot],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",

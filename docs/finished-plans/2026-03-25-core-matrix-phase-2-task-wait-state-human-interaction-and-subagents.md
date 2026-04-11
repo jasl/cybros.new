@@ -19,7 +19,7 @@ indexes, not as the full task body.
 Status note (`2026-03-30`):
 
 - current code already includes `HumanInteractions::*`,
-  `SubagentSessions::Spawn`, workflow wait-state persistence,
+  `SubagentConnections::Spawn`, workflow wait-state persistence,
   `Workflows::ManualResume`, and bounded `wait_all` batch artifacts
 - the remaining scope for this task is wiring yielded runtime requests into
   those workflow-owned resources and proving the end-to-end wait/subagent
@@ -43,20 +43,20 @@ Reference capture for this task:
 - Modify: `core_matrix/app/services/human_interactions/request.rb`
 - Modify: `core_matrix/app/services/human_interactions/submit_form.rb`
 - Modify: `core_matrix/app/services/human_interactions/complete_task.rb`
-- Modify: `core_matrix/app/services/subagent_sessions/spawn.rb`
+- Modify: `core_matrix/app/services/subagent_connections/spawn.rb`
 - Modify: `core_matrix/app/services/workflows/manual_resume.rb`
 - Modify: `core_matrix/app/services/workflows/manual_retry.rb`
 - Modify: `core_matrix/app/models/human_interaction_request.rb`
-- Modify: `core_matrix/app/models/subagent_session.rb`
+- Modify: `core_matrix/app/models/subagent_connection.rb`
 - Modify: `core_matrix/app/models/workflow_run.rb`
 - Modify: `core_matrix/app/models/workflow_node.rb`
 - Create or modify: `core_matrix/test/services/human_interactions/request_test.rb`
 - Create or modify: `core_matrix/test/services/human_interactions/submit_form_test.rb`
-- Create or modify: `core_matrix/test/services/subagent_sessions/spawn_test.rb`
+- Create or modify: `core_matrix/test/services/subagent_connections/spawn_test.rb`
 - Create or modify: `core_matrix/test/services/workflows/manual_resume_test.rb`
 - Create or modify: `core_matrix/test/integration/human_interaction_and_subagent_flow_test.rb`
 - Modify: `core_matrix/docs/behavior/human-interactions-and-conversation-events.md`
-- Modify: `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
+- Modify: `core_matrix/docs/behavior/subagent-connections-and-execution-leases.md`
 - Modify: `core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md`
 
 **Step 1: Write failing service and integration tests**
@@ -66,7 +66,7 @@ Cover at least:
 - canonical wait handoff through a payload such as
   `wait_transition_requested`
 - one `HumanFormRequest` or `HumanTaskRequest` path
-- one `SubagentSession` path
+- one `SubagentConnection` path
 - workflow wait-state entry and exit for both
 - successor `AgentTaskRun` re-entry after wait resolution
 - bounded parallel subagent spawn under `completion_barrier = wait_all`
@@ -77,7 +77,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/services/human_interactions test/services/subagent_sessions test/services/workflows/manual_resume_test.rb test/integration/human_interaction_and_subagent_flow_test.rb
+bin/rails test test/services/human_interactions test/services/subagent_connections test/services/workflows/manual_resume_test.rb test/integration/human_interaction_and_subagent_flow_test.rb
 ```
 
 Expected:
@@ -113,7 +113,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/services/human_interactions test/services/subagent_sessions test/services/workflows/manual_resume_test.rb test/integration/human_interaction_and_subagent_flow_test.rb
+bin/rails test test/services/human_interactions test/services/subagent_connections test/services/workflows/manual_resume_test.rb test/integration/human_interaction_and_subagent_flow_test.rb
 ```
 
 Expected:
@@ -123,7 +123,7 @@ Expected:
 **Step 6: Commit**
 
 ```bash
-git -C .. add core_matrix/app/services/human_interactions core_matrix/app/services/subagent_sessions core_matrix/app/services/workflows/manual_resume.rb core_matrix/app/services/workflows/manual_retry.rb core_matrix/app/models/human_interaction_request.rb core_matrix/app/models/subagent_session.rb core_matrix/app/models/workflow_run.rb core_matrix/app/models/workflow_node.rb core_matrix/test/services/human_interactions core_matrix/test/services/subagent_sessions core_matrix/test/services/workflows/manual_resume_test.rb core_matrix/test/integration/human_interaction_and_subagent_flow_test.rb core_matrix/docs/behavior/human-interactions-and-conversation-events.md core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md
+git -C .. add core_matrix/app/services/human_interactions core_matrix/app/services/subagent_connections core_matrix/app/services/workflows/manual_resume.rb core_matrix/app/services/workflows/manual_retry.rb core_matrix/app/models/human_interaction_request.rb core_matrix/app/models/subagent_connection.rb core_matrix/app/models/workflow_run.rb core_matrix/app/models/workflow_node.rb core_matrix/test/services/human_interactions core_matrix/test/services/subagent_connections core_matrix/test/services/workflows/manual_resume_test.rb core_matrix/test/integration/human_interaction_and_subagent_flow_test.rb core_matrix/docs/behavior/human-interactions-and-conversation-events.md core_matrix/docs/behavior/subagent-connections-and-execution-leases.md core_matrix/docs/behavior/workflow-scheduler-and-wait-states.md
 git -C .. commit -m "feat: add workflow wait-state handoff"
 ```
 

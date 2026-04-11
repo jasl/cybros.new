@@ -29,8 +29,8 @@ class Turn < ApplicationRecord
 
   belongs_to :installation
   belongs_to :conversation
-  belongs_to :agent_program_version
-  belongs_to :executor_program, class_name: "ExecutorProgram", optional: true
+  belongs_to :agent_snapshot
+  belongs_to :execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :execution_contract, optional: true
   belongs_to :selected_input_message, class_name: "Message", optional: true
   belongs_to :selected_output_message, class_name: "Message", optional: true
@@ -45,15 +45,15 @@ class Turn < ApplicationRecord
   has_one :workflow_run, dependent: :restrict_with_exception
 
   validates :sequence, uniqueness: { scope: :conversation_id }
-  validates :pinned_program_version_fingerprint, presence: true
+  validates :pinned_agent_snapshot_fingerprint, presence: true
   validate :origin_payload_must_be_hash
   validate :feature_policy_snapshot_must_be_hash
   validate :resolved_config_snapshot_must_be_hash
   validate :resolved_model_selection_snapshot_must_be_hash
   validate :conversation_installation_match
-  validate :agent_program_version_installation_match
-  validate :executor_program_installation_match
-  validate :agent_program_version_conversation_match
+  validate :agent_snapshot_installation_match
+  validate :execution_runtime_installation_match
+  validate :agent_snapshot_conversation_match
   validate :selected_input_message_rules
   validate :selected_output_message_rules
   validate :selected_output_lineage_rules
@@ -139,25 +139,25 @@ class Turn < ApplicationRecord
     errors.add(:conversation, "must belong to the same installation")
   end
 
-  def agent_program_version_installation_match
-    return if agent_program_version.blank?
-    return if agent_program_version.installation_id == installation_id
+  def agent_snapshot_installation_match
+    return if agent_snapshot.blank?
+    return if agent_snapshot.installation_id == installation_id
 
-    errors.add(:agent_program_version, "must belong to the same installation")
+    errors.add(:agent_snapshot, "must belong to the same installation")
   end
 
-  def executor_program_installation_match
-    return if executor_program.blank?
-    return if executor_program.installation_id == installation_id
+  def execution_runtime_installation_match
+    return if execution_runtime.blank?
+    return if execution_runtime.installation_id == installation_id
 
-    errors.add(:executor_program, "must belong to the same installation")
+    errors.add(:execution_runtime, "must belong to the same installation")
   end
 
-  def agent_program_version_conversation_match
-    return if conversation.blank? || agent_program_version.blank?
-    return if agent_program_version.agent_program_id == conversation.agent_program_id
+  def agent_snapshot_conversation_match
+    return if conversation.blank? || agent_snapshot.blank?
+    return if agent_snapshot.agent_id == conversation.agent_id
 
-    errors.add(:agent_program_version, "must belong to the conversation agent program")
+    errors.add(:agent_snapshot, "must belong to the conversation agent")
   end
 
   def selected_input_message_rules

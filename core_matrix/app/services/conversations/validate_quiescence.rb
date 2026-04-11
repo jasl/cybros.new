@@ -13,7 +13,7 @@ module Conversations
     end
 
     def call
-      ensure_owned_subagent_sessions_closed!
+      ensure_owned_subagent_connections_closed!
 
       raise_invalid!(:base, "must not have active turns before #{@stage}") if barrier[:active_turn_count].positive?
       raise_invalid!(:base, "must not have active workflow runs before #{@stage}") if barrier[:active_workflow_count].positive?
@@ -37,24 +37,24 @@ module Conversations
       @barrier ||= @blocker_snapshot&.work_barrier || Conversations::BlockerSnapshotQuery.call(conversation: @conversation).work_barrier
     end
 
-    def ensure_owned_subagent_sessions_closed!
+    def ensure_owned_subagent_connections_closed!
       if @blocker_snapshot.present?
         return if @blocker_snapshot.close_pending_or_open_subagent_count.zero?
 
         qualifier = @stage == "archival" ? "open" : "open or close-pending"
-        raise_invalid!(:base, "must not have #{qualifier} subagent sessions before #{@stage}")
+        raise_invalid!(:base, "must not have #{qualifier} subagent connections before #{@stage}")
       end
 
-      session_ids = SubagentSessions::OwnedTree.session_ids_for(owner_conversation: @conversation)
-      return if session_ids.empty?
+      connection_ids = SubagentConnections::OwnedTree.connection_ids_for(owner_conversation: @conversation)
+      return if connection_ids.empty?
 
-      pending_sessions = SubagentSession
-        .where(id: session_ids)
-        .merge(SubagentSession.close_pending_or_open)
+      pending_sessions = SubagentConnection
+        .where(id: connection_ids)
+        .merge(SubagentConnection.close_pending_or_open)
       return unless pending_sessions.exists?
 
       qualifier = @stage == "archival" ? "open" : "open or close-pending"
-      raise_invalid!(:base, "must not have #{qualifier} subagent sessions before #{@stage}")
+      raise_invalid!(:base, "must not have #{qualifier} subagent connections before #{@stage}")
     end
 
     def raise_invalid!(attribute, message)

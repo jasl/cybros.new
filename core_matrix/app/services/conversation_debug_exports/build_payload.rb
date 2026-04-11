@@ -38,7 +38,7 @@ module ConversationDebugExports
         "tool_invocations" => tool_invocations.map { |tool_invocation| serialize_tool_invocation(tool_invocation) },
         "command_runs" => command_runs.map { |command_run| serialize_command_run(command_run) },
         "process_runs" => process_runs.map { |process_run| serialize_process_run(process_run) },
-        "subagent_sessions" => subagent_sessions.map { |session| serialize_subagent_session(session) },
+        "subagent_connections" => subagent_connections.map { |session| serialize_subagent_connection(session) },
         "usage_events" => usage_events.map { |event| serialize_usage_event(event) },
       }
     end
@@ -60,7 +60,7 @@ module ConversationDebugExports
           :turn,
           :yielding_workflow_node,
           :opened_human_interaction_request,
-          :spawned_subagent_session
+          :spawned_subagent_connection
         )
         .order(:created_at, :id)
     end
@@ -80,9 +80,9 @@ module ConversationDebugExports
           :turn,
           :workflow_run,
           :workflow_node,
-          :subagent_session,
+          :subagent_connection,
           :origin_turn,
-          holder_agent_session: :agent_program_version
+          holder_agent_connection: :agent_snapshot
         )
         .order(:created_at, :id)
     end
@@ -126,11 +126,11 @@ module ConversationDebugExports
         .order(:created_at, :id)
     end
 
-    def subagent_sessions
-      @subagent_sessions ||= SubagentSession
+    def subagent_connections
+      @subagent_connections ||= SubagentConnection
         .where(owner_conversation: @conversation)
-        .or(SubagentSession.where(conversation: @conversation))
-        .preload(:owner_conversation, :conversation, :origin_turn, :parent_subagent_session)
+        .or(SubagentConnection.where(conversation: @conversation))
+        .preload(:owner_conversation, :conversation, :origin_turn, :parent_subagent_connection)
         .order(:created_at, :id)
     end
 
@@ -150,8 +150,8 @@ module ConversationDebugExports
       @workspace_public_id_map ||= Workspace.where(id: usage_events.map(&:workspace_id).compact.uniq).pluck(:id, :public_id).to_h
     end
 
-    def agent_program_version_public_id_map
-      @agent_program_version_public_id_map ||= AgentProgramVersion.where(id: usage_events.map(&:agent_program_version_id).compact.uniq).pluck(:id, :public_id).to_h
+    def agent_snapshot_public_id_map
+      @agent_snapshot_public_id_map ||= AgentSnapshot.where(id: usage_events.map(&:agent_snapshot_id).compact.uniq).pluck(:id, :public_id).to_h
     end
 
     def serialize_conversation_snapshot(snapshot)
@@ -189,7 +189,7 @@ module ConversationDebugExports
         "command_failure_count" => snapshot.command_failure_count,
         "process_run_count" => snapshot.process_run_count,
         "process_failure_count" => snapshot.process_failure_count,
-        "subagent_session_count" => snapshot.subagent_session_count,
+        "subagent_connection_count" => snapshot.subagent_connection_count,
         "resume_attempt_count" => snapshot.resume_attempt_count,
         "retry_attempt_count" => snapshot.retry_attempt_count,
         "most_expensive_turn_id" => snapshot.most_expensive_turn&.public_id,
@@ -229,7 +229,7 @@ module ConversationDebugExports
         "command_failure_count" => snapshot.command_failure_count,
         "process_run_count" => snapshot.process_run_count,
         "process_failure_count" => snapshot.process_failure_count,
-        "subagent_session_count" => snapshot.subagent_session_count,
+        "subagent_connection_count" => snapshot.subagent_connection_count,
         "resume_attempt_count" => snapshot.resume_attempt_count,
         "retry_attempt_count" => snapshot.retry_attempt_count,
         "pause_state" => snapshot.pause_state,
@@ -291,7 +291,7 @@ module ConversationDebugExports
         "intent_idempotency_key" => workflow_node.intent_idempotency_key,
         "intent_payload" => workflow_node.intent_payload.presence,
         "opened_human_interaction_request_id" => workflow_node.opened_human_interaction_request&.public_id,
-        "spawned_subagent_session_id" => workflow_node.spawned_subagent_session&.public_id,
+        "spawned_subagent_connection_id" => workflow_node.spawned_subagent_connection&.public_id,
         "provider_round_index" => workflow_node.provider_round_index,
         "prior_tool_node_keys" => workflow_node.prior_tool_node_keys.presence,
         "blocked_retry_failure_kind" => workflow_node.blocked_retry_failure_kind,
@@ -335,9 +335,9 @@ module ConversationDebugExports
         "workflow_node_id" => task_run.workflow_node.public_id,
         "conversation_id" => task_run.conversation.public_id,
         "turn_id" => task_run.turn.public_id,
-        "subagent_session_id" => task_run.subagent_session&.public_id,
+        "subagent_connection_id" => task_run.subagent_connection&.public_id,
         "origin_turn_id" => task_run.origin_turn&.public_id,
-        "holder_agent_program_version_id" => task_run.holder_agent_program_version&.public_id,
+        "holder_agent_snapshot_id" => task_run.holder_agent_snapshot&.public_id,
         "kind" => task_run.kind,
         "lifecycle_state" => task_run.lifecycle_state,
         "logical_work_id" => task_run.logical_work_id,
@@ -414,13 +414,13 @@ module ConversationDebugExports
       }.compact
     end
 
-    def serialize_subagent_session(session)
+    def serialize_subagent_connection(session)
       {
-        "subagent_session_id" => session.public_id,
+        "subagent_connection_id" => session.public_id,
         "owner_conversation_id" => session.owner_conversation.public_id,
         "conversation_id" => session.conversation.public_id,
         "origin_turn_id" => session.origin_turn&.public_id,
-        "parent_subagent_session_id" => session.parent_subagent_session&.public_id,
+        "parent_subagent_connection_id" => session.parent_subagent_connection&.public_id,
         "scope" => session.scope,
         "profile_key" => session.profile_key,
         "depth" => session.depth,
@@ -439,7 +439,7 @@ module ConversationDebugExports
         "turn_id" => turn_public_id_map[event.turn_id],
         "user_id" => user_public_id_map[event.user_id],
         "workspace_id" => workspace_public_id_map[event.workspace_id],
-        "agent_program_version_id" => agent_program_version_public_id_map[event.agent_program_version_id],
+        "agent_snapshot_id" => agent_snapshot_public_id_map[event.agent_snapshot_id],
         "provider_handle" => event.provider_handle,
         "model_ref" => event.model_ref,
         "operation_kind" => event.operation_kind,

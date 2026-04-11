@@ -28,12 +28,12 @@ Recent archived records from the accepted provider-backed loop and reset batch:
 - [2026-03-31-core-matrix-loop-fenix-program.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-loop-fenix-program.md)
 - [2026-03-31-core-matrix-parallel-tool-execution-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-parallel-tool-execution-design.md)
 - [2026-03-31-core-matrix-parallel-tool-execution.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-parallel-tool-execution.md)
-- [2026-04-01-agent-program-runtime-contract-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-01-agent-program-runtime-contract-reset.md)
+- [2026-04-01-agent-runtime-contract-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-01-agent-runtime-contract-reset.md)
 - [2026-04-02-conversation-diagnostics-and-usage-review.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-02-conversation-diagnostics-and-usage-review.md)
 - [2026-04-02-conversation-export-import-and-debug-bundles-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-02-conversation-export-import-and-debug-bundles-design.md)
 - [2026-04-02-conversation-export-import-and-debug-bundles.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-02-conversation-export-import-and-debug-bundles.md)
-- [2026-04-03-agent-program-execution-runtime-reset-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-03-agent-program-execution-runtime-reset-design.md)
-- [2026-04-03-agent-program-execution-runtime-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-03-agent-program-execution-runtime-reset.md)
+- [2026-04-03-agent-execution-runtime-reset-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-03-agent-execution-runtime-reset-design.md)
+- [2026-04-03-agent-execution-runtime-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-03-agent-execution-runtime-reset.md)
 - [fenix](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/fenix/README.md)
 
 Current Phase 2 finished records:
@@ -54,7 +54,7 @@ Current Phase 2 finished records:
 - Closeout records:
   [2026-03-27-core-matrix-phase-2-plan-execution-snapshot-and-aggregate-boundary-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-27-core-matrix-phase-2-plan-execution-snapshot-and-aggregate-boundary-unification.md),
   [2026-03-27-core-matrix-phase-2-plan-control-plane-routing-and-lifecycle-ownership-unification.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-27-core-matrix-phase-2-plan-control-plane-routing-and-lifecycle-ownership-unification.md),
-  [2026-03-29-core-matrix-phase-2-plan-subagent-session-close-state-model-consolidation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-phase-2-plan-subagent-session-close-state-model-consolidation.md),
+  [2026-03-29-core-matrix-phase-2-plan-subagent-connection-close-state-model-consolidation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-29-core-matrix-phase-2-plan-subagent-connection-close-state-model-consolidation.md),
   [2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-core-matrix-phase-2-follow-up-node-execution-and-dag-merge-plan.md),
   [2026-03-30-short-command-split-from-process-run-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-short-command-split-from-process-run-design.md),
   [2026-03-30-websocket-first-runtime-mailbox-control-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-websocket-first-runtime-mailbox-control-design.md),
@@ -65,7 +65,7 @@ Current Phase 2 finished records:
   [2026-03-30-core-matrix-phase-2-milestone-f-sequential-execution-plan.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-30-core-matrix-phase-2-milestone-f-sequential-execution-plan.md)
 
 The archived Milestone C record now also serves as the index for the completed
-runtime-boundary, audit, consolidation, subagent-session, and iterative
+runtime-boundary, audit, consolidation, subagent-connection, and iterative
 refresh follow-ups that were appended after the original milestone scope.
 
 Current Phase 1 finished records:
@@ -122,7 +122,7 @@ Current Phase 1 finished records:
   [2026-03-24-core-matrix-phase-1-task-10-4-subagents-and-leases.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-phase-1-task-10-4-subagents-and-leases.md),
   [2026-03-24-core-matrix-phase-1-task-11-1-registration-and-capability-handshake.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-phase-1-task-11-1-registration-and-capability-handshake.md),
   [2026-03-24-core-matrix-phase-1-task-11-2-runtime-resource-apis.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-phase-1-task-11-2-runtime-resource-apis.md),
-  [2026-03-24-core-matrix-phase-1-task-11-3-deployment-credential-lifecycle.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-phase-1-task-11-3-deployment-credential-lifecycle.md),
+  [2026-03-24-core-matrix-phase-1-task-11-3-connection-credential-lifecycle.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-phase-1-task-11-3-connection-credential-lifecycle.md),
   [2026-03-24-core-matrix-phase-1-task-11-4-bootstrap-and-recovery.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-phase-1-task-11-4-bootstrap-and-recovery.md),
   [2026-03-24-core-matrix-phase-1-task-12-1-publication-model-and-live-projection.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-phase-1-task-12-1-publication-model-and-live-projection.md),
   [2026-03-24-core-matrix-phase-1-task-12-2-read-side-queries-and-seed-baseline.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-24-core-matrix-phase-1-task-12-2-read-side-queries-and-seed-baseline.md),

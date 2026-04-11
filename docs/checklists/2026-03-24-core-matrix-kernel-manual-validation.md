@@ -305,7 +305,7 @@ jq '.' /tmp/phase2_subagent_wait_all.json
 ```
 
 - expected outputs:
-  - `subagent_session_ids` contains two `public_id` values
+  - `subagent_connection_ids` contains two `public_id` values
   - `observed_dag_shape_before` equals
     `["agent_turn_step->subagent_alpha", "agent_turn_step->subagent_beta",
     "root->agent_turn_step"]`
@@ -409,7 +409,7 @@ bundle exec ruby script/manual/acceptance/governed_tool_validation.rb
   - `tool_invocation_status: "succeeded"`
   - non-empty `tool_binding_id`
   - non-empty `tool_invocation_id`
-  - `response_payload.subagent_session_id` is present
+  - `response_payload.subagent_connection_id` is present
   - `expected_conversation_state.turn_lifecycle_state: "active"`
 - minimum evidence:
   - one `ToolBinding`
@@ -1042,7 +1042,7 @@ RUBY
 ## Agent Registry And Credential Lifecycle
 
 - goal:
-  verify enrollment, registration, heartbeat, health, machine credential
+  verify enrollment, registration, heartbeat, health, connection credential
   rotation, revocation, and retirement
 - prerequisites:
   - helper functions loaded
@@ -2213,7 +2213,7 @@ Workflows::Mutate.call(
     {
       node_key: "human_gate",
       node_type: "human_interaction",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {},
     },
   ],
@@ -2377,7 +2377,7 @@ def build_request_context(user:, deployment:)
     ordinal: 0,
     node_key: "human_gate",
     node_type: "human_interaction",
-    decision_source: "agent_program",
+    decision_source: "agent",
     metadata: {}
   )
 
@@ -2406,7 +2406,7 @@ def build_request_context(user:, deployment:)
     ordinal: 0,
     node_key: "human_gate",
     node_type: "human_interaction",
-    decision_source: "agent_program",
+    decision_source: "agent",
     metadata: {}
   )
 
@@ -2655,7 +2655,7 @@ workflow_node = WorkflowNode.create!(
   ordinal: 1,
   node_key: "human_gate",
   node_type: "human_interaction",
-  decision_source: "agent_program",
+  decision_source: "agent",
   metadata: {}
 )
 

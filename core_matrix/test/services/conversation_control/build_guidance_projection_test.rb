@@ -48,19 +48,19 @@ class ConversationControl::BuildGuidanceProjectionTest < ActiveSupport::TestCase
       session: session,
       target_conversation: fixture.fetch(:conversation),
       request_kind: "send_guidance_to_subagent",
-      target_kind: "subagent_session",
-      target_public_id: fixture.fetch(:subagent_session).public_id,
+      target_kind: "subagent_connection",
+      target_public_id: fixture.fetch(:subagent_connection).public_id,
       content: "Stop coding and report your current status.",
       completed_at: Time.current
     )
 
     projection = ConversationControl::BuildGuidanceProjection.call(
-      conversation: fixture.fetch(:subagent_session).conversation
+      conversation: fixture.fetch(:subagent_connection).conversation
     )
 
     assert_equal "subagent", projection.fetch("guidance_scope")
     assert_equal request.public_id, projection.dig("latest_guidance", "conversation_control_request_id")
-    assert_equal fixture.fetch(:subagent_session).public_id, projection.dig("latest_guidance", "target_public_id")
+    assert_equal fixture.fetch(:subagent_connection).public_id, projection.dig("latest_guidance", "target_public_id")
     assert_equal fixture.fetch(:conversation).public_id, projection.dig("latest_guidance", "source_conversation_id")
     assert_equal "Stop coding and report your current status.", projection.dig("latest_guidance", "content")
   end

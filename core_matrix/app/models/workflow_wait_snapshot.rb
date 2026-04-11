@@ -123,7 +123,7 @@ class WorkflowWaitSnapshot
       retryable_failure_resolved_for?(workflow_run)
     when "external_dependency_blocked"
       blocked_workflow_node_resolved_for?(workflow_run)
-    when "agent_program_request"
+    when "agent_request"
       blocked_workflow_node_resolved_for?(workflow_run)
     when "subagent_barrier"
       sessions = workflow_run.subagent_barrier_sessions

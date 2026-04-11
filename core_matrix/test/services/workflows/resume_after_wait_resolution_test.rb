@@ -3,7 +3,7 @@ require "test_helper"
 class Workflows::ResumeAfterWaitResolutionTest < ActiveSupport::TestCase
   test "re-enters a subagent barrier using barrier artifact-backed spawn nodes" do
     context = build_subagent_barrier_waiting_context!
-    context[:subagent_sessions].each { |session| session.update!(observed_status: "completed") }
+    context[:subagent_connections].each { |session| session.update!(observed_status: "completed") }
 
     re_enter_call = nil
     original_re_enter = Workflows::ReEnterAgent.method(:call)
@@ -36,13 +36,13 @@ class Workflows::ResumeAfterWaitResolutionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      executor_program: context[:executor_program],
-      agent_program_version: context[:agent_program_version]
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Delegate work",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -57,18 +57,18 @@ class Workflows::ResumeAfterWaitResolutionTest < ActiveSupport::TestCase
       finished_at: 2.minutes.ago
     )
 
-    subagent_sessions = 2.times.map do |index|
+    subagent_connections = 2.times.map do |index|
       child_conversation = create_conversation_record!(
         workspace: context[:workspace],
         installation: context[:installation],
         parent_conversation: conversation,
         kind: "fork",
         addressability: "agent_addressable",
-        executor_program: context[:executor_program],
-        agent_program_version: context[:agent_program_version]
+        execution_runtime: context[:execution_runtime],
+        agent_snapshot: context[:agent_snapshot]
       )
 
-      SubagentSession.create!(
+      SubagentConnection.create!(
         installation: context[:installation],
         owner_conversation: conversation,
         conversation: child_conversation,
@@ -80,7 +80,7 @@ class Workflows::ResumeAfterWaitResolutionTest < ActiveSupport::TestCase
       )
     end
 
-    spawn_nodes = subagent_sessions.map.with_index(1) do |session, index|
+    spawn_nodes = subagent_connections.map.with_index(1) do |session, index|
       create_workflow_node!(
         workflow_run: workflow_run,
         ordinal: index,
@@ -94,7 +94,7 @@ class Workflows::ResumeAfterWaitResolutionTest < ActiveSupport::TestCase
         stage_index: 0,
         stage_position: index - 1,
         yielding_workflow_node: yielding_node,
-        spawned_subagent_session: session,
+        spawned_subagent_connection: session,
         started_at: 90.seconds.ago,
         finished_at: 80.seconds.ago
       )
@@ -130,7 +130,7 @@ class Workflows::ResumeAfterWaitResolutionTest < ActiveSupport::TestCase
 
     {
       workflow_run: workflow_run,
-      subagent_sessions: subagent_sessions,
+      subagent_connections: subagent_connections,
       spawn_nodes: spawn_nodes,
     }
   end

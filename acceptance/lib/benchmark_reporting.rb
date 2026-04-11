@@ -80,7 +80,7 @@ module Acceptance
             "evidence/run-summary.json",
             "evidence/diagnostics.json",
             "tmp/debug-unpacked/tool_invocations.json",
-            "tmp/debug-unpacked/subagent_sessions.json",
+            "tmp/debug-unpacked/subagent_connections.json",
           ],
         },
         "cost_efficiency" => {

@@ -22,21 +22,21 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     )
     Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:agent_snapshot].public_id,
       heartbeat_timeout_seconds: 30
     )
     background_service = create_process_run!(
       workflow_node: context[:workflow_node],
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       kind: "background_service",
       timeout_seconds: nil
     )
     Leases::Acquire.call(
       leased_resource: background_service,
-      holder_key: context[:executor_session].public_id,
+      holder_key: context[:execution_runtime_connection].public_id,
       heartbeat_timeout_seconds: 30
     )
-    turn_scoped_session = create_turn_scoped_subagent_session!(
+    turn_scoped_session = create_turn_scoped_subagent_connection!(
       context: context,
       origin_turn: context[:turn]
     )
@@ -65,7 +65,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
 
   test "interrupts in-flight subagent_step work requested by the owner turn while leaving reusable sessions open" do
     context = build_agent_control_context!
-    child_session = create_reusable_subagent_session_with_running_work!(
+    child_session = create_reusable_subagent_connection_with_running_work!(
       context: context,
       origin_turn: context[:turn]
     )
@@ -79,7 +79,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     requested_resources = close_requests.map { |item| [item.payload.fetch("resource_type"), item.payload.fetch("resource_id")] }
 
     assert_includes requested_resources, ["AgentTaskRun", child_session.fetch(:agent_task_run).public_id]
-    refute_includes requested_resources, ["SubagentSession", child_session.fetch(:session).public_id]
+    refute_includes requested_resources, ["SubagentConnection", child_session.fetch(:session).public_id]
   end
 
   test "uses the shared close deadline schedule for turn interrupt close requests" do
@@ -91,7 +91,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     )
     Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:agent_snapshot].public_id,
       heartbeat_timeout_seconds: 30
     )
 
@@ -157,7 +157,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
 
-    deliveries = AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    deliveries = AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10)
 
     assert_equal [mailbox_item.id], deliveries.map(&:id)
     assert_equal "leased", mailbox_item.reload.status
@@ -166,13 +166,14 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
 
     assert agent_task_run.reload.canceled?
     assert_equal "canceled", mailbox_item.reload.status
-    assert_nil mailbox_item.leased_to_agent_session
-    assert_empty AgentControl::Poll.call(deployment: context[:deployment], limit: 10)
+    assert_nil mailbox_item.leased_to_agent_connection
+    assert_nil mailbox_item.leased_to_execution_runtime_connection
+    assert_empty AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10)
   end
 
   test "requests turn-scoped session close even when the running session has no lease" do
     context = build_agent_control_context!
-    turn_scoped_session = create_turn_scoped_subagent_session!(
+    turn_scoped_session = create_turn_scoped_subagent_connection!(
       context: context,
       origin_turn: context[:turn]
     )
@@ -181,13 +182,13 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
 
     close_request = AgentControlMailboxItem.find_by!(
       item_type: "resource_close_request",
-      target_agent_program: context[:agent_program]
+      target_agent: context[:agent]
     )
 
     assert_equal "requested", turn_scoped_session.reload.close_state
     assert_equal turn_scoped_session.public_id, close_request.payload.fetch("resource_id")
-    assert_equal "SubagentSession", close_request.payload.fetch("resource_type")
-    assert_equal "program", close_request.control_plane
+    assert_equal "SubagentConnection", close_request.payload.fetch("resource_type")
+    assert_equal "agent", close_request.control_plane
     refute_respond_to close_request, :target_kind
     refute_respond_to close_request, :target_ref
   end
@@ -216,12 +217,12 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      agent_program: context[:agent_program]
+      agent: context[:agent]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Interrupt me",
-      executor_program: context[:executor_program],
+      execution_runtime: context[:execution_runtime],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -271,18 +272,18 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
 
   private
 
-  def create_turn_scoped_subagent_session!(context:, origin_turn:)
+  def create_turn_scoped_subagent_connection!(context:, origin_turn:)
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      executor_program: context[:executor_program],
-      agent_program_version: context[:deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       addressability: "agent_addressable"
     )
 
-    SubagentSession.create!(
+    SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: child_conversation,
@@ -294,17 +295,17 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     )
   end
 
-  def create_reusable_subagent_session_with_running_work!(context:, origin_turn:)
+  def create_reusable_subagent_connection_with_running_work!(context:, origin_turn:)
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       kind: "fork",
-      executor_program: context[:executor_program],
-      agent_program_version: context[:deployment],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot],
       addressability: "agent_addressable"
     )
-    session = SubagentSession.create!(
+    session = SubagentConnection.create!(
       installation: context[:installation],
       owner_conversation: context[:conversation],
       conversation: child_conversation,
@@ -318,7 +319,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       content: "Reusable delegated work",
       sender_kind: "owner_agent",
       sender_conversation: context[:conversation],
-      agent_program_version: context[:deployment],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -331,12 +332,12 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       kind: "subagent_step",
       lifecycle_state: "running",
       started_at: Time.current,
-      subagent_session: session,
+      subagent_connection: session,
       origin_turn: origin_turn
     )
     Leases::Acquire.call(
       leased_resource: child_task_run,
-      holder_key: context[:deployment].public_id,
+      holder_key: context[:agent_snapshot].public_id,
       heartbeat_timeout_seconds: 30
     )
 

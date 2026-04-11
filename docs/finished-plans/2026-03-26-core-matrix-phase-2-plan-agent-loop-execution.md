@@ -52,7 +52,7 @@ Frozen substrate assumptions for this phase:
 - [2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
 - [2026-03-26-core-matrix-phase-2-execution-environment-and-agent-runtime-boundary-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-26-core-matrix-phase-2-execution-environment-and-agent-runtime-boundary-design.md)
 - [2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-27-core-matrix-phase-2-close-operation-reconciliation-design.md)
-- [2026-03-25-agent-program-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md)
+- [2026-03-25-agent-public-api-and-transport-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-agent-public-api-and-transport-research-note.md)
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 - [2026-03-25-fenix-phase-2-validation-and-skills-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md)
 
@@ -75,7 +75,7 @@ Current code scan summary:
   work.
 - `Task D2` is partially landed.
   Current code already includes workflow wait-state storage,
-  `HumanInteractions::*`, `SubagentSessions::*`, `Workflows::ManualResume`,
+  `HumanInteractions::*`, `SubagentConnections::*`, `Workflows::ManualResume`,
   and `IntentBatchMaterialization`, but the runtime-to-kernel handoff from
   yielded agent requests into those workflow-owned resources is still missing.
 - `Task E1` still lacks the durable governance layer.

@@ -84,14 +84,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       },
       catalog: catalog
     )
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       ProviderExecution::ExecuteTurnStep.call(
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: turn_step_messages_for(workflow_run),
         adapter: adapter,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -121,7 +121,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       catalog: catalog,
       tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
     )
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
 
     broadcasts = capture_broadcasts(stream_name) do
@@ -130,7 +130,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
           workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
           messages: turn_step_messages_for(workflow_run),
           adapter: adapter,
-          program_exchange: program_exchange
+          agent_request_exchange: agent_request_exchange
         )
       end
     end
@@ -194,14 +194,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       },
       catalog: catalog
     )
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       ProviderExecution::ExecuteTurnStep.call(
         workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
         messages: turn_step_messages_for(workflow_run),
         adapter: adapter,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -245,7 +245,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       catalog: catalog
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       prepared_rounds: [
         {
           "messages" => turn_step_messages_for(workflow_run),
@@ -261,7 +261,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
         workflow_node: workflow_node,
         messages: turn_step_messages_for(workflow_run),
         adapter: adapter,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -278,7 +278,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "pending", successor.reload.lifecycle_state
     assert_equal ["provider_round_1_tool_1"], successor.prior_tool_node_keys
     assert_equal 2, successor.provider_round_index
-    assert_equal [], program_exchange.execute_program_tool_requests
+    assert_equal [], agent_request_exchange.execute_tool_requests
 
     manifest = workflow_run.workflow_artifacts.find_by!(artifact_kind: "provider_tool_batch_manifest")
     tool_entry = manifest.payload.fetch("stages").sole.fetch("tool_entries").sole
@@ -342,7 +342,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       catalog: catalog
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
 
     broadcasts = capture_broadcasts(stream_name) do
@@ -351,7 +351,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
           workflow_node: workflow_node,
           messages: turn_step_messages_for(workflow_run),
           adapter: RateLimitedAdapter.new,
-          program_exchange: program_exchange
+          agent_request_exchange: agent_request_exchange
         )
       end
     end
@@ -379,14 +379,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       catalog: catalog
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       ProviderExecution::ExecuteTurnStep.call(
         workflow_node: workflow_node,
         messages: turn_step_messages_for(workflow_run),
         adapter: CreditsExhaustedAdapter.new,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -403,14 +403,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       catalog: catalog
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       ProviderExecution::ExecuteTurnStep.call(
         workflow_node: workflow_node,
         messages: turn_step_messages_for(workflow_run),
         adapter: AuthExpiredAdapter.new,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -427,14 +427,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       catalog: catalog
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       ProviderExecution::ExecuteTurnStep.call(
         workflow_node: workflow_node,
         messages: turn_step_messages_for(workflow_run),
         adapter: OverloadedAdapter.new,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -451,14 +451,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       catalog: catalog
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
 
     with_stubbed_provider_catalog(catalog) do
       ProviderExecution::ExecuteTurnStep.call(
         workflow_node: workflow_node,
         messages: turn_step_messages_for(workflow_run),
         adapter: UnreachableAdapter.new,
-        program_exchange: program_exchange
+        agent_request_exchange: agent_request_exchange
       )
     end
 
@@ -491,7 +491,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       catalog: catalog
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
 
     broadcasts = capture_broadcasts(stream_name) do
@@ -500,7 +500,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
           workflow_node: workflow_node,
           messages: turn_step_messages_for(workflow_run),
           adapter: adapter,
-          program_exchange: program_exchange
+          agent_request_exchange: agent_request_exchange
         )
       end
     end
@@ -559,7 +559,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
-    program_exchange = ProviderExecutionTestSupport::FakeProgramExchange.new(
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       prepared_rounds: [
         {
           "messages" => turn_step_messages_for(workflow_run),
@@ -568,7 +568,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
           "trace" => [],
         },
       ],
-      program_tool_results: {
+      tool_results: {
         "call-calculator-1" => {
           "status" => "ok",
           "result" => { "value" => 4 },
@@ -585,7 +585,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
           workflow_node: workflow_node,
           messages: turn_step_messages_for(workflow_run),
           adapter: adapter,
-          program_exchange: program_exchange
+          agent_request_exchange: agent_request_exchange
         )
       end
     end
@@ -605,7 +605,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "provider_round_limit_exceeded", broadcasts.second.fetch("payload").fetch("failure_kind")
   end
 
-  test "returns the workflow node in a waiting state when prepare_round is deferred to an agent program receipt" do
+  test "returns the workflow node in a waiting state when prepare_round is deferred to an agent receipt" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
       response_body: {
@@ -646,8 +646,8 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
           workflow_node: workflow_node,
           messages: turn_step_messages_for(workflow_run),
           adapter: adapter,
-          program_exchange: ProviderExecution::ProgramMailboxExchange.new(
-            agent_program_version: workflow_run.turn.agent_program_version,
+          agent_request_exchange: ProviderExecution::AgentRequestExchange.new(
+            agent_snapshot: workflow_run.turn.agent_snapshot,
             timeout: 0.001,
             poll_interval: 0.0,
             sleeper: ->(_duration) { },
@@ -658,14 +658,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
 
     mailbox_item = AgentControlMailboxItem.find_by!(
       workflow_node: workflow_node,
-      item_type: "agent_program_request",
+      item_type: "agent_request",
       logical_work_id: "prepare-round:#{workflow_node.public_id}"
     )
 
     assert_equal workflow_node.public_id, result.public_id
     assert_equal "waiting", workflow_node.reload.lifecycle_state
     assert_equal "waiting", workflow_run.reload.wait_state
-    assert_equal "agent_program_request", workflow_run.wait_reason_kind
+    assert_equal "agent_request", workflow_run.wait_reason_kind
     assert_equal mailbox_item.public_id, workflow_run.wait_reason_payload.fetch("mailbox_item_id")
   end
 

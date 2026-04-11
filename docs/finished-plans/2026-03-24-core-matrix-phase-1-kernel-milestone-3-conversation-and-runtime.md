@@ -39,7 +39,7 @@ Cross-cutting notes:
 
 - this milestone carries the approved automation-conversation base only: `automation` purpose, structured turn-origin metadata, and workflow support for automation-origin turns without a transcript-bearing user message
 - this milestone does not implement `AutomationTrigger`, schedule parsing, recurring execution, or webhook ingress
-- swarm or multi-agent behavior must remain expressed as workflow DAG fan-out and fan-in through `SubagentSession`, not a separate orchestration aggregate
+- swarm or multi-agent behavior must remain expressed as workflow DAG fan-out and fan-in through `SubagentConnection`, not a separate orchestration aggregate
 
 Execution rules:
 

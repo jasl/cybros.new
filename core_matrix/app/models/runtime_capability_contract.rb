@@ -14,11 +14,11 @@ class RuntimeCapabilityContract
   end
 
   def initialize(
-    executor_program: nil,
-    agent_program_version: nil,
+    execution_runtime: nil,
+    agent_snapshot: nil,
     capability_snapshot: nil,
-    executor_capability_payload: nil,
-    executor_tool_catalog: nil,
+    execution_runtime_capability_payload: nil,
+    execution_runtime_tool_catalog: nil,
     protocol_methods: nil,
     tool_catalog: nil,
     profile_catalog: nil,
@@ -27,49 +27,49 @@ class RuntimeCapabilityContract
     default_config_snapshot: nil,
     core_matrix_tool_catalog: []
   )
-    @executor_program = executor_program
-    @agent_program_version = agent_program_version || capability_snapshot
-    @executor_capability_payload = normalize_hash(
-      executor_capability_payload.nil? ? @executor_program&.capability_payload : executor_capability_payload
+    @execution_runtime = execution_runtime
+    @agent_snapshot = agent_snapshot || capability_snapshot
+    @execution_runtime_capability_payload = normalize_hash(
+      execution_runtime_capability_payload.nil? ? @execution_runtime&.capability_payload : execution_runtime_capability_payload
     )
-    @executor_tool_catalog = normalize_array(
-      executor_tool_catalog.nil? ? @executor_program&.tool_catalog : executor_tool_catalog
+    @execution_runtime_tool_catalog = normalize_array(
+      execution_runtime_tool_catalog.nil? ? @execution_runtime&.tool_catalog : execution_runtime_tool_catalog
     )
     @protocol_methods = normalize_array(
-      protocol_methods.nil? ? agent_program_version&.protocol_methods : protocol_methods
+      protocol_methods.nil? ? agent_snapshot&.protocol_methods : protocol_methods
     )
-    @program_tool_catalog = normalize_array(
-      tool_catalog.nil? ? agent_program_version&.tool_catalog : tool_catalog
+    @agent_tool_catalog = normalize_array(
+      tool_catalog.nil? ? agent_snapshot&.tool_catalog : tool_catalog
     )
     @profile_catalog = normalize_hash(
-      profile_catalog.nil? ? agent_program_version&.profile_catalog : profile_catalog
+      profile_catalog.nil? ? agent_snapshot&.profile_catalog : profile_catalog
     )
     @config_schema_snapshot = normalize_hash(
-      config_schema_snapshot.nil? ? agent_program_version&.config_schema_snapshot : config_schema_snapshot
+      config_schema_snapshot.nil? ? agent_snapshot&.config_schema_snapshot : config_schema_snapshot
     )
     @conversation_override_schema_snapshot = normalize_hash(
-      conversation_override_schema_snapshot.nil? ? agent_program_version&.conversation_override_schema_snapshot : conversation_override_schema_snapshot
+      conversation_override_schema_snapshot.nil? ? agent_snapshot&.conversation_override_schema_snapshot : conversation_override_schema_snapshot
     )
     @default_config_snapshot = normalize_hash(
-      default_config_snapshot.nil? ? agent_program_version&.default_config_snapshot : default_config_snapshot
+      default_config_snapshot.nil? ? agent_snapshot&.default_config_snapshot : default_config_snapshot
     )
     @core_matrix_tool_catalog = normalize_array(core_matrix_tool_catalog)
   end
 
-  def executor_capability_payload
-    @executor_capability_payload.deep_dup
+  def execution_runtime_capability_payload
+    @execution_runtime_capability_payload.deep_dup
   end
 
-  def executor_tool_catalog
-    normalize_tool_catalog(@executor_tool_catalog)
+  def execution_runtime_tool_catalog
+    normalize_tool_catalog(@execution_runtime_tool_catalog)
   end
 
   def protocol_methods
     @protocol_methods.deep_dup
   end
 
-  def program_tool_catalog
-    normalize_tool_catalog(@program_tool_catalog)
+  def agent_tool_catalog
+    normalize_tool_catalog(@agent_tool_catalog)
   end
 
   def config_schema_snapshot
@@ -88,24 +88,24 @@ class RuntimeCapabilityContract
     @default_config_snapshot.deep_dup
   end
 
-  def program_version_fingerprint
-    @agent_program_version&.fingerprint
+  def agent_snapshot_fingerprint
+    @agent_snapshot&.fingerprint
   end
 
-  def executor_plane
+  def execution_runtime_plane
     {
-      "control_plane" => "executor",
-      "capability_payload" => executor_capability_payload,
-      "tool_catalog" => executor_tool_catalog,
+      "control_plane" => "execution_runtime",
+      "capability_payload" => execution_runtime_capability_payload,
+      "tool_catalog" => execution_runtime_tool_catalog,
     }
   end
 
-  def program_plane
+  def agent_plane
     {
-      "control_plane" => "program",
-      "program_version_fingerprint" => program_version_fingerprint,
+      "control_plane" => "agent",
+      "agent_snapshot_fingerprint" => agent_snapshot_fingerprint,
       "protocol_methods" => protocol_methods,
-      "tool_catalog" => program_tool_catalog,
+      "tool_catalog" => agent_tool_catalog,
       "profile_catalog" => profile_catalog,
       "config_schema_snapshot" => config_schema_snapshot,
       "conversation_override_schema_snapshot" => conversation_override_schema_snapshot,
@@ -119,18 +119,23 @@ class RuntimeCapabilityContract
     reserved_entries = {}
     reserved_order = []
 
-    [@core_matrix_tool_catalog, executor_tool_catalog, program_tool_catalog].each do |catalog|
+    @core_matrix_tool_catalog.each do |entry|
+      tool_name = entry.fetch("tool_name")
+      next unless reserved_core_matrix_tool?(tool_name)
+      next if reserved_entries.key?(tool_name)
+
+      reserved_entries[tool_name] = normalize_effective_tool_entry(
+        entry,
+        overlays: tool_policy_overlays
+      )
+      reserved_order << tool_name
+    end
+
+    [execution_runtime_tool_catalog, agent_tool_catalog, @core_matrix_tool_catalog].each do |catalog|
       catalog.each do |entry|
         tool_name = entry.fetch("tool_name")
 
         if reserved_core_matrix_tool?(tool_name)
-          next if reserved_entries.key?(tool_name)
-
-          reserved_entries[tool_name] = normalize_effective_tool_entry(
-            entry,
-            overlays: tool_policy_overlays
-          )
-          reserved_order << tool_name
           next
         end
 
@@ -151,9 +156,9 @@ class RuntimeCapabilityContract
   def contract_payload(method_id: nil, reconciliation_report: nil)
     {
       "method_id" => method_id,
-      "program_version_fingerprint" => program_version_fingerprint,
+      "agent_snapshot_fingerprint" => agent_snapshot_fingerprint,
       "protocol_methods" => protocol_methods,
-      "tool_catalog" => program_tool_catalog,
+      "tool_catalog" => agent_tool_catalog,
       "profile_catalog" => profile_catalog,
       "config_schema_snapshot" => config_schema_snapshot,
       "conversation_override_schema_snapshot" => conversation_override_schema_snapshot,
@@ -162,17 +167,17 @@ class RuntimeCapabilityContract
     }.compact
   end
 
-  def capability_response(method_id:, executor_program_id:, executor_fingerprint:, reconciliation_report: nil)
+  def capability_response(method_id:, execution_runtime_id:, execution_runtime_fingerprint:, reconciliation_report: nil)
     contract_payload(
       method_id: method_id,
       reconciliation_report: reconciliation_report
     ).merge(
-      "executor_program_id" => executor_program_id,
-      "executor_fingerprint" => executor_fingerprint,
-      "executor_capability_payload" => executor_capability_payload,
-      "executor_tool_catalog" => executor_tool_catalog,
-      "program_plane" => program_plane,
-      "executor_plane" => executor_plane,
+      "execution_runtime_id" => execution_runtime_id,
+      "execution_runtime_fingerprint" => execution_runtime_fingerprint,
+      "execution_runtime_capability_payload" => execution_runtime_capability_payload,
+      "execution_runtime_tool_catalog" => execution_runtime_tool_catalog,
+      "agent_plane" => agent_plane,
+      "execution_runtime_plane" => execution_runtime_plane,
       "effective_tool_catalog" => effective_tool_catalog
     ).compact
   end

@@ -36,7 +36,7 @@ module Acceptance
           concurrent_conversations_per_runtime: 1,
           turns_per_conversation: 2,
           max_in_flight_per_conversation: 1,
-          workload_kind: 'program_exchange_mock',
+          workload_kind: 'agent_request_exchange_mock',
           deterministic: true,
           gate_kind: 'pressure',
           inline_control_worker: true,

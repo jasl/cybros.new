@@ -20,17 +20,17 @@ Reference capture for this task:
 ---
 
 **Files:**
-- Create: `core_matrix/db/migrate/20260324090038_create_subagent_sessions.rb`
+- Create: `core_matrix/db/migrate/20260324090038_create_subagent_connections.rb`
 - Create: `core_matrix/db/migrate/20260324090039_create_execution_leases.rb`
-- Create: `core_matrix/app/models/subagent_session.rb`
+- Create: `core_matrix/app/models/subagent_connection.rb`
 - Create: `core_matrix/app/models/execution_lease.rb`
-- Create: `core_matrix/app/services/subagent_sessions/spawn.rb`
+- Create: `core_matrix/app/services/subagent_connections/spawn.rb`
 - Create: `core_matrix/app/services/leases/acquire.rb`
 - Create: `core_matrix/app/services/leases/heartbeat.rb`
 - Create: `core_matrix/app/services/leases/release.rb`
-- Create: `core_matrix/test/models/subagent_session_test.rb`
+- Create: `core_matrix/test/models/subagent_connection_test.rb`
 - Create: `core_matrix/test/models/execution_lease_test.rb`
-- Create: `core_matrix/test/services/subagent_sessions/spawn_test.rb`
+- Create: `core_matrix/test/services/subagent_connections/spawn_test.rb`
 - Create: `core_matrix/test/services/leases/acquire_test.rb`
 - Create: `core_matrix/test/services/leases/heartbeat_test.rb`
 - Create: `core_matrix/test/services/leases/release_test.rb`
@@ -40,9 +40,9 @@ Reference capture for this task:
 
 Cover at least:
 
-- `SubagentSession` coordination metadata for parentage, depth, batch or coordination keys, requested role or slot, and final result artifact reference
+- `SubagentConnection` coordination metadata for parentage, depth, batch or coordination keys, requested role or slot, and final result artifact reference
 - lease uniqueness, heartbeat freshness, and release semantics
-- spawning multiple coordinated subagent sessions under one workflow without introducing a second orchestration aggregate
+- spawning multiple coordinated subagent connections under one workflow without introducing a second orchestration aggregate
 - acquiring, heartbeating, and releasing an execution lease
 
 **Step 2: Run the targeted tests to confirm failure**
@@ -51,7 +51,7 @@ Run:
 
 ```bash
 cd core_matrix
-bin/rails test test/models/subagent_session_test.rb test/models/execution_lease_test.rb test/services/subagent_sessions/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb
+bin/rails test test/models/subagent_connection_test.rb test/models/execution_lease_test.rb test/services/subagent_connections/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb
 ```
 
 Expected:
@@ -62,10 +62,10 @@ Expected:
 
 Rules:
 
-- at this phase, `SubagentSession` remained the initial coordination resource;
+- at this phase, `SubagentConnection` remained the initial coordination resource;
   later conversation-first ownership was deferred
 - swarm or multi-agent behavior must stay expressed through workflow DAG fan-out or fan-in rather than a separate `SwarmRun` aggregate
-- `SubagentSession` must retain lightweight coordination metadata for parentage, depth, batching, coordination, requested role or slot, and terminal result artifact linkage
+- `SubagentConnection` must retain lightweight coordination metadata for parentage, depth, batching, coordination, requested role or slot, and terminal result artifact linkage
 - execution leases must enforce uniqueness, heartbeat freshness, and explicit release semantics
 
 **Step 4: Run migrations and targeted tests**
@@ -75,7 +75,7 @@ Run:
 ```bash
 cd core_matrix
 bin/rails db:migrate
-bin/rails test test/models/subagent_session_test.rb test/models/execution_lease_test.rb test/services/subagent_sessions/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb
+bin/rails test test/models/subagent_connection_test.rb test/models/execution_lease_test.rb test/services/subagent_connections/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb
 ```
 
 Expected:
@@ -85,7 +85,7 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git -C .. add core_matrix/db/migrate core_matrix/app/models/subagent_session.rb core_matrix/app/models/execution_lease.rb core_matrix/app/services/subagent_sessions core_matrix/app/services/leases core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/db/schema.rb
+git -C .. add core_matrix/db/migrate core_matrix/app/models/subagent_connection.rb core_matrix/app/models/execution_lease.rb core_matrix/app/services/subagent_connections core_matrix/app/services/leases core_matrix/test/models core_matrix/test/services core_matrix/test/integration core_matrix/db/schema.rb
 git -C .. commit -m "feat: add subagent coordination and leases"
 ```
 
@@ -107,12 +107,12 @@ Do not implement these items in this task:
   - included in the accompanying `feat: add subagent coordination and leases`
     task commit
 - actual landed scope:
-  - added `SubagentSession` as the initial coordination resource with
+  - added `SubagentConnection` as the initial coordination resource with
     lightweight parentage, depth, batch, coordination, requested-role, and
     terminal-summary linkage
   - added `ExecutionLease` as the explicit active-resource ownership row for
-    the then-supported `ProcessRun` and `SubagentSession` resources
-  - added `SubagentSessions::Spawn`, `Leases::Acquire`,
+    the then-supported `ProcessRun` and `SubagentConnection` resources
+  - added `SubagentConnections::Spawn`, `Leases::Acquire`,
     `Leases::Heartbeat`, and `Leases::Release` as the kernel-owned
     application-service boundaries for subagent coordination and lease
     lifecycle
@@ -120,7 +120,7 @@ Do not implement these items in this task:
     metadata, stale-lease replacement, heartbeat freshness, and explicit
     release semantics
   - added
-    `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`
+    `core_matrix/docs/behavior/subagent-connections-and-execution-leases.md`
 - plan alignment notes:
   - subagent fan-out remains expressed through the initial coordination rows;
     no
@@ -130,7 +130,7 @@ Do not implement these items in this task:
   - active-lease uniqueness is enforced in both the Rails model layer and the
     database through a partial unique index
 - verification evidence:
-  - `cd core_matrix && bin/rails test test/models/subagent_session_test.rb test/models/execution_lease_test.rb test/services/subagent_sessions/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb`
+  - `cd core_matrix && bin/rails test test/models/subagent_connection_test.rb test/models/execution_lease_test.rb test/services/subagent_connections/spawn_test.rb test/services/leases/acquire_test.rb test/services/leases/heartbeat_test.rb test/services/leases/release_test.rb`
     passed with `7 runs, 42 assertions, 0 failures, 0 errors`
 - checklist notes:
   - no manual-checklist delta was retained for this task because the landed

@@ -10,7 +10,7 @@ class AppApiConversationTurnRuntimeEventsControllerTest < ActionDispatch::Integr
     get app_api_conversation_turn_runtime_events_path(
       conversation_id: fixture.fetch(:conversation).public_id,
       turn_id: fixture.fetch(:turn).public_id
-    ), headers: app_api_headers(registration[:machine_credential])
+    ), headers: app_api_headers(registration[:agent_connection_credential])
 
     assert_response :success
 

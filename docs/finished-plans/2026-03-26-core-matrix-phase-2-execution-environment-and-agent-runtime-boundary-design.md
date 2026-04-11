@@ -25,7 +25,7 @@ model exposed a structural blur:
 
 This design resolves that blur by making `ExecutionEnvironment` the stable
 owner of runtime resources and by treating `AgentDeployment` as the rotatable
-Agent Program layer attached to that environment.
+Agent layer attached to that environment.
 
 ## Decisions
 
@@ -44,13 +44,13 @@ carrier.
 - future environment-scoped network or tool handles
 
 Runtime resource ownership must always resolve to one `ExecutionEnvironment`.
-That ownership does not change when the active agent program changes.
+That ownership does not change when the active agent changes.
 
-### 2. `AgentDeployment` Is The Agent Program Layer
+### 2. `AgentDeployment` Is The Agent Layer
 
 `AgentDeployment` is not the durable owner of runtime resources.
 
-`AgentDeployment` represents the current paired and rotatable Agent Program
+`AgentDeployment` represents the current paired and rotatable Agent
 layer that is attached to an `ExecutionEnvironment`. It is responsible for:
 
 - agent loop behavior
@@ -97,7 +97,7 @@ The environment identity remains fixed even when that capability set changes.
 ### 4. Pairing Produces A Composite Runtime Entry
 
 The product should keep a simple pairing and selection flow. Users should not
-have to pick an execution environment first and an agent program second.
+have to pick an execution environment first and an agent second.
 
 Pairing should therefore behave as a composite operation:
 
@@ -214,7 +214,7 @@ For all non-`core_matrix__*` tool names, the resolution order is:
 3. `CoreMatrix`
 
 This makes the runtime carrier authoritative for shell, file, process, and
-other environment-backed operations even if the agent program exposes the same
+other environment-backed operations even if the agent exposes the same
 tool name.
 
 Capability publication should materialize the final effective tool manifest so
@@ -251,7 +251,7 @@ agent and environment responsibility even if the same process continues to
 implement both.
 
 The same posture should apply to future bundled agents until the product has a
-clearer interaction model for independently selecting or swapping agent program
+clearer interaction model for independently selecting or swapping agent
 and execution environment.
 
 The default near-term product assumption is:
@@ -299,7 +299,7 @@ repository no longer teaches the superseded model.
 The repository should move to the following mental model:
 
 - `ExecutionEnvironment` is the stable runtime resource owner
-- `AgentDeployment` is the rotatable Agent Program layer on that environment
+- `AgentDeployment` is the rotatable Agent layer on that environment
 - `Conversation` binds permanently to one environment and variably to one
   active deployment
 - protocol transport may remain shared, but agent plane and environment plane

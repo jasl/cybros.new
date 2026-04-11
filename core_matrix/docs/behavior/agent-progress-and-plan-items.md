@@ -38,7 +38,7 @@ from runtime-private tokens.
 
 ## Child Task Progress
 
-`SubagentSession` mirrors the same normalized supervision shape for delegated
+`SubagentConnection` mirrors the same normalized supervision shape for delegated
 work:
 
 - `observed_status`

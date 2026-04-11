@@ -14,7 +14,7 @@ class Perf::EventSinkTest < ActiveSupport::TestCase
   test "install is inert when perf env vars are absent" do
     result = Perf::EventSink.install!(env: {}, source_app: "fenix")
 
-    ActiveSupport::Notifications.instrument("perf.test", "agent_program_public_id" => "agent_program_public_1")
+    ActiveSupport::Notifications.instrument("perf.test", "agent_public_id" => "agent_public_1")
 
     assert_nil result
     refute Perf::EventSink.enabled?
@@ -34,9 +34,9 @@ class Perf::EventSinkTest < ActiveSupport::TestCase
 
       ActiveSupport::Notifications.instrument(
         "perf.test",
-        "agent_program_public_id" => "agent_program_public_1",
-        "agent_program_id" => 123,
-        "executor_session_id" => "executor-session-01",
+        "agent_public_id" => "agent_public_1",
+        "agent_id" => 123,
+        "execution_runtime_connection_id" => "execution-runtime-connection-01",
         "success" => true,
         "metadata" => {
           "phase" => "mailbox",
@@ -51,11 +51,11 @@ class Perf::EventSinkTest < ActiveSupport::TestCase
       assert_equal "fenix", payload.fetch("source_app")
       assert_equal "fenix-01", payload.fetch("instance_label")
       assert_equal "perf.test", payload.fetch("event_name")
-      assert_equal "agent_program_public_1", payload.fetch("agent_program_public_id")
-      assert_equal "executor-session-01", payload.fetch("executor_session_id")
+      assert_equal "agent_public_1", payload.fetch("agent_public_id")
+      assert_equal "execution-runtime-connection-01", payload.fetch("execution_runtime_connection_id")
       assert_equal true, payload.fetch("success")
       assert_equal({ "phase" => "mailbox" }, payload.fetch("metadata"))
-      refute_includes payload.keys, "agent_program_id"
+      refute_includes payload.keys, "agent_id"
       assert payload.key?("recorded_at")
       assert_kind_of Numeric, payload.fetch("duration_ms")
     end

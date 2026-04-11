@@ -8,13 +8,13 @@ class AgentControl::HandleExecutionReportTurnTodoPlanTest < ActiveSupport::TestC
     agent_task_run = scenario.fetch(:agent_task_run)
 
     report_execution_started!(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
 
     AgentControl::HandleExecutionReport.call(
-      deployment: context.fetch(:deployment),
+      agent_snapshot: context.fetch(:agent_snapshot),
       method_id: "execution_progress",
       payload: {
         "mailbox_item_id" => mailbox_item.public_id,

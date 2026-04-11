@@ -14,7 +14,7 @@
   `test/integration` (`33`), and `app/queries` (`24`).
 - The heaviest current service namespaces are `conversations` (`33` files),
   `agent_control` (`22`), `agent_deployments` (`13`), `workflows` (`13`),
-  `turns` (`12`), `subagent_sessions` (`7`), and `provider_execution` (`6`).
+  `turns` (`12`), `subagent_connections` (`7`), and `provider_execution` (`6`).
 - Earlier consolidation work appears to have materially addressed the
   request-setting split, blocker-summary projection drift, and machine-facing
   runtime capability formatting by introducing `ProviderRequestSettingsSchema`,
@@ -22,7 +22,7 @@
 - Earlier hotspot findings around provider turn execution, deployment recovery,
   and mutation-guard sprawl still look residual enough to require direct
   re-verification against current code rather than being treated as resolved.
-- Newer surfaces that now require deeper review are `SubagentSession`,
+- Newer surfaces that now require deeper review are `SubagentConnection`,
   conversation-facing runtime capability composition, close and reconcile
   control, execution snapshot shaping, and the `core_matrix <-> agents/fenix`
   runtime boundary.
@@ -88,23 +88,23 @@ work would harden accidental complexity into durable protocol shape.
   or an explicit reduced contract object that names every field recovery is
   allowed to preserve.
 
-#### `SubagentSession` close progression is split across two state machines, and one of them has a dead middle state
+#### `SubagentConnection` close progression is split across two state machines, and one of them has a dead middle state
 
 - Priority: `Act Now`
-- Why it matters: the documented and modeled `SubagentSession` lifecycle says
+- Why it matters: the documented and modeled `SubagentConnection` lifecycle says
   `open -> close_requested -> closed`, but the close-request path mutates only
   `close_state`, while terminal close reports jump `lifecycle_state` straight
   from `open` to `closed`.
 - Evidence:
-  `core_matrix/app/models/subagent_session.rb`,
-  `core_matrix/app/services/subagent_sessions/request_close.rb`,
+  `core_matrix/app/models/subagent_connection.rb`,
+  `core_matrix/app/services/subagent_connections/request_close.rb`,
   `core_matrix/app/services/agent_control/create_resource_close_request.rb`,
   `core_matrix/app/services/agent_control/apply_close_outcome.rb`, and
-  `core_matrix/docs/behavior/subagent-sessions-and-execution-leases.md`.
+  `core_matrix/docs/behavior/subagent-connections-and-execution-leases.md`.
 - Structural impact: session lifecycle is no longer the obvious durable owner
   of session close progression. Queries and guards compensate by mixing
   `lifecycle_state`, `close_state`, and `last_known_status`, which makes
-  `SubagentSession` harder to reason about than the rest of the closable
+  `SubagentConnection` harder to reason about than the rest of the closable
   runtime surface.
 - Action direction: pick one canonical close-progression state model. Either
   make `lifecycle_state` advance through `close_requested` for real, or delete
@@ -194,7 +194,7 @@ work would harden accidental complexity into durable protocol shape.
 1. Unify runtime capability preservation and reuse rules so recovery, manual
    rebinding, handshake, and bundled runtime bootstrap all compare the same
    contract surface.
-2. Collapse `SubagentSession` close progression onto one canonical state model
+2. Collapse `SubagentConnection` close progression onto one canonical state model
    and remove the split authority between session lifecycle and close-state
    metadata.
 3. Repair the `core_matrix <-> fenix` execution-context contract and lock it
@@ -208,7 +208,7 @@ work would harden accidental complexity into durable protocol shape.
   read the iterative refresh design and implementation plan, plans index, the
   earlier architecture-health follow-up design and findings, the structural
   consolidation and repair-loop plans, and current behavior docs for
-  conversation lineage, subagent sessions, execution snapshots, registration
+  conversation lineage, subagent connections, execution snapshots, registration
   handshake, and runtime resource APIs.
 - Current-shape baseline:
   captured `app` / `test` directory inventory, top-level file counts, and the
@@ -220,7 +220,7 @@ work would harden accidental complexity into durable protocol shape.
   provider execution orchestration, deployment recovery authority, and mutation
   guard-family readability.
 - Newer hotspot surfaces queued for deeper review:
-  `SubagentSession`, runtime capability composition, close / reconcile,
+  `SubagentConnection`, runtime capability composition, close / reconcile,
   execution snapshot coherence, and the `core_matrix <-> agents/fenix`
   contract.
 - New high-confidence candidates this round:
@@ -257,7 +257,7 @@ work would harden accidental complexity into durable protocol shape.
   standalone runtime-boundary finding.
 - Round 4 `Hotspot Deep Dive`
 - Coverage:
-  deep-read `SubagentSession`, the full `subagent_sessions` service family and
+  deep-read `SubagentConnection`, the full `subagent_connections` service family and
   tests, runtime capability composition and execution-snapshot shaping,
   close-reconcile and resource-close request services, plus the neighboring
   `agents/fenix` runtime manifest, execution-context builder, prepare-turn
@@ -276,7 +276,7 @@ work would harden accidental complexity into durable protocol shape.
   `tool_catalog` usage, and query / projection naming.
 - Candidates strengthened:
   the shallow capability-compatibility candidate, the dead
-  `SubagentSession.close_requested` lifecycle-state candidate, and the
+  `SubagentConnection.close_requested` lifecycle-state candidate, and the
   `core_matrix <-> fenix` execution-context mismatch all still read as
   system-level patterns rather than isolated local mistakes.
 - Candidates weakened or dropped:

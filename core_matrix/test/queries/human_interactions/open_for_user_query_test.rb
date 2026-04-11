@@ -67,45 +67,45 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
   private
 
   def build_request_context(installation:, user:)
-    agent_program = create_agent_program!(installation: installation, key: "agent-#{next_test_sequence}")
-    executor_program = create_executor_program!(installation: installation)
-    agent_program_version = create_agent_program_version!(
+    agent = create_agent!(installation: installation, key: "agent-#{next_test_sequence}")
+    execution_runtime = create_execution_runtime!(installation: installation)
+    agent_snapshot = create_agent_snapshot!(
       installation: installation,
-      agent_program: agent_program
+      agent: agent
     )
-    create_agent_session!(
+    create_agent_connection!(
       installation: installation,
-      agent_program: agent_program,
-      agent_program_version: agent_program_version,
+      agent: agent,
+      agent_snapshot: agent_snapshot,
       health_status: "healthy",
       auto_resume_eligible: true,
       last_heartbeat_at: Time.current,
       last_health_check_at: Time.current
     )
-    create_executor_session!(
+    create_execution_runtime_connection!(
       installation: installation,
-      executor_program: executor_program,
+      execution_runtime: execution_runtime,
       last_heartbeat_at: Time.current
     )
-    user_program_binding = create_user_program_binding!(
+    user_agent_binding = create_user_agent_binding!(
       installation: installation,
       user: user,
-      agent_program: agent_program
+      agent: agent
     )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_program_binding: user_program_binding
+      user_agent_binding: user_agent_binding
     )
 
     interactive_conversation = Conversations::CreateRoot.call(
       workspace: workspace,
-      agent_program: agent_program
+      agent: agent
     )
     interactive_turn = Turns::StartUserTurn.call(
       conversation: interactive_conversation,
       content: "Interactive task",
-      executor_program: executor_program,
+      execution_runtime: execution_runtime,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -115,13 +115,13 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
       ordinal: 0,
       node_key: "human_gate",
       node_type: "human_interaction",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
 
     automation_conversation = Conversations::CreateAutomationRoot.call(
       workspace: workspace,
-      agent_program: agent_program
+      agent: agent
     )
     automation_conversation.update!(
       enabled_feature_ids: (automation_conversation.enabled_feature_ids + ["human_interaction"]).uniq
@@ -134,7 +134,7 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
       source_ref_id: "schedule-#{next_test_sequence}",
       idempotency_key: "idempotency-#{next_test_sequence}",
       external_event_key: "event-#{next_test_sequence}",
-      executor_program: executor_program,
+      execution_runtime: execution_runtime,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -144,17 +144,17 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
       ordinal: 0,
       node_key: "human_gate",
       node_type: "human_interaction",
-      decision_source: "agent_program",
+      decision_source: "agent",
       metadata: {}
     )
 
     {
       installation: installation,
       user: user,
-      agent_program: agent_program,
-      executor_program: executor_program,
-      agent_program_version: agent_program_version,
-      user_program_binding: user_program_binding,
+      agent: agent,
+      execution_runtime: execution_runtime,
+      agent_snapshot: agent_snapshot,
+      user_agent_binding: user_agent_binding,
       workspace: workspace,
       interactive: {
         conversation: interactive_conversation,

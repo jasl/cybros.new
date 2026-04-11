@@ -3,7 +3,7 @@ class CreateProcessRuns < ActiveRecord::Migration[8.2]
     create_table :process_runs do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :workflow_node, null: false, foreign_key: true
-      t.references :executor_program, null: false, foreign_key: true
+      t.references :execution_runtime, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
       t.references :turn, null: false, foreign_key: true
       t.references :origin_message, foreign_key: { to_table: :messages }
@@ -24,7 +24,7 @@ class CreateProcessRuns < ActiveRecord::Migration[8.2]
               where: "idempotency_key IS NOT NULL",
               name: "idx_process_runs_workflow_node_idempotency"
     add_index :process_runs, [:workflow_node_id, :lifecycle_state]
-    add_index :process_runs, [:executor_program_id, :lifecycle_state], name: "idx_process_runs_executor_lifecycle"
+    add_index :process_runs, [:execution_runtime_id, :lifecycle_state], name: "idx_process_runs_executor_lifecycle"
     add_index :process_runs, [:conversation_id, :lifecycle_state], name: "idx_process_runs_conversation_lifecycle"
   end
 end

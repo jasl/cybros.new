@@ -148,7 +148,7 @@ For key yield, wait, resume, and bounded-parallel scenarios:
 Keep both product READMEs aligned with what Phase 2 now proves:
 
 - `Core Matrix` as an agent-loop kernel
-- `Fenix` as the default validation agent program
+- `Fenix` as the default validation agent
 - the checklist as the final operator script
 - `docs/reports/phase-2/` as the committed proof-artifact ledger
 

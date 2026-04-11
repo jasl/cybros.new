@@ -14,7 +14,7 @@
 
 - Treat this as a structural repair, not a compatibility exercise.
 - Do not keep duplicated close-state writers alive behind temporary shims.
-- Do not solve the `SubagentSession` bug with a one-off special case in
+- Do not solve the `SubagentConnection` bug with a one-off special case in
   `AgentControl::Report`.
 - Keep reconciliation explicit in application services; do not add model
   callbacks for close progression.
@@ -308,10 +308,10 @@ git commit -m "refactor: reconcile close progress after local turn interrupts"
 
 Add explicit regressions for mailbox-driven progression:
 
-- force archive with a `SubagentSession` as the last mainline blocker archives the
+- force archive with a `SubagentConnection` as the last mainline blocker archives the
   conversation after the `resource_closed` report without needing a second
   archive call
-- force delete with a `SubagentSession` as the last mainline blocker reconciles the
+- force delete with a `SubagentConnection` as the last mainline blocker reconciles the
   close operation immediately after the terminal close report
 - process close reporting still reconciles correctly for `ProcessRun`
 - `AgentTaskRun` close reporting still reconciles correctly for task-owned
@@ -361,7 +361,7 @@ Refactor `AgentControl::Report` so terminal close handling:
   `reconcile_turn_interrupt!`
 - removes the old resource-specific close refresh helper
 
-Do not leave a one-off `SubagentSession` branch behind; keep the resource-to-
+Do not leave a one-off `SubagentConnection` branch behind; keep the resource-to-
 conversation rule generic for future Phase 2 runtime resources.
 
 **Step 4: Run tests to verify they pass**
@@ -417,7 +417,7 @@ Document these rules explicitly:
 - every close-summary-affecting mutation path must re-enter the reconciler
 - mailbox terminal close reports participate in the same close progression as
   local blocker removal
-- `SubagentSession` is a first-class mainline blocker and close-progress trigger
+- `SubagentConnection` is a first-class mainline blocker and close-progress trigger
 
 Also link the new follow-up plan into the Phase 2 plan chain so execution does
 not depend on chat context.
@@ -469,7 +469,7 @@ re-reading it end to end:
 - every current implementation that must change is named directly
 - the new single-writer invariant is explicit
 - regression coverage includes local and mailbox-driven blocker removal
-- `SubagentSession` regression coverage is explicit
+- `SubagentConnection` regression coverage is explicit
 - the docs update task includes grep-based exhaustiveness checks
 - the task relationship is linear and dependency-safe
 - no task depends on unwritten assumptions from chat-only context

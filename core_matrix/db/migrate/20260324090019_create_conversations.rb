@@ -3,7 +3,7 @@ class CreateConversations < ActiveRecord::Migration[8.2]
     create_table :conversations do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :workspace, null: false, foreign_key: true
-      t.references :agent_program, null: false, foreign_key: true
+      t.references :agent, null: false, foreign_key: true
       t.belongs_to :parent_conversation, foreign_key: { to_table: :conversations }
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :kind, null: false
@@ -26,7 +26,7 @@ class CreateConversations < ActiveRecord::Migration[8.2]
     end
 
     add_index :conversations, [:workspace_id, :purpose, :lifecycle_state], name: "idx_conversations_workspace_purpose_lifecycle"
-    add_index :conversations, [:agent_program_id, :lifecycle_state], name: "idx_conversations_program_lifecycle"
+    add_index :conversations, [:agent_id, :lifecycle_state], name: "idx_conversations_program_lifecycle"
     add_index :conversations, :public_id, unique: true
     add_check_constraint :conversations,
       "(deletion_state IN ('retained', 'pending_delete', 'deleted'))",

@@ -11,7 +11,7 @@ class ConversationTranscripts::PageProjectionTest < ActiveSupport::TestCase
     second_turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Second question",
-      agent_program_version: context[:agent_program_version],
+      agent_snapshot: context[:agent_snapshot],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

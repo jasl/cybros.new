@@ -1,16 +1,17 @@
 # cybros
 
-`cybros` is a monorepo for Core Matrix, a single-installation agent-kernel
-product, and its companion agent programs such as Fenix.
+`cybros` is a monorepo for CoreMatrix, a single-installation agent kernel
+product, plus its bundled and companion runtimes such as Fenix and Nexus.
 
 ## Products
 
-- `Core Matrix` is the kernel product. It owns agent-loop execution,
+- `CoreMatrix` is the kernel product. It owns agent-loop execution,
   conversation state, workflow scheduling, human-interaction primitives,
   runtime supervision, and platform-level governance.
-- `Fenix` is the default out-of-the-box agent program. It is both a usable
-  assistant product and the first technical validation program for the Core
-  Matrix loop.
+- `Fenix` is the default bundled agent. It is both a usable assistant product
+  and the first technical validation agent for the CoreMatrix loop.
+- `Nexus` is the default bundled execution runtime. It owns the local runtime
+  tool surface and runtime-side resource execution for the CoreMatrix loop.
 
 ## Documentation Lifecycle
 
@@ -33,7 +34,7 @@ that is intentionally not active yet.
 - The current agent-loop validation batch proves the real loop end to end.
 - The next product batch makes the system usable through Web UI.
 - Later batches widen the product boundary through additional validation
-  programs, triggers, channels, and eventually extensions.
+  agents, runtimes, triggers, channels, and eventually extensions.
 
 ## Validation Rule
 

@@ -120,7 +120,7 @@ These become waiting with pause semantics:
 - `provider_overloaded`
 - `provider_unreachable`
 - `provider_auth_expired`
-- `agent_session_unavailable`
+- `agent_connection_unavailable`
 - `execution_session_unavailable`
 - `program_transport_failed`
 - `execution_transport_failed`

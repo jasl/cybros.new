@@ -9,7 +9,7 @@ remain understandable even if `references/` changes later.
 
 ## Decision Summary
 
-- Keep skills on the `Fenix` agent-program side in Phase 2.
+- Keep skills on the `Fenix` agent side in Phase 2.
 - Treat `Fenix` as an Agent Skills-compatible client for third-party skills.
 - Allow `Fenix` to keep private system skills that are not meant to be portable
   across clients.
@@ -108,7 +108,7 @@ Re-open this note when one of these happens:
 - `Fenix` needs richer skill lifecycle operations such as uninstall or policy
   gating
 - the Web UI needs explicit installed-skill management surfaces
-- a second agent program wants to share the same skills implementation
+- a second agent wants to share the same skills implementation
 - the platform starts planning extension or plugin packaging
 
 ## Reference Index

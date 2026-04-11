@@ -4,9 +4,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(conversation_control_request:, agent_program_version:, request_kind:, payload:, dispatch_deadline_at:, execution_hard_deadline_at: nil)
+    def initialize(conversation_control_request:, agent_snapshot:, request_kind:, payload:, dispatch_deadline_at:, execution_hard_deadline_at: nil)
       @conversation_control_request = conversation_control_request
-      @agent_program_version = agent_program_version
+      @agent_snapshot = agent_snapshot
       @request_kind = request_kind.to_s
       @payload = payload.deep_stringify_keys
       @dispatch_deadline_at = dispatch_deadline_at
@@ -14,8 +14,8 @@ module AgentControl
     end
 
     def call
-      mailbox_item = AgentControl::CreateAgentProgramRequest.call(
-        agent_program_version: @agent_program_version,
+      mailbox_item = AgentControl::CreateAgentRequest.call(
+        agent_snapshot: @agent_snapshot,
         request_kind: @request_kind,
         payload: @payload.merge(
           "conversation_control" => conversation_control_payload,
@@ -30,11 +30,11 @@ module AgentControl
       @conversation_control_request.update!(
         lifecycle_state: "dispatched",
         result_payload: @conversation_control_request.result_payload.merge(
-          "dispatch_kind" => "agent_program_request",
+          "dispatch_kind" => "agent_request",
           "mailbox_item_id" => mailbox_item.public_id,
           "mailbox_request_kind" => mailbox_item.payload.fetch("request_kind"),
           "mailbox_status" => mailbox_item.status,
-          "target_agent_program_version_id" => mailbox_item.target_agent_program_version&.public_id
+          "target_agent_snapshot_id" => mailbox_item.target_agent_snapshot&.public_id
         ).compact
       )
 
@@ -55,7 +55,7 @@ module AgentControl
 
     def runtime_context_payload
       {
-        "agent_program_id" => @agent_program_version.agent_program.public_id,
+        "agent_id" => @agent_snapshot.agent.public_id,
         "user_id" => @conversation_control_request.target_conversation.workspace.user.public_id,
       }.compact
     end

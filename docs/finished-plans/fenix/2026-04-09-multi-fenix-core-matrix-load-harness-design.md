@@ -53,7 +53,7 @@ Instead:
 This keeps the repo aligned with its current boundaries:
 
 - `acceptance` owns cross-product orchestration and artifact packaging
-- `core_matrix` remains agent-program-neutral
+- `core_matrix` remains agent-neutral
 - `agents/fenix` remains runtime-local and product-specific
 
 ## Options Considered
@@ -126,7 +126,7 @@ structure belong in `acceptance`, not in either product app.
 
 Any CoreMatrix instrumentation added for this harness must stay:
 
-- agent-program-neutral
+- agent-neutral
 - capability-optional
 - semantically generic
 
@@ -161,26 +161,26 @@ That scenario will:
 
 - boot one CoreMatrix
 - boot `N` independent Fenix runtimes
-- register each runtime as its own external agent-program deployment
+- register each runtime as its own external agent deployment
 - create and drive a workload across those deployments
 - collect benchmark artifacts
 - emit a machine-readable summary and a short human-readable review index
 
-### Why independent external agent programs?
+### Why independent external agents?
 
-For `v1`, model each Fenix deployment as its own external agent program. That
+For `v1`, model each Fenix deployment as its own external agent. That
 matches the current pairing and registration flow cleanly and avoids mixing
-"multi runtime" questions with "one program version, many sessions" questions.
+"multi runtime" questions with "one agent snapshot, many sessions" questions.
 
 The first benchmark topology should therefore be:
 
 - one disposable installation per benchmark run
 - one CoreMatrix
-- `N` external Fenix agent programs
+- `N` external Fenix agents
 - one runtime registration per program
 - multiple conversations distributed round-robin across those programs
 
-We can add "many sessions for one program version" as a later profile if it
+We can add "many sessions for one agent snapshot" as a later profile if it
 becomes important.
 
 ## 2. Run Isolation
@@ -348,9 +348,9 @@ Each line should contain:
 - `workspace_public_id`
 - `conversation_public_id`
 - `turn_public_id`
-- `agent_program_public_id`
-- `agent_session_public_id`
-- `executor_session_id`
+- `agent_public_id`
+- `agent_connection_public_id`
+- `execution_runtime_connection_id`
 - `queue_name`
 - `metadata`
 
@@ -387,7 +387,7 @@ This reveals queueing pressure or lease starvation at the control plane.
 
 ### Mailbox Exchange Wait
 
-- time spent in `ProgramMailboxExchange` waiting for terminal receipt
+- time spent in `AgentRequestExchange` waiting for terminal receipt
 
 This is one of the most important shared-system pressure signals because it
 captures how long CoreMatrix waits for the runtime loop to return a settled
@@ -421,7 +421,7 @@ Instrument the hot paths that reflect shared-system pressure:
 
 - agent control poll handling
 - mailbox lease grant
-- `ProviderExecution::ProgramMailboxExchange`
+- `ProviderExecution::AgentRequestExchange`
 - queue execution start/completion for the queues we widened
 - DB checkout pressure
 

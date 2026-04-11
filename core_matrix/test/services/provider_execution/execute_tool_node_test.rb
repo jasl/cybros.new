@@ -60,8 +60,8 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
 
     result = ProviderExecution::ExecuteToolNode.call(
       workflow_node: tool_node,
-      program_exchange: ProviderExecutionTestSupport::FakeProgramExchange.new(
-        program_tool_results: {
+      agent_request_exchange: ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+        tool_results: {
           "call-calculator-1" => {
             "status" => "ok",
             "result" => { "value" => 4 },
@@ -118,7 +118,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     assert_equal "waiting", root_node.workflow_run.turn.reload.lifecycle_state
   end
 
-  test "blocks the step when program tool execution transport fails" do
+  test "blocks the step when agent tool execution transport fails" do
     context = build_governed_tool_context!
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
@@ -166,11 +166,11 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
 
     result = ProviderExecution::ExecuteToolNode.call(
       workflow_node: tool_node,
-      program_exchange: Class.new do
-        def execute_program_tool(*)
-          raise ProviderExecution::ProgramMailboxExchange::TimeoutError.new(
+      agent_request_exchange: Class.new do
+        def execute_tool(*)
+          raise ProviderExecution::AgentRequestExchange::TimeoutError.new(
             code: "mailbox_timeout",
-            message: "timed out waiting for agent program report",
+            message: "timed out waiting for agent report",
             retryable: true
           )
         end
@@ -184,7 +184,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     assert_equal "automatic", root_node.workflow_run.wait_retry_strategy
   end
 
-  test "blocks the step for retry when program tool execution returns an invalid contract" do
+  test "blocks the step for retry when agent tool execution returns an invalid contract" do
     context = build_governed_tool_context!
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
@@ -232,9 +232,9 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
 
     result = ProviderExecution::ExecuteToolNode.call(
       workflow_node: tool_node,
-      program_exchange: Class.new do
-        def execute_program_tool(*)
-          raise ProviderExecution::ProgramMailboxExchange::ProtocolError.new(
+      agent_request_exchange: Class.new do
+        def execute_tool(*)
+          raise ProviderExecution::AgentRequestExchange::ProtocolError.new(
             code: "invalid_tool_result",
             message: "tool result payload must contain a status"
           )
@@ -249,7 +249,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     assert_equal "automatic", root_node.workflow_run.wait_retry_strategy
   end
 
-  test "leaves the tool invocation running while waiting on an agent program receipt" do
+  test "leaves the tool invocation running while waiting on an agent receipt" do
     context = build_governed_tool_context!
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
@@ -297,8 +297,8 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
 
     result = ProviderExecution::ExecuteToolNode.call(
       workflow_node: tool_node,
-      program_exchange: ProviderExecution::ProgramMailboxExchange.new(
-        agent_program_version: context.fetch(:deployment),
+      agent_request_exchange: ProviderExecution::AgentRequestExchange.new(
+        agent_snapshot: context.fetch(:agent_snapshot),
         timeout: 0.001,
         poll_interval: 0.0,
         sleeper: ->(_duration) { },
@@ -310,11 +310,11 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     assert_equal tool_node.public_id, result.public_id
     assert_equal "waiting", tool_node.reload.lifecycle_state
     assert_equal "waiting", root_node.workflow_run.reload.wait_state
-    assert_equal "agent_program_request", root_node.workflow_run.wait_reason_kind
+    assert_equal "agent_request", root_node.workflow_run.wait_reason_kind
     assert_equal "running", invocation.reload.status
   end
 
-  test "does not restart a waiting tool node while its agent program request is still pending" do
+  test "does not restart a waiting tool node while its agent request is still pending" do
     context = build_governed_tool_context!
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
@@ -360,8 +360,8 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
       parallel_safe: source_binding.parallel_safe
     )
 
-    exchange = ProviderExecution::ProgramMailboxExchange.new(
-      agent_program_version: context.fetch(:deployment),
+    exchange = ProviderExecution::AgentRequestExchange.new(
+      agent_snapshot: context.fetch(:agent_snapshot),
       timeout: 30.seconds,
       poll_interval: 0.0,
       sleeper: ->(_duration) { }
@@ -369,7 +369,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
 
     ProviderExecution::ExecuteToolNode.call(
       workflow_node: tool_node,
-      program_exchange: exchange
+      agent_request_exchange: exchange
     )
 
     waiting_node = tool_node.reload
@@ -377,7 +377,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
 
     result = ProviderExecution::ExecuteToolNode.call(
       workflow_node: waiting_node,
-      program_exchange: exchange
+      agent_request_exchange: exchange
     )
 
     assert_equal waiting_node.public_id, result.public_id
@@ -386,7 +386,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     assert_equal "waiting", root_node.workflow_run.reload.wait_state
   end
 
-  test "re-blocks the workflow when a pending program tool request is resumed before its terminal receipt arrives" do
+  test "re-blocks the workflow when a pending agent tool request is resumed before its terminal receipt arrives" do
     context = build_governed_tool_context!
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
@@ -432,25 +432,25 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
       parallel_safe: source_binding.parallel_safe
     )
 
-    exchange = ProviderExecution::ProgramMailboxExchange.new(
-      agent_program_version: context.fetch(:deployment),
+    exchange = ProviderExecution::AgentRequestExchange.new(
+      agent_snapshot: context.fetch(:agent_snapshot),
       timeout: 30.seconds,
       poll_interval: 0.0,
       sleeper: ->(_duration) { }
     )
 
-    ProviderExecution::ExecuteToolNode.call(workflow_node: tool_node, program_exchange: exchange)
+    ProviderExecution::ExecuteToolNode.call(workflow_node: tool_node, agent_request_exchange: exchange)
     Workflows::ResumeBlockedStep.call(workflow_run: root_node.workflow_run.reload)
 
     result = ProviderExecution::ExecuteToolNode.call(
       workflow_node: tool_node.reload,
-      program_exchange: exchange
+      agent_request_exchange: exchange
     )
 
     assert_equal tool_node.public_id, result.public_id
     assert_equal "waiting", result.reload.lifecycle_state
     assert_equal "waiting", root_node.workflow_run.reload.wait_state
-    assert_equal "agent_program_request", root_node.workflow_run.wait_reason_kind
+    assert_equal "agent_request", root_node.workflow_run.wait_reason_kind
   end
 
   private

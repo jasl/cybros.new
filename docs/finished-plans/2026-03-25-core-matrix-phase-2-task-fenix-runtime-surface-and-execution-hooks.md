@@ -6,7 +6,7 @@ Use this task document together with:
 
 1. `AGENTS.md`
 2. `docs/design/2026-03-25-fenix-phase-2-validation-and-skills-design.md`
-3. `docs/research-notes/2026-03-25-agent-program-public-api-and-transport-research-note.md`
+3. `docs/research-notes/2026-03-25-agent-public-api-and-transport-research-note.md`
 4. `docs/plans/2026-03-26-core-matrix-phase-2-plan-agent-loop-execution.md`
 5. `docs/plans/2026-03-26-core-matrix-phase-2-milestone-c-runtime-pairing-and-control.md`
 6. `docs/plans/2026-03-26-core-matrix-phase-2-task-mailbox-control-and-resource-close-contract.md`
@@ -78,7 +78,7 @@ Expected:
 
 Rules:
 
-- prompt building remains agent-program-owned
+- prompt building remains agent-owned
 - `Fenix` should consume the kernel contract; it should not redefine it
 - retain a stage-shaped runtime hook surface instead of collapsing behavior
   into one opaque service
@@ -117,7 +117,7 @@ git -C .. commit -m "feat: add fenix runtime surface"
 
 ## Stop Point
 
-Stop after `Fenix` can act as a real Phase 2 agent program with retained
+Stop after `Fenix` can act as a real Phase 2 agent with retained
 execution hooks and local estimation helpers.
 
 Do not implement these items in this task:
