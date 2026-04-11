@@ -4,26 +4,11 @@ Top-level acceptance automation lives here so `Core Matrix`, `Fenix`, and
 `Nexus` stay
 independent product codebases.
 
-- `bin/` contains shell orchestrators for fresh-start and capstone runs.
+- `bin/` contains shell orchestrators for fresh-start and load runs.
 - `scenarios/` contains Ruby acceptance scenarios.
 - `lib/` contains harness-only support code.
 - `artifacts/` and `logs/` are generated output directories and should stay out
   of git.
-
-The 2048 capstone now writes an organized artifact bundle per run:
-
-- `review/` for human-readable transcripts, supervision views, and validation notes
-- `evidence/` for machine-readable benchmark outputs and diagnostics
-- `logs/` for timeline and supervision logs
-- `exports/` for export/debug-export/import roundtrip bundles and metadata
-- `playable/` for host-side build, preview, and browser-verification outputs
-- `tmp/` for unpacked debug bundles and scratch files
-
-Each bundle includes:
-
-- `review/index.md` as the human-readable entry point
-- `evidence/artifact-manifest.json` as the canonical machine-readable entry point
-- `exports/game-2048-source.zip` as the exported final application source snapshot
 
 Run the canonical active acceptance suite:
 
@@ -133,22 +118,6 @@ Current stabilization note:
 - `stress` stays local-only for now; it is useful when touching provider/exchange scheduling, queue topology, or perf telemetry, but its latency numbers are still local descriptive baselines rather than hard CI thresholds
 - `stress` currently drives the `role:mock` / `llm_dev` path, so it is a good local pressure gate for provider queueing and exchange behavior, but it is not a pure benchmark for OpenAI/OpenRouter HTTP transport changes by itself
 
-Replay the supervision review surfaces from an existing evaluation bundle:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros
-bash acceptance/bin/replay_supervision_eval.sh /absolute/path/to/review/supervision-eval-bundle.json
-```
-
 `acceptance/Gemfile` reserves a dedicated top-level home for the harness, but
 the supported execution path currently goes through `core_matrix/bin/rails`
 so the acceptance scripts reuse the product Rails environment directly.
-
-Archived entrypoints stay in-tree for reference, but they are not part of the
-active suite and should not be treated as release gates:
-
-- `acceptance/scenarios/bundled_fast_terminal_validation.rb`
-- `acceptance/scenarios/bundled_rotation_validation.rb`
-- `acceptance/scenarios/process_run_close_validation.rb`
-- `acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb`
-- `acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh`

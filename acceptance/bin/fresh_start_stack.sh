@@ -15,24 +15,13 @@ CORE_MATRIX_PERF_INSTANCE_LABEL="${CORE_MATRIX_PERF_INSTANCE_LABEL:-}"
 FENIX_RUNTIME_BASE_URL="${FENIX_RUNTIME_BASE_URL:-http://127.0.0.1:3101}"
 NEXUS_RUNTIME_BASE_URL="${NEXUS_RUNTIME_BASE_URL:-http://127.0.0.1:3301}"
 FENIX_RUNTIME_COUNT="${FENIX_RUNTIME_COUNT:-1}"
-FENIX_RUNTIME_MODE="${FENIX_RUNTIME_MODE:-host}"
-FENIX_DOCKER_CONTAINER="${FENIX_DOCKER_CONTAINER:-fenix-capstone}"
-FENIX_DOCKER_PROXY_CONTAINER="${FENIX_DOCKER_PROXY_CONTAINER:-fenix-capstone-proxy}"
-FENIX_DOCKER_IMAGE="${FENIX_DOCKER_IMAGE:-fenix-capstone-image}"
-FENIX_DOCKER_PROXY_PORT="${FENIX_DOCKER_PROXY_PORT:-3310}"
-FENIX_DOCKER_WORKSPACE_ROOT="${FENIX_DOCKER_WORKSPACE_ROOT:-${REPO_ROOT}/tmp/fenix}"
-FENIX_DOCKER_ENV_FILE="${FENIX_DOCKER_ENV_FILE:-${FENIX_ROOT}/.env}"
-FENIX_DOCKER_STORAGE_VOLUME="${FENIX_DOCKER_STORAGE_VOLUME:-fenix_capstone_storage}"
-FENIX_DOCKER_PROXY_ROUTES_VOLUME="${FENIX_DOCKER_PROXY_ROUTES_VOLUME:-fenix_capstone_proxy_routes}"
 FENIX_HOME_ROOT="${FENIX_HOME_ROOT:-${REPO_ROOT}/tmp/acceptance-fenix-home}"
 FENIX_STORAGE_ROOT="${FENIX_STORAGE_ROOT:-${FENIX_HOME_ROOT}/storage}"
 FENIX_HOST_START_JOBS_DAEMON="${FENIX_HOST_START_JOBS_DAEMON:-false}"
-FENIX_DOCKER_HOME_ROOT="${FENIX_DOCKER_HOME_ROOT:-/rails/storage/fenix-home}"
 NEXUS_HOME_ROOT="${NEXUS_HOME_ROOT:-${REPO_ROOT}/tmp/acceptance-nexus-home}"
 NEXUS_STORAGE_ROOT="${NEXUS_STORAGE_ROOT:-${NEXUS_HOME_ROOT}/storage}"
 CYBROS_PERF_EVENTS_PATH="${CYBROS_PERF_EVENTS_PATH:-}"
 CYBROS_PERF_INSTANCE_LABEL="${CYBROS_PERF_INSTANCE_LABEL:-}"
-RESET_DOCKER_DB="${RESET_DOCKER_DB:-false}"
 
 mkdir -p "${LOG_DIR}"
 rm -f "${LOG_DIR}"/*.log
@@ -55,10 +44,6 @@ require_command rbenv
 if ! [[ "${FENIX_RUNTIME_COUNT}" =~ ^[1-9][0-9]*$ ]]; then
   echo "invalid FENIX_RUNTIME_COUNT: ${FENIX_RUNTIME_COUNT}" >&2
   exit 1
-fi
-
-if [[ "${FENIX_RUNTIME_MODE}" == "docker" ]]; then
-  require_command docker
 fi
 
 RBENV_BIN="$(command -v rbenv)"
@@ -100,50 +85,6 @@ wait_for_http_ok() {
   done
 
   echo "timed out waiting for ${url}" >&2
-  return 1
-}
-
-wait_for_docker_ready() {
-  local attempts="${1:-75}"
-
-  for _ in $(seq 1 "${attempts}"); do
-    if docker ps >/dev/null 2>&1; then
-      return 0
-    fi
-    sleep 0.2
-  done
-
-  echo "timed out waiting for docker daemon" >&2
-  return 1
-}
-
-wait_for_container_exec() {
-  local container_name="$1"
-  local attempts="${2:-75}"
-
-  for _ in $(seq 1 "${attempts}"); do
-    if docker exec "${container_name}" true >/dev/null 2>&1; then
-      return 0
-    fi
-    sleep 0.2
-  done
-
-  echo "timed out waiting for docker container ${container_name}" >&2
-  return 1
-}
-
-wait_for_container_absent() {
-  local container_name="$1"
-  local attempts="${2:-75}"
-
-  for _ in $(seq 1 "${attempts}"); do
-    if [[ -z "$(docker ps -a --filter "name=^/${container_name}$" --format '{{.ID}}')" ]]; then
-      return 0
-    fi
-    sleep 0.2
-  done
-
-  echo "timed out waiting for docker container ${container_name} to disappear" >&2
   return 1
 }
 
@@ -469,96 +410,6 @@ reset_project_database() {
   )
 }
 
-reset_docker_database() {
-  local container_name="$1"
-
-  docker exec "${container_name}" sh -lc \
-    "cd /rails && export RAILS_ENV=production DISABLE_DATABASE_ENVIRONMENT_CHECK=1 && (bin/rails db:drop || true) && bin/rails db:prepare && bin/rails db:seed" \
-    >>"${LOG_DIR}/fenix-docker-db-reset.log" 2>&1
-}
-
-remove_container_if_present() {
-  local container_name="$1"
-  docker rm -f "${container_name}" >/dev/null 2>&1 || true
-  wait_for_container_absent "${container_name}"
-}
-
-remove_volume_if_present() {
-  local volume_name="$1"
-  docker volume rm -f "${volume_name}" >/dev/null 2>&1 || true
-}
-
-rebuild_docker_capstone_image() {
-  docker build -t "${FENIX_DOCKER_IMAGE}" -f "${FENIX_ROOT}/Dockerfile" "${FENIX_ROOT}" >>"${LOG_DIR}/fenix-docker-build.log" 2>&1
-}
-
-recreate_docker_capstone_stack() {
-  local docker_env_args=()
-
-  mkdir -p "${FENIX_DOCKER_WORKSPACE_ROOT}"
-  wait_for_docker_ready
-  rebuild_docker_capstone_image
-
-  if [[ -f "${FENIX_DOCKER_ENV_FILE}" ]]; then
-    docker_env_args+=(--env-file "${FENIX_DOCKER_ENV_FILE}")
-  else
-    echo "missing Fenix docker env file: ${FENIX_DOCKER_ENV_FILE}" >&2
-    exit 1
-  fi
-
-  remove_container_if_present "${FENIX_DOCKER_CONTAINER}"
-  remove_container_if_present "${FENIX_DOCKER_PROXY_CONTAINER}"
-  wait_for_container_absent "${FENIX_DOCKER_CONTAINER}"
-  wait_for_container_absent "${FENIX_DOCKER_PROXY_CONTAINER}"
-  remove_volume_if_present "fenix_capstone_storage"
-  remove_volume_if_present "fenix_capstone_proxy_routes"
-  if [[ "${FENIX_DOCKER_STORAGE_VOLUME}" != "fenix_capstone_storage" ]]; then
-    remove_volume_if_present "${FENIX_DOCKER_STORAGE_VOLUME}"
-  fi
-  if [[ "${FENIX_DOCKER_PROXY_ROUTES_VOLUME}" != "fenix_capstone_proxy_routes" ]]; then
-    remove_volume_if_present "${FENIX_DOCKER_PROXY_ROUTES_VOLUME}"
-  fi
-
-  docker run -d \
-    --name "${FENIX_DOCKER_CONTAINER}" \
-    -p "${FENIX_RUNTIME_PORT}:80" \
-    "${docker_env_args[@]}" \
-    -e "RAILS_ENV=production" \
-    -e "FENIX_PUBLIC_BASE_URL=${FENIX_RUNTIME_BASE_URL}" \
-    -e "FENIX_HOME_ROOT=${FENIX_DOCKER_HOME_ROOT}" \
-    -e "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright" \
-    -e "FENIX_DEV_PROXY_PORT=${FENIX_DOCKER_PROXY_PORT}" \
-    -e "FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy" \
-    ${CYBROS_PERF_EVENTS_PATH:+-e "CYBROS_PERF_EVENTS_PATH=${CYBROS_PERF_EVENTS_PATH}"} \
-    ${CYBROS_PERF_INSTANCE_LABEL:+-e "CYBROS_PERF_INSTANCE_LABEL=${CYBROS_PERF_INSTANCE_LABEL}"} \
-    -v "${FENIX_DOCKER_WORKSPACE_ROOT}:/workspace" \
-    -v "${FENIX_DOCKER_STORAGE_VOLUME}:/rails/storage" \
-    -v "${FENIX_DOCKER_PROXY_ROUTES_VOLUME}:/rails/tmp/dev-proxy" \
-    "${FENIX_DOCKER_IMAGE}" \
-    >/dev/null
-
-  docker run -d \
-    --name "${FENIX_DOCKER_PROXY_CONTAINER}" \
-    -p "${FENIX_DOCKER_PROXY_PORT}:${FENIX_DOCKER_PROXY_PORT}" \
-    "${docker_env_args[@]}" \
-    -e "RAILS_ENV=production" \
-    -e "FENIX_HOME_ROOT=${FENIX_DOCKER_HOME_ROOT}" \
-    -e "PLAYWRIGHT_BROWSERS_PATH=/opt/playwright" \
-    -e "FENIX_DEV_PROXY_PORT=${FENIX_DOCKER_PROXY_PORT}" \
-    -e "FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy" \
-    ${CYBROS_PERF_EVENTS_PATH:+-e "CYBROS_PERF_EVENTS_PATH=${CYBROS_PERF_EVENTS_PATH}"} \
-    ${CYBROS_PERF_INSTANCE_LABEL:+-e "CYBROS_PERF_INSTANCE_LABEL=${CYBROS_PERF_INSTANCE_LABEL}"} \
-    -v "${FENIX_DOCKER_WORKSPACE_ROOT}:/workspace" \
-    -v "${FENIX_DOCKER_PROXY_ROUTES_VOLUME}:/rails/tmp/dev-proxy" \
-    "${FENIX_DOCKER_IMAGE}" \
-    /rails/bin/fenix-dev-proxy \
-    >/dev/null
-
-  wait_for_container_exec "${FENIX_DOCKER_CONTAINER}"
-  wait_for_http_ok "${FENIX_RUNTIME_BASE_URL}/up"
-  wait_for_http_ok "${FENIX_RUNTIME_BASE_URL}/runtime/manifest"
-}
-
 start_rails_server_daemon() {
   local name="$1"
   local project_root="$2"
@@ -635,52 +486,33 @@ NEXUS_RUNTIME_PID="${STARTED_PID}"
 wait_for_http_ok "${NEXUS_RUNTIME_BASE_URL}/up"
 wait_for_http_ok "${NEXUS_RUNTIME_BASE_URL}/runtime/manifest"
 
-if [[ "${FENIX_RUNTIME_MODE}" == "host" ]]; then
-  export FENIX_HOME_ROOT
-  export FENIX_STORAGE_ROOT
-  export CYBROS_PERF_EVENTS_PATH
-  export CYBROS_PERF_INSTANCE_LABEL
-  stop_listening_port "${FENIX_RUNTIME_PORT}"
-  stop_matching_process "${FENIX_ROOT}/bin/rails" "server"
-  stop_matching_process "${FENIX_ROOT}/bin/jobs" "start"
-  clear_server_pidfile "${FENIX_ROOT}"
-  reset_project_database "fenix-runtime" "${FENIX_ROOT}" "${LOG_DIR}/fenix-runtime-db-reset.log"
+export FENIX_HOME_ROOT
+export FENIX_STORAGE_ROOT
+export CYBROS_PERF_EVENTS_PATH
+export CYBROS_PERF_INSTANCE_LABEL
+stop_listening_port "${FENIX_RUNTIME_PORT}"
+stop_matching_process "${FENIX_ROOT}/bin/rails" "server"
+stop_matching_process "${FENIX_ROOT}/bin/jobs" "start"
+clear_server_pidfile "${FENIX_ROOT}"
+reset_project_database "fenix-runtime" "${FENIX_ROOT}" "${LOG_DIR}/fenix-runtime-db-reset.log"
 
-  start_rails_server_daemon "fenix-runtime-server" "${FENIX_ROOT}" "${FENIX_RUNTIME_HOST}" "${FENIX_RUNTIME_PORT}" "${LOG_DIR}/fenix-runtime-server.log"
-  FENIX_RUNTIME_PID="${STARTED_PID}"
-  if [[ "${FENIX_HOST_START_JOBS_DAEMON}" == "true" ]]; then
-    start_fenix_jobs_daemon
-    FENIX_RUNTIME_JOBS_PID="${STARTED_PID}"
-  else
-    FENIX_RUNTIME_JOBS_PID="not_started"
-  fi
-
-  wait_for_http_ok "${FENIX_RUNTIME_BASE_URL}/up"
-  wait_for_http_ok "${FENIX_RUNTIME_BASE_URL}/runtime/manifest"
-  DOCKER_STATUS="not_applicable"
-elif [[ "${FENIX_RUNTIME_MODE}" == "docker" ]]; then
-  stop_matching_process "${FENIX_ROOT}/bin/rails" "server"
-  clear_server_pidfile "${FENIX_ROOT}"
-  recreate_docker_capstone_stack
-  FENIX_RUNTIME_PID="docker:${FENIX_DOCKER_CONTAINER}"
-
-  if [[ "${RESET_DOCKER_DB}" == "true" ]]; then
-    reset_docker_database "${FENIX_DOCKER_CONTAINER}"
-    DOCKER_STATUS="recreated+reset"
-  else
-    DOCKER_STATUS="recreated"
-  fi
+start_rails_server_daemon "fenix-runtime-server" "${FENIX_ROOT}" "${FENIX_RUNTIME_HOST}" "${FENIX_RUNTIME_PORT}" "${LOG_DIR}/fenix-runtime-server.log"
+FENIX_RUNTIME_PID="${STARTED_PID}"
+if [[ "${FENIX_HOST_START_JOBS_DAEMON}" == "true" ]]; then
+  start_fenix_jobs_daemon
+  FENIX_RUNTIME_JOBS_PID="${STARTED_PID}"
 else
-  echo "unsupported FENIX_RUNTIME_MODE: ${FENIX_RUNTIME_MODE}" >&2
-  exit 1
+  FENIX_RUNTIME_JOBS_PID="not_started"
 fi
+
+wait_for_http_ok "${FENIX_RUNTIME_BASE_URL}/up"
+wait_for_http_ok "${FENIX_RUNTIME_BASE_URL}/runtime/manifest"
 
 cat <<EOF
 fresh start complete
 core_matrix_base_url=${CORE_MATRIX_BASE_URL}
 core_matrix_server_pid=${CORE_MATRIX_SERVER_PID}
 core_matrix_jobs_pid=${CORE_MATRIX_JOBS_PID}
-fenix_runtime_mode=${FENIX_RUNTIME_MODE}
 fenix_runtime_count=${FENIX_RUNTIME_COUNT}
 fenix_runtime_base_url=${FENIX_RUNTIME_BASE_URL}
 fenix_runtime_server_pid=${FENIX_RUNTIME_PID}
@@ -691,8 +523,5 @@ nexus_runtime_base_url=${NEXUS_RUNTIME_BASE_URL}
 nexus_runtime_server_pid=${NEXUS_RUNTIME_PID}
 nexus_home_root=${NEXUS_HOME_ROOT}
 nexus_storage_root=${NEXUS_STORAGE_ROOT}
-fenix_docker_container=${FENIX_DOCKER_CONTAINER}
-fenix_docker_storage_volume=${FENIX_DOCKER_STORAGE_VOLUME}
-fenix_docker_status=${DOCKER_STATUS}
 log_dir=${LOG_DIR}
 EOF

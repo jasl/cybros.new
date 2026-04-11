@@ -8,15 +8,6 @@ class Acceptance::ActiveSuiteContractTest < ActiveSupport::TestCase
     end
   end
 
-  test "active acceptance suite excludes archived bundled and capstone entrypoints" do
-    archived = Acceptance::ActiveSuite::ARCHIVED_ENTRYPOINTS.keys
-
-    archived.each do |entrypoint|
-      assert Rails.root.join("..", entrypoint).exist?, "expected archived acceptance entrypoint #{entrypoint} to remain in-tree"
-      refute_includes Acceptance::ActiveSuite.entrypoints, entrypoint
-    end
-  end
-
   test "active suite runner loads the shared active suite manifest" do
     script = Rails.root.join("../acceptance/bin/run_active_suite.sh").read
 

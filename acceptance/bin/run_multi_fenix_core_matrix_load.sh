@@ -9,12 +9,6 @@ FENIX_ROOT="${REPO_ROOT}/agents/fenix"
 NEXUS_ROOT="${REPO_ROOT}/execution_runtimes/nexus"
 LOG_DIR="${ACCEPTANCE_ROOT}/logs"
 MULTI_FENIX_LOAD_PROFILE="${MULTI_FENIX_LOAD_PROFILE:-smoke}"
-FENIX_RUNTIME_MODE="${FENIX_RUNTIME_MODE:-host}"
-
-if [[ "${FENIX_RUNTIME_MODE}" != "host" ]]; then
-  echo "multi-fenix load wrapper only supports host runtimes" >&2
-  exit 1
-fi
 
 DEFAULT_ARTIFACT_STAMP="$(date '+%Y-%m-%d-%H%M%S')-multi-agent-runtime-core-matrix-load-${MULTI_FENIX_LOAD_PROFILE}"
 ARTIFACT_STAMP="${MULTI_FENIX_LOAD_ARTIFACT_STAMP:-${DEFAULT_ARTIFACT_STAMP}}"
@@ -554,7 +548,6 @@ export MULTI_FENIX_LOAD_STACK_ALREADY_RESET="true"
 export CORE_MATRIX_PERF_EVENTS_PATH
 export CORE_MATRIX_PERF_INSTANCE_LABEL
 export FENIX_AGENT_BASE_URL
-export FENIX_RUNTIME_MODE
 export FENIX_RUNTIME_COUNT
 export FENIX_RUNTIME_BASE_URL
 export FENIX_HOME_ROOT

@@ -995,7 +995,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     )
     child_turn = Turns::StartAgentTurn.call(
       conversation: child_conversation,
-      content: "Verify the capstone acceptance path",
+      content: "Verify the acceptance flow",
       sender_kind: "owner_agent",
       sender_conversation: context[:conversation],
       resolved_config_snapshot: {},
@@ -1036,7 +1036,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     TurnTodoPlans::ApplyUpdate.call(
       agent_task_run: child_agent_task_run,
       payload: {
-        "goal_summary" => "Verify the capstone acceptance path",
+        "goal_summary" => "Verify the acceptance flow",
         "current_item_key" => "check-hard-gate",
         "items" => [
           {

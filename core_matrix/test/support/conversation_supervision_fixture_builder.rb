@@ -114,7 +114,7 @@ module ConversationSupervisionFixtureBuilder
       depth: 0,
       observed_status: "running",
       supervision_state: "running",
-      request_summary: "Verify the capstone acceptance path",
+      request_summary: "Verify the acceptance flow",
       current_focus_summary: "Checking the 2048 acceptance flow",
       recent_progress_summary: "Confirmed the control acceptance wiring",
       next_step_hint: "Report the acceptance status back to the parent task",
@@ -192,7 +192,7 @@ module ConversationSupervisionFixtureBuilder
     child_conversation = fixture.fetch(:subagent_connection).conversation
     child_turn = Turns::StartAgentTurn.call(
       conversation: child_conversation,
-      content: "Verify the capstone acceptance path",
+      content: "Verify the acceptance flow",
       sender_kind: "owner_agent",
       sender_conversation: fixture.fetch(:conversation),
       resolved_config_snapshot: {},
@@ -225,7 +225,7 @@ module ConversationSupervisionFixtureBuilder
       lifecycle_state: "running",
       started_at: 90.seconds.ago,
       supervision_state: "running",
-      request_summary: "Verify the capstone acceptance path",
+      request_summary: "Verify the acceptance flow",
       current_focus_summary: "Stale child focus summary",
       recent_progress_summary: "Confirmed the control acceptance wiring",
       next_step_hint: "Report the acceptance status back to the parent task",
@@ -235,7 +235,7 @@ module ConversationSupervisionFixtureBuilder
     TurnTodoPlans::ApplyUpdate.call(
       agent_task_run: child_agent_task_run,
       payload: {
-        "goal_summary" => "Verify the capstone acceptance path",
+        "goal_summary" => "Verify the acceptance flow",
         "current_item_key" => "check-hard-gate",
         "items" => [
           {
