@@ -185,7 +185,7 @@ Completed milestone archives:
 
 ## Fenix Validation Scope
 
-`agents/fenix` remains the default validation program for this phase.
+`agents/fenix` remains the default validation agent for this phase.
 
 It should prove:
 

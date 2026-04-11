@@ -39,7 +39,7 @@ Reference capture for this task:
 - Modify: `core_matrix/app/services/workflows/manual_resume.rb`
 - Modify: `core_matrix/app/services/workflows/manual_retry.rb`
 - Modify: `agents/fenix/README.md`
-- Likely create or modify: `agents/fenix/app/services/fenix/runtime/*`
+- Likely create or modify: `agents/fenix/app/services/runtime/*`
 - Create or modify: `core_matrix/test/services/agent_deployments/*`
 - Create or modify: `core_matrix/test/integration/external_fenix_pairing_flow_test.rb`
 - Create or modify: `agents/fenix/test/integration/external_runtime_pairing_test.rb`
@@ -126,7 +126,7 @@ Expected:
 **Step 7: Commit**
 
 ```bash
-git -C .. add core_matrix/app/services/agent_deployments core_matrix/app/services/workflows/manual_resume.rb core_matrix/app/services/workflows/manual_retry.rb agents/fenix/README.md agents/fenix/app/services/fenix/runtime core_matrix/test/services/agent_deployments core_matrix/test/integration/external_fenix_pairing_flow_test.rb agents/fenix/test/integration/external_runtime_pairing_test.rb core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md core_matrix/docs/behavior/agent-registry-and-connectivity-foundations.md
+git -C .. add core_matrix/app/services/agent_deployments core_matrix/app/services/workflows/manual_resume.rb core_matrix/app/services/workflows/manual_retry.rb agents/fenix/README.md agents/fenix/app/services/runtime core_matrix/test/services/agent_deployments core_matrix/test/integration/external_fenix_pairing_flow_test.rb agents/fenix/test/integration/external_runtime_pairing_test.rb core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md core_matrix/docs/behavior/agent-registry-and-connectivity-foundations.md
 git -C .. commit -m "feat: add fenix deployment rotation"
 ```
 

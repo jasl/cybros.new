@@ -17,7 +17,7 @@ class AgentControl::ResolveTargetRuntimeTest < ActiveSupport::TestCase
     assert result.matches?(context[:agent_snapshot])
   end
 
-  test "routes execution-runtime-plane work by execution runtime instead of program hints" do
+  test "routes execution-runtime-plane work by execution runtime instead of agent hints" do
     context = build_agent_control_context!
     other_agent = create_agent!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(

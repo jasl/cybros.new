@@ -121,8 +121,8 @@ work would harden accidental complexity into durable protocol shape.
   `core_matrix/app/services/workflows/build_execution_snapshot.rb`,
   `core_matrix/app/services/workflows/create_for_turn.rb`,
   `core_matrix/app/services/agent_control/create_execution_assignment.rb`,
-  `agents/fenix/app/services/fenix/context/build_execution_context.rb`,
-  `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`, and
+  `agents/fenix/app/services/context/build_execution_context.rb`,
+  `agents/fenix/app/services/hooks/prepare_turn.rb`, and
   `agents/fenix/README.md`.
 - Structural impact: compaction and any future model-sensitive runtime
   heuristics cannot trust the actual cross-project execution payload. The
@@ -179,9 +179,9 @@ work would harden accidental complexity into durable protocol shape.
   currently consult that list when reviewing or choosing tools.
 - Evidence:
   `core_matrix/app/services/workflows/build_execution_snapshot.rb`,
-  `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`,
-  `agents/fenix/app/services/fenix/hooks/review_tool_call.rb`, and
-  `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`.
+  `agents/fenix/app/services/hooks/prepare_turn.rb`,
+  `agents/fenix/app/services/hooks/review_tool_call.rb`, and
+  `agents/fenix/app/services/runtime/execute_assignment.rb`.
 - Structural impact: the boundary contract is only partially self-enforcing.
   It is safe today because the deterministic runtime path still happens to stay
   inside the currently allowed tool families, but that safety is accidental.

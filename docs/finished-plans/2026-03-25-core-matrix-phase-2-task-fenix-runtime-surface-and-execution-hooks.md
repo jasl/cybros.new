@@ -34,13 +34,13 @@ Reference capture for this task:
 - Modify: `agents/fenix/config/routes.rb`
 - Modify: `agents/fenix/README.md`
 - Likely create: `agents/fenix/app/controllers/runtime/*`
-- Likely create: `agents/fenix/app/services/fenix/runtime/*`
-- Likely create: `agents/fenix/app/services/fenix/runtime_surface/*`
-- Likely create: `agents/fenix/app/services/fenix/hooks/*`
-- Likely create: `agents/fenix/app/services/fenix/context/*`
+- Likely create: `agents/fenix/app/services/runtime/*`
+- Likely create: `agents/fenix/app/services/runtime_surface/*`
+- Likely create: `agents/fenix/app/services/hooks/*`
+- Likely create: `agents/fenix/app/services/context/*`
 - Likely create: `agents/fenix/test/integration/runtime_flow_test.rb`
-- Likely create: `agents/fenix/test/services/fenix/runtime/*`
-- Likely create: `agents/fenix/test/services/fenix/hooks/*`
+- Likely create: `agents/fenix/test/services/runtime/*`
+- Likely create: `agents/fenix/test/services/hooks/*`
 
 **Step 1: Write failing service and integration tests**
 
@@ -67,7 +67,7 @@ Run:
 
 ```bash
 cd agents/fenix
-bin/rails test test/integration/runtime_flow_test.rb test/services/fenix/runtime test/services/fenix/hooks
+bin/rails test test/integration/runtime_flow_test.rb test/services/runtime test/services/hooks
 ```
 
 Expected:
@@ -101,7 +101,7 @@ Run:
 
 ```bash
 cd agents/fenix
-bin/rails test test/integration/runtime_flow_test.rb test/services/fenix/runtime test/services/fenix/hooks
+bin/rails test test/integration/runtime_flow_test.rb test/services/runtime test/services/hooks
 ```
 
 Expected:
@@ -111,7 +111,7 @@ Expected:
 **Step 6: Commit**
 
 ```bash
-git -C .. add agents/fenix/config/routes.rb agents/fenix/README.md agents/fenix/app/controllers/runtime agents/fenix/app/services/fenix/runtime agents/fenix/app/services/fenix/runtime_surface agents/fenix/app/services/fenix/hooks agents/fenix/app/services/fenix/context agents/fenix/test/integration/runtime_flow_test.rb agents/fenix/test/services/fenix/runtime agents/fenix/test/services/fenix/hooks
+git -C .. add agents/fenix/config/routes.rb agents/fenix/README.md agents/fenix/app/controllers/runtime agents/fenix/app/services/runtime agents/fenix/app/services/runtime_surface agents/fenix/app/services/hooks agents/fenix/app/services/context agents/fenix/test/integration/runtime_flow_test.rb agents/fenix/test/services/runtime agents/fenix/test/services/hooks
 git -C .. commit -m "feat: add fenix runtime surface"
 ```
 

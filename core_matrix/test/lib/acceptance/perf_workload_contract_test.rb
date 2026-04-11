@@ -39,7 +39,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     assert_includes profile.gate_contract.fetch("required_metric_sample_paths"), "database_checkout_pressure.checkout_wait.count"
   end
 
-  test "stress profile declares a mock program-exchange workload with repeated turns per conversation" do
+  test "stress profile declares a mock agent-exchange workload with repeated turns per conversation" do
     profile = Acceptance::Perf::Profile.fetch("stress")
 
     assert_equal "agent_request_exchange_mock", profile.workload_kind

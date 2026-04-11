@@ -228,10 +228,10 @@ git commit -m "docs: record subagent close confirmation pass"
 - Reference: `core_matrix/app/services/workflows/build_execution_snapshot.rb`
 - Reference: `core_matrix/app/services/workflows/create_for_turn.rb`
 - Reference: `core_matrix/app/services/agent_control/create_execution_assignment.rb`
-- Reference: `agents/fenix/app/services/fenix/context/build_execution_context.rb`
-- Reference: `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`
-- Reference: `agents/fenix/app/services/fenix/hooks/review_tool_call.rb`
-- Reference: `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
+- Reference: `agents/fenix/app/services/context/build_execution_context.rb`
+- Reference: `agents/fenix/app/services/hooks/prepare_turn.rb`
+- Reference: `agents/fenix/app/services/hooks/review_tool_call.rb`
+- Reference: `agents/fenix/app/services/runtime/execute_assignment.rb`
 - Reference: `agents/fenix/README.md`
 
 **Step 1: Re-read the end-to-end boundary**

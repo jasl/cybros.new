@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
-  test "creates and publishes a program-version-targeted mailbox request for the agent" do
+  test "creates and publishes a agent-snapshot-targeted mailbox request for the agent" do
     context = build_agent_control_context!
     published = []
     original_publish_pending = AgentControl::PublishPending.method(:call)

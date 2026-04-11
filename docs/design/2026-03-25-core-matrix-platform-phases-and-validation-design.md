@@ -34,7 +34,7 @@ Use this document to:
 - define the product-level meaning of `Core Matrix` and `Fenix`
 - normalize terminology such as `capability`, `tool`, `feature`, and `policy`
 - define the future phase model after the substrate batch
-- make `Fenix` a first-class validation program rather than an informal default
+- make `Fenix` a first-class validation agent rather than an informal default
 - keep future-phase planning aligned with the kernel's orthogonal boundaries
 
 ## Product Definitions
@@ -66,7 +66,7 @@ Fenix is the default out-of-the-box agent for Core Matrix.
 It has two roles:
 
 - ship as a usable default assistant
-- serve as the first technical validation program for the Core Matrix loop
+- serve as the first technical validation agent for the Core Matrix loop
 
 Fenix is not the long-term home for every product shape. Future products such as
 an `OpenAlice`-style system should be validated through separate agents.
@@ -144,7 +144,7 @@ decision came from:
 - prove real loop execution before widening ecosystem scope
 - let external agents own domain behavior and experimental capability
   implementations
-- use `Fenix` as the first validation program without turning it into a
+- use `Fenix` as the first validation agent without turning it into a
   universal product shell
 - keep future product validation possible through additional agents
 - make destructive correction acceptable while the platform shape is still being
@@ -465,7 +465,7 @@ The platform should instead validate different shapes through additional agent
 programs, for example:
 
 - a default assistant through `Fenix`
-- an `OpenAlice`-style product through a separate Alice-focused program
+- an `OpenAlice`-style product through a separate Alice-focused agent
 
 The success criterion is a reusable kernel, not a universal agent shell.
 

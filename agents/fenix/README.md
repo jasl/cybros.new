@@ -5,7 +5,7 @@
 Fenix has two jobs:
 
 - ship as a usable general assistant product
-- serve as the first technical validation program for the Core Matrix loop
+- serve as the first technical validation agent for the Core Matrix loop
 
 ## Monorepo Role
 
@@ -140,10 +140,10 @@ Detached long-lived services therefore follow this contract:
 
 Detached process tools are implemented directly in the runtime service layer:
 
-- [process.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/execution_runtime/tool_executors/process.rb)
-- [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/execution_runtime/processes/launcher.rb)
-- [manager.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/execution_runtime/processes/manager.rb)
-- [proxy_registry.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/execution_runtime/processes/proxy_registry.rb)
+- [process.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/execution_runtime/tool_executors/process.rb)
+- [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/execution_runtime/processes/launcher.rb)
+- [manager.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/execution_runtime/processes/manager.rb)
+- [proxy_registry.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/execution_runtime/processes/proxy_registry.rb)
 
 When a tool call passes `proxy_port`, `Fenix` also registers a stable fixed-port
 proxy path under `/dev/<process_run_id>/*`. The proxy registry renders Caddy
@@ -195,14 +195,14 @@ resources. The first cut uses Playwright-managed Chromium through
 
 Internally, `Fenix` is now split into:
 
-- `Fenix::Agent`
+- `Agent`
   - prompts, memory, skills, and agent request handling
-- `Fenix::ExecutionRuntime`
+- `ExecutionRuntime`
   - command runs, detached processes, browser sessions, and runtime tool registry
-- `Fenix::Shared`
+- `Shared`
   - control-plane transport, environment overlays, and shared value objects
 
-`Fenix::Runtime` remains only as the appliance/entry layer that routes mailbox
+`Runtime` remains only as the appliance/entry layer that routes mailbox
 work, runs the control loop, and assembles the external manifest.
 
 Docker deployments inherit Playwright plus Chromium from

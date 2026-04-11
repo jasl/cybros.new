@@ -1,5 +1,5 @@
 Rails.application.routes.draw do
-  get "runtime/manifest" => "runtime/manifests#show"
+  get "runtime/manifest" => "runtime_manifests#show"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

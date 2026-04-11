@@ -135,8 +135,7 @@ runtime resources that later tasks now build on are:
   - `close_outcome_payload`
 - mailbox close for `ProcessRun` now rides the `executor` control plane:
   - mailbox `target_ref` is the owning `ExecutionRuntime.public_id`
-  - delivery goes to the currently active `ExecutionRuntimeConnection` for that executor
-    program
+  - delivery goes to the currently active `ExecutionRuntimeConnection` for that execution runtime
   - agent snapshot rotation does not change process ownership
 
 ## Agent Task Runs

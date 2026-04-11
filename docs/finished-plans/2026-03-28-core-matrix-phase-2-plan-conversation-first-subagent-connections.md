@@ -154,15 +154,15 @@ Start from this list and keep it current while implementing.
 
 ### Fenix
 
-- `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
+- `agents/fenix/app/services/runtime/pairing_manifest.rb`
   - anchors: `CONFIG_SCHEMA_SNAPSHOT`,
     `CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT`, `DEFAULT_CONFIG_SNAPSHOT`, `call`,
     `agent_plane`
-- `agents/fenix/app/services/fenix/context/build_execution_context.rb`
+- `agents/fenix/app/services/context/build_execution_context.rb`
   - anchors: `call`
-- `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`
+- `agents/fenix/app/services/hooks/prepare_turn.rb`
   - anchors: `call`
-- `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
+- `agents/fenix/app/services/runtime/execute_assignment.rb`
   - anchors: `call`
 - `agents/fenix/README.md`
 
@@ -398,7 +398,7 @@ bin/rails test \
 
 **Files and locations**
 
-- `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
+- `agents/fenix/app/services/runtime/pairing_manifest.rb`
   - `CONFIG_SCHEMA_SNAPSHOT`,
     `CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT`, `DEFAULT_CONFIG_SNAPSHOT`, `call`,
     `agent_plane`
@@ -463,11 +463,11 @@ bin/rails test \
 
 **Files and locations**
 
-- `agents/fenix/app/services/fenix/context/build_execution_context.rb`
+- `agents/fenix/app/services/context/build_execution_context.rb`
   - `call`
-- `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`
+- `agents/fenix/app/services/hooks/prepare_turn.rb`
   - `call`
-- `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
+- `agents/fenix/app/services/runtime/execute_assignment.rb`
   - `call`
 - `agents/fenix/test/integration/runtime_flow_test.rb`
 

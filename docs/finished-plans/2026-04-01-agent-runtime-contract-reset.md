@@ -29,12 +29,12 @@
   - `core_matrix/app/services/provider_execution/prepare_agent_round.rb`
   - `core_matrix/app/services/provider_execution/route_tool_call.rb`
   - `core_matrix/app/services/agent_control/handle_execution_report.rb`
-  - `agents/fenix/app/services/fenix/context/build_execution_context.rb`
-  - `agents/fenix/app/services/fenix/runtime/prepare_round.rb`
-  - `agents/fenix/app/services/fenix/runtime/execute_tool.rb`
-  - `agents/fenix/app/services/fenix/runtime/execute_agent_request.rb`
-  - `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
-  - `agents/fenix/app/services/fenix/runtime_surface/report_collector.rb`
+  - `agents/fenix/app/services/context/build_execution_context.rb`
+  - `agents/fenix/app/services/runtime/prepare_round.rb`
+  - `agents/fenix/app/services/runtime/execute_tool.rb`
+  - `agents/fenix/app/services/runtime/execute_agent_request.rb`
+  - `agents/fenix/app/services/runtime/execute_assignment.rb`
+  - `agents/fenix/app/services/runtime_surface/report_collector.rb`
 - Shared fixtures currently live under `shared/fixtures/contracts/`.
 
 ## Target Contract
@@ -80,8 +80,8 @@ The implementation should add these durable cross-boundary fields:
 - Delete: `shared/fixtures/contracts/fenix_execute_tool_report_v1.json`
 - Modify: `agents/fenix/test/test_helper.rb`
 - Test: `agents/fenix/test/integration/runtime_program_contract_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/prepare_round_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb`
+- Test: `agents/fenix/test/services/runtime/prepare_round_test.rb`
+- Test: `agents/fenix/test/services/runtime/execute_assignment_test.rb`
 - Test: `core_matrix/test/services/agent_control/create_execution_assignment_test.rb`
 
 **Step 1: Write the failing tests**
@@ -109,7 +109,7 @@ cd core_matrix
 bin/rails test test/services/agent_control/create_execution_assignment_test.rb
 
 cd ../agents/fenix
-bin/rails test test/integration/runtime_program_contract_test.rb test/services/fenix/runtime/prepare_round_test.rb test/services/fenix/runtime/execute_assignment_test.rb
+bin/rails test test/integration/runtime_program_contract_test.rb test/services/runtime/prepare_round_test.rb test/services/runtime/execute_assignment_test.rb
 ```
 
 Expected: FAIL because the new fixtures and keys do not exist yet.
@@ -128,7 +128,7 @@ cd core_matrix
 bin/rails test test/services/agent_control/create_execution_assignment_test.rb
 
 cd ../agents/fenix
-bin/rails test test/integration/runtime_program_contract_test.rb test/services/fenix/runtime/prepare_round_test.rb test/services/fenix/runtime/execute_assignment_test.rb
+bin/rails test test/integration/runtime_program_contract_test.rb test/services/runtime/prepare_round_test.rb test/services/runtime/execute_assignment_test.rb
 ```
 
 Expected: PASS
@@ -136,7 +136,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add shared/fixtures/contracts agents/fenix/test/test_helper.rb agents/fenix/test/integration/runtime_program_contract_test.rb agents/fenix/test/services/fenix/runtime/prepare_round_test.rb agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb core_matrix/test/services/agent_control/create_execution_assignment_test.rb
+git add shared/fixtures/contracts agents/fenix/test/test_helper.rb agents/fenix/test/integration/runtime_program_contract_test.rb agents/fenix/test/services/runtime/prepare_round_test.rb agents/fenix/test/services/runtime/execute_assignment_test.rb core_matrix/test/services/agent_control/create_execution_assignment_test.rb
 git commit -m "refactor: reset shared agent contract fixtures"
 ```
 
@@ -265,7 +265,7 @@ git commit -m "refactor: reset kernel request envelopes for agents"
 
 **Step 1: Write the failing tests**
 
-Update tool-routing tests to expect the execute-program-tool request shape:
+Update tool-routing tests to expect the execute-agent-tool request shape:
 
 ```json
 {
@@ -298,7 +298,7 @@ expects `program_tools`.
 
 **Step 3: Write minimal implementation**
 
-- Replace the flat execute-program-tool payload with:
+- Replace the flat execute-agent-tool payload with:
   - `task`
   - `capability_projection`
   - `provider_context`
@@ -322,19 +322,19 @@ Expected: PASS
 
 ```bash
 git add core_matrix/app/services/provider_execution/route_tool_call.rb core_matrix/app/services/provider_execution/execute_round_loop.rb core_matrix/test/services/provider_execution/route_tool_call_test.rb core_matrix/test/services/provider_execution/execute_round_loop_test.rb core_matrix/test/integration/provider_backed_graph_loop_test.rb
-git commit -m "refactor: section execute-program-tool payloads"
+git commit -m "refactor: section execute-agent-tool payloads"
 ```
 
 ### Task 5: Rewrite Fenix context readers and round preparation against the new envelope
 
 **Files:**
-- Modify: `agents/fenix/app/services/fenix/context/build_execution_context.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/prepare_round.rb`
-- Modify: `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/build_round_prompt.rb`
-- Modify: `agents/fenix/app/services/fenix/hooks/compact_context.rb`
+- Modify: `agents/fenix/app/services/context/build_execution_context.rb`
+- Modify: `agents/fenix/app/services/runtime/prepare_round.rb`
+- Modify: `agents/fenix/app/services/hooks/prepare_turn.rb`
+- Modify: `agents/fenix/app/services/runtime/build_round_prompt.rb`
+- Modify: `agents/fenix/app/services/hooks/compact_context.rb`
 - Modify: `agents/fenix/test/integration/runtime_flow_test.rb`
-- Modify: `agents/fenix/test/services/fenix/runtime/prepare_round_test.rb`
+- Modify: `agents/fenix/test/services/runtime/prepare_round_test.rb`
 
 **Step 1: Write the failing tests**
 
@@ -349,7 +349,7 @@ Update Fenix tests to assert:
 
 ```bash
 cd agents/fenix
-bin/rails test test/integration/runtime_flow_test.rb test/services/fenix/runtime/prepare_round_test.rb
+bin/rails test test/integration/runtime_flow_test.rb test/services/runtime/prepare_round_test.rb
 ```
 
 Expected: FAIL because `BuildExecutionContext` and `PrepareRound` still read the
@@ -358,7 +358,7 @@ old field names.
 **Step 3: Write minimal implementation**
 
 - Rewrite `BuildExecutionContext` to normalize the new envelope sections into a
-  program-local context object.
+  agent-local context object.
 - Rewrite `PrepareRound` and `PrepareTurn` to read:
   - `conversation_projection.messages`
   - `conversation_projection.context_imports`
@@ -371,7 +371,7 @@ old field names.
 
 ```bash
 cd agents/fenix
-bin/rails test test/integration/runtime_flow_test.rb test/services/fenix/runtime/prepare_round_test.rb
+bin/rails test test/integration/runtime_flow_test.rb test/services/runtime/prepare_round_test.rb
 ```
 
 Expected: PASS
@@ -379,20 +379,20 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add agents/fenix/app/services/fenix/context/build_execution_context.rb agents/fenix/app/services/fenix/runtime/prepare_round.rb agents/fenix/app/services/fenix/hooks/prepare_turn.rb agents/fenix/app/services/fenix/runtime/build_round_prompt.rb agents/fenix/app/services/fenix/hooks/compact_context.rb agents/fenix/test/integration/runtime_flow_test.rb agents/fenix/test/services/fenix/runtime/prepare_round_test.rb
+git add agents/fenix/app/services/context/build_execution_context.rb agents/fenix/app/services/runtime/prepare_round.rb agents/fenix/app/services/hooks/prepare_turn.rb agents/fenix/app/services/runtime/build_round_prompt.rb agents/fenix/app/services/hooks/compact_context.rb agents/fenix/test/integration/runtime_flow_test.rb agents/fenix/test/services/runtime/prepare_round_test.rb
 git commit -m "refactor: teach fenix to consume sectioned runtime envelopes"
 ```
 
 ### Task 6: Rewrite Fenix tool execution and report emission around `runtime_events` and `summary_artifacts`
 
 **Files:**
-- Modify: `agents/fenix/app/services/fenix/runtime/execute_tool.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/execute_agent_request.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime_surface/report_collector.rb`
-- Modify: `agents/fenix/app/services/fenix/hooks/review_tool_call.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_tool.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_agent_request.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_assignment.rb`
+- Modify: `agents/fenix/app/services/runtime_surface/report_collector.rb`
+- Modify: `agents/fenix/app/services/hooks/review_tool_call.rb`
 - Modify: `agents/fenix/test/integration/runtime_program_contract_test.rb`
-- Modify: `agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb`
+- Modify: `agents/fenix/test/services/runtime/execute_assignment_test.rb`
 - Modify: `agents/fenix/test/jobs/runtime_execution_job_test.rb`
 
 **Step 1: Write the failing tests**
@@ -400,7 +400,7 @@ git commit -m "refactor: teach fenix to consume sectioned runtime envelopes"
 Update Fenix execution tests to expect:
 
 - tool visibility checks to use `tool_surface`
-- program-tool responses to emit:
+- agent-tool responses to emit:
   - `status`
   - `result`
   - `summary_artifacts`
@@ -414,7 +414,7 @@ Update Fenix execution tests to expect:
 
 ```bash
 cd agents/fenix
-bin/rails test test/integration/runtime_program_contract_test.rb test/services/fenix/runtime/execute_assignment_test.rb test/jobs/runtime_execution_job_test.rb
+bin/rails test test/integration/runtime_program_contract_test.rb test/services/runtime/execute_assignment_test.rb test/jobs/runtime_execution_job_test.rb
 ```
 
 Expected: FAIL because the runtime still emits legacy `progress_payload` and
@@ -433,7 +433,7 @@ Expected: FAIL because the runtime still emits legacy `progress_payload` and
 
 ```bash
 cd agents/fenix
-bin/rails test test/integration/runtime_program_contract_test.rb test/services/fenix/runtime/execute_assignment_test.rb test/jobs/runtime_execution_job_test.rb
+bin/rails test test/integration/runtime_program_contract_test.rb test/services/runtime/execute_assignment_test.rb test/jobs/runtime_execution_job_test.rb
 ```
 
 Expected: PASS
@@ -441,7 +441,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add agents/fenix/app/services/fenix/runtime/execute_tool.rb agents/fenix/app/services/fenix/runtime/execute_agent_request.rb agents/fenix/app/services/fenix/runtime/execute_assignment.rb agents/fenix/app/services/fenix/runtime_surface/report_collector.rb agents/fenix/app/services/fenix/hooks/review_tool_call.rb agents/fenix/test/integration/runtime_program_contract_test.rb agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb agents/fenix/test/jobs/runtime_execution_job_test.rb
+git add agents/fenix/app/services/runtime/execute_tool.rb agents/fenix/app/services/runtime/execute_agent_request.rb agents/fenix/app/services/runtime/execute_assignment.rb agents/fenix/app/services/runtime_surface/report_collector.rb agents/fenix/app/services/hooks/review_tool_call.rb agents/fenix/test/integration/runtime_program_contract_test.rb agents/fenix/test/services/runtime/execute_assignment_test.rb agents/fenix/test/jobs/runtime_execution_job_test.rb
 git commit -m "refactor: reset fenix runtime reports and tool execution contract"
 ```
 
@@ -510,7 +510,7 @@ git commit -m "refactor: consume typed runtime events in kernel report reducers"
 - Modify: `core_matrix/test/services/provider_execution/prepare_agent_round_test.rb`
 - Modify: `core_matrix/test/services/provider_execution/route_tool_call_test.rb`
 - Modify: `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
-- Modify: `agents/fenix/test/services/fenix/runtime/mailbox_worker_test.rb`
+- Modify: `agents/fenix/test/services/runtime/mailbox_worker_test.rb`
 - Modify: `agents/fenix/test/integration/external_runtime_pairing_test.rb`
 - Modify: any remaining callers of:
   - `agent_context`
@@ -539,7 +539,7 @@ cd core_matrix
 bin/rails test test/services/provider_execution/prepare_agent_round_test.rb test/services/provider_execution/route_tool_call_test.rb test/services/workflows/build_execution_snapshot_test.rb
 
 cd ../agents/fenix
-bin/rails test test/services/fenix/runtime/mailbox_worker_test.rb test/integration/external_runtime_pairing_test.rb
+bin/rails test test/services/runtime/mailbox_worker_test.rb test/integration/external_runtime_pairing_test.rb
 ```
 
 Expected: FAIL until all legacy field usage is deleted.
@@ -570,10 +570,10 @@ bin/rails test test/models/turn_execution_snapshot_test.rb \
 cd ../agents/fenix
 bin/rails test test/integration/runtime_program_contract_test.rb \
   test/integration/runtime_flow_test.rb \
-  test/services/fenix/runtime/prepare_round_test.rb \
-  test/services/fenix/runtime/execute_assignment_test.rb \
+  test/services/runtime/prepare_round_test.rb \
+  test/services/runtime/execute_assignment_test.rb \
   test/jobs/runtime_execution_job_test.rb \
-  test/services/fenix/runtime/mailbox_worker_test.rb \
+  test/services/runtime/mailbox_worker_test.rb \
   test/integration/external_runtime_pairing_test.rb
 ```
 

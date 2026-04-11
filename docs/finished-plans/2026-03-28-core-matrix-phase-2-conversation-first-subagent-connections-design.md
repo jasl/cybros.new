@@ -170,10 +170,10 @@ Findings:
 
 Scanned:
 
-- `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
-- `agents/fenix/app/services/fenix/context/build_execution_context.rb`
-- `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`
-- `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
+- `agents/fenix/app/services/runtime/pairing_manifest.rb`
+- `agents/fenix/app/services/context/build_execution_context.rb`
+- `agents/fenix/app/services/hooks/prepare_turn.rb`
+- `agents/fenix/app/services/runtime/execute_assignment.rb`
 - `agents/fenix/README.md`
 
 Findings:
@@ -251,8 +251,8 @@ Scanned:
 - `core_matrix/app/services/runtime_capabilities/compose_for_conversation.rb`
 - `core_matrix/app/services/workflows/build_execution_snapshot.rb`
 - `core_matrix/app/services/agent_control/create_execution_assignment.rb`
-- `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
-- `agents/fenix/app/services/fenix/context/build_execution_context.rb`
+- `agents/fenix/app/services/runtime/pairing_manifest.rb`
+- `agents/fenix/app/services/context/build_execution_context.rb`
 
 Findings:
 
@@ -471,15 +471,15 @@ rewrite obsolete surfaces; do not leave stale terminology behind.
 
 ### Fenix Runtime Surface
 
-- Modify: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
+- Modify: `agents/fenix/app/services/runtime/pairing_manifest.rb`
   - anchors: `CONFIG_SCHEMA_SNAPSHOT`,
     `CONVERSATION_OVERRIDE_SCHEMA_SNAPSHOT`, `DEFAULT_CONFIG_SNAPSHOT`, `call`,
     `agent_plane`
-- Modify: `agents/fenix/app/services/fenix/context/build_execution_context.rb`
+- Modify: `agents/fenix/app/services/context/build_execution_context.rb`
   - anchors: `call`
-- Modify: `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`
+- Modify: `agents/fenix/app/services/hooks/prepare_turn.rb`
   - anchors: `call`
-- Modify: `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_assignment.rb`
   - anchors: `call`
 - Modify: `agents/fenix/README.md`
 

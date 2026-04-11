@@ -78,11 +78,11 @@ Use the following existing code as the current baseline being corrected:
 - `core_matrix/app/services/provider_execution/execute_round_loop.rb`
 - `core_matrix/app/services/agent_control/handle_execution_report.rb`
 - `core_matrix/app/services/workflows/build_execution_snapshot.rb`
-- `agents/fenix/app/services/fenix/shared/payload_context.rb`
-- `agents/fenix/app/services/fenix/runtime/execute_mailbox_item.rb`
-- `agents/fenix/app/services/fenix/agent/requests/prepare_round.rb`
-- `agents/fenix/app/services/fenix/agent/requests/execute_tool.rb`
-- `agents/fenix/app/services/fenix/agent/requests/execute_conversation_control_request.rb`
+- `agents/fenix/app/services/shared/payload_context.rb`
+- `agents/fenix/app/services/runtime/execute_mailbox_item.rb`
+- `agents/fenix/app/services/requests/prepare_round.rb`
+- `agents/fenix/app/services/requests/execute_tool.rb`
+- `agents/fenix/app/services/requests/execute_conversation_control_request.rb`
 
 ## Naming And Concept Model
 
@@ -115,7 +115,7 @@ make the boundary explicit:
 
 - an `agent installation` identifies a logical product integration
 - a concrete runtime process is an `agent deployment`
-- a profile expresses a behavior and capability mask inside that program
+- a profile expresses a behavior and capability mask inside that agent
 
 ## Kernel Responsibilities
 
@@ -149,7 +149,7 @@ Core Matrix must not own:
 
 ## Agent Responsibilities
 
-An agent is the business program surface that consumes kernel
+An agent is the business agent surface that consumes kernel
 projections and emits execution intent and reports.
 
 It should own:
@@ -285,7 +285,7 @@ stable.
     "model_context": {}
   },
   "runtime_context": {
-    "control_plane": "program",
+    "control_plane": "agent",
     "logical_work_id": "workflow-node:...",
     "attempt_no": 1,
     "deployment_public_id": "dep_..."
@@ -345,9 +345,9 @@ It should contain:
 - `owner_conversation_id`
 - `subagent_policy`
 
-`tool_surface` is the visible program-facing tool catalog for the current work.
+`tool_surface` is the visible agent-facing tool catalog for the current work.
 It replaces ad hoc use of `allowed_tool_names` plus a separately returned
-`program_tools`.
+legacy tool catalog payload.
 
 The agent can derive allowlists from `tool_surface`; the kernel should
 stop sending both a list and a catalog when one catalog is enough.
@@ -408,7 +408,7 @@ The next contract should normalize three request kinds.
 
 ### 1. `execution_assignment`
 
-This is the kernel-to-program request for direct mailbox execution.
+This is the kernel-to-agent request for direct mailbox execution.
 
 Use it for:
 
@@ -430,7 +430,7 @@ Required sections:
 
 ### 2. `prepare_round`
 
-This is the kernel-to-program request for provider-loop message preparation.
+This is the kernel-to-agent request for provider-loop message preparation.
 
 Use it when the kernel is about to call the provider and needs:
 
@@ -453,7 +453,7 @@ Required sections:
 
 ### 3. `execute_tool`
 
-This is the kernel-to-program request for executing a agent-owned tool after
+This is the kernel-to-agent request for executing a agent-owned tool after
 the provider selected it.
 
 Required sections:
@@ -693,7 +693,7 @@ Rules:
 
 - every event kind should have a clear owner and reducer in the kernel
 - event payloads should be typed by `event_kind`
-- terminal durable truth remains kernel-owned even when derived from program
+- terminal durable truth remains kernel-owned even when derived from agent
   reports
 
 ## Context Projection Reset
@@ -708,17 +708,17 @@ The main changes are:
 - `agent_context` is removed in favor of `capability_projection` and
   `runtime_context`
 - `allowed_tool_names` is removed once `tool_surface` is present
-- `program_tools` is renamed to `tool_surface`
+- `tool_surface` replaces the old ad hoc tool catalog payload
 
 This change should be made in one pass across:
 
 - `Workflows::BuildExecutionSnapshot`
 - `AgentControl::CreateExecutionAssignment`
 - `ProviderExecution::PrepareAgentRound`
-- `Fenix::Shared::PayloadContext`
-- `Fenix::Agent::Requests::PrepareRound`
-- `Fenix::Runtime::ExecuteMailboxItem`
-- `Fenix::Agent::Requests::ExecuteProgramTool`
+- `Shared::PayloadContext`
+- `Requests::PrepareRound`
+- `Runtime::ExecuteMailboxItem`
+- `Requests::ExecuteTool`
 
 ## Tool Surface Reset
 
@@ -726,7 +726,7 @@ The current split between:
 
 - capability snapshot tool catalog
 - agent-context allowlist
-- prepare-round returned `program_tools`
+- prepare-round returned `tool_surface`
 
 is redundant.
 
@@ -749,7 +749,7 @@ For `agents/fenix`, this design implies:
 - operator snapshot should remain local and agent-owned
 - prompt, memory, and compaction remain entirely on the Fenix side
 
-This keeps Fenix as a strong reference program without making it the kernel's
+This keeps Fenix as a strong reference agent without making it the kernel's
 business-logic home.
 
 ## Core Matrix Implications
@@ -789,7 +789,7 @@ Recommended order:
 
 This design is considered landed when:
 
-- all kernel-to-program requests use the sectioned envelope
+- all kernel-to-agent requests use the sectioned envelope
 - `agent_context` no longer exists in the public runtime contract
 - `tool_surface` is the only visible tool catalog for the current work
 - progress and terminal reports support `summary_artifacts`
@@ -807,4 +807,4 @@ This design does not attempt to define:
 - every future runtime event kind
 - every future summary artifact persistence rule
 
-Those concerns can follow once the kernel-program boundary is reset and stable.
+Those concerns can follow once the kernel-agent boundary is reset and stable.

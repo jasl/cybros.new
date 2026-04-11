@@ -73,12 +73,12 @@ module ProviderExecution
         transcript: @transcript,
         agent_request_exchange: @agent_request_exchange
       )
-      program_binding_ids = ProviderExecution::MaterializeRoundTools.call(
+      agent_binding_ids = ProviderExecution::MaterializeRoundTools.call(
         workflow_node: @workflow_node,
         tool_catalog: round_tool_catalog_for(prepared_round)
       ).pluck(:id)
       round_bindings = ToolBinding.where(
-        id: (core_matrix_binding_ids + program_binding_ids).uniq
+        id: (core_matrix_binding_ids + agent_binding_ids).uniq
       ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
 
       round_deltas = []

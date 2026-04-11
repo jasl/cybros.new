@@ -41,7 +41,7 @@ class RuntimeParallelWorkTest < ActiveSupport::TestCase
 
     with_dispatch_mode_stub(dispatch) do
       2.times do |index|
-        Nexus::Runtime::MailboxWorker.call(
+        Runtime::MailboxWorker.call(
           mailbox_item: execution_assignment_mailbox_item(index: index),
           inline: false
         )
@@ -110,8 +110,8 @@ class RuntimeParallelWorkTest < ActiveSupport::TestCase
   end
 
   def with_dispatch_mode_stub(replacement)
-    singleton = Nexus::Runtime::Assignments::DispatchMode.singleton_class
-    original = Nexus::Runtime::Assignments::DispatchMode.method(:call)
+    singleton = Runtime::Assignments::DispatchMode.singleton_class
+    original = Runtime::Assignments::DispatchMode.method(:call)
 
     singleton.send(:define_method, :call, replacement)
     yield

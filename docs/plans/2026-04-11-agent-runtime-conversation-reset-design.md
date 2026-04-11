@@ -35,7 +35,7 @@ already mid-migration toward:
 That model already improved on the earlier agent snapshot/environment design, but
 it still preserves two incorrect assumptions:
 
-1. the kernel still thinks in terms of a product-specific "program" and an
+1. the kernel still thinks in terms of a product-specific "agent" and an
    attached executor instead of a reusable `Agent` plus reusable
    `ExecutionRuntime`
 2. `Fenix` and `Nexus` still preserve the old bundled-runtime assumption where
@@ -102,7 +102,7 @@ name because it would collide semantically with:
 - existing `Shared::Environment` namespaces in `Fenix` and `Nexus`
 
 The design also does **not** use bare `Runtime` as the aggregate name because
-the codebase already uses `Fenix::Runtime` and `Nexus::Runtime` for the live
+the codebase already uses `Runtime` namespaces for the live
 control-loop appliance layer.
 
 `ExecutionRuntime` is the approved aggregate name.
@@ -410,7 +410,7 @@ Removes:
 - runtime-owned skill package storage
 - runtime-owned memory storage
 
-### `executors/nexus`
+### `execution_runtimes/nexus`
 
 Keeps:
 
@@ -457,7 +457,7 @@ model:
 
 - `core_matrix` verification commands from `AGENTS.md`
 - `agents/fenix` verification commands from `AGENTS.md`
-- `executors/nexus` verification commands matching the copied Rails app shape
+- `execution_runtimes/nexus` verification commands matching the copied Rails app shape
 - repo-wide sweeps proving old bundled-runtime terminology is gone
 - end-to-end acceptance for:
   - separate agent registration

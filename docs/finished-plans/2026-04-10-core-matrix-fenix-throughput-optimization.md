@@ -45,7 +45,7 @@
 3. Implement materialized routing and simplify `Poll` around it.
 4. Re-run focused tests and relevant full `core_matrix` suites.
 
-### Task 3: Make program mailbox exchange resumable
+### Task 3: Make agent mailbox exchange resumable
 
 **Files:**
 - Modify: `core_matrix/app/services/provider_execution/agent_request_exchange.rb`
@@ -64,7 +64,7 @@
 - Test: `core_matrix/test/jobs/workflows/resume_blocked_step_job_test.rb`
 
 **Steps:**
-1. Write failing tests for deferred program mailbox requests that release worker threads and resume on terminal report.
+1. Write failing tests for deferred agent mailbox requests that release worker threads and resume on terminal report.
 2. Run the focused tests to verify the current implementation still blocks synchronously.
 3. Implement deferred mailbox exchange, persisted wait context, and report-driven resume/finalization.
 4. Run focused tests, then full `core_matrix` verification.

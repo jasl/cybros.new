@@ -229,7 +229,7 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     serialized.merge(
       "item_id" => "mailbox-item-supervision-public-id",
       "logical_work_id" => "conversation-control:conversation-control-request-public-id:supervision_guidance",
-      "protocol_message_id" => "kernel-program-request-supervision-message-id",
+      "protocol_message_id" => "kernel-agent-request-supervision-message-id",
       "payload" => payload
     )
   end

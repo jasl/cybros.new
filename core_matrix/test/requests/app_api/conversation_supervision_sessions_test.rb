@@ -52,7 +52,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     post "/app_api/conversation_supervision_sessions",
       params: {
         conversation_id: fixture[:conversation].public_id,
-        responder_strategy: "program_contract",
+        responder_strategy: "agent_contract",
       },
       headers: app_api_headers(registration[:agent_connection_credential]),
       as: :json

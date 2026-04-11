@@ -223,15 +223,15 @@ Expected: PASS
 ### Task 6: Rewrite Fenix into a pure agent decision layer
 
 **Files:**
-- Rename namespaces and folders under `agents/fenix/app/services/fenix`
+- Rename namespaces and folders under `agents/fenix/app/services`
 - Modify:
-  - `agents/fenix/app/services/fenix/agent/requests/prepare_round.rb`
-  - `agents/fenix/app/services/fenix/agent/requests/execute_tool.rb`
-  - `agents/fenix/app/services/fenix/application/build_round_instructions.rb`
-  - `agents/fenix/app/services/fenix/runtime/manifest/pairing_manifest.rb`
+  - `agents/fenix/app/services/requests/prepare_round.rb`
+  - `agents/fenix/app/services/requests/execute_tool.rb`
+  - `agents/fenix/app/services/application/build_round_instructions.rb`
+  - `agents/fenix/app/services/runtime/manifest/pairing_manifest.rb`
   - `agents/fenix/README.md`
 - Delete or move runtime-owned code under:
-  - `agents/fenix/app/services/fenix/executor`
+  - `agents/fenix/app/services/executor`
   - filesystem-backed skill repository/storage code
   - filesystem-backed memory store implementation
 - Update affected tests under `agents/fenix/test`
@@ -266,16 +266,16 @@ Expected: PASS
 ### Task 7: Rewrite Nexus into the single execution runtime appliance
 
 **Files:**
-- Rename all copied `fenix` namespaces and paths under `executors/nexus`
+- Rename all copied `fenix` namespaces and paths under `execution_runtimes/nexus`
 - Modify:
-  - `executors/nexus/app/services/**`
-  - `executors/nexus/app/jobs/**`
-  - `executors/nexus/app/controllers/runtime/manifests_controller.rb`
-  - `executors/nexus/README.md`
-  - `executors/nexus/env.sample`
-  - `executors/nexus/bin/*`
-  - `executors/nexus/config/*`
-  - `executors/nexus/test/**`
+  - `execution_runtimes/nexus/app/services/**`
+  - `execution_runtimes/nexus/app/jobs/**`
+  - `execution_runtimes/nexus/app/controllers/runtime_manifests_controller.rb`
+  - `execution_runtimes/nexus/README.md`
+  - `execution_runtimes/nexus/env.sample`
+  - `execution_runtimes/nexus/bin/*`
+  - `execution_runtimes/nexus/config/*`
+  - `execution_runtimes/nexus/test/**`
 - Move runtime-owned skill repository and filesystem-backed memory store into Nexus-owned namespaces
 
 **Step 1: Write failing runtime-side tests**
@@ -290,7 +290,7 @@ Expected: PASS
 Run:
 
 ```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/executors/nexus
+cd /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus
 bin/rails test
 ```
 
@@ -302,7 +302,7 @@ Expected: FAIL
 - keep runtime tooling, skills, memory, and control loop
 - remove bundled dual-role assumptions
 
-**Step 4: Re-run `executors/nexus` tests**
+**Step 4: Re-run `execution_runtimes/nexus` tests**
 
 Expected: PASS
 
@@ -351,7 +351,7 @@ Expected: PASS
   - `acceptance/**`
   - `core_matrix/README.md`
   - `agents/fenix/README.md`
-  - `executors/nexus/README.md`
+  - `execution_runtimes/nexus/README.md`
 - Rename files and directories whose names still encode old concepts
 
 **Step 1: Sweep and rewrite old names**
@@ -370,8 +370,8 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-rg -n "Agent|AgentSnapshot|ExecutionRuntime|AgentConnection|ExecutionRuntimeConnection" core_matrix agents/fenix executors/nexus docs acceptance
-rg -n "Agent|ExecutionRuntime|AgentConnection|ExecutionRuntimeConnection|connection_credential|connection credential" core_matrix agents/fenix executors/nexus docs acceptance -g '!docs/finished-plans/**' -g '!docs/archived-plans/**'
+rg -n "Agent|AgentSnapshot|ExecutionRuntime|AgentConnection|ExecutionRuntimeConnection" core_matrix agents/fenix execution_runtimes/nexus docs acceptance
+rg -n "Agent|ExecutionRuntime|AgentConnection|ExecutionRuntimeConnection|connection_credential|connection credential" core_matrix agents/fenix execution_runtimes/nexus docs acceptance -g '!docs/finished-plans/**' -g '!docs/archived-plans/**'
 ```
 
 Expected: no remaining active-code matches except intentionally historical archived material.
@@ -413,12 +413,12 @@ bin/rails test
 
 Expected: all commands exit `0`
 
-**Step 3: Verify `executors/nexus`**
+**Step 3: Verify `execution_runtimes/nexus`**
 
 Run:
 
 ```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/executors/nexus
+cd /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus
 bin/brakeman --no-pager
 bin/bundler-audit
 bin/rubocop -f github

@@ -185,10 +185,10 @@ class TurnTest < ActiveSupport::TestCase
     refute turn.terminal?
   end
 
-  test "requires the frozen agent snapshot to belong to the conversation program" do
+  test "requires the frozen agent snapshot to belong to the conversation agent" do
     installation = create_installation!
-    agent = create_agent!(installation: installation, key: "main-program")
-    other_program = create_agent!(installation: installation, key: "other-program")
+    agent = create_agent!(installation: installation, key: "main-agent")
+    other_agent = create_agent!(installation: installation, key: "other-agent")
     user = create_user!(installation: installation)
     user_agent_binding = create_user_agent_binding!(
       installation: installation,
@@ -200,7 +200,7 @@ class TurnTest < ActiveSupport::TestCase
       user: user,
       user_agent_binding: user_agent_binding
     )
-    agent_snapshot = create_agent_snapshot!(installation: installation, agent: other_program)
+    agent_snapshot = create_agent_snapshot!(installation: installation, agent: other_agent)
     conversation = Conversation.create!(
       installation: installation,
       workspace: workspace,

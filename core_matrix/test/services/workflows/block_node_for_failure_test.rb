@@ -134,10 +134,10 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
       result = Workflows::BlockNodeForFailure.call(
         workflow_node: workflow_node,
         failure_category: "contract_error",
-        failure_kind: "invalid_program_response_contract",
+        failure_kind: "invalid_agent_response_contract",
         retry_strategy: "automatic",
         max_auto_retries: 1,
-        last_error_summary: "program response is invalid"
+        last_error_summary: "agent response is invalid"
       )
 
       refute result.terminal?
@@ -145,6 +145,6 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
 
     assert_equal "retryable_failure", workflow_run.reload.wait_reason_kind
     assert_equal "automatic", workflow_run.wait_retry_strategy
-    assert_equal "invalid_program_response_contract", workflow_run.wait_failure_kind
+    assert_equal "invalid_agent_response_contract", workflow_run.wait_failure_kind
   end
 end

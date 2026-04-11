@@ -11,7 +11,7 @@ class ExecutionCapabilitySnapshot < ApplicationRecord
   belongs_to :owner_conversation, class_name: "Conversation", optional: true
 
   validates :fingerprint, presence: true, uniqueness: { scope: :installation_id }
-  validates :program_version_fingerprint, presence: true
+  validates :agent_snapshot_fingerprint, presence: true
   validates :profile_key, presence: true
   validate :subagent_policy_snapshot_must_be_hash
 

@@ -89,7 +89,7 @@ Expected: FAIL because `agent_id` and `user_id` are missing from at least one ru
 
 Implementation rules:
 
-- use `turn.agent_snapshot.agent.public_id`, not `agent_snapshot.public_id`, as the durable program scope key
+- use `turn.agent_snapshot.agent.public_id`, not `agent_snapshot.public_id`, as the durable agent scope key
 - use `turn.conversation.workspace.user.public_id`, not any bigint id
 - keep field names neutral: `agent_id`, `user_id`
 - update payload compaction in `CreateAgentRequest` so those keys survive when agent requests are persisted and replayed
@@ -121,19 +121,19 @@ Expected: PASS.
 ## Task 2: Replace global live-skill roots with a scoped Fenix repository
 
 **Files:**
-- Create: `agents/fenix/app/services/fenix/skills/repository.rb`
-- Create: `agents/fenix/app/services/fenix/skills/scope_roots.rb`
-- Create: `agents/fenix/app/services/fenix/skills/package_validator.rb`
-- Modify: `agents/fenix/app/services/fenix/skills/catalog.rb`
-- Test: `agents/fenix/test/services/fenix/skills/catalog_test.rb`
-- Test: `agents/fenix/test/services/fenix/skills/repository_test.rb`
-- Test: `agents/fenix/test/services/fenix/skills/package_validator_test.rb`
+- Create: `agents/fenix/app/services/skills/repository.rb`
+- Create: `agents/fenix/app/services/skills/scope_roots.rb`
+- Create: `agents/fenix/app/services/skills/package_validator.rb`
+- Modify: `agents/fenix/app/services/skills/catalog.rb`
+- Test: `agents/fenix/test/services/skills/catalog_test.rb`
+- Test: `agents/fenix/test/services/skills/repository_test.rb`
+- Test: `agents/fenix/test/services/skills/package_validator_test.rb`
 
 **Reference sources:**
 
 - Skills format spec: `references/original/references/agentskills/docs/specification.mdx`
-- Old repository semantics: `agents/fenix.old/app/services/fenix/skills/repository.rb`
-- Old install tests: `agents/fenix.old/test/services/fenix/skills/install_test.rb`
+- Old repository semantics: `agents/fenix.old/app/services/skills/repository.rb`
+- Old install tests: `agents/fenix.old/test/services/skills/install_test.rb`
 
 **Step 1: Write failing repository and catalog tests**
 
@@ -184,7 +184,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
-bin/rails test test/services/fenix/skills/catalog_test.rb test/services/fenix/skills/repository_test.rb test/services/fenix/skills/package_validator_test.rb
+bin/rails test test/services/skills/catalog_test.rb test/services/skills/repository_test.rb test/services/skills/package_validator_test.rb
 ```
 
 Expected: FAIL because the repository abstraction and scoped roots do not exist yet.
@@ -222,7 +222,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
-bin/rubocop app/services/fenix/skills/catalog.rb app/services/fenix/skills/repository.rb app/services/fenix/skills/scope_roots.rb app/services/fenix/skills/package_validator.rb test/services/fenix/skills/catalog_test.rb test/services/fenix/skills/repository_test.rb test/services/fenix/skills/package_validator_test.rb
+bin/rubocop app/services/skills/catalog.rb app/services/skills/repository.rb app/services/skills/scope_roots.rb app/services/skills/package_validator.rb test/services/skills/catalog_test.rb test/services/skills/repository_test.rb test/services/skills/package_validator_test.rb
 ```
 
 Expected: PASS.
@@ -236,32 +236,32 @@ Expected: PASS.
 ## Task 3: Bind runtime skill lookup to the scoped repository
 
 **Files:**
-- Modify: `agents/fenix/app/services/fenix/runtime/payload_context.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/execute_mailbox_item.rb`
-- Create: `agents/fenix/app/services/fenix/runtime/assignments/dispatch_mode.rb`
-- Create: `agents/fenix/app/services/fenix/skills/catalog_list.rb`
-- Create: `agents/fenix/app/services/fenix/skills/load.rb`
-- Create: `agents/fenix/app/services/fenix/skills/read_file.rb`
-- Create: `agents/fenix/app/services/fenix/skills/install.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/payload_context_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/execute_mailbox_item_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/assignments/dispatch_mode_test.rb`
-- Test: `agents/fenix/test/services/fenix/skills/catalog_list_test.rb`
-- Test: `agents/fenix/test/services/fenix/skills/load_test.rb`
-- Test: `agents/fenix/test/services/fenix/skills/read_file_test.rb`
-- Test: `agents/fenix/test/services/fenix/skills/install_test.rb`
+- Modify: `agents/fenix/app/services/runtime/payload_context.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_mailbox_item.rb`
+- Create: `agents/fenix/app/services/runtime/assignments/dispatch_mode.rb`
+- Create: `agents/fenix/app/services/skills/catalog_list.rb`
+- Create: `agents/fenix/app/services/skills/load.rb`
+- Create: `agents/fenix/app/services/skills/read_file.rb`
+- Create: `agents/fenix/app/services/skills/install.rb`
+- Test: `agents/fenix/test/services/runtime/payload_context_test.rb`
+- Test: `agents/fenix/test/services/runtime/execute_mailbox_item_test.rb`
+- Test: `agents/fenix/test/services/runtime/assignments/dispatch_mode_test.rb`
+- Test: `agents/fenix/test/services/skills/catalog_list_test.rb`
+- Test: `agents/fenix/test/services/skills/load_test.rb`
+- Test: `agents/fenix/test/services/skills/read_file_test.rb`
+- Test: `agents/fenix/test/services/skills/install_test.rb`
 - Test: `agents/fenix/test/integration/skills_flow_test.rb`
 
 **Reference sources:**
 
-- Old mailbox dispatch: `agents/fenix.old/app/services/fenix/runtime/assignments/dispatch_mode.rb`
-- Old runtime coverage: `agents/fenix.old/test/services/fenix/runtime/assignments/dispatch_mode_test.rb`
+- Old mailbox dispatch: `agents/fenix.old/app/services/runtime/assignments/dispatch_mode.rb`
+- Old runtime coverage: `agents/fenix.old/test/services/runtime/assignments/dispatch_mode_test.rb`
 - Old end-to-end skills flow: `agents/fenix.old/test/integration/skills_flow_test.rb`
 - Old thin service wrappers:
-  - `agents/fenix.old/app/services/fenix/skills/catalog_list.rb`
-  - `agents/fenix.old/app/services/fenix/skills/load.rb`
-  - `agents/fenix.old/app/services/fenix/skills/read_file.rb`
-  - `agents/fenix.old/app/services/fenix/skills/install.rb`
+  - `agents/fenix.old/app/services/skills/catalog_list.rb`
+  - `agents/fenix.old/app/services/skills/load.rb`
+  - `agents/fenix.old/app/services/skills/read_file.rb`
+  - `agents/fenix.old/app/services/skills/install.rb`
 
 **Step 1: Write failing tests for payload-bound scope selection**
 
@@ -290,7 +290,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
-bin/rails test test/services/fenix/runtime/payload_context_test.rb test/services/fenix/runtime/execute_mailbox_item_test.rb test/services/fenix/runtime/assignments/dispatch_mode_test.rb test/services/fenix/skills/catalog_list_test.rb test/services/fenix/skills/load_test.rb test/services/fenix/skills/read_file_test.rb test/services/fenix/skills/install_test.rb test/integration/skills_flow_test.rb
+bin/rails test test/services/runtime/payload_context_test.rb test/services/runtime/execute_mailbox_item_test.rb test/services/runtime/assignments/dispatch_mode_test.rb test/services/skills/catalog_list_test.rb test/services/skills/load_test.rb test/services/skills/read_file_test.rb test/services/skills/install_test.rb test/integration/skills_flow_test.rb
 ```
 
 Expected: FAIL because payload-bound repository wiring does not exist yet.
@@ -319,7 +319,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
-bin/rubocop app/services/fenix/runtime/payload_context.rb app/services/fenix/runtime/execute_mailbox_item.rb app/services/fenix/runtime/assignments/dispatch_mode.rb app/services/fenix/skills/catalog_list.rb app/services/fenix/skills/load.rb app/services/fenix/skills/read_file.rb app/services/fenix/skills/install.rb test/services/fenix/runtime/payload_context_test.rb test/services/fenix/runtime/execute_mailbox_item_test.rb test/services/fenix/runtime/assignments/dispatch_mode_test.rb test/services/fenix/skills/catalog_list_test.rb test/services/fenix/skills/load_test.rb test/services/fenix/skills/read_file_test.rb test/services/fenix/skills/install_test.rb test/integration/skills_flow_test.rb
+bin/rubocop app/services/runtime/payload_context.rb app/services/runtime/execute_mailbox_item.rb app/services/runtime/assignments/dispatch_mode.rb app/services/skills/catalog_list.rb app/services/skills/load.rb app/services/skills/read_file.rb app/services/skills/install.rb test/services/runtime/payload_context_test.rb test/services/runtime/execute_mailbox_item_test.rb test/services/runtime/assignments/dispatch_mode_test.rb test/services/skills/catalog_list_test.rb test/services/skills/load_test.rb test/services/skills/read_file_test.rb test/services/skills/install_test.rb test/integration/skills_flow_test.rb
 ```
 
 Expected: PASS.
@@ -330,7 +330,7 @@ Expected: PASS.
 - Fix findings before proceeding.
 - Run `@verification-before-completion` using the test and RuboCop commands above.
 
-## Task 4: Rewrite the dedicated skills acceptance to prove cross-conversation sharing and cross-program isolation
+## Task 4: Rewrite the dedicated skills acceptance to prove cross-conversation sharing and cross-agent isolation
 
 **Files:**
 - Modify: `acceptance/bin/fresh_start_stack.sh`
@@ -347,8 +347,8 @@ Add or update contract assertions so the repo clearly documents:
 - the dedicated skills validation remains separate from the capstone
 - the skills validation scenario covers:
   - conversation A install
-  - conversation B same user + same program load/read success
-  - conversation C same user + different program load failure
+  - conversation B same user + same agent load/read success
+  - conversation C same user + different agent load failure
 
 **Step 2: Update the acceptance scenario to a three-run proof**
 
@@ -356,16 +356,16 @@ Implementation requirements:
 
 - create two external agents for the same seeded user
 - register the same runtime base URL once per external agent enrollment; do not introduce a second runtime process just to prove scope
-- install the third-party skill through conversation A on program 1 via `skills_install`
-- load and read that skill through conversation B on program 1
-- attempt to load the same skill through conversation C on program 2 and assert a semantic skill-not-found failure rather than a generic runtime crash
+- install the third-party skill through conversation A on agent 1 via `skills_install`
+- load and read that skill through conversation B on agent 1
+- attempt to load the same skill through conversation C on agent 2 and assert a semantic skill-not-found failure rather than a generic runtime crash
 - stop clearing global `live/staging/backup` roots directly; clear only a dedicated temp `FENIX_HOME_ROOT`
 - ensure the started Fenix runtime process actually receives that `FENIX_HOME_ROOT` in both host and docker acceptance modes
 - in docker acceptance mode, pass `FENIX_HOME_ROOT` to a persistent, mounted path instead of an ephemeral in-container home directory
 - keep output evidence explicit:
   - install scope root
   - shared-conversation success proof
-  - different-program failure proof
+  - different-agent failure proof
 
 **Step 3: Update the README**
 
@@ -395,7 +395,7 @@ ruby acceptance/scenarios/fenix_skills_validation.rb
 Expected:
 
 - contract test PASS
-- acceptance JSON shows install success, same-program cross-conversation success, and different-program semantic failure
+- acceptance JSON shows install success, same-agent cross-conversation success, and different-agent semantic failure
 
 **Step 5: Run final targeted regression suites**
 
@@ -428,9 +428,9 @@ Before claiming the refactor complete, verify all of these explicitly:
 - `agent_id` and `user_id` appear in agent-facing runtime payloads as `public_id`
 - Fenix defaults to `~/.fenix/skills-scopes/...` for writable skill state
 - invalid skill packages that violate the accepted `agentskills` spec subset are rejected deterministically
-- conversation A install is visible in conversation B for the same user/program
+- conversation A install is visible in conversation B for the same user/agent
 - the same installed skill is not visible from a different agent
-- the different-program failure is a skill-scope miss, not a generic runtime exception
+- the different-agent failure is a skill-scope miss, not a generic runtime exception
 - the legacy `skills_catalog_list` / `skills_load` / `skills_read_file` / `skills_install` runtime flow is runnable again in the new Fenix
 - `skills_install` remains the simplest supported install path for user-installed third-party skills
 - acceptance bootstrap and docker activation pass `FENIX_HOME_ROOT` through to the actual runtime process

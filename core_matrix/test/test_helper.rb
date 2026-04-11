@@ -646,7 +646,7 @@ module ActiveSupport
       context
     end
 
-    def activate_program_version!(
+    def activate_agent_snapshot!(
       context,
       protocol_methods: context[:agent_snapshot].protocol_methods,
       tool_catalog: context[:agent_snapshot].tool_catalog,

@@ -151,7 +151,7 @@ Current state:
   and workspace plugins
 - skills already compose from bundled system skills, curated skills, and live
   installed skills
-- environment overlays already exist across workspace, program-version, and
+- environment overlays already exist across workspace, agent-snapshot, and
   conversation scopes
 
 What is still missing:
@@ -307,7 +307,7 @@ Current facts are:
 - `SOUL.md` and `USER.md` can already be overridden from the workspace root
 - `OPERATOR.md` currently remains code-owned in the bundled prompt set
 - workspace plugins live under `.fenix/plugins`
-- workspace and conversation state live under the program-version-scoped
+- workspace and conversation state live under the agent-snapshot-scoped
   `.fenix` layout
 - a user-scoped private home directory model is not yet implemented as a real
   contract
@@ -403,5 +403,5 @@ acceptance surfaces.
 
 The next stage of planning should therefore stop treating the project as a
 greenfield build. The right job now is to clarify product contracts, tighten
-the kernel/program boundary, and turn already-landed technical capabilities
+the kernel/agent boundary, and turn already-landed technical capabilities
 into a cleaner cowork product.

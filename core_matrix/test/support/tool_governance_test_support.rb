@@ -69,7 +69,7 @@ module ToolGovernanceTestSupport
     context = build_agent_control_context!
     context.fetch(:execution_runtime).update!(tool_catalog: execution_runtime_tool_catalog)
 
-    activate_program_version!(
+    activate_agent_snapshot!(
       context,
       tool_catalog: agent_tool_catalog,
       profile_catalog: profile_catalog,

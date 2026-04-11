@@ -18,7 +18,7 @@ class ToolDefinition < ApplicationRecord
 
   validates :tool_name, presence: true, format: { with: AgentSnapshot::METHOD_ID_PATTERN }
   validates :tool_kind, presence: true
-  validate :installation_matches_program_version
+  validate :installation_matches_agent_snapshot
   validate :policy_payload_must_be_hash
 
   def default_implementation
@@ -27,7 +27,7 @@ class ToolDefinition < ApplicationRecord
 
   private
 
-  def installation_matches_program_version
+  def installation_matches_agent_snapshot
     return if agent_snapshot.blank?
     return if agent_snapshot.installation_id == installation_id
 

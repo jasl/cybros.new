@@ -13,7 +13,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     @mcp_server.shutdown
   end
 
-  test "routes agent-owned round tools back through the program mailbox exchange with workflow-node durable proof" do
+  test "routes agent-owned round tools back through the agent mailbox exchange with workflow-node durable proof" do
     context = build_governed_tool_context!(
       agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry],
       profile_catalog: governed_profile_catalog.deep_merge(
@@ -74,7 +74,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     )
   end
 
-  test "routes execution-environment round tools back through the program mailbox exchange" do
+  test "routes execution-environment round tools back through the agent mailbox exchange" do
     environment_tool = {
       "tool_name" => "memory_search",
       "tool_kind" => "execution_runtime",
@@ -562,7 +562,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_match(/\Asession-\d+\z/, result.tool_binding.reload.runtime_state.dig("mcp", "session_id"))
   end
 
-  test "routes core matrix tools without delegating back to the program mailbox exchange" do
+  test "routes core matrix tools without delegating back to the agent mailbox exchange" do
     context = build_governed_tool_context!(
       profile_catalog: {
         "main" => {
@@ -599,7 +599,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal [], agent_request_exchange.execute_tool_requests
   end
 
-  test "routes conversation metadata updates without delegating back to the program mailbox exchange" do
+  test "routes conversation metadata updates without delegating back to the agent mailbox exchange" do
     context = build_governed_tool_context!(
       profile_catalog: governed_profile_catalog.deep_merge(
         "main" => {

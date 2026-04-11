@@ -56,7 +56,7 @@ Completed on this plan:
   the rejected Fenix-first loop boundary.
 - Treat destructive change as the default posture for this branch when it
   produces a cleaner final `Core Matrix` plus `Fenix` split.
-- Do not preserve compatibility with the rejected synchronous HTTP program
+- Do not preserve compatibility with the rejected synchronous HTTP agent
   contract.
 - Do not add transitional adapters or compatibility shims unless a real
   external dependency forces it.
@@ -88,7 +88,7 @@ bin/rails db:reset
 - Create: `shared/fixtures/contracts/fenix_prepare_round_report_v1.json`
 - Create: `shared/fixtures/contracts/core_matrix_fenix_execute_tool_mailbox_item_v1.json`
 - Create: `shared/fixtures/contracts/fenix_execute_tool_report_v1.json`
-- Modify: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
+- Modify: `agents/fenix/app/services/runtime/pairing_manifest.rb`
 - Test: `agents/fenix/test/integration/external_runtime_pairing_test.rb`
 - Test: `core_matrix/test/integration/external_fenix_pairing_flow_test.rb`
 
@@ -111,7 +111,7 @@ assert_equal "/agent_api/control/report", manifest.dig("control_plane", "report_
 
 Run: `cd agents/fenix && bin/rails test test/integration/external_runtime_pairing_test.rb`
 
-Expected: FAIL because the manifest still describes the rejected direct program
+Expected: FAIL because the manifest still describes the rejected direct agent
 HTTP contract.
 
 Run: `cd core_matrix && bin/rails test test/integration/external_fenix_pairing_flow_test.rb`
@@ -137,7 +137,7 @@ Expected: PASS with the new manifest metadata preserved through registration.
 **Step 5: Commit**
 
 ```bash
-git add shared/fixtures/contracts/core_matrix_fenix_prepare_round_mailbox_item_v1.json shared/fixtures/contracts/fenix_prepare_round_report_v1.json shared/fixtures/contracts/core_matrix_fenix_execute_tool_mailbox_item_v1.json shared/fixtures/contracts/fenix_execute_tool_report_v1.json agents/fenix/app/services/fenix/runtime/pairing_manifest.rb agents/fenix/test/integration/external_runtime_pairing_test.rb core_matrix/test/integration/external_fenix_pairing_flow_test.rb
+git add shared/fixtures/contracts/core_matrix_fenix_prepare_round_mailbox_item_v1.json shared/fixtures/contracts/fenix_prepare_round_report_v1.json shared/fixtures/contracts/core_matrix_fenix_execute_tool_mailbox_item_v1.json shared/fixtures/contracts/fenix_execute_tool_report_v1.json agents/fenix/app/services/runtime/pairing_manifest.rb agents/fenix/test/integration/external_runtime_pairing_test.rb core_matrix/test/integration/external_fenix_pairing_flow_test.rb
 git commit -m "docs: freeze mailbox-first agent contract"
 ```
 
@@ -156,7 +156,7 @@ git commit -m "docs: freeze mailbox-first agent contract"
 
 **Step 1: Write the failing coordinator tests**
 
-Cover one successful round-preparation request, one successful program-tool
+Cover one successful round-preparation request, one successful agent-tool
 request, timeout behavior, and correlation by mailbox item plus logical work id.
 
 **Step 2: Run the focused tests and confirm the coordination layer is missing**
@@ -185,18 +185,18 @@ Expected: PASS.
 
 ```bash
 git add core_matrix/app/services/agents/request_round_preparation.rb core_matrix/app/services/agents/request_program_tool_execution.rb core_matrix/app/services/agents/await_mailbox_report.rb core_matrix/app/services/agents/program_mailbox_payloads.rb core_matrix/app/services/agent_control/create_execution_assignment.rb core_matrix/app/services/agent_control/handle_execution_report.rb core_matrix/test/services/agents/request_round_preparation_test.rb core_matrix/test/services/agents/request_program_tool_execution_test.rb core_matrix/test/services/agents/await_mailbox_report_test.rb
-git commit -m "feat: add mailbox program request reply coordination"
+git commit -m "feat: add mailbox agent requests reply coordination"
 ```
 
 ## Task 3: Teach Fenix To Execute `prepare_round` From Mailbox Work
 
 **Files:**
-- Create: `agents/fenix/app/services/fenix/runtime/prepare_round.rb`
-- Create: `agents/fenix/app/services/fenix/runtime/execute_prepare_round_mailbox_item.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/control_loop_once.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/control_loop_forever.rb`
-- Modify: `agents/fenix/app/services/fenix/context/build_execution_context.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/prepare_round_test.rb`
+- Create: `agents/fenix/app/services/runtime/prepare_round.rb`
+- Create: `agents/fenix/app/services/runtime/execute_prepare_round_mailbox_item.rb`
+- Modify: `agents/fenix/app/services/runtime/control_loop_once.rb`
+- Modify: `agents/fenix/app/services/runtime/control_loop_forever.rb`
+- Modify: `agents/fenix/app/services/context/build_execution_context.rb`
+- Test: `agents/fenix/test/services/runtime/prepare_round_test.rb`
 - Test: `agents/fenix/test/integration/runtime_program_contract_test.rb`
 - Test: `agents/fenix/test/integration/runtime_flow_test.rb`
 
@@ -207,7 +207,7 @@ report containing prepared messages and a round-local agent tool catalog.
 
 **Step 2: Run the Fenix tests and confirm the mailbox handler is missing**
 
-Run: `cd agents/fenix && bin/rails test test/integration/runtime_program_contract_test.rb test/services/fenix/runtime/prepare_round_test.rb`
+Run: `cd agents/fenix && bin/rails test test/integration/runtime_program_contract_test.rb test/services/runtime/prepare_round_test.rb`
 
 Expected: FAIL because the mailbox executor does not yet understand
 `prepare_round`.
@@ -220,30 +220,30 @@ messages plus visible agent tools.
 
 **Step 4: Run the Fenix round-preparation tests**
 
-Run: `cd agents/fenix && bin/rails test test/integration/runtime_program_contract_test.rb test/services/fenix/runtime/prepare_round_test.rb test/integration/runtime_flow_test.rb`
+Run: `cd agents/fenix && bin/rails test test/integration/runtime_program_contract_test.rb test/services/runtime/prepare_round_test.rb test/integration/runtime_flow_test.rb`
 
 Expected: PASS, and the existing runtime flow tests should still pass.
 
 **Step 5: Commit**
 
 ```bash
-git add agents/fenix/app/services/fenix/runtime/prepare_round.rb agents/fenix/app/services/fenix/runtime/execute_prepare_round_mailbox_item.rb agents/fenix/app/services/fenix/runtime/control_loop_once.rb agents/fenix/app/services/fenix/runtime/control_loop_forever.rb agents/fenix/app/services/fenix/context/build_execution_context.rb agents/fenix/test/integration/runtime_program_contract_test.rb agents/fenix/test/services/fenix/runtime/prepare_round_test.rb agents/fenix/test/integration/runtime_flow_test.rb
+git add agents/fenix/app/services/runtime/prepare_round.rb agents/fenix/app/services/runtime/execute_prepare_round_mailbox_item.rb agents/fenix/app/services/runtime/control_loop_once.rb agents/fenix/app/services/runtime/control_loop_forever.rb agents/fenix/app/services/context/build_execution_context.rb agents/fenix/test/integration/runtime_program_contract_test.rb agents/fenix/test/services/runtime/prepare_round_test.rb agents/fenix/test/integration/runtime_flow_test.rb
 git commit -m "feat: handle mailbox round preparation in fenix"
 ```
 
 ## Task 4: Extract Program Tool Execution And Route It Through Mailbox Work
 
 **Files:**
-- Create: `agents/fenix/app/services/fenix/runtime/tool_executor.rb`
-- Create: `agents/fenix/app/services/fenix/runtime/execute_tool_mailbox_item.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/control_loop_once.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/control_loop_forever.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/tool_executor_test.rb`
+- Create: `agents/fenix/app/services/runtime/tool_executor.rb`
+- Create: `agents/fenix/app/services/runtime/execute_tool_mailbox_item.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_assignment.rb`
+- Modify: `agents/fenix/app/services/runtime/control_loop_once.rb`
+- Modify: `agents/fenix/app/services/runtime/control_loop_forever.rb`
+- Test: `agents/fenix/test/services/runtime/execute_assignment_test.rb`
+- Test: `agents/fenix/test/services/runtime/tool_executor_test.rb`
 - Test: `agents/fenix/test/integration/runtime_program_contract_test.rb`
 
-**Step 1: Write the failing tests for mailbox program-tool execution**
+**Step 1: Write the failing tests for mailbox agent-tool execution**
 
 Cover a calculator-style tool, an `exec_command` tool that provisions
 command-run metadata, and a rejected tool name, all through mailbox execution
@@ -251,7 +251,7 @@ and reports.
 
 **Step 2: Run the Fenix tests and confirm the new mailbox path is absent**
 
-Run: `cd agents/fenix && bin/rails test test/integration/runtime_program_contract_test.rb test/services/fenix/runtime/execute_assignment_test.rb`
+Run: `cd agents/fenix && bin/rails test test/integration/runtime_program_contract_test.rb test/services/runtime/execute_assignment_test.rb`
 
 Expected: FAIL because `execute_tool` mailbox handling and the reusable
 executor are not present.
@@ -264,14 +264,14 @@ same implementation.
 
 **Step 4: Re-run the Fenix execution tests**
 
-Run: `cd agents/fenix && bin/rails test test/services/fenix/runtime/tool_executor_test.rb test/services/fenix/runtime/execute_assignment_test.rb test/integration/runtime_program_contract_test.rb`
+Run: `cd agents/fenix && bin/rails test test/services/runtime/tool_executor_test.rb test/services/runtime/execute_assignment_test.rb test/integration/runtime_program_contract_test.rb`
 
 Expected: PASS, including existing `exec_command` and `write_stdin` behaviors.
 
 **Step 5: Commit**
 
 ```bash
-git add agents/fenix/app/services/fenix/runtime/tool_executor.rb agents/fenix/app/services/fenix/runtime/execute_tool_mailbox_item.rb agents/fenix/app/services/fenix/runtime/execute_assignment.rb agents/fenix/app/services/fenix/runtime/control_loop_once.rb agents/fenix/app/services/fenix/runtime/control_loop_forever.rb agents/fenix/test/services/fenix/runtime/tool_executor_test.rb agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb agents/fenix/test/integration/runtime_program_contract_test.rb
+git add agents/fenix/app/services/runtime/tool_executor.rb agents/fenix/app/services/runtime/execute_tool_mailbox_item.rb agents/fenix/app/services/runtime/execute_assignment.rb agents/fenix/app/services/runtime/control_loop_once.rb agents/fenix/app/services/runtime/control_loop_forever.rb agents/fenix/test/services/runtime/tool_executor_test.rb agents/fenix/test/services/runtime/execute_assignment_test.rb agents/fenix/test/integration/runtime_program_contract_test.rb
 git commit -m "feat: route agent tools through mailbox execution"
 ```
 
@@ -359,7 +359,7 @@ dispatch into `Fenix`.
 **Step 3: Replace direct dispatch with mailbox coordination**
 
 `PrepareAgentRound` should call the new mailbox request-reply coordinator.
-`RouteToolCall` should enqueue program-tool execution when the selected binding
+`RouteToolCall` should enqueue agent-tool execution when the selected binding
 belongs to the agent side.
 
 `MaterializeRoundTools` should create or reuse workflow-node-scoped tool
@@ -403,7 +403,7 @@ provider-backed turn.
 
 Run: `cd core_matrix && bin/rails test test/services/provider_execution/execute_round_loop_test.rb test/services/provider_execution/dispatch_request_test.rb test/services/provider_execution/execute_turn_step_test.rb test/integration/provider_backed_turn_execution_test.rb`
 
-Expected: FAIL because the loop still assumes direct program callbacks or does
+Expected: FAIL because the loop still assumes direct agent callbacks or does
 not yet await mailbox-backed replies cleanly.
 
 **Step 3: Implement the mailbox-backed loop**
@@ -432,15 +432,15 @@ git commit -m "feat: run provider loop through mailbox-backed agent participatio
 ## Task 8: Remove Rejected HTTP Program-Contract Code Paths
 
 **Files:**
-- Delete any Fenix runtime controllers or routes added only for direct program
+- Delete any Fenix runtime controllers or routes added only for direct agent
   HTTP callbacks
-- Delete any Core Matrix tests that assert direct HTTP program dispatch
+- Delete any Core Matrix tests that assert direct HTTP agent dispatch
 - Modify docs and READMEs that still describe the rejected callback model
 
 **Step 1: Write the failing cleanup assertions**
 
 Add tests or static assertions that the manifest no longer advertises direct
-program execution endpoints and that no provider execution path references the
+agent execution endpoints and that no provider execution path references the
 deleted HTTP bridge.
 
 **Step 2: Run the focused cleanup tests**
@@ -453,7 +453,7 @@ Expected: FAIL until the rejected HTTP path is fully removed.
 
 **Step 3: Remove the dead code and update docs**
 
-Delete direct program callback controllers, routes, client code, and tests that
+Delete direct agent callback controllers, routes, client code, and tests that
 encode the wrong architecture.
 
 **Step 4: Re-run the cleanup tests**

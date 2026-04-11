@@ -177,7 +177,7 @@ freezes a per-turn execution snapshot that preserves:
 
 - the frozen `execution_snapshot` remains the canonical turn-owned contract
   inside Core Matrix
-- the program runtime does not receive that contract verbatim
+- the agent does not receive that contract verbatim
 - `prepare_round` now projects only the compact fields the external runtime
   actually consumes:
   - `round_context.messages`

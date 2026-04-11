@@ -20,22 +20,22 @@ not a product spec.
 Definition:
 
 - `agents/fenix/README.md`
-- `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
+- `agents/fenix/app/services/runtime/pairing_manifest.rb`
 - `core_matrix/test/requests/agent_api/capabilities_test.rb`
 - `core_matrix/test/requests/agent_api/health_test.rb`
 
 Implementation:
 
 - `agents/fenix/config/routes.rb`
-- `agents/fenix/app/controllers/runtime/manifests_controller.rb`
-- `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
+- `agents/fenix/app/controllers/runtime_manifests_controller.rb`
+- `agents/fenix/app/services/runtime/pairing_manifest.rb`
 - `core_matrix/app/controllers/agent_api/health_controller.rb`
 - `core_matrix/app/controllers/agent_api/capabilities_controller.rb`
 
 Existing tests:
 
 - `agents/fenix/test/integration/runtime_manifest_test.rb`
-- `agents/fenix/test/services/fenix/runtime/control_client_test.rb`
+- `agents/fenix/test/services/runtime/control_client_test.rb`
 - `core_matrix/test/requests/agent_api/capabilities_test.rb`
 - `core_matrix/test/requests/agent_api/health_test.rb`
 
@@ -66,12 +66,12 @@ Implementation:
 - `core_matrix/app/services/agent_control/create_execution_assignment.rb`
 - `core_matrix/app/services/agent_control/serialize_mailbox_item.rb`
 - `core_matrix/app/models/agent_control_mailbox_item.rb`
-- `agents/fenix/app/services/fenix/runtime/control_plane.rb`
-- `agents/fenix/app/services/fenix/runtime/mailbox_pump.rb`
-- `agents/fenix/app/services/fenix/runtime/mailbox_worker.rb`
-- `agents/fenix/app/services/fenix/runtime/execute_mailbox_item.rb`
-- `agents/fenix/app/services/fenix/runtime/assignments/dispatch_mode.rb`
-- `agents/fenix/app/services/fenix/runtime/assignments/deterministic_tool.rb`
+- `agents/fenix/app/services/runtime/control_plane.rb`
+- `agents/fenix/app/services/runtime/mailbox_pump.rb`
+- `agents/fenix/app/services/runtime/mailbox_worker.rb`
+- `agents/fenix/app/services/runtime/execute_mailbox_item.rb`
+- `agents/fenix/app/services/runtime/assignments/dispatch_mode.rb`
+- `agents/fenix/app/services/runtime/assignments/deterministic_tool.rb`
 
 Existing tests:
 
@@ -81,11 +81,11 @@ Existing tests:
 - `core_matrix/test/services/agent_control/poll_test.rb`
 - `core_matrix/test/requests/agent_api/control_poll_test.rb`
 - `core_matrix/test/requests/agent_api/execution_delivery_test.rb`
-- `agents/fenix/test/services/fenix/runtime/mailbox_pump_test.rb`
-- `agents/fenix/test/services/fenix/runtime/mailbox_worker_test.rb`
-- `agents/fenix/test/services/fenix/runtime/execute_mailbox_item_test.rb`
-- `agents/fenix/test/services/fenix/runtime/assignments/dispatch_mode_test.rb`
-- `agents/fenix/test/services/fenix/runtime/assignments/deterministic_tool_test.rb`
+- `agents/fenix/test/services/runtime/mailbox_pump_test.rb`
+- `agents/fenix/test/services/runtime/mailbox_worker_test.rb`
+- `agents/fenix/test/services/runtime/execute_mailbox_item_test.rb`
+- `agents/fenix/test/services/runtime/assignments/dispatch_mode_test.rb`
+- `agents/fenix/test/services/runtime/assignments/deterministic_tool_test.rb`
 
 Status:
 
@@ -106,9 +106,9 @@ Implementation:
 - `core_matrix/app/services/provider_execution/agent_request_exchange.rb`
 - `core_matrix/app/services/provider_execution/prepare_agent_round.rb`
 - `core_matrix/app/services/provider_execution/tool_call_runners/agent_mediated.rb`
-- `agents/fenix/app/services/fenix/runtime/prepare_round.rb`
-- `agents/fenix/app/services/fenix/runtime/execute_tool.rb`
-- `agents/fenix/app/services/fenix/runtime/execute_mailbox_item.rb`
+- `agents/fenix/app/services/runtime/prepare_round.rb`
+- `agents/fenix/app/services/runtime/execute_tool.rb`
+- `agents/fenix/app/services/runtime/execute_mailbox_item.rb`
 
 Existing tests:
 
@@ -118,9 +118,9 @@ Existing tests:
 - `core_matrix/test/services/provider_execution/agent_request_exchange_perf_test.rb`
 - `core_matrix/test/services/provider_execution/prepare_agent_round_test.rb`
 - `core_matrix/test/services/provider_execution/tool_call_runners/agent_mediated_test.rb`
-- `agents/fenix/test/services/fenix/runtime/prepare_round_test.rb`
-- `agents/fenix/test/services/fenix/runtime/execute_tool_test.rb`
-- `agents/fenix/test/services/fenix/runtime/execute_mailbox_item_test.rb`
+- `agents/fenix/test/services/runtime/prepare_round_test.rb`
+- `agents/fenix/test/services/runtime/execute_tool_test.rb`
+- `agents/fenix/test/services/runtime/execute_mailbox_item_test.rb`
 
 Status:
 
@@ -151,15 +151,15 @@ Implementation:
 - `core_matrix/app/services/agent_control/report.rb`
 - `core_matrix/app/services/agent_control/handle_runtime_resource_report.rb`
 - `core_matrix/app/services/agent_control/handle_close_report.rb`
-- `agents/fenix/app/services/fenix/runtime/mailbox_worker.rb`
-- `agents/fenix/app/services/fenix/processes/manager.rb`
+- `agents/fenix/app/services/runtime/mailbox_worker.rb`
+- `agents/fenix/app/services/processes/manager.rb`
 
 Existing tests:
 
 - `core_matrix/test/requests/executor_api/control_poll_test.rb`
 - `core_matrix/test/requests/agent_api/resource_close_test.rb`
 - `core_matrix/test/requests/agent_api/process_runtime_test.rb`
-- `agents/fenix/test/services/fenix/runtime/mailbox_worker_test.rb`
+- `agents/fenix/test/services/runtime/mailbox_worker_test.rb`
 
 Status:
 
@@ -198,7 +198,7 @@ Original problem:
   - `supervision_guidance`
 - `core_matrix/app/services/conversation_control/dispatch_request.rb` can
   dispatch the latter two to the active agent
-- `agents/fenix/app/services/fenix/runtime/execute_mailbox_item.rb` only
+- `agents/fenix/app/services/runtime/execute_mailbox_item.rb` only
   handles:
   - `prepare_round`
   - `execute_tool`
@@ -223,7 +223,7 @@ Repair:
 Original problem:
 
 - `Fenix::Runtime::ExecuteProgramTool` has unit coverage
-- `core_matrix` has program-exchange coverage
+- `core_matrix` has agent-exchange coverage
 - `Fenix::Runtime::ExecuteMailboxItem` does not have direct coverage that an
   `agent_request` mailbox item for `execute_tool` produces the
   correct `agent_completed` / `agent_failed` report envelope
@@ -239,7 +239,7 @@ Repair:
   - `execute_tool` success
   - `execute_tool` visibility failure
 
-### Finding 4: The public manifest understated the program request surface
+### Finding 4: The public manifest understated the agent requests surface
 
 Original problem:
 
@@ -309,7 +309,7 @@ Repair:
 - add request and serialization tests that assert the scoped public ids are
   present
 
-### Finding 7: Agent-program freshness gating had no direct specification test
+### Finding 7: Agent-agent freshness gating had no direct specification test
 
 Original problem:
 

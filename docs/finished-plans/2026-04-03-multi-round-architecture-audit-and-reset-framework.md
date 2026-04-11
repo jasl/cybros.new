@@ -17,7 +17,7 @@ These rules are fixed for every round:
 
 - all user-visible agent-loop progression remains owned by `Core Matrix`
 - `Core Matrix` `Workflow` remains the only orchestration truth
-- `Fenix` may own program behavior and execution-runtime behavior, but it does
+- `Fenix` may own agent behavior and execution-runtime behavior, but it does
   not become the workflow scheduler
 - every completed round must still pass the same acceptance standard,
   especially the provider-backed `2048` capstone checklist

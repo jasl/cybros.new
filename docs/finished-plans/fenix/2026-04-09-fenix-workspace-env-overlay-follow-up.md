@@ -162,13 +162,13 @@ invalid workspace overlay does not break unrelated runtime paths such as
 The implementation surface is:
 
 - a new
-  `agents/fenix/app/services/fenix/runtime/workspace_env_overlay.rb`
+  `agents/fenix/app/services/runtime/workspace_env_overlay.rb`
   service
-- `agents/fenix/app/services/fenix/runtime/tool_executors/exec_command.rb`
-- `agents/fenix/app/services/fenix/runtime/tool_executors/process.rb`
-- `agents/fenix/app/services/fenix/processes/launcher.rb` or
-  `agents/fenix/app/services/fenix/processes/manager.rb`
-- focused tests under `agents/fenix/test/services/fenix/...`
+- `agents/fenix/app/services/runtime/tool_executors/exec_command.rb`
+- `agents/fenix/app/services/runtime/tool_executors/process.rb`
+- `agents/fenix/app/services/processes/launcher.rb` or
+  `agents/fenix/app/services/processes/manager.rb`
+- focused tests under `agents/fenix/test/services/...`
 - integration coverage under `agents/fenix/test/integration/...`
 
 The goal is to keep the feature self-contained inside `agents/fenix`.

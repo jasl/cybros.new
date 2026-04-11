@@ -239,8 +239,8 @@ Ruby constant and instead compose it from a registry.
 
 Suggested plugin roots:
 
-- code-owned system plugin manifests under `app/services/fenix/plugins/system`
-- code-owned curated plugin manifests under `app/services/fenix/plugins/curated`
+- code-owned system plugin manifests under `app/services/plugins/system`
+- code-owned curated plugin manifests under `app/services/plugins/curated`
 - live workspace plugins under `/workspace/.fenix/plugins`
 
 Suggested manifest shape:

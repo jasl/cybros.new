@@ -124,14 +124,14 @@ runtime capability preservation, subagent close control, and the
   `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`,
   `core_matrix/test/services/workflows/create_for_turn_test.rb`,
   `core_matrix/test/services/workflows/step_retry_test.rb`,
-  `agents/fenix/app/services/fenix/context/build_execution_context.rb`,
-  `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`,
-  `agents/fenix/app/services/fenix/hooks/review_tool_call.rb`,
-  `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`,
-  `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`,
+  `agents/fenix/app/services/context/build_execution_context.rb`,
+  `agents/fenix/app/services/hooks/prepare_turn.rb`,
+  `agents/fenix/app/services/hooks/review_tool_call.rb`,
+  `agents/fenix/app/services/runtime/execute_assignment.rb`,
+  `agents/fenix/app/services/runtime/pairing_manifest.rb`,
   `agents/fenix/test/integration/runtime_flow_test.rb`,
-  `agents/fenix/test/services/fenix/hooks/runtime_hooks_test.rb`,
-  `agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb`,
+  `agents/fenix/test/services/hooks/runtime_hooks_test.rb`,
+  `agents/fenix/test/services/runtime/execute_assignment_test.rb`,
   and `agents/fenix/README.md`.
 - Result:
   one additional high-confidence boundary issue exists. The normal
@@ -175,8 +175,8 @@ runtime capability preservation, subagent close control, and the
   `core_matrix/test/services/workflows/create_for_turn_test.rb`,
   `core_matrix/test/services/workflows/step_retry_test.rb`,
   `contracts/core_matrix_fenix_execution_assignment_v1.json`,
-  `agents/fenix/app/services/fenix/context/build_execution_context.rb`, and
-  `agents/fenix/app/services/fenix/hooks/prepare_turn.rb`.
+  `agents/fenix/app/services/context/build_execution_context.rb`, and
+  `agents/fenix/app/services/hooks/prepare_turn.rb`.
 - Structural impact:
   the `core_matrix <-> fenix` execution contract is still inconsistent across
   assignment families. Initial and subagent executions carry a rich frozen
@@ -223,4 +223,4 @@ wrapper instead of bypassing the contract.
   `core_matrix/test/services/agent_control/create_execution_assignment_test.rb`,
   `core_matrix/test/services/workflows/create_for_turn_test.rb`,
   `agents/fenix/test/integration/runtime_flow_test.rb`, and
-  `agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb`.
+  `agents/fenix/test/services/runtime/execute_assignment_test.rb`.

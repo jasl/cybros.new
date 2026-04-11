@@ -14,14 +14,14 @@ module Acceptance
     class MetricsAggregatorTest < Minitest::Test
       def test_event_reader_merges_multiple_event_files_in_recorded_order
         with_event_fixture do |paths|
-          events = EventReader.read(paths: paths.values_at(:core_matrix, :fenix_01, :fenix_02))
+          events = EventReader.read(paths: paths.values_at(:core_matrix, :nexus_01, :nexus_02))
 
           assert_equal [
             "perf.agent_control.poll",
             "perf.runtime.control_plane_poll",
             "perf.runtime.mailbox_execution",
             "perf.agent_control.mailbox_item_leased",
-            "perf.provider_execution.program_mailbox_exchange_wait",
+            "perf.provider_execution.agent_request_exchange_wait",
             "benchmark.workload.item_completed",
             "benchmark.workload.item_completed",
           ], events.first(7).map { |event| event.fetch("event_name") }
@@ -35,8 +35,8 @@ module Acceptance
 
           assert_equal 5, metrics.dig("throughput", "completed_workload_items")
           assert_in_delta 1.0, metrics.dig("throughput", "completed_workload_items_per_minute"), 0.001
-          assert_equal 2, metrics.dig("throughput", "per_runtime", "fenix-01", "completed_workload_items")
-          assert_equal 3, metrics.dig("throughput", "per_runtime", "fenix-02", "completed_workload_items")
+          assert_equal 2, metrics.dig("throughput", "per_instance", "nexus-01", "completed_workload_items")
+          assert_equal 3, metrics.dig("throughput", "per_instance", "nexus-02", "completed_workload_items")
 
           assert_equal 300.0, metrics.dig("turn_latency", "p50_ms")
           assert_equal 500.0, metrics.dig("turn_latency", "p95_ms")
@@ -56,9 +56,10 @@ module Acceptance
           metrics = MetricsAggregator.call(event_paths: paths.values)
           report = ReportBuilder.call(
             profile_name: "smoke",
+            agent_count: 1,
             runtime_count: 2,
             metrics: metrics,
-            structural_failures: ["fenix-02 failed to boot"],
+            structural_failures: ["nexus-02 failed to boot"],
             gate_result: {
               "kind" => "correctness",
               "eligible" => true,
@@ -72,7 +73,7 @@ module Acceptance
           )
 
           assert_equal "structural_failure", report.dig("outcome", "classification")
-          assert_equal ["fenix-02 failed to boot"], report.fetch("structural_failures")
+          assert_equal ["nexus-02 failed to boot"], report.fetch("structural_failures")
           assert_equal "queue_delay", report.fetch("capacity_symptoms").first.fetch("kind")
           assert_equal "database_checkout_timeouts", report.fetch("strongest_bottleneck_indicators").last.fetch("kind")
 
@@ -87,12 +88,12 @@ module Acceptance
       private
 
       def with_event_fixture
-        Dir.mktmpdir("multi-fenix-metrics-") do |dir|
+        Dir.mktmpdir("multi-agent-runtime-metrics-") do |dir|
           root = Pathname(dir)
           paths = {
             core_matrix: root.join("core-matrix-events.ndjson"),
-            fenix_01: root.join("fenix-01-events.ndjson"),
-            fenix_02: root.join("fenix-02-events.ndjson"),
+            nexus_01: root.join("nexus-01-events.ndjson"),
+            nexus_02: root.join("nexus-02-events.ndjson"),
           }
 
           write_events(
@@ -100,28 +101,28 @@ module Acceptance
             [
               event("2026-04-09T00:00:00Z", "core_matrix", "core-matrix", "perf.agent_control.poll", duration_ms: 40.0, success: true),
               event("2026-04-09T00:00:20Z", "core_matrix", "core-matrix", "perf.agent_control.mailbox_item_leased", success: true, lease_latency_ms: 80.0),
-              event("2026-04-09T00:00:30Z", "core_matrix", "core-matrix", "perf.provider_execution.program_mailbox_exchange_wait", duration_ms: 120.0, success: true),
+              event("2026-04-09T00:00:30Z", "core_matrix", "core-matrix", "perf.provider_execution.agent_request_exchange_wait", duration_ms: 120.0, success: true),
               event("2026-04-09T00:04:00Z", "core_matrix", "core-matrix", "perf.db.checkout_timeout", success: false),
               event("2026-04-09T00:05:00Z", "core_matrix", "core-matrix", "perf.db.checkout_timeout", success: false),
             ]
           )
           write_events(
-            paths.fetch(:fenix_01),
+            paths.fetch(:nexus_01),
             [
-              event("2026-04-09T00:00:10Z", "fenix", "fenix-01", "perf.runtime.control_plane_poll", duration_ms: 20.0, success: true),
-              event("2026-04-09T00:00:15Z", "fenix", "fenix-01", "perf.runtime.mailbox_execution", duration_ms: 45.0, success: true),
-              event("2026-04-09T00:00:40Z", "acceptance", "fenix-01", "benchmark.workload.item_completed", duration_ms: 100.0, success: true),
-              event("2026-04-09T00:01:40Z", "acceptance", "fenix-01", "benchmark.workload.item_completed", duration_ms: 200.0, success: true),
-              event("2026-04-09T00:02:10Z", "fenix", "fenix-01", "perf.runtime.mailbox_execution_queue_delay", success: true, queue_name: "runtime_control", queue_delay_ms: 150.0),
+              event("2026-04-09T00:00:10Z", "nexus", "nexus-01", "perf.runtime.control_plane_poll", duration_ms: 20.0, success: true),
+              event("2026-04-09T00:00:15Z", "nexus", "nexus-01", "perf.runtime.mailbox_execution", duration_ms: 45.0, success: true),
+              event("2026-04-09T00:00:40Z", "acceptance", "nexus-01", "benchmark.workload.item_completed", duration_ms: 100.0, success: true),
+              event("2026-04-09T00:01:40Z", "acceptance", "nexus-01", "benchmark.workload.item_completed", duration_ms: 200.0, success: true),
+              event("2026-04-09T00:02:10Z", "nexus", "nexus-01", "perf.runtime.mailbox_execution_queue_delay", success: true, queue_name: "runtime_control", queue_delay_ms: 150.0),
             ]
           )
           write_events(
-            paths.fetch(:fenix_02),
+            paths.fetch(:nexus_02),
             [
-              event("2026-04-09T00:00:50Z", "acceptance", "fenix-02", "benchmark.workload.item_completed", duration_ms: 300.0, success: true),
-              event("2026-04-09T00:02:20Z", "acceptance", "fenix-02", "benchmark.workload.item_completed", duration_ms: 400.0, success: true),
-              event("2026-04-09T00:04:50Z", "acceptance", "fenix-02", "benchmark.workload.item_completed", duration_ms: 500.0, success: true),
-              event("2026-04-09T00:04:55Z", "fenix", "fenix-02", "perf.runtime.mailbox_execution_queue_delay", success: true, queue_name: "runtime_control", queue_delay_ms: 450.0),
+              event("2026-04-09T00:00:50Z", "acceptance", "nexus-02", "benchmark.workload.item_completed", duration_ms: 300.0, success: true),
+              event("2026-04-09T00:02:20Z", "acceptance", "nexus-02", "benchmark.workload.item_completed", duration_ms: 400.0, success: true),
+              event("2026-04-09T00:04:50Z", "acceptance", "nexus-02", "benchmark.workload.item_completed", duration_ms: 500.0, success: true),
+              event("2026-04-09T00:04:55Z", "nexus", "nexus-02", "perf.runtime.mailbox_execution_queue_delay", success: true, queue_name: "runtime_control", queue_delay_ms: 450.0),
             ]
           )
 

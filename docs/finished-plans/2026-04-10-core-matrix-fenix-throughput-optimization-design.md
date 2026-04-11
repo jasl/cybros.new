@@ -22,7 +22,7 @@ The system is not database-bound first. The dominant costs are:
 
 ## Design Direction
 
-### 1. Make program mailbox requests resumable instead of synchronously blocking
+### 1. Make agent mailbox requests resumable instead of synchronously blocking
 
 `ProviderExecution::AgentRequestExchange` currently creates a mailbox request and then holds a worker thread while polling `AgentControlReportReceipt`.
 

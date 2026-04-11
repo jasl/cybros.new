@@ -177,7 +177,7 @@ The first benchmark topology should therefore be:
 - one disposable installation per benchmark run
 - one CoreMatrix
 - `N` external Fenix agents
-- one runtime registration per program
+- one runtime registration per agent
 - multiple conversations distributed round-robin across those programs
 
 We can add "many sessions for one agent snapshot" as a later profile if it
@@ -314,7 +314,7 @@ as:
 - duration, when relevant
 - success/failure
 - queue name, when relevant
-- public ids for installation/user/workspace/conversation/turn/program/session
+- public ids for installation/user/workspace/conversation/turn/agent/session
   when relevant
 - small metadata hash
 

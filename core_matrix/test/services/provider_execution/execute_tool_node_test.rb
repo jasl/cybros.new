@@ -180,7 +180,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     assert_equal tool_node.public_id, result.public_id
     assert_equal "waiting", tool_node.reload.lifecycle_state
     assert_equal "external_dependency_blocked", root_node.workflow_run.reload.wait_reason_kind
-    assert_equal "program_transport_failed", root_node.workflow_run.wait_failure_kind
+    assert_equal "agent_transport_failed", root_node.workflow_run.wait_failure_kind
     assert_equal "automatic", root_node.workflow_run.wait_retry_strategy
   end
 
@@ -245,7 +245,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     assert_equal tool_node.public_id, result.public_id
     assert_equal "waiting", tool_node.reload.lifecycle_state
     assert_equal "retryable_failure", root_node.workflow_run.reload.wait_reason_kind
-    assert_equal "invalid_program_response_contract", root_node.workflow_run.wait_failure_kind
+    assert_equal "invalid_agent_response_contract", root_node.workflow_run.wait_failure_kind
     assert_equal "automatic", root_node.workflow_run.wait_retry_strategy
   end
 

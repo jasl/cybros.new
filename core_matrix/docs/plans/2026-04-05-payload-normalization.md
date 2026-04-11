@@ -39,7 +39,7 @@
 **Step 4: Add `execution_contracts`**
 
 - belongs to turn
-- refs to runtime/program/context/capability entities
+- refs to runtime/agent/context/capability entities
 - compact provider/origin/attachment fields
 
 **Step 5: Replace old payload columns**

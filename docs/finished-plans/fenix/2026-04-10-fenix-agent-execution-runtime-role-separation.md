@@ -13,16 +13,16 @@
 ### Task 1: Establish shared foundations and dependency guardrails
 
 **Files:**
-- Modify: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/control_client.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/payload_context.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/workspace_env_overlay.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/owned_resource_registry.rb`
-- Add: `agents/fenix/app/services/fenix/shared/**/*`
+- Modify: `agents/fenix/app/services/runtime/pairing_manifest.rb`
+- Modify: `agents/fenix/app/services/runtime/control_client.rb`
+- Modify: `agents/fenix/app/services/runtime/payload_context.rb`
+- Modify: `agents/fenix/app/services/runtime/workspace_env_overlay.rb`
+- Modify: `agents/fenix/app/services/runtime/owned_resource_registry.rb`
+- Add: `agents/fenix/app/services/shared/**/*`
 - Test: `agents/fenix/test/integration/runtime_manifest_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/payload_context_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/workspace_env_overlay_test.rb`
-- Add/Modify: role-boundary tests under `agents/fenix/test/services/fenix/shared`
+- Test: `agents/fenix/test/services/runtime/payload_context_test.rb`
+- Test: `agents/fenix/test/services/runtime/workspace_env_overlay_test.rb`
+- Add/Modify: role-boundary tests under `agents/fenix/test/services/shared`
 
 **Steps:**
 1. Write failing tests for the new shared namespace and dependency rules.
@@ -35,62 +35,62 @@
 ### Task 2: Move agent behavior into `Fenix::Agent`
 
 **Files:**
-- Modify: `agents/fenix/app/services/fenix/runtime/prepare_round.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/execute_tool.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/execute_conversation_control_request.rb`
-- Modify: `agents/fenix/app/services/fenix/prompts/**/*`
-- Modify: `agents/fenix/app/services/fenix/memory/**/*`
-- Modify: `agents/fenix/app/services/fenix/skills/**/*`
-- Modify: `agents/fenix/app/services/fenix/hooks/**/*`
-- Add: `agents/fenix/app/services/fenix/agent/**/*`
-- Test: `agents/fenix/test/services/fenix/runtime/prepare_round_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/execute_tool_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/execute_mailbox_item_test.rb`
-- Test: `agents/fenix/test/services/fenix/skills/**/*`
-- Add/Modify: tests under `agents/fenix/test/services/fenix/agent`
+- Modify: `agents/fenix/app/services/runtime/prepare_round.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_tool.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_conversation_control_request.rb`
+- Modify: `agents/fenix/app/services/prompts/**/*`
+- Modify: `agents/fenix/app/services/memory/**/*`
+- Modify: `agents/fenix/app/services/skills/**/*`
+- Modify: `agents/fenix/app/services/hooks/**/*`
+- Add: `agents/fenix/app/services/{hooks,memory,prompts,requests,skills}/**/*`
+- Test: `agents/fenix/test/services/runtime/prepare_round_test.rb`
+- Test: `agents/fenix/test/services/runtime/execute_tool_test.rb`
+- Test: `agents/fenix/test/services/runtime/execute_mailbox_item_test.rb`
+- Test: `agents/fenix/test/services/skills/**/*`
+- Add/Modify: tests under `agents/fenix/test/services/agent`
 
 **Steps:**
 1. Write failing tests that expect agent requests to resolve through `Fenix::Agent`.
 2. Run focused tests to confirm the old `Runtime` ownership is still active.
 3. Move agent-owned services, hooks, prompts, memory, and skills into `Fenix::Agent`.
 4. Remove direct agent references to executor-specific implementation classes.
-5. Rehome tests into `test/services/fenix/agent` as ownership moves.
+5. Rehome tests into `test/services/agent` as ownership moves.
 6. Re-run focused tests, then full `agents/fenix` verification.
 
 ### Task 3: Move execution-runtime behavior into `Fenix::ExecutionRuntime`
 
 **Files:**
-- Modify: `agents/fenix/app/services/fenix/runtime/system_tool_registry.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/tool_executors/**/*`
-- Modify: `agents/fenix/app/services/fenix/processes/**/*`
-- Modify: `agents/fenix/app/services/fenix/browser/**/*`
-- Add: `agents/fenix/app/services/fenix/execution_runtime/**/*`
-- Test: `agents/fenix/test/services/fenix/runtime/system_tool_registry_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/tool_executor_test.rb`
-- Test: `agents/fenix/test/services/fenix/processes/**/*`
-- Test: `agents/fenix/test/services/fenix/browser/**/*`
-- Add/Modify: tests under `agents/fenix/test/services/fenix/executor`
+- Modify: `agents/fenix/app/services/runtime/system_tool_registry.rb`
+- Modify: `agents/fenix/app/services/runtime/tool_executors/**/*`
+- Modify: `agents/fenix/app/services/processes/**/*`
+- Modify: `agents/fenix/app/services/browser/**/*`
+- Add: `agents/fenix/app/services/execution_runtime/**/*`
+- Test: `agents/fenix/test/services/runtime/system_tool_registry_test.rb`
+- Test: `agents/fenix/test/services/runtime/tool_executor_test.rb`
+- Test: `agents/fenix/test/services/processes/**/*`
+- Test: `agents/fenix/test/services/browser/**/*`
+- Add/Modify: tests under `agents/fenix/test/services/executor`
 
 **Steps:**
 1. Write failing tests that expect executor tool catalog and executor resource lifecycles to resolve through `Fenix::ExecutionRuntime`.
 2. Run focused tests to prove the old runtime namespace still owns executor logic.
 3. Move system tool registry, command/process/browser executors, and owned resource management into `Fenix::ExecutionRuntime`.
 4. Add boundary coverage preventing executor code from referencing prompts, memory, or skills.
-5. Rehome tests into `test/services/fenix/executor` as ownership moves.
+5. Rehome tests into `test/services/executor` as ownership moves.
 6. Re-run focused tests, then full `agents/fenix` verification.
 
 ### Task 4: Rewire mailbox routing, jobs, and manifests to the new ownership model
 
 **Files:**
-- Modify: `agents/fenix/app/services/fenix/runtime/mailbox_worker.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/execute_mailbox_item.rb`
+- Modify: `agents/fenix/app/services/runtime/mailbox_worker.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_mailbox_item.rb`
 - Modify: `agents/fenix/app/jobs/fenix/runtime/mailbox_execution_job.rb`
-- Modify: `agents/fenix/app/controllers/runtime/manifests_controller.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/assignments/dispatch_mode.rb`
+- Modify: `agents/fenix/app/controllers/runtime_manifests_controller.rb`
+- Modify: `agents/fenix/app/services/runtime/assignments/dispatch_mode.rb`
 - Modify: acceptance/runtime helpers as needed under `acceptance/`
-- Test: `agents/fenix/test/services/fenix/runtime/mailbox_worker_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/execute_mailbox_item_test.rb`
-- Test: `agents/fenix/test/services/fenix/runtime/mailbox_execution_job_test.rb`
+- Test: `agents/fenix/test/services/runtime/mailbox_worker_test.rb`
+- Test: `agents/fenix/test/services/runtime/execute_mailbox_item_test.rb`
+- Test: `agents/fenix/test/services/runtime/mailbox_execution_job_test.rb`
 - Test: `agents/fenix/test/integration/runtime_manifest_test.rb`
 - Test: relevant acceptance contract tests under `core_matrix/test/lib/acceptance`
 
@@ -104,9 +104,9 @@
 ### Task 5: Restructure tests and docs to match the role boundaries
 
 **Files:**
-- Modify/create: `agents/fenix/test/services/fenix/agent/**/*`
-- Modify/create: `agents/fenix/test/services/fenix/execution_runtime/**/*`
-- Modify/create: `agents/fenix/test/services/fenix/shared/**/*`
+- Modify/create: `agents/fenix/test/services/{memory,prompts,requests,skills}/**/*`
+- Modify/create: `agents/fenix/test/services/execution_runtime/**/*`
+- Modify/create: `agents/fenix/test/services/shared/**/*`
 - Modify: `agents/fenix/README.md`
 - Modify: runtime/design docs under `docs/plans`, `docs/finished-plans/fenix`, or `docs/future-plans` as needed
 - Modify: `docs/plans/README.md`

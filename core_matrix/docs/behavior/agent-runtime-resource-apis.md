@@ -9,7 +9,7 @@ Core Matrix exposes two machine-facing runtime resource planes for:
 - workspace-scoped canonical variable reads and writes
 - conversation-scoped supervision status refresh and bounded control dispatch
 - workflow-owned human interaction request creation
-- workflow-owned `ToolInvocation` creation on the program plane
+- workflow-owned `ToolInvocation` creation on the agent plane
 - workflow-owned `CommandRun` and `ProcessRun` creation on the executor plane
 - mailbox-driven execution delivery and close control
 
@@ -116,7 +116,7 @@ orchestration are still defined in:
 
 ### Control Reports
 
-- `program_poll` leases queued mailbox items to the authenticated agent
+- `agent_poll` leases queued mailbox items to the authenticated agent
   connection
 - `execution_assignment` delivery remains valid only while the backing
   `AgentTaskRun` is still `queued`; interrupt-canceled leased assignments are
@@ -223,7 +223,7 @@ orchestration are still defined in:
 - valid poll, report, and realtime-open events refresh
   `control_activity_state = "active"`
 - realtime disconnect alone only moves `realtime_link_state` to
-  `disconnected`; it does not mark the program unavailable by itself
+  `disconnected`; it does not mark the agent unavailable by itself
 
 ## Transcript Listing
 

@@ -51,7 +51,7 @@ module Workflows
 
       snapshot_payload = {
         "tool_surface_sha" => tool_surface_document.content_sha256,
-        "program_version_fingerprint" => @turn.agent_snapshot.fingerprint,
+        "agent_snapshot_fingerprint" => @turn.agent_snapshot.fingerprint,
         "profile_key" => current_profile_key,
         "subagent" => subagent_connection.present?,
         "subagent_connection_id" => subagent_connection&.public_id,
@@ -67,7 +67,7 @@ module Workflows
         fingerprint: fingerprint
       ) do |snapshot|
         snapshot.tool_surface_document = tool_surface_document
-        snapshot.program_version_fingerprint = @turn.agent_snapshot.fingerprint
+        snapshot.agent_snapshot_fingerprint = @turn.agent_snapshot.fingerprint
         snapshot.profile_key = current_profile_key
         snapshot.subagent = subagent_connection.present?
         snapshot.subagent_connection = subagent_connection

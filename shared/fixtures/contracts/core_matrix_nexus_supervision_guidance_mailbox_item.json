@@ -5,7 +5,7 @@
   "logical_work_id": "conversation-control:conversation-control-request-public-id:supervision_guidance",
   "attempt_no": 1,
   "delivery_no": 0,
-  "protocol_message_id": "kernel-program-request-supervision-message-id",
+  "protocol_message_id": "kernel-agent-request-supervision-message-id",
   "priority": 1,
   "status": "queued",
   "available_at": "2026-04-10T08:00:00Z",

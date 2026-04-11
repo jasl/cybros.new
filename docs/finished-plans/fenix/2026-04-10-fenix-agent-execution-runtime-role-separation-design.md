@@ -28,10 +28,10 @@ planes:
 
 The most visible mixing points are:
 
-- [`PairingManifest`](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/pairing_manifest.rb)
-- [`MailboxWorker`](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/mailbox_worker.rb)
-- [`ExecuteMailboxItem`](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/execute_mailbox_item.rb)
-- [`SystemToolRegistry`](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/system_tool_registry.rb)
+- [`PairingManifest`](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/runtime/pairing_manifest.rb)
+- [`MailboxWorker`](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/runtime/mailbox_worker.rb)
+- [`ExecuteMailboxItem`](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/runtime/execute_mailbox_item.rb)
+- [`SystemToolRegistry`](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/runtime/system_tool_registry.rb)
 
 That structure makes the code harder to review for role violations, makes
 future split planning noisy, and keeps role ownership implicit instead of
@@ -51,7 +51,7 @@ This is not a cosmetic rename. Each namespace must own one clear slice of the
 runtime:
 
 - `Agent` owns agent behavior, prompts, skills, memory, and
-  supervision/program request handling
+  supervision/agent requests handling
 - `Executor` owns execution-runtime tools, resource lifecycles, and
   command/process/browser execution
 - `Shared` owns common protocol, mailbox transport, instrumentation,
@@ -105,10 +105,10 @@ This keeps the refactor honest and prevents a half-migrated constant graph.
 ## Proposed Structure
 
 ```text
-agents/fenix/app/services/fenix/
+agents/fenix/app/services/
   agent/
     mailbox/
-    program/
+    requests/
     prompts/
     memory/
     skills/
@@ -215,7 +215,7 @@ Tests must mirror the same role split.
 Target structure:
 
 ```text
-agents/fenix/test/services/fenix/
+agents/fenix/test/services/
   agent/
   executor/
   shared/

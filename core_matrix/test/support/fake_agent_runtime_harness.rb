@@ -64,7 +64,7 @@ class FakeAgentRuntimeHarness
   end
 
   def poll!(limit: 10)
-    program_response = post_and_parse(
+    agent_response = post_and_parse(
       "/agent_api/control/poll",
       params: { limit: limit },
       headers: @test_case.send(:agent_api_headers, @agent_connection_credential)
@@ -82,7 +82,7 @@ class FakeAgentRuntimeHarness
 
     {
       "mailbox_items" => merge_mailbox_items(
-        program_response.fetch("mailbox_items", []),
+        agent_response.fetch("mailbox_items", []),
         execution_response&.fetch("mailbox_items", []) || []
       ),
     }
@@ -137,8 +137,8 @@ class FakeAgentRuntimeHarness
     )
   end
 
-  def merge_mailbox_items(program_items, execution_items)
-    (program_items + execution_items).sort_by do |mailbox_item|
+  def merge_mailbox_items(agent_items, execution_items)
+    (agent_items + execution_items).sort_by do |mailbox_item|
       [
         mailbox_item.fetch("priority", 0),
         mailbox_item.fetch("available_at", ""),

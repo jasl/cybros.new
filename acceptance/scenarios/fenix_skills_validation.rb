@@ -125,28 +125,28 @@ FileUtils.mkdir_p(nexus_home_root)
 Acceptance::ManualSupport.reset_backend_state!
 bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
 
-external_program_a = Acceptance::ManualSupport.create_external_agent!(
+external_agent_a = Acceptance::ManualSupport.create_external_agent!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
-  key: 'fenix-skills-program-a',
+  key: 'fenix-skills-agent-a',
   display_name: 'Fenix Skills Runtime A'
 )
-external_program_b = Acceptance::ManualSupport.create_external_agent!(
+external_agent_b = Acceptance::ManualSupport.create_external_agent!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
-  key: 'fenix-skills-program-b',
+  key: 'fenix-skills-agent-b',
   display_name: 'Fenix Skills Runtime B'
 )
 
 registration_a = Acceptance::ManualSupport.register_external_runtime!(
-  enrollment_token: external_program_a.fetch(:enrollment_token),
+  enrollment_token: external_agent_a.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
   agent_base_url: agent_base_url,
   execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-a',
   fingerprint: 'acceptance-fenix-skills-a-v1'
 )
 registration_b = Acceptance::ManualSupport.register_external_runtime!(
-  enrollment_token: external_program_b.fetch(:enrollment_token),
+  enrollment_token: external_agent_b.fetch(:enrollment_token),
   runtime_base_url: runtime_base_url,
   agent_base_url: agent_base_url,
   execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-b',
@@ -179,9 +179,9 @@ conversation_b = Acceptance::ManualSupport.create_conversation!(agent_snapshot: 
 conversation_c = Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot_b)
 
 install_run = nil
-same_program_load_run = nil
-same_program_read_run = nil
-different_program_load_run = nil
+same_agent_load_run = nil
+same_agent_read_run = nil
+different_agent_load_run = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker!(
   agent_connection_credential: registration_a.agent_connection_credential,
@@ -214,7 +214,7 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
             extra_payload: { 'source_path' => source_root.to_s }
           )
         )
-        same_program_load_run = run_mailbox_task_on_conversation!(
+        same_agent_load_run = run_mailbox_task_on_conversation!(
           conversation: conversation_b.fetch(:conversation),
           registration: registration_a,
           task: mailbox_task(
@@ -223,7 +223,7 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
             extra_payload: { 'skill_name' => 'portable-notes' }
           )
         )
-        same_program_read_run = run_mailbox_task_on_conversation!(
+        same_agent_read_run = run_mailbox_task_on_conversation!(
           conversation: conversation_b.fetch(:conversation),
           registration: registration_a,
           task: mailbox_task(
@@ -235,11 +235,11 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
             }
           )
         )
-        different_program_load_run = run_mailbox_task_on_conversation!(
+        different_agent_load_run = run_mailbox_task_on_conversation!(
           conversation: conversation_c.fetch(:conversation),
           registration: registration_b,
           task: mailbox_task(
-            content: 'Load portable-notes from conversation C on a different program.',
+            content: 'Load portable-notes from conversation C on a different agent.',
             mode: 'skills_load',
             extra_payload: { 'skill_name' => 'portable-notes' }
           )
@@ -265,35 +265,35 @@ expected_isolation_failure_state = {
 }.freeze
 
 serialized_install_run = serialize_run(install_run)
-serialized_same_program_load_run = serialize_run(same_program_load_run)
-serialized_same_program_read_run = serialize_run(same_program_read_run)
-serialized_different_program_load_run = serialize_run(different_program_load_run)
+serialized_same_agent_load_run = serialize_run(same_agent_load_run)
+serialized_same_agent_read_run = serialize_run(same_agent_read_run)
+serialized_different_agent_load_run = serialize_run(different_agent_load_run)
 
 shared_conversation_success = {
-  'passed' => run_passed?(serialized_same_program_load_run, expected_conversation_state) &&
-              run_passed?(serialized_same_program_read_run, expected_conversation_state) &&
-              same_program_load_run.fetch(:conversation).public_id ==
-              same_program_read_run.fetch(:conversation).public_id &&
-              same_program_load_run.fetch(:execution).dig('output', 'name') == 'portable-notes' &&
-              same_program_read_run.fetch(:execution).dig('output', 'content') == "# Checklist\n",
+  'passed' => run_passed?(serialized_same_agent_load_run, expected_conversation_state) &&
+              run_passed?(serialized_same_agent_read_run, expected_conversation_state) &&
+              same_agent_load_run.fetch(:conversation).public_id ==
+              same_agent_read_run.fetch(:conversation).public_id &&
+              same_agent_load_run.fetch(:execution).dig('output', 'name') == 'portable-notes' &&
+              same_agent_read_run.fetch(:execution).dig('output', 'content') == "# Checklist\n",
   'conversation_id' => conversation_b.fetch(:conversation).public_id,
-  'load_name' => same_program_load_run.fetch(:execution).dig('output', 'name'),
-  'read_content' => same_program_read_run.fetch(:execution).dig('output', 'content')
+  'load_name' => same_agent_load_run.fetch(:execution).dig('output', 'name'),
+  'read_content' => same_agent_read_run.fetch(:execution).dig('output', 'content')
 }.freeze
 
-different_program_failure = {
-  'passed' => run_passed?(serialized_different_program_load_run, expected_isolation_failure_state) &&
-              different_program_load_run.fetch(:execution).fetch('status') == 'failed' &&
-              different_program_load_run.fetch(:execution).dig('error', 'code') == 'skill_not_found',
+different_agent_failure = {
+  'passed' => run_passed?(serialized_different_agent_load_run, expected_isolation_failure_state) &&
+              different_agent_load_run.fetch(:execution).fetch('status') == 'failed' &&
+              different_agent_load_run.fetch(:execution).dig('error', 'code') == 'skill_not_found',
   'conversation_id' => conversation_c.fetch(:conversation).public_id,
-  'status' => different_program_load_run.fetch(:execution).fetch('status'),
-  'error' => different_program_load_run.fetch(:execution).fetch('error')
+  'status' => different_agent_load_run.fetch(:execution).fetch('status'),
+  'error' => different_agent_load_run.fetch(:execution).fetch('error')
 }.freeze
 
 install_scope_root = install_run.fetch(:execution).dig('output', 'live_root')
 passed = run_passed?(serialized_install_run, expected_conversation_state) &&
          shared_conversation_success.fetch('passed') &&
-         different_program_failure.fetch('passed')
+         different_agent_failure.fetch('passed')
 
 Acceptance::ManualSupport.write_json(
   {
@@ -305,15 +305,15 @@ Acceptance::ManualSupport.write_json(
     'nexus_home_root' => nexus_home_root.to_s,
     'install_scope_root' => install_scope_root,
     'shared_conversation_success' => shared_conversation_success,
-    'different_program_failure' => different_program_failure,
+    'different_agent_failure' => different_agent_failure,
     'registrations' => {
-      'program_a' => {
+      'agent_a' => {
         'agent_snapshot_id' => agent_snapshot_a.public_id,
         'execution_runtime_id' => registration_a.execution_runtime&.public_id,
         'agent_connection_id' => registration_a.agent_connection_id,
         'execution_runtime_connection_id' => registration_a.execution_runtime_connection_id
       },
-      'program_b' => {
+      'agent_b' => {
         'agent_snapshot_id' => agent_snapshot_b.public_id,
         'execution_runtime_id' => registration_b.execution_runtime&.public_id,
         'agent_connection_id' => registration_b.agent_connection_id,
@@ -325,12 +325,12 @@ Acceptance::ManualSupport.write_json(
       'conversation_id' => conversation_a.fetch(:conversation).public_id
     },
     'conversation_b' => {
-      'load_run' => serialized_same_program_load_run,
-      'read_run' => serialized_same_program_read_run,
+      'load_run' => serialized_same_agent_load_run,
+      'read_run' => serialized_same_agent_read_run,
       'conversation_id' => conversation_b.fetch(:conversation).public_id
     },
     'conversation_c' => {
-      'load_run' => serialized_different_program_load_run,
+      'load_run' => serialized_different_agent_load_run,
       'conversation_id' => conversation_c.fetch(:conversation).public_id
     }
   }

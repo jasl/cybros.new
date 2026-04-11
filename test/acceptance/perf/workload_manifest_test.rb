@@ -6,11 +6,11 @@ require_relative "../../../acceptance/lib/perf/workload_manifest"
 module Acceptance
   module Perf
     class WorkloadManifestTest < Minitest::Test
-      def test_target_profile_uses_deterministic_single_turn_conversations
-        manifest = WorkloadManifest.for_profile(Profile.fetch("target_8_fenix"))
+      def test_baseline_profile_uses_deterministic_single_turn_conversations
+        manifest = WorkloadManifest.for_profile(Profile.fetch("baseline_1_fenix_4_nexus"))
 
         assert manifest.deterministic?
-        assert_equal 16, manifest.conversation_count
+        assert_equal 8, manifest.conversation_count
         assert_equal 1, manifest.max_in_flight_per_conversation
         assert_equal "deterministic_tool", manifest.request_corpus.first.fetch("mode")
         assert_equal({ "expression" => "7 + 5" }, manifest.request_corpus.first.fetch("extra_payload"))

@@ -19,7 +19,7 @@ Nexus has two jobs:
 Run the documented project checks from the app directory:
 
 ```bash
-cd executors/nexus
+cd execution_runtimes/nexus
 bin/brakeman --no-pager
 bin/bundler-audit
 bin/rubocop -f github
@@ -151,10 +151,10 @@ Detached long-lived services therefore follow this contract:
 
 Detached process tools are implemented directly in the runtime service layer:
 
-- [process.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/nexus/execution_runtime/tool_executors/process.rb)
-- [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/nexus/execution_runtime/processes/launcher.rb)
-- [manager.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/nexus/execution_runtime/processes/manager.rb)
-- [proxy_registry.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/nexus/execution_runtime/processes/proxy_registry.rb)
+- [process.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/tool_executors/process.rb)
+- [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/processes/launcher.rb)
+- [manager.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/processes/manager.rb)
+- [proxy_registry.rb](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/app/services/processes/proxy_registry.rb)
 
 When a tool call passes `proxy_port`, `Nexus` also registers a stable fixed-port
 proxy path under `/dev/<process_run_id>/*`. The proxy registry renders Caddy
@@ -204,16 +204,20 @@ Browser sessions remain runtime-local handles rather than kernel-owned
 resources. The first cut uses Playwright-managed Chromium through
 [session_host.mjs](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/scripts/browser/session_host.mjs).
 
-Internally, `Nexus` is now split into:
+Internally, `Nexus` now keeps its product-level services directly under
+`*`:
 
-- `Nexus::Agent`
-  - prompts, memory, skills, and agent request handling
-- `Nexus::ExecutionRuntime`
-  - command runs, detached processes, browser sessions, and runtime tool registry
-- `Nexus::Shared`
+- `Prompts`, `Memory`, `Skills`, and `Requests`
+  - prompt assembly, filesystem-backed memory, skill package access, and
+    agent-facing request handling
+- `Browser`, `Processes`, `ToolExecutors`,
+  `CommandRunRegistry`, and `SystemToolRegistry`
+  - command runs, detached processes, browser sessions, and runtime tool
+    registry
+- `Shared`
   - control-plane transport, environment overlays, and shared value objects
 
-`Nexus::Runtime` remains only as the appliance/entry layer that routes mailbox
+`Runtime` remains only as the appliance/entry layer that routes mailbox
 work, runs the control loop, and assembles the external manifest.
 
 Docker deployments inherit Playwright plus Chromium from
@@ -532,7 +536,7 @@ Key environment variables in the sample:
 
 The canonical bare-metal target is Ubuntu 24.04. Operators should:
 
-- run [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/bin/check-runtime-host)
+- run [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/bin/check-runtime-host)
 - satisfy any missing prerequisites it reports
 - provide `CORE_MATRIX_BASE_URL` and `CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL`
 - provide runtime secrets either through ENV or by populating Rails credentials
@@ -545,7 +549,7 @@ The canonical bare-metal target is Ubuntu 24.04. Operators should:
 macOS is supported for development and validation, but not treated as the
 canonical appliance baseline:
 
-- run [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/bin/check-runtime-host)
+- run [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/bin/check-runtime-host)
 - satisfy any missing prerequisites it reports
 - keep using `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` only when you intentionally
   want a non-default browser binary
@@ -553,4 +557,4 @@ canonical appliance baseline:
 ## License
 
 The `nexus` project is licensed under the O'Saasy License Agreement. See
-[LICENSE.md](/Users/jasl/Workspaces/Ruby/cybros/executors/nexus/LICENSE.md).
+[LICENSE.md](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/LICENSE.md).

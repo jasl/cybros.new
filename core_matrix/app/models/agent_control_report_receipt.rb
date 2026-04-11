@@ -74,7 +74,7 @@ class AgentControlReportReceipt < ApplicationRecord
   def compact_payload_for_storage(payload)
     compact = payload.deep_stringify_keys.except(*STRUCTURED_PAYLOAD_KEYS, "control")
     response_payload = compact["response_payload"]
-    return compact unless compact_program_tool_report_response?(response_payload)
+    return compact unless compact_agent_tool_report_response?(response_payload)
 
     compact_response = compact_response_payload(response_payload)
     if compact_response.present?
@@ -125,7 +125,7 @@ class AgentControlReportReceipt < ApplicationRecord
       ToolInvocation.find_by(installation_id: installation_id, public_id: tool_invocation_id)
   end
 
-  def compact_program_tool_report_response?(response_payload)
+  def compact_agent_tool_report_response?(response_payload)
     method_id == "agent_completed" &&
       mailbox_item&.payload&.fetch("request_kind", nil) == "execute_tool" &&
       response_payload.is_a?(Hash) &&

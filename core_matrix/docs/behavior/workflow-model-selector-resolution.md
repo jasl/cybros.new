@@ -113,7 +113,7 @@ error instead of silently trying unrelated models.
   - `fallback_count`
   - `agent_snapshot_id`
   - `entitlement_key` when one active entitlement was used
-- Resolution requires a frozen `agent_snapshot_id` and pinned program
+- Resolution requires a frozen `agent_snapshot_id` and pinned agent snapshot
   fingerprint so the workflow turn cannot proceed without a stable capability
   surface reference.
 

@@ -134,8 +134,8 @@ git commit -m "refactor: make execution environments durable runtime owners"
 - Modify: `core_matrix/app/controllers/agent_api/capabilities_controller.rb`
 - Modify: `core_matrix/app/controllers/agent_api/health_controller.rb`
 - Modify: `core_matrix/app/channels/application_cable/connection.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
-- Modify: `agents/fenix/app/controllers/runtime/manifests_controller.rb`
+- Modify: `agents/fenix/app/services/runtime/pairing_manifest.rb`
+- Modify: `agents/fenix/app/controllers/runtime_manifests_controller.rb`
 - Create: `core_matrix/test/services/execution_environments/reconcile_test.rb`
 - Create: `core_matrix/test/services/execution_environments/record_capabilities_test.rb`
 - Modify: `core_matrix/test/requests/agent_api/registrations_test.rb`
@@ -222,8 +222,8 @@ git add core_matrix/app/services/execution_environments/reconcile.rb \
   core_matrix/app/controllers/agent_api/capabilities_controller.rb \
   core_matrix/app/controllers/agent_api/health_controller.rb \
   core_matrix/app/channels/application_cable/connection.rb \
-  agents/fenix/app/services/fenix/runtime/pairing_manifest.rb \
-  agents/fenix/app/controllers/runtime/manifests_controller.rb \
+  agents/fenix/app/services/runtime/pairing_manifest.rb \
+  agents/fenix/app/controllers/runtime_manifests_controller.rb \
   core_matrix/test/services/execution_environments/reconcile_test.rb \
   core_matrix/test/services/execution_environments/record_capabilities_test.rb \
   core_matrix/test/requests/agent_api/registrations_test.rb \
@@ -440,15 +440,15 @@ git commit -m "refactor: route mailbox control by environment owner and runtime 
 - Modify: `core_matrix/app/models/capability_snapshot.rb`
 - Modify: `core_matrix/test/requests/agent_api/capabilities_test.rb`
 - Modify: `core_matrix/test/integration/agent_registration_contract_test.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
-- Modify: `agents/fenix/app/services/fenix/context/build_execution_context.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime_surface/report_collector.rb`
-- Modify: `agents/fenix/app/controllers/runtime/manifests_controller.rb`
+- Modify: `agents/fenix/app/services/runtime/pairing_manifest.rb`
+- Modify: `agents/fenix/app/services/context/build_execution_context.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_assignment.rb`
+- Modify: `agents/fenix/app/services/runtime_surface/report_collector.rb`
+- Modify: `agents/fenix/app/controllers/runtime_manifests_controller.rb`
 - Modify: `agents/fenix/test/integration/external_runtime_pairing_test.rb`
 - Modify: `agents/fenix/test/integration/runtime_flow_test.rb`
-- Modify: `agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb`
-- Modify: `agents/fenix/test/services/fenix/hooks/runtime_hooks_test.rb`
+- Modify: `agents/fenix/test/services/runtime/execute_assignment_test.rb`
+- Modify: `agents/fenix/test/services/hooks/runtime_hooks_test.rb`
 
 **Step 1: Write the failing test**
 
@@ -477,8 +477,8 @@ cd ../agents/fenix
 bin/rails test \
   test/integration/external_runtime_pairing_test.rb \
   test/integration/runtime_flow_test.rb \
-  test/services/fenix/runtime/execute_assignment_test.rb \
-  test/services/fenix/hooks/runtime_hooks_test.rb
+  test/services/runtime/execute_assignment_test.rb \
+  test/services/hooks/runtime_hooks_test.rb
 ```
 
 Expected: FAIL because the runtime manifest and capability refresh output do not yet publish environment-first precedence or explicit plane information.
@@ -506,15 +506,15 @@ git add core_matrix/app/services/runtime_capabilities/compose_effective_tool_cat
   core_matrix/app/models/capability_snapshot.rb \
   core_matrix/test/requests/agent_api/capabilities_test.rb \
   core_matrix/test/integration/agent_registration_contract_test.rb \
-  agents/fenix/app/services/fenix/runtime/pairing_manifest.rb \
-  agents/fenix/app/services/fenix/context/build_execution_context.rb \
-  agents/fenix/app/services/fenix/runtime/execute_assignment.rb \
-  agents/fenix/app/services/fenix/runtime_surface/report_collector.rb \
-  agents/fenix/app/controllers/runtime/manifests_controller.rb \
+  agents/fenix/app/services/runtime/pairing_manifest.rb \
+  agents/fenix/app/services/context/build_execution_context.rb \
+  agents/fenix/app/services/runtime/execute_assignment.rb \
+  agents/fenix/app/services/runtime_surface/report_collector.rb \
+  agents/fenix/app/controllers/runtime_manifests_controller.rb \
   agents/fenix/test/integration/external_runtime_pairing_test.rb \
   agents/fenix/test/integration/runtime_flow_test.rb \
-  agents/fenix/test/services/fenix/runtime/execute_assignment_test.rb \
-  agents/fenix/test/services/fenix/hooks/runtime_hooks_test.rb
+  agents/fenix/test/services/runtime/execute_assignment_test.rb \
+  agents/fenix/test/services/hooks/runtime_hooks_test.rb
 git commit -m "feat: publish environment-first tool precedence and dual-plane runtime manifests"
 ```
 
@@ -618,8 +618,8 @@ cd ../agents/fenix
 bin/rails test \
   test/integration/external_runtime_pairing_test.rb \
   test/integration/runtime_flow_test.rb \
-  test/services/fenix/runtime/execute_assignment_test.rb \
-  test/services/fenix/hooks/runtime_hooks_test.rb
+  test/services/runtime/execute_assignment_test.rb \
+  test/services/hooks/runtime_hooks_test.rb
 git diff --check
 ```
 

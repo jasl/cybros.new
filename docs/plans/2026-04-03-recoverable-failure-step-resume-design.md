@@ -43,7 +43,7 @@ Failures are classified into three categories:
   - Internal invariant bugs, serialization bugs, impossible states, and unknown errors that cannot be safely classified.
   - These remain terminal.
 - `contract_error`
-  - Invalid tool call contract, invalid arguments, invalid execution/program report contract, and similar protocol violations.
+  - Invalid tool call contract, invalid arguments, invalid execution/agent report contract, and similar protocol violations.
   - These are non-terminal at the workflow-node level and enter a retryable waiting state.
 - `external_dependency_blocked`
   - Provider rate limits, exhausted credits, upstream outages, expired provider auth, runtime session loss, transport failures, and tool infrastructure outages.
@@ -102,7 +102,7 @@ These become waiting with retry semantics:
 - `invalid_tool_arguments`
 - `unknown_tool_reference`
 - `invalid_execution_report_contract`
-- `invalid_program_response_contract`
+- `invalid_agent_response_contract`
 
 Result:
 
@@ -122,7 +122,7 @@ These become waiting with pause semantics:
 - `provider_auth_expired`
 - `agent_connection_unavailable`
 - `execution_session_unavailable`
-- `program_transport_failed`
+- `agent_transport_failed`
 - `execution_transport_failed`
 - `tool_transport_failed`
 - `tool_runtime_unavailable`

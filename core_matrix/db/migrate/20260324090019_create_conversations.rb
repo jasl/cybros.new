@@ -26,7 +26,7 @@ class CreateConversations < ActiveRecord::Migration[8.2]
     end
 
     add_index :conversations, [:workspace_id, :purpose, :lifecycle_state], name: "idx_conversations_workspace_purpose_lifecycle"
-    add_index :conversations, [:agent_id, :lifecycle_state], name: "idx_conversations_program_lifecycle"
+    add_index :conversations, [:agent_id, :lifecycle_state], name: "idx_conversations_agent_lifecycle"
     add_index :conversations, :public_id, unique: true
     add_check_constraint :conversations,
       "(deletion_state IN ('retained', 'pending_delete', 'deleted'))",

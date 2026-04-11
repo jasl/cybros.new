@@ -320,7 +320,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         ) do
           result = Acceptance::ManualSupport.run_fenix_runtime_task!(
             task_name: "runtime:control_loop_once",
-            agent_connection_credential: "program-secret",
+            agent_connection_credential: "agent-secret",
             execution_runtime_connection_credential: "execution-secret",
             env: {}
           )
@@ -357,7 +357,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         ) do
           Acceptance::ManualSupport.run_fenix_runtime_task!(
             task_name: "runtime:control_loop_once",
-            agent_connection_credential: "program-secret",
+            agent_connection_credential: "agent-secret",
             execution_runtime_connection_credential: "execution-secret",
             env: {
               "FENIX_HOME_ROOT" => "/tmp/fenix-slot-home",
@@ -475,7 +475,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
               -> { Pathname.new("/tmp/fenix-project") }
             ) do
               Acceptance::ManualSupport.with_fenix_control_worker!(
-                agent_connection_credential: "program-secret",
+                agent_connection_credential: "agent-secret",
                 execution_runtime_connection_credential: "execution-secret",
                 env: {
                   "FENIX_HOME_ROOT" => "/tmp/fenix-slot-home",
@@ -504,7 +504,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     captured = nil
     registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
-      agent_connection_credential: "program-secret",
+      agent_connection_credential: "agent-secret",
       execution_runtime_connection_credential: "execution-secret",
       agent_snapshot: "apv"
     )
@@ -525,17 +525,17 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       assert_equal({ "items" => [] }, result)
     end
 
-    assert_equal "program-secret", captured.fetch(:agent_connection_credential)
+    assert_equal "agent-secret", captured.fetch(:agent_connection_credential)
     assert_equal "execution-secret", captured.fetch(:execution_runtime_connection_credential)
     assert_equal 3, captured.fetch(:limit)
   end
 
-  test "with_fenix_control_worker_for_registration! falls back to the program credential when executor credential is absent" do
+  test "with_fenix_control_worker_for_registration! falls back to the agent credential when executor credential is absent" do
     captured = nil
     yielded = nil
     registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
-      agent_connection_credential: "program-secret",
+      agent_connection_credential: "agent-secret",
       agent_snapshot: "apv"
     )
 
@@ -555,8 +555,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       end
     end
 
-    assert_equal "program-secret", captured.fetch(:agent_connection_credential)
-    assert_equal "program-secret", captured.fetch(:execution_runtime_connection_credential)
+    assert_equal "agent-secret", captured.fetch(:agent_connection_credential)
+    assert_equal "agent-secret", captured.fetch(:execution_runtime_connection_credential)
     assert_equal 2, captured.fetch(:limit)
     assert_equal "pid-123", yielded
   end
@@ -564,7 +564,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
   test "runtime registration exposes session ids without reaching into raw registration payloads" do
     registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
-      agent_connection_credential: "program-secret",
+      agent_connection_credential: "agent-secret",
       execution_runtime_connection_credential: "execution-secret",
       agent_snapshot: "apv",
       registration: {
@@ -626,7 +626,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           elsif url.end_with?("/agent_api/registrations")
             agent_registration_calls << [url, payload, headers]
             {
-              "agent_connection_credential" => "program-secret",
+              "agent_connection_credential" => "agent-secret",
               "agent_snapshot_id" => "apv_123",
             }
           else
@@ -645,11 +645,11 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
               enrollment_token: "enrollment-token",
               runtime_base_url: "http://127.0.0.1:3101",
               execution_runtime_fingerprint: "runtime-fingerprint",
-              fingerprint: "program-fingerprint"
+              fingerprint: "agent-fingerprint"
             )
 
             assert_instance_of Acceptance::ManualSupport::RuntimeRegistration, result
-            assert_equal "program-secret", result.agent_connection_credential
+            assert_equal "agent-secret", result.agent_connection_credential
             assert_equal "execution-secret", result.execution_runtime_connection_credential
             assert_equal "apv_123", result.agent_snapshot
             assert_equal "rt_123", result.execution_runtime.public_id
@@ -694,7 +694,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           if url.end_with?("/agent_api/registrations")
             registration_calls << [url, payload, headers]
             {
-              "agent_connection_credential" => "program-secret",
+              "agent_connection_credential" => "agent-secret",
               "agent_snapshot_id" => "apv_456",
             }
           else
@@ -710,7 +710,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
             fingerprint: "agent-fingerprint"
           )
 
-          assert_equal "program-secret", result.fetch(:agent_connection_credential)
+          assert_equal "agent-secret", result.fetch(:agent_connection_credential)
           assert_equal "apv_456", result.fetch(:agent_snapshot)
           assert_equal 1, registration_calls.length
           assert_equal 1, heartbeat_calls.length
@@ -790,7 +790,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           installation: "installation",
           runtime_base_url: "http://127.0.0.1:3101",
           execution_runtime_fingerprint: "runtime-fingerprint",
-          fingerprint: "program-fingerprint"
+          fingerprint: "agent-fingerprint"
         )
 
         assert_instance_of Acceptance::ManualSupport::RuntimeRegistration, result
@@ -828,7 +828,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           installation: "installation",
           runtime_base_url: "http://127.0.0.1:3101",
           execution_runtime_fingerprint: "runtime-fingerprint",
-          fingerprint: "program-fingerprint"
+          fingerprint: "agent-fingerprint"
         )
       end
     end
@@ -897,7 +897,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
             with_redefined_singleton_method(Acceptance::ManualSupport, :report_results_for, ->(agent_task_run:) { [] }) do
               result = Acceptance::ManualSupport.run_fenix_mailbox_task!(
                 agent_snapshot: "apv",
-                agent_connection_credential: "program-secret",
+                agent_connection_credential: "agent-secret",
                 execution_runtime_connection_credential: "execution-secret",
                 content: "hello",
                 mode: "deterministic_tool"

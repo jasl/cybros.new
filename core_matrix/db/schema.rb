@@ -758,7 +758,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.datetime "title_updated_at"
     t.datetime "updated_at", null: false
     t.bigint "workspace_id", null: false
-    t.index ["agent_id", "lifecycle_state"], name: "idx_conversations_program_lifecycle"
+    t.index ["agent_id", "lifecycle_state"], name: "idx_conversations_agent_lifecycle"
     t.index ["agent_id"], name: "index_conversations_on_agent_id"
     t.index ["installation_id"], name: "index_conversations_on_installation_id"
     t.index ["parent_conversation_id"], name: "index_conversations_on_parent_conversation_id"
@@ -775,13 +775,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   end
 
   create_table "execution_capability_snapshots", force: :cascade do |t|
+    t.string "agent_snapshot_fingerprint", null: false
     t.datetime "created_at", null: false
     t.string "fingerprint", null: false
     t.bigint "installation_id", null: false
     t.bigint "owner_conversation_id"
     t.bigint "parent_subagent_connection_id"
     t.string "profile_key", null: false
-    t.string "program_version_fingerprint", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.boolean "subagent", default: false, null: false
     t.bigint "subagent_connection_id"

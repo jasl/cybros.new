@@ -40,7 +40,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
 
     result = executor.call(
       conversation: { "public_id" => "conversation-1" },
-      registration: perf_registration("fenix-01", "program-1"),
+      registration: perf_registration("fenix-01", "agent-1"),
       task: { "content" => "mailbox", "mode" => "deterministic_tool", "workload_kind" => "execution_assignment" },
       slot_index: 1,
       event_output_path: "/tmp/fenix-01.ndjson"
@@ -54,7 +54,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
     assert_equal "turn-mailbox", events.first.dig(:payload, "turn_public_id")
   end
 
-  test "routes program-exchange tasks through the provider runner with the task selector" do
+  test "routes agent-exchange tasks through the provider runner with the task selector" do
     mailbox_calls = []
     provider_calls = []
     events = []
@@ -85,7 +85,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
 
     result = executor.call(
       conversation: { "public_id" => "conversation-2" },
-      registration: perf_registration("fenix-02", "program-2"),
+      registration: perf_registration("fenix-02", "agent-2"),
       task: { "content" => "3", "selector_source" => "manual", "selector" => "role:mock", "workload_kind" => "agent_request_exchange_mock" },
       slot_index: 2,
       event_output_path: "/tmp/fenix-02.ndjson"
@@ -97,7 +97,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
     assert_equal "agent_request_exchange_mock", provider_calls.first.dig(:task, "workload_kind")
     assert_equal "completed", result.fetch("status")
     assert_equal 2_000.0, events.first.dig(:payload, "duration_ms")
-    assert_equal "program-2", events.first.dig(:payload, "agent_public_id")
+    assert_equal "agent-2", events.first.dig(:payload, "agent_public_id")
   end
 
   test "rejects unsupported workload kinds" do
@@ -110,7 +110,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
     error = assert_raises(ArgumentError) do
       executor.call(
         conversation: { "public_id" => "conversation-3" },
-        registration: perf_registration("fenix-03", "program-3"),
+        registration: perf_registration("fenix-03", "agent-3"),
         task: { "content" => "oops", "workload_kind" => "unknown" },
         slot_index: 3,
         event_output_path: "/tmp/fenix-03.ndjson"
@@ -140,7 +140,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
 
     executor.call(
       conversation: ConversationDouble.new("conversation-ar"),
-      registration: perf_registration("fenix-01", "program-1"),
+      registration: perf_registration("fenix-01", "agent-1"),
       task: { "content" => "mailbox", "mode" => "deterministic_tool", "workload_kind" => "execution_assignment" },
       slot_index: 1,
       event_output_path: "/tmp/fenix-01.ndjson"
@@ -151,7 +151,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
 
   private
 
-  def perf_registration(slot_label, program_public_id)
+  def perf_registration(slot_label, agent_public_id)
     Acceptance::Perf::RuntimeRegistrationMatrix::Registration.new(
       slot_label: slot_label,
       agent_label: "fenix-01",
@@ -159,7 +159,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
       event_output_path: "/tmp/#{slot_label}.ndjson",
       runtime_registration: RuntimeRegistrationDouble.new(agent_connection_credential: "machine-#{slot_label}"),
       runtime_task_env: {},
-      agent_snapshot: AgentSnapshotDouble.new(AgentDouble.new(program_public_id)),
+      agent_snapshot: AgentSnapshotDouble.new(AgentDouble.new(agent_public_id)),
       agent_connection_credential: "machine-#{slot_label}",
       execution_runtime_connection_credential: "executor-#{slot_label}",
       execution_runtime: "runtime-#{slot_label}"

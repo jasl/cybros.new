@@ -145,12 +145,12 @@
 
 **Files:**
 
-- Modify: `agents/fenix/app/services/fenix/runtime/control_plane.rb`
-- Modify: `agents/fenix/app/services/fenix/runtime/mailbox_worker.rb`
+- Modify: `agents/fenix/app/services/runtime/control_plane.rb`
+- Modify: `agents/fenix/app/services/runtime/mailbox_worker.rb`
 - Modify any Fenix queue/job execution boundary required to measure start delay
 - Create: `agents/fenix/app/services/perf/db_checkout_probe.rb`
-- Create: `agents/fenix/test/services/fenix/runtime/control_plane_perf_test.rb`
-- Create: `agents/fenix/test/services/fenix/runtime/mailbox_worker_perf_test.rb`
+- Create: `agents/fenix/test/services/runtime/control_plane_perf_test.rb`
+- Create: `agents/fenix/test/services/runtime/mailbox_worker_perf_test.rb`
 - Create: `agents/fenix/test/services/perf/db_checkout_probe_test.rb`
 
 **Steps:**

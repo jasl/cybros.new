@@ -5,7 +5,7 @@
 - Date: 2026-03-31
 - Status: implemented
 - Depends on:
-  - `/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-loop-fenix-program-design.md`
+  - `/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-03-31-core-matrix-loop-fenix-agent-design.md`
   - `/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-25-core-matrix-workflow-yield-and-intent-batch-design.md`
 
 ## Goal

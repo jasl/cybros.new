@@ -1,7 +1,7 @@
 require "json"
 
 def runtime_client(agent_connection_credential: ENV["CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL"])
-  Fenix::Shared::ControlPlane::Client.new(
+  Shared::ControlPlane::Client.new(
     base_url: ENV.fetch("CORE_MATRIX_BASE_URL"),
     agent_connection_credential: agent_connection_credential
   )
@@ -12,7 +12,7 @@ def boolean_env(name, default)
 end
 
 def pairing_manifest_payload
-  Fenix::Runtime::Manifest::PairingManifest.call(
+  Runtime::Manifest::PairingManifest.call(
     base_url: ENV.fetch("FENIX_PUBLIC_BASE_URL")
   )
 end
@@ -37,10 +37,10 @@ end
 namespace :runtime do
   desc "Poll Core Matrix once and process mailbox items"
   task mailbox_pump_once: :environment do
-    limit = Integer(ENV.fetch("LIMIT", Fenix::Runtime::MailboxPump::DEFAULT_LIMIT))
+    limit = Integer(ENV.fetch("LIMIT", Runtime::MailboxPump::DEFAULT_LIMIT))
     inline = ActiveModel::Type::Boolean.new.cast(ENV.fetch("INLINE", "false"))
 
-    results = Fenix::Runtime::MailboxPump.call(limit: limit, inline: inline)
+    results = Runtime::MailboxPump.call(limit: limit, inline: inline)
 
     puts JSON.pretty_generate(
       {
@@ -53,11 +53,11 @@ namespace :runtime do
 
   desc "Try realtime delivery first, then fall back to poll once"
   task control_loop_once: :environment do
-    limit = Integer(ENV.fetch("LIMIT", Fenix::Runtime::MailboxPump::DEFAULT_LIMIT))
+    limit = Integer(ENV.fetch("LIMIT", Runtime::MailboxPump::DEFAULT_LIMIT))
     inline = ActiveModel::Type::Boolean.new.cast(ENV.fetch("INLINE", "false"))
     timeout_seconds = Float(ENV.fetch("REALTIME_TIMEOUT_SECONDS", "5"))
 
-    result = Fenix::Runtime::ControlLoop.call(limit: limit, inline: inline, timeout_seconds: timeout_seconds)
+    result = Runtime::ControlLoop.call(limit: limit, inline: inline, timeout_seconds: timeout_seconds)
 
     puts JSON.pretty_generate(
       {
@@ -77,11 +77,11 @@ namespace :runtime do
 
   desc "Run the websocket-first control worker until it is terminated"
   task control_loop_forever: :environment do
-    limit = Integer(ENV.fetch("LIMIT", Fenix::Runtime::MailboxPump::DEFAULT_LIMIT))
+    limit = Integer(ENV.fetch("LIMIT", Runtime::MailboxPump::DEFAULT_LIMIT))
     inline = ActiveModel::Type::Boolean.new.cast(ENV.fetch("INLINE", "false"))
     timeout_seconds = Float(ENV.fetch("REALTIME_TIMEOUT_SECONDS", "5"))
 
-    worker = Fenix::Runtime::ControlWorker.new(
+    worker = Runtime::ControlWorker.new(
       limit: limit,
       inline: inline,
       timeout_seconds: timeout_seconds

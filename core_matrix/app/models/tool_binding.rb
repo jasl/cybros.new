@@ -102,9 +102,9 @@ class ToolBinding < ApplicationRecord
     turn_record = agent_task_run&.turn || workflow_node&.turn
     return if tool_definition.blank? || turn_record.blank?
 
-    expected_program_version_id = turn_record.agent_snapshot_id
-    return if expected_program_version_id.blank?
-    return if tool_definition.agent_snapshot_id == expected_program_version_id
+    expected_agent_snapshot_id = turn_record.agent_snapshot_id
+    return if expected_agent_snapshot_id.blank?
+    return if tool_definition.agent_snapshot_id == expected_agent_snapshot_id
 
     errors.add(:tool_definition, "must belong to the execution agent snapshot")
   end

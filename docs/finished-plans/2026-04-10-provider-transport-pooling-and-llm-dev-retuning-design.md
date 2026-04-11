@@ -8,7 +8,7 @@ Improve provider-backed throughput and heavy-load latency without changing the C
 
 ## Current Findings
 
-- The earlier throughput wave already landed the high-value mailbox changes: deferred program mailbox exchange and materialized mailbox routing are present in the active codebase.
+- The earlier throughput wave already landed the high-value mailbox changes: deferred agent mailbox exchange and materialized mailbox routing are present in the active codebase.
 - Real provider paths still build `SimpleInference::HTTPAdapters::Default`, which uses `Net::HTTP` instead of the vendored persistent `HTTPX` adapter.
 - The `openai-ruby` reference is useful mainly because it confirms the value of a long-lived client, pooled connections, and explicit retry/timeout policy. Those same wins are available in the existing `SimpleInference::HTTPAdapters::HTTPX` implementation.
 - The current `llm_dev` queue baseline is still conservative relative to the verified `8 Fenix` host target.

@@ -169,7 +169,7 @@ core_matrix/app/services/embedded_agents/conversation_observation/
   route_responder.rb
   responders/
     builtin.rb
-    program_contract.rb
+    agent_contract.rb
 ```
 
 The spine is intentionally small. It standardizes invocation and responder
@@ -456,7 +456,7 @@ Recommended responder kinds:
 
 - `builtin`
   - platform-owned observer implementation
-- `program_contract`
+- `agent_contract`
   - a dedicated responder method on an `AgentSnapshot`
 
 The responder contract is separate from ordinary turn execution.
@@ -671,14 +671,14 @@ Infrastructure layer:
 - transcript projections
 - conversation-event live projection reads
 - workflow and subagent read models
-- responder transport to builtin or program-backed implementations
+- responder transport to builtin or agent-backed implementations
 
 The lower layers must not depend on the app-facing controller layer.
 
 ## Failure Modes
 
 - observation session creation rejects unauthorized actors
-- observation APIs reject internal ids at app and program boundaries
+- observation APIs reject internal ids at app and agent boundaries
 - observation never writes transcript-bearing `Message` rows to the target
   conversation
 - observation never treats transport-only assistant output as durable proof

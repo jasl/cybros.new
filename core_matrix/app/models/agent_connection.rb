@@ -23,7 +23,7 @@ class AgentConnection < ApplicationRecord
   validate :health_metadata_must_be_hash
   validate :agent_installation_match
   validate :agent_snapshot_installation_match
-  validate :agent_snapshot_program_match
+  validate :agent_snapshot_agent_match
   validate :single_active_connection
 
   def self.issue_connection_credential
@@ -80,7 +80,7 @@ class AgentConnection < ApplicationRecord
     errors.add(:agent_snapshot, "must belong to the same installation")
   end
 
-  def agent_snapshot_program_match
+  def agent_snapshot_agent_match
     return if agent.blank? || agent_snapshot.blank?
     return if agent_snapshot.agent_id == agent_id
 

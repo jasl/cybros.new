@@ -46,7 +46,7 @@ class AgentControlMailboxItem < ApplicationRecord
   validates :lease_timeout_seconds, numericality: { only_integer: true, greater_than: 0 }
   validate :payload_must_be_hash
   validate :target_installation_match
-  validate :target_program_version_match
+  validate :target_agent_snapshot_match
   validate :target_execution_runtime_match
   validate :agent_task_run_match
   validate :workflow_node_match
@@ -212,7 +212,7 @@ class AgentControlMailboxItem < ApplicationRecord
     errors.add(:target_agent, "must belong to the same installation")
   end
 
-  def target_program_version_match
+  def target_agent_snapshot_match
     return if target_agent_snapshot.blank?
 
     errors.add(:target_agent_snapshot, "must belong to the same installation") if target_agent_snapshot.installation_id != installation_id

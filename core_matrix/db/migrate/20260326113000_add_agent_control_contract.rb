@@ -8,7 +8,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.references :owner_conversation, foreign_key: { to_table: :conversations }
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :fingerprint, null: false
-      t.string :program_version_fingerprint, null: false
+      t.string :agent_snapshot_fingerprint, null: false
       t.string :profile_key, null: false
       t.boolean :subagent, null: false, default: false
       t.integer :subagent_depth

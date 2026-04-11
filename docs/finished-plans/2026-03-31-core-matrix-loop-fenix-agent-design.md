@@ -81,7 +81,7 @@ That means:
 - no `Core Matrix -> Fenix` execution HTTP callback endpoint for normal round
   preparation
 - no `Core Matrix -> Fenix` execution HTTP callback endpoint for normal
-  program-tool execution
+  agent-tool execution
 - no hidden side channel that bypasses the durable control plane
 
 The only allowed initiation path is mailbox-first control-plane delivery:
@@ -173,7 +173,7 @@ Reasons:
 
 - skills depend on an agent-specific environment
 - skills require filesystem access such as reading `SKILL.md`
-- skills may include executable helper files or program-local conventions
+- skills may include executable helper files or agent-local conventions
 - skills are optional; future agents may not implement them at all
 
 Therefore:
@@ -205,7 +205,7 @@ The product is the combination.
 
 Orthogonal here means:
 
-- `Core Matrix` does not absorb skill semantics, prompt policy, or program-local
+- `Core Matrix` does not absorb skill semantics, prompt policy, or agent-local
   runtime conventions
 - `Fenix` does not absorb provider transport, repeated loop control, generic MCP
   execution, or durable workflow orchestration
@@ -259,7 +259,7 @@ Semantics:
 
 Purpose:
 
-- execute a program-side tool inside the Fenix runtime environment
+- execute a agent-side tool inside the Fenix runtime environment
 
 Request payload should include:
 
@@ -279,7 +279,7 @@ Reply payload should include:
 
 Semantics:
 
-- `Core Matrix` creates a mailbox item for program-tool execution
+- `Core Matrix` creates a mailbox item for agent-tool execution
 - `Fenix` executes the agent-owned action inside its local runtime
 - `Fenix` reports completion or failure back through the control plane
 - `Core Matrix` still owns the surrounding tool-calling loop
@@ -308,7 +308,7 @@ This keeps MCP support reusable across agents.
 ### Program-owned tools
 
 Declared by `Fenix` during round preparation and executed by `Fenix` through
-the mailbox-first program-tool request/reply path.
+the mailbox-first agent-tool request/reply path.
 
 These include tools that depend on Fenix-local runtime capabilities or
 skill-aware behavior.
@@ -340,7 +340,7 @@ One round should work like this:
 9. `Core Matrix` appends tool results to round state.
 10. `Core Matrix` repeats the loop until terminal output or a wait condition.
 
-This preserves one owner for the loop and one owner for program cognition.
+This preserves one owner for the loop and one owner for agent cognition.
 
 ## Workflow And Subagent Behavior
 
@@ -366,7 +366,7 @@ Compatibility with the earlier Fenix-first loop design is not required.
 The old direction should be treated as superseded, not as a shape that the new
 system must preserve.
 
-Compatibility with any synchronous HTTP program-contract experiment is also not
+Compatibility with any synchronous HTTP agent-contract experiment is also not
 required. That branch direction should be treated as a rejected intermediate
 state.
 
@@ -375,7 +375,7 @@ state.
 This redesign is allowed to be destructive.
 
 - do not preserve compatibility with the rejected Fenix-first loop split
-- do not preserve compatibility with the rejected synchronous HTTP program
+- do not preserve compatibility with the rejected synchronous HTTP agent
   contract
 - do not add compatibility shims solely to keep transitional code alive
 - prefer replacing old boundaries outright when the new boundary is clear

@@ -15,7 +15,7 @@ class SkillsFlowTest < ActiveSupport::TestCase
       previous_home_root = ENV["NEXUS_HOME_ROOT"]
       ENV["NEXUS_HOME_ROOT"] = roots.fetch(:home_root).to_s
 
-      install_result = Nexus::Runtime::MailboxWorker.call(
+      install_result = Runtime::MailboxWorker.call(
         mailbox_item: runtime_assignment_mailbox_item(
           mode: "skills_install",
           conversation_id: "conversation-a",
@@ -27,7 +27,7 @@ class SkillsFlowTest < ActiveSupport::TestCase
       assert_equal "ok", install_result.fetch("status")
       assert_equal "next_top_level_turn", install_result.dig("output", "activation_state")
 
-      load_result = Nexus::Runtime::MailboxWorker.call(
+      load_result = Runtime::MailboxWorker.call(
         mailbox_item: runtime_assignment_mailbox_item(
           mode: "skills_load",
           conversation_id: "conversation-b",
@@ -39,7 +39,7 @@ class SkillsFlowTest < ActiveSupport::TestCase
       assert_equal "ok", load_result.fetch("status")
       assert_equal "portable-notes", load_result.dig("output", "name")
 
-      read_result = Nexus::Runtime::MailboxWorker.call(
+      read_result = Runtime::MailboxWorker.call(
         mailbox_item: runtime_assignment_mailbox_item(
           mode: "skills_read_file",
           conversation_id: "conversation-b",

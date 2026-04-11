@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 ENV["FENIX_HOME_ROOT"] ||= File.expand_path("../tmp/fenix-home-test", __dir__) if ENV["RAILS_ENV"] == "test"
-require_relative "../lib/fenix/runtime/python_bootstrap"
-Fenix::Runtime::PythonBootstrap.ensure_ready!
+require_relative "../lib/runtime/python_bootstrap"
+Runtime::PythonBootstrap.ensure_ready!
 
 require_relative "../config/environment"
 require "solid_queue/cli"

@@ -24,13 +24,13 @@
   - third-party plugin ecosystem expansion
   - approval/governance policy work
 - Re-read before implementation:
-  - `app/services/fenix/runtime/pairing_manifest.rb`
-  - `app/services/fenix/context/build_execution_context.rb`
-  - `app/services/fenix/prompts/assembler.rb`
-  - `app/services/fenix/runtime/command_run_registry.rb`
-  - `app/services/fenix/processes/manager.rb`
-  - `app/services/fenix/browser/session_manager.rb`
-  - `app/services/fenix/plugins/system/*/runtime.rb`
+  - `app/services/runtime/pairing_manifest.rb`
+  - `app/services/context/build_execution_context.rb`
+  - `app/services/prompts/assembler.rb`
+  - `app/services/runtime/command_run_registry.rb`
+  - `app/services/processes/manager.rb`
+  - `app/services/browser/session_manager.rb`
+  - `app/services/plugins/system/*/runtime.rb`
   - `test/integration/external_runtime_pairing_test.rb`
   - `test/integration/runtime_flow_test.rb`
   - `test/integration/workspace_flow_test.rb`
@@ -43,12 +43,12 @@
 ### Task 1: Add operator grouping metadata to the manifest and plugin registry
 
 **Files:**
-- Create: `app/services/fenix/operator/catalog.rb`
-- Modify: `app/services/fenix/plugins/manifest.rb`
-- Modify: `app/services/fenix/plugins/catalog.rb`
-- Modify: `app/services/fenix/runtime/pairing_manifest.rb`
-- Modify: `app/services/fenix/plugins/system/*/plugin.yml`
-- Test: `test/services/fenix/operator/catalog_test.rb`
+- Create: `app/services/operator/catalog.rb`
+- Modify: `app/services/plugins/manifest.rb`
+- Modify: `app/services/plugins/catalog.rb`
+- Modify: `app/services/runtime/pairing_manifest.rb`
+- Modify: `app/services/plugins/system/*/plugin.yml`
+- Test: `test/services/operator/catalog_test.rb`
 - Test: `test/integration/external_runtime_pairing_test.rb`
 
 **Step 1: Write the failing tests**
@@ -71,7 +71,7 @@ end
 
 **Step 2: Run tests to verify they fail**
 
-Run: `bin/rails test test/services/fenix/operator/catalog_test.rb test/integration/external_runtime_pairing_test.rb`
+Run: `bin/rails test test/services/operator/catalog_test.rb test/integration/external_runtime_pairing_test.rb`
 Expected: FAIL because operator grouping metadata does not yet exist.
 
 **Step 3: Write minimal implementation**
@@ -87,25 +87,25 @@ Expected: FAIL because operator grouping metadata does not yet exist.
 
 **Step 4: Run tests to verify they pass**
 
-Run: `bin/rails test test/services/fenix/operator/catalog_test.rb test/integration/external_runtime_pairing_test.rb`
+Run: `bin/rails test test/services/operator/catalog_test.rb test/integration/external_runtime_pairing_test.rb`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add app/services/fenix/operator/catalog.rb app/services/fenix/plugins/manifest.rb app/services/fenix/plugins/catalog.rb app/services/fenix/runtime/pairing_manifest.rb app/services/fenix/plugins/system test/services/fenix/operator/catalog_test.rb test/integration/external_runtime_pairing_test.rb
+git add app/services/operator/catalog.rb app/services/plugins/manifest.rb app/services/plugins/catalog.rb app/services/runtime/pairing_manifest.rb app/services/plugins/system test/services/operator/catalog_test.rb test/integration/external_runtime_pairing_test.rb
 git commit -m "plan: add fenix operator catalog metadata"
 ```
 
 ### Task 2: Expand workspace and memory into discoverable operator families
 
 **Files:**
-- Modify: `app/services/fenix/plugins/system/workspace/plugin.yml`
-- Modify: `app/services/fenix/plugins/system/workspace/runtime.rb`
-- Modify: `app/services/fenix/plugins/system/memory/plugin.yml`
-- Modify: `app/services/fenix/plugins/system/memory/runtime.rb`
-- Modify: `app/services/fenix/workspace/layout.rb`
-- Modify: `app/services/fenix/memory/store.rb`
+- Modify: `app/services/plugins/system/workspace/plugin.yml`
+- Modify: `app/services/plugins/system/workspace/runtime.rb`
+- Modify: `app/services/plugins/system/memory/plugin.yml`
+- Modify: `app/services/plugins/system/memory/runtime.rb`
+- Modify: `app/services/workspace/layout.rb`
+- Modify: `app/services/memory/store.rb`
 - Test: `test/integration/workspace_flow_test.rb`
 - Test: `test/integration/memory_flow_test.rb`
 
@@ -153,17 +153,17 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add app/services/fenix/plugins/system/workspace/plugin.yml app/services/fenix/plugins/system/workspace/runtime.rb app/services/fenix/plugins/system/memory/plugin.yml app/services/fenix/plugins/system/memory/runtime.rb app/services/fenix/workspace/layout.rb app/services/fenix/memory/store.rb test/integration/workspace_flow_test.rb test/integration/memory_flow_test.rb
+git add app/services/plugins/system/workspace/plugin.yml app/services/plugins/system/workspace/runtime.rb app/services/plugins/system/memory/plugin.yml app/services/plugins/system/memory/runtime.rb app/services/workspace/layout.rb app/services/memory/store.rb test/integration/workspace_flow_test.rb test/integration/memory_flow_test.rb
 git commit -m "plan: expand fenix workspace and memory operator tools"
 ```
 
 ### Task 3: Add lifecycle helpers for attached CommandRun sessions
 
 **Files:**
-- Modify: `app/services/fenix/plugins/system/exec_command/plugin.yml`
-- Modify: `app/services/fenix/plugins/system/exec_command/runtime.rb`
-- Modify: `app/services/fenix/runtime/command_run_registry.rb`
-- Test: `test/services/fenix/runtime/command_run_registry_test.rb`
+- Modify: `app/services/plugins/system/exec_command/plugin.yml`
+- Modify: `app/services/plugins/system/exec_command/runtime.rb`
+- Modify: `app/services/runtime/command_run_registry.rb`
+- Test: `test/services/runtime/command_run_registry_test.rb`
 - Test: `test/integration/runtime_flow_test.rb`
 
 **Step 1: Write the failing tests**
@@ -179,7 +179,7 @@ Include one test that starts a PTY-backed command and terminates it explicitly.
 
 **Step 2: Run tests to verify they fail**
 
-Run: `bin/rails test test/services/fenix/runtime/command_run_registry_test.rb test/integration/runtime_flow_test.rb`
+Run: `bin/rails test test/services/runtime/command_run_registry_test.rb test/integration/runtime_flow_test.rb`
 Expected: FAIL because the attached-command operator helpers do not yet exist.
 
 **Step 3: Write minimal implementation**
@@ -193,26 +193,26 @@ Expected: FAIL because the attached-command operator helpers do not yet exist.
 
 **Step 4: Run tests to verify they pass**
 
-Run: `bin/rails test test/services/fenix/runtime/command_run_registry_test.rb test/integration/runtime_flow_test.rb`
+Run: `bin/rails test test/services/runtime/command_run_registry_test.rb test/integration/runtime_flow_test.rb`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add app/services/fenix/plugins/system/exec_command/plugin.yml app/services/fenix/plugins/system/exec_command/runtime.rb app/services/fenix/runtime/command_run_registry.rb test/services/fenix/runtime/command_run_registry_test.rb test/integration/runtime_flow_test.rb
+git add app/services/plugins/system/exec_command/plugin.yml app/services/plugins/system/exec_command/runtime.rb app/services/runtime/command_run_registry.rb test/services/runtime/command_run_registry_test.rb test/integration/runtime_flow_test.rb
 git commit -m "plan: add command run operator helpers"
 ```
 
 ### Task 4: Add inspection helpers for ProcessRun and browser sessions
 
 **Files:**
-- Modify: `app/services/fenix/plugins/system/process/plugin.yml`
-- Modify: `app/services/fenix/plugins/system/process/runtime.rb`
-- Modify: `app/services/fenix/processes/manager.rb`
-- Modify: `app/services/fenix/processes/proxy_registry.rb`
-- Modify: `app/services/fenix/plugins/system/browser/plugin.yml`
-- Modify: `app/services/fenix/plugins/system/browser/runtime.rb`
-- Modify: `app/services/fenix/browser/session_manager.rb`
+- Modify: `app/services/plugins/system/process/plugin.yml`
+- Modify: `app/services/plugins/system/process/runtime.rb`
+- Modify: `app/services/processes/manager.rb`
+- Modify: `app/services/processes/proxy_registry.rb`
+- Modify: `app/services/plugins/system/browser/plugin.yml`
+- Modify: `app/services/plugins/system/browser/runtime.rb`
+- Modify: `app/services/browser/session_manager.rb`
 - Test: `test/integration/process_tools_flow_test.rb`
 - Test: `test/integration/browser_tools_flow_test.rb`
 
@@ -248,20 +248,20 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add app/services/fenix/plugins/system/process/plugin.yml app/services/fenix/plugins/system/process/runtime.rb app/services/fenix/processes/manager.rb app/services/fenix/processes/proxy_registry.rb app/services/fenix/plugins/system/browser/plugin.yml app/services/fenix/plugins/system/browser/runtime.rb app/services/fenix/browser/session_manager.rb test/integration/process_tools_flow_test.rb test/integration/browser_tools_flow_test.rb
+git add app/services/plugins/system/process/plugin.yml app/services/plugins/system/process/runtime.rb app/services/processes/manager.rb app/services/processes/proxy_registry.rb app/services/plugins/system/browser/plugin.yml app/services/plugins/system/browser/runtime.rb app/services/browser/session_manager.rb test/integration/process_tools_flow_test.rb test/integration/browser_tools_flow_test.rb
 git commit -m "plan: add process and browser operator inspection tools"
 ```
 
 ### Task 5: Add operator prompt and `.fenix` snapshot assembly
 
 **Files:**
-- Create: `app/services/fenix/operator/snapshot.rb`
+- Create: `app/services/operator/snapshot.rb`
 - Create: `prompts/OPERATOR.md`
-- Modify: `app/services/fenix/context/build_execution_context.rb`
-- Modify: `app/services/fenix/prompts/assembler.rb`
-- Modify: `app/services/fenix/workspace/bootstrap.rb`
-- Test: `test/services/fenix/operator/snapshot_test.rb`
-- Test: `test/services/fenix/prompts/assembler_test.rb`
+- Modify: `app/services/context/build_execution_context.rb`
+- Modify: `app/services/prompts/assembler.rb`
+- Modify: `app/services/workspace/bootstrap.rb`
+- Test: `test/services/operator/snapshot_test.rb`
+- Test: `test/services/prompts/assembler_test.rb`
 
 **Step 1: Write the failing tests**
 
@@ -274,7 +274,7 @@ Cover:
 
 **Step 2: Run tests to verify they fail**
 
-Run: `bin/rails test test/services/fenix/operator/snapshot_test.rb test/services/fenix/prompts/assembler_test.rb`
+Run: `bin/rails test test/services/operator/snapshot_test.rb test/services/prompts/assembler_test.rb`
 Expected: FAIL because the operator snapshot and prompt fragment do not yet
 exist.
 
@@ -288,13 +288,13 @@ exist.
 
 **Step 4: Run tests to verify they pass**
 
-Run: `bin/rails test test/services/fenix/operator/snapshot_test.rb test/services/fenix/prompts/assembler_test.rb`
+Run: `bin/rails test test/services/operator/snapshot_test.rb test/services/prompts/assembler_test.rb`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add app/services/fenix/operator/snapshot.rb prompts/OPERATOR.md app/services/fenix/context/build_execution_context.rb app/services/fenix/prompts/assembler.rb app/services/fenix/workspace/bootstrap.rb test/services/fenix/operator/snapshot_test.rb test/services/fenix/prompts/assembler_test.rb
+git add app/services/operator/snapshot.rb prompts/OPERATOR.md app/services/context/build_execution_context.rb app/services/prompts/assembler.rb app/services/workspace/bootstrap.rb test/services/operator/snapshot_test.rb test/services/prompts/assembler_test.rb
 git commit -m "plan: add fenix operator snapshot and prompt layer"
 ```
 

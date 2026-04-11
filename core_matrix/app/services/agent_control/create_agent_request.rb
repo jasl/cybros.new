@@ -21,7 +21,7 @@ module AgentControl
       @attempt_no = attempt_no.to_i
       @dispatch_deadline_at = dispatch_deadline_at
       @execution_hard_deadline_at = execution_hard_deadline_at
-      @protocol_message_id = protocol_message_id || "kernel-program-request-#{SecureRandom.uuid}"
+      @protocol_message_id = protocol_message_id || "kernel-agent-request-#{SecureRandom.uuid}"
       @causation_id = causation_id
       @lease_timeout_seconds = lease_timeout_seconds
       @priority = priority

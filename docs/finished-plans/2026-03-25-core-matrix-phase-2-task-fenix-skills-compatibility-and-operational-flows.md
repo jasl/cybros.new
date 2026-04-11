@@ -18,7 +18,7 @@ indexes, not as the full task body.
 Status note (`2026-03-30`):
 
 - the current `agents/fenix` repo does not yet contain `skills/`,
-  `app/services/fenix/skills`, or the planned skill-surface tests
+  `app/services/skills`, or the planned skill-surface tests
 - treat this task as still greenfield after the current Core Matrix execution
   work is ready for real validation
 
@@ -38,8 +38,8 @@ Reference capture for this task:
 
 **Files:**
 - Modify: `agents/fenix/README.md`
-- Likely create: `agents/fenix/app/services/fenix/skills/*`
-- Likely create: `agents/fenix/test/services/fenix/skills/*`
+- Likely create: `agents/fenix/app/services/skills/*`
+- Likely create: `agents/fenix/test/services/skills/*`
 - Likely create: `agents/fenix/test/integration/skills_flow_test.rb`
 - Create: `agents/fenix/skills/.system/`
 - Create: `agents/fenix/skills/.curated/`
@@ -65,7 +65,7 @@ Run:
 
 ```bash
 cd agents/fenix
-bin/rails test test/services/fenix/skills test/integration/skills_flow_test.rb
+bin/rails test test/services/skills test/integration/skills_flow_test.rb
 ```
 
 Expected:
@@ -105,7 +105,7 @@ Run:
 
 ```bash
 cd agents/fenix
-bin/rails test test/services/fenix/skills test/integration/skills_flow_test.rb
+bin/rails test test/services/skills test/integration/skills_flow_test.rb
 ```
 
 Expected:
@@ -123,7 +123,7 @@ Validate:
 **Step 7: Commit**
 
 ```bash
-git -C .. add agents/fenix/README.md agents/fenix/app/services/fenix/skills agents/fenix/test/services/fenix/skills agents/fenix/test/integration/skills_flow_test.rb agents/fenix/skills/.system agents/fenix/skills/.curated
+git -C .. add agents/fenix/README.md agents/fenix/app/services/skills agents/fenix/test/services/skills agents/fenix/test/integration/skills_flow_test.rb agents/fenix/skills/.system agents/fenix/skills/.curated
 git -C .. commit -m "feat: add fenix skill compatibility"
 ```
 

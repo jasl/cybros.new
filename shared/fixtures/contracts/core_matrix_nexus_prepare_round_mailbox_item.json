@@ -5,7 +5,7 @@
   "logical_work_id": "prepare-round:workflow-node-public-id",
   "attempt_no": 1,
   "delivery_no": 0,
-  "protocol_message_id": "kernel-program-request-message-id",
+  "protocol_message_id": "kernel-agent-request-message-id",
   "priority": 1,
   "status": "queued",
   "lease_timeout_seconds": 30,

@@ -26,16 +26,16 @@ class AgentSnapshotTest < ActiveSupport::TestCase
 
   test "requires installation-local fingerprint uniqueness" do
     installation = create_installation!
-    program = create_agent!(installation: installation)
+    agent = create_agent!(installation: installation)
     create_agent_snapshot!(
       installation: installation,
-      agent: program,
+      agent: agent,
       fingerprint: "version-a"
     )
 
     duplicate = AgentSnapshot.new(
       installation: installation,
-      agent: program,
+      agent: agent,
       fingerprint: "version-a",
       protocol_version: "2026-04-03",
       sdk_version: "fenix-0.2.0",

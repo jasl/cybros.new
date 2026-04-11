@@ -33,7 +33,7 @@ module ProviderExecution
       return transport_error_result("provider_unreachable") if @error.is_a?(SimpleInference::TimeoutError) || @error.is_a?(SimpleInference::ConnectionError)
       return contract_error_result("invalid_provider_response_contract") if @error.is_a?(SimpleInference::DecodeError)
       return protocol_error_result if @error.is_a?(ProviderExecution::AgentRequestExchange::ProtocolError)
-      return transport_error_result("program_transport_failed") if @error.is_a?(ProviderExecution::AgentRequestExchange::TimeoutError)
+      return transport_error_result("agent_transport_failed") if @error.is_a?(ProviderExecution::AgentRequestExchange::TimeoutError)
       return request_failed_result if @error.is_a?(ProviderExecution::AgentRequestExchange::RequestFailed)
       return contract_error_result("unknown_tool_reference") if @error.is_a?(ActiveRecord::RecordNotFound)
       return contract_error_result("invalid_tool_arguments") if @error.is_a?(ActiveRecord::RecordInvalid)
@@ -69,14 +69,14 @@ module ProviderExecution
       payload = @error.error_payload.deep_stringify_keys
       code = payload["code"].to_s
 
-      return contract_error_result("invalid_program_response_contract") if code.start_with?("invalid_")
-      return transport_error_result("program_transport_failed") if @error.retryable
+      return contract_error_result("invalid_agent_response_contract") if code.start_with?("invalid_")
+      return transport_error_result("agent_transport_failed") if @error.retryable
 
-      external_result(failure_kind: "program_transport_failed", retry_strategy: "manual")
+      external_result(failure_kind: "agent_transport_failed", retry_strategy: "manual")
     end
 
     def protocol_error_result
-      contract_error_result("invalid_program_response_contract")
+      contract_error_result("invalid_agent_response_contract")
     end
 
     def transport_error_result(failure_kind)

@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AgentControlPollExecutionTest < ActiveSupport::TestCase
-  test "leases execution-runtime-plane work by durable execution runtime columns even when program hints do not match" do
+  test "leases execution-runtime-plane work by durable execution runtime columns even when agent hints do not match" do
     context = build_agent_control_context!
     other_agent = create_agent!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(

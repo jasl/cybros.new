@@ -22,7 +22,7 @@ remain unchanged:
 
 - all user-visible agent-loop progression remains owned by `Core Matrix`
 - `Core Matrix` `Workflow` remains the only orchestration truth
-- `Fenix` may own program behavior and execution-runtime behavior, but it does
+- `Fenix` may own agent behavior and execution-runtime behavior, but it does
   not become the workflow scheduler
 - every completed round must still pass the same acceptance standard,
   especially the provider-backed `2048` capstone checklist
@@ -46,9 +46,9 @@ Largest active hotspots during this audit:
 - `core_matrix/app/services/provider_execution/route_tool_call.rb`
 - `core_matrix/app/services/workflows/build_execution_snapshot.rb`
 - `core_matrix/app/services/provider_execution/agent_request_exchange.rb`
-- `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
-- `agents/fenix/app/services/fenix/hooks/project_tool_result.rb`
-- `agents/fenix/app/services/fenix/processes/manager.rb`
+- `agents/fenix/app/services/runtime/execute_assignment.rb`
+- `agents/fenix/app/services/hooks/project_tool_result.rb`
+- `agents/fenix/app/services/processes/manager.rb`
 
 These hotspots are not just large files. They also cross multiple architecture
 layers in the same object.
@@ -70,9 +70,9 @@ Evidence:
 
 - [core_matrix/app/services/workflows/build_execution_snapshot.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/build_execution_snapshot.rb#L13) builds the full execution envelope, including conversation projection, capability projection, provider context, runtime context, attachment manifest, and multimodal projections.
 - [core_matrix/app/services/agent_control/create_execution_assignment.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_execution_assignment.rb#L31) persists a mailbox item whose payload duplicates that envelope.
-- [agents/fenix/app/services/fenix/runtime/mailbox_worker.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/mailbox_worker.rb#L43) persists the full mailbox item again in `RuntimeExecution`.
+- [agents/fenix/app/services/runtime/mailbox_worker.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/runtime/mailbox_worker.rb#L43) persists the full mailbox item again in `RuntimeExecution`.
 - [agents/fenix/app/models/runtime_execution.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/models/runtime_execution.rb#L12) validates and stores full mailbox payloads plus reports, trace, and output.
-- [agents/fenix/app/services/fenix/context/build_execution_context.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/context/build_execution_context.rb#L12), [agents/fenix/app/services/fenix/runtime/prepare_round.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/prepare_round.rb#L34), and [agents/fenix/app/services/fenix/runtime/execute_tool.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/execute_tool.rb#L51) each rebuild nearly the same context graph.
+- [agents/fenix/app/services/context/build_execution_context.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/context/build_execution_context.rb#L12), [agents/fenix/app/services/runtime/prepare_round.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/runtime/prepare_round.rb#L34), and [agents/fenix/app/services/runtime/execute_tool.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/runtime/execute_tool.rb#L51) each rebuild nearly the same context graph.
 
 Why it matters:
 
@@ -126,18 +126,18 @@ Recommended reset:
 - reject legacy runtime-plane aliases instead of silently normalizing them
 - route execution work only by `target_execution_runtime_id`
 
-### P1: the program / execution split is only half-implemented
+### P1: the agent / execution split is only half-implemented
 
 Symptoms:
 
-- `execution_assignment` is always sent on the `"program"` plane
-- `Fenix::Runtime::ExecuteAssignment` rejects any non-program runtime plane
+- `execution_assignment` is always sent on the `"agent"` plane
+- `Fenix::Runtime::ExecuteAssignment` rejects any non-agent plane
 - execution-runtime tools are still executed through `AgentRequestExchange`
 
 Evidence:
 
-- [core_matrix/app/services/agent_control/create_execution_assignment.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_execution_assignment.rb#L36) always creates `"program"`-plane assignments.
-- [agents/fenix/app/services/fenix/runtime/execute_assignment.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/execute_assignment.rb#L26) explicitly rejects anything except `"program"`.
+- [core_matrix/app/services/agent_control/create_execution_assignment.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_execution_assignment.rb#L36) always creates `"agent"`-plane assignments.
+- [agents/fenix/app/services/runtime/execute_assignment.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/runtime/execute_assignment.rb#L26) explicitly rejects anything except `"agent"`.
 - [core_matrix/app/services/provider_execution/route_tool_call.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/route_tool_call.rb#L33) sends `"execution_runtime"` tools through `AgentRequestExchange`.
 - [core_matrix/test/services/provider_execution/route_tool_call_test.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/provider_execution/route_tool_call_test.rb#L65) documents that this current behavior is intentional.
 
@@ -145,7 +145,7 @@ Why it matters:
 
 - the codebase is carrying execution-plane concepts that are not actually first
   class in the assignment loop
-- responsibility between program logic and execution-runtime tooling is still
+- responsibility between agent logic and execution-runtime tooling is still
   blurred
 - protocol and schema complexity grew faster than the real product contract
 
@@ -202,8 +202,8 @@ Symptoms:
 Evidence:
 
 - [core_matrix/app/services/agent_control/handle_execution_report.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/handle_execution_report.rb#L25) owns freshness validation, task-state mutation, tool-invocation mutation, command-run reconciliation, workflow resume/retry logic, subagent sync, and runtime event broadcasting in one object.
-- [agents/fenix/app/services/fenix/runtime/execute_assignment.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/runtime/execute_assignment.rb#L26) owns runtime-plane validation, skill flow dispatch, deterministic tool dispatch, reporting, and error shaping in one object.
-- [agents/fenix/app/services/fenix/hooks/project_tool_result.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/fenix/hooks/project_tool_result.rb#L4) hardcodes tool-by-tool projection in one large switch.
+- [agents/fenix/app/services/runtime/execute_assignment.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/runtime/execute_assignment.rb#L26) owns runtime-plane validation, skill flow dispatch, deterministic tool dispatch, reporting, and error shaping in one object.
+- [agents/fenix/app/services/hooks/project_tool_result.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/hooks/project_tool_result.rb#L4) hardcodes tool-by-tool projection in one large switch.
 
 Why it matters:
 

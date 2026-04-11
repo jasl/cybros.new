@@ -82,7 +82,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
         workspace: workspace,
       }
     )
-    activate_program_version!(
+    activate_agent_snapshot!(
       context,
       tool_catalog: fenix_tool_catalog,
       profile_catalog: fenix_profile_catalog,

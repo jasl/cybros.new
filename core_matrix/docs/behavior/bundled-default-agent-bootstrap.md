@@ -19,7 +19,7 @@ existing binding and workspace services.
 - Reuses existing logical and agent-snapshot rows instead of duplicating them on
   repeated calls.
 - Concurrent bundled-runtime reconciliation serializes around the logical
-  program and execution runtime so repeated passes reuse the same version and
+  agent and execution runtime so repeated passes reuse the same version and
   session rows without duplicate-key races.
 - Does not create user bindings or workspaces.
 - Returns `nil` when bundled bootstrap is not enabled in configuration.

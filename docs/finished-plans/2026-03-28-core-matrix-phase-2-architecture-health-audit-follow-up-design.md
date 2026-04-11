@@ -49,7 +49,7 @@ application needs one deliberate architecture-health pass.
 This design also intentionally differs from
 `2026-03-27-core-matrix-architecture-health-audit-design.md`.
 
-That earlier document described a durable multi-round audit program with a
+That earlier document described a durable multi-round audit campaign with a
 register and round reports. This follow-up is narrower and more immediate:
 
 - it lands as a Milestone C follow-up
@@ -221,7 +221,7 @@ shape was materially created by Milestone C and its later hardening passes:
 - lineage and provenance hardening
 
 The findings should therefore feed the next Milestone C structural cleanup
-batch rather than becoming a disconnected side program.
+batch rather than becoming a disconnected side path.
 
 ## Expected Deliverable
 

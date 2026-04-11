@@ -6,7 +6,7 @@ Core Matrix conversations now carry these independent concerns:
 
 - lineage shape
 - addressability
-- program binding and turn execution snapshots
+- agent binding and turn execution snapshots
 - conversation feature policy
 - user-visible lifecycle state
 - deletion state and lineage-store ownership
@@ -34,7 +34,7 @@ and safe deletion support.
   - `retained`
   - `pending_delete`
   - `deleted`
-- program binding and turn execution snapshots:
+- agent binding and turn execution snapshots:
   - one fixed `Agent`
   - each turn freezes one `AgentSnapshot`
   - each turn may optionally freeze one `ExecutionRuntime`

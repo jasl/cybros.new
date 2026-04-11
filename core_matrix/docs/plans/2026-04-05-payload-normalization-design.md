@@ -135,7 +135,7 @@ Suggested fields:
 - `installation_id`
 - `public_id`
 - `fingerprint`
-- `program_version_fingerprint`
+- `agent_snapshot_fingerprint`
 - `profile_key`
 - `subagent`
 - `subagent_depth`
@@ -401,7 +401,7 @@ Use a narrower protocol projection instead:
 - `provider_context` for model/budget/runtime execution settings
 - `runtime_context` for protocol identity
 
-Do not send these on the program wire when they are not consumed by the
+Do not send these on the agent wire when they are not consumed by the
 external runtime:
 
 - `conversation_projection.prior_tool_results`
@@ -411,7 +411,7 @@ Instead:
 
 - Core Matrix keeps `prior_tool_results` locally and appends them when building
   the next provider request
-- the program runtime returns `visible_tool_names`
+- the agent returns `visible_tool_names`
 - Core Matrix maps those names back onto the canonical frozen tool surface
 
 ### Report receipt

@@ -309,9 +309,9 @@ git commit -m "docs: record runtime and provider review round"
 - Reference: `core_matrix/test/services/subagent_connections`
 - Reference: `core_matrix/test/services/runtime_capabilities`
 - Reference: `core_matrix/test/services/conversations`
-- Reference: `agents/fenix/app/services/fenix/runtime/pairing_manifest.rb`
-- Reference: `agents/fenix/app/services/fenix/context/build_execution_context.rb`
-- Reference: `agents/fenix/app/services/fenix/runtime/execute_assignment.rb`
+- Reference: `agents/fenix/app/services/runtime/pairing_manifest.rb`
+- Reference: `agents/fenix/app/services/context/build_execution_context.rb`
+- Reference: `agents/fenix/app/services/runtime/execute_assignment.rb`
 
 **Step 1: Deep-read the hotspot contracts**
 

@@ -1162,7 +1162,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
   def build_calculator_agent_control_context!
     context = build_agent_control_context!
-    activate_program_version!(
+    activate_agent_snapshot!(
       context,
       tool_catalog: [
         {
@@ -1203,7 +1203,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
   def build_exec_command_agent_control_context!
     context = build_agent_control_context!
-    activate_program_version!(
+    activate_agent_snapshot!(
       context,
       tool_catalog: [
         {

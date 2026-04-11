@@ -367,7 +367,7 @@ that proves the new architecture can deliver the 2048 capstone.
 `v1` must include:
 
 - `images/nexus`
-- bundled runtime registration with both program and executor planes
+- bundled runtime registration with both agent and execution-runtime planes
 - mailbox runtime worker and control loop
 - enough execution-runtime-plane tools to build, run, and browser-verify the 2048 app
 - layered prompt assembly

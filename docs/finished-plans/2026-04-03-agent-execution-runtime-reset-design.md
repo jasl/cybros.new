@@ -67,7 +67,7 @@ The user-approved target behavior for the reset is:
   - the chosen execution runtime when one is used
 - `ExecutionRuntime` is optional
 - some turns must be able to run with no execution runtime at all
-- `ExecutionRuntime` is a program or service that exposes execution-oriented
+- `ExecutionRuntime` is a runtime service that exposes execution-oriented
   tools
 - `ExecutionRuntime` is not a synonym for host machine
 - both `Agent` and `ExecutionRuntime` need persistent user-facing
@@ -75,7 +75,7 @@ The user-approved target behavior for the reset is:
 - agent-plane routing is not product identity; it is delivery routing
 - if multiple copies of the same agent try to connect, only one may be
   active at a time
-- the active program connection must be protected by a session token / lease
+- the active agent connection must be protected by a session token / lease
 - bundled `Fenix` may still implement both agent-plane and execution-plane
   behavior in one appliance, but the product model must not require them to be
   the same thing
@@ -102,8 +102,8 @@ The user-approved target behavior for the reset is:
 
 The control-plane enum values should be renamed from:
 
-- `agent` -> `program`
-- `environment` -> `execution`
+- `agent` -> `agent`
+- `environment` -> `execution_runtime`
 
 The API namespaces should be renamed from:
 
@@ -121,7 +121,7 @@ This keeps naming aligned with the new domain model and avoids mixing
 
 It owns:
 
-- stable program key
+- stable agent key
 - display name
 - installation scope
 - visibility and ownership rules
@@ -143,7 +143,7 @@ It owns:
 
 - protocol version
 - SDK version
-- program fingerprint or version identity
+- agent fingerprint or version identity
 - immutable capability/tool/profile/config payloads
 - governance projection inputs that are now split between
   `AgentDeployment` and `CapabilitySnapshot`
@@ -226,7 +226,7 @@ Single-active-session is enforced per `ExecutionRuntime`.
 ### `Conversation`
 
 `Conversation` becomes a stable transcript container bound only to the logical
-program identity.
+agent identity.
 
 It owns:
 
@@ -350,7 +350,7 @@ Behavior:
 
 - find the active `AgentConnection` for the conversation's `Agent`
 - freeze its current `AgentSnapshot` onto the turn
-- reject turn entry when no active program session exists
+- reject turn entry when no active agent connection exists
 
 This replaces the old behavior of reading a conversation-bound deployment.
 
@@ -488,7 +488,7 @@ New recovery rules:
 - retry or resume may create a new turn or new task binding, but it does not
   rebind conversation identity
 
-Waiting reasons should pivot from deployment identity to logical program or
+Waiting reasons should pivot from deployment identity to logical agent or
 execution owner identity where appropriate.
 
 ## Bundled Fenix Implications
