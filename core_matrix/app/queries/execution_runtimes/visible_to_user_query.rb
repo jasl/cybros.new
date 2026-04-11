@@ -1,4 +1,4 @@
-module Agents
+module ExecutionRuntimes
   class VisibleToUserQuery
     def self.call(...)
       new(...).call
@@ -9,7 +9,7 @@ module Agents
     end
 
     def call
-      Agent
+      ExecutionRuntime
         .where(installation: @user.installation, lifecycle_state: "active")
         .where("visibility = ? OR (visibility = ? AND owner_user_id = ?)", "public", "private", @user.id)
         .order(Arel.sql("CASE visibility WHEN 'public' THEN 0 ELSE 1 END"), :display_name, :id)

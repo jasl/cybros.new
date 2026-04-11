@@ -4,7 +4,7 @@ module Agents
 end
 
 class Agents::VisibleToUserQueryTest < ActiveSupport::TestCase
-  test "returns active global agents plus the current users personal agents" do
+  test "returns active public agents plus the current users private agents" do
     installation = create_installation!
     user = create_user!(installation: installation, display_name: "Owner")
     other_user = create_user!(
@@ -12,35 +12,39 @@ class Agents::VisibleToUserQueryTest < ActiveSupport::TestCase
       identity: create_identity!,
       display_name: "Other"
     )
-    shared_agent = create_agent!(
+    public_agent = create_agent!(
       installation: installation,
-      visibility: "global",
-      key: "shared-agent",
-      display_name: "Shared Agent"
+      visibility: "public",
+      provisioning_origin: "system",
+      key: "public-agent",
+      display_name: "Public Agent"
     )
-    personal_agent = create_agent!(
+    private_agent = create_agent!(
       installation: installation,
-      visibility: "personal",
+      visibility: "private",
+      provisioning_origin: "user_created",
       owner_user: user,
-      key: "personal-agent",
-      display_name: "Personal Agent"
+      key: "private-agent",
+      display_name: "Private Agent"
     )
     create_agent!(
       installation: installation,
-      visibility: "personal",
+      visibility: "private",
+      provisioning_origin: "user_created",
       owner_user: other_user,
       key: "other-users-agent",
       display_name: "Other Users Agent"
     )
     create_agent!(
       installation: installation,
-      visibility: "global",
+      visibility: "public",
+      provisioning_origin: "system",
       lifecycle_state: "retired",
       key: "retired-agent",
       display_name: "Retired Agent"
     )
     result = Agents::VisibleToUserQuery.call(user: user)
 
-    assert_equal [shared_agent, personal_agent], result
+    assert_equal [public_agent, private_agent], result
   end
 end

@@ -1,7 +1,8 @@
 class Agent < ApplicationRecord
   include HasPublicId
 
-  enum :visibility, { personal: "personal", global: "global" }, validate: true
+  enum :visibility, { public: "public", private: "private" }, prefix: :visibility, validate: true
+  enum :provisioning_origin, { system: "system", user_created: "user_created" }, prefix: :provisioning_origin, validate: true
   enum :lifecycle_state, { active: "active", retired: "retired" }, validate: true
 
   belongs_to :installation
@@ -31,8 +32,18 @@ class Agent < ApplicationRecord
   private
 
   def owner_user_requirements
-    errors.add(:owner_user, "must exist") if personal? && owner_user.blank?
-    errors.add(:owner_user, "must be blank for global visibility") if global? && owner_user.present?
+    if visibility_private? && owner_user.blank?
+      errors.add(:owner_user, "must exist")
+    end
+
+    if visibility_public? && provisioning_origin_user_created? && owner_user.blank?
+      errors.add(:owner_user, "must exist for user-created public visibility")
+    end
+
+    if provisioning_origin_system?
+      errors.add(:visibility, "must be public for system provisioning") unless visibility_public?
+      errors.add(:owner_user, "must be blank for system provisioning") if owner_user.present?
+    end
   end
 
   def owner_user_installation_match

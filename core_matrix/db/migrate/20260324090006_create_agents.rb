@@ -6,7 +6,8 @@ class CreateAgents < ActiveRecord::Migration[8.2]
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :key, null: false
       t.string :display_name, null: false
-      t.string :visibility, null: false, default: "global"
+      t.string :visibility, null: false, default: "public"
+      t.string :provisioning_origin, null: false, default: "system"
       t.string :lifecycle_state, null: false, default: "active"
 
       t.timestamps
@@ -14,6 +15,7 @@ class CreateAgents < ActiveRecord::Migration[8.2]
 
     add_index :agents, [:installation_id, :key], unique: true
     add_index :agents, [:installation_id, :visibility]
+    add_index :agents, [:installation_id, :provisioning_origin]
     add_index :agents, :public_id, unique: true
   end
 end

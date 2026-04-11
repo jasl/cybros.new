@@ -4,7 +4,7 @@
 
 **Goal:** Replace `global/personal` with `public/private`, add symmetric visibility ownership to `ExecutionRuntime`, and make workspace/conversation usability respect the new resource visibility model.
 
-**Architecture:** Rewrite the schema first, then rebuild model invariants and query semantics around `public/private + provisioning_origin`. After that, update binding/bootstrap/access paths and finish by rewriting docs, helpers, and tests against the reset schema. API/UI authorization remains outside this plan; only domain invariants and usability logic land here.
+**Architecture:** Rewrite the schema first, then rebuild model invariants and query semantics around `public/private + provisioning_origin`. After that, update binding/bootstrap/app-facing access paths and finish by rewriting docs, helpers, and tests against the reset schema. General API/UI authorization remains outside this plan; only domain invariants plus app-facing resource usability checks land here.
 
 **Tech Stack:** Ruby on Rails, Active Record, PostgreSQL, Minitest
 
@@ -58,6 +58,11 @@ Run:
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/rails test test/models/agent_test.rb test/models/execution_runtime_test.rb
 ```
+
+Expected at this task boundary:
+
+- unknown-attribute and missing-column failures are gone
+- remaining failures may still point at model invariants until Task 2 lands
 
 **Step 6: Commit**
 
@@ -199,10 +204,11 @@ git add core_matrix/app/models/user_agent_binding.rb core_matrix/app/services/us
 git commit -m "refactor: align bindings and bootstrap with visibility reset"
 ```
 
-### Task 5: Make Workspace And Conversation Usability Follow Resource Visibility
+### Task 5: Make App-Facing Workspace And Conversation Usability Follow Resource Visibility
 
 **Files:**
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/queries/workspaces/for_user_query.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/app_api/base_controller.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/embedded_agents/conversation_supervision/authority.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversation_control/authorize_request.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb`
@@ -217,8 +223,8 @@ git commit -m "refactor: align bindings and bootstrap with visibility reset"
 
 **Step 2: Run tests to verify they fail**
 
-Run the targeted tests that cover workspace lists, supervision entry, and
-conversation control.
+Run the targeted tests that cover workspace lists, transcript/supervision entry,
+and conversation control.
 
 **Step 3: Implement a single usability policy**
 
@@ -227,7 +233,7 @@ conversation control.
   - execution runtime usable by user
   - workspace accessible by user
   - conversation accessible by user
-- route affected entry points through that policy
+- route app-facing entry points through that policy
 
 **Step 4: Re-run targeted tests**
 
@@ -236,7 +242,7 @@ Re-run the same targeted test set until green.
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/app/queries/workspaces/for_user_query.rb core_matrix/app/services/embedded_agents/conversation_supervision/authority.rb core_matrix/app/services/conversation_control/authorize_request.rb core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb core_matrix/test
+git add core_matrix/app/queries/workspaces/for_user_query.rb core_matrix/app/controllers/app_api/base_controller.rb core_matrix/app/services/embedded_agents/conversation_supervision/authority.rb core_matrix/app/services/conversation_control/authorize_request.rb core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb core_matrix/test
 git commit -m "refactor: gate workspace and conversation access by visibility"
 ```
 

@@ -15,8 +15,8 @@ This design applies to:
 
 - `core_matrix` domain models, queries, services, tests, and docs
 - bundled bootstrap defaults for `Fenix` and `Nexus`
-- workspace and conversation usability rules that depend on the bound `Agent`
-  and `ExecutionRuntime`
+- app-facing workspace and conversation usability rules that depend on the
+  bound `Agent` and `ExecutionRuntime`
 
 This design does not apply to:
 
@@ -86,8 +86,10 @@ These rules stay in model/service code as data and business invariants:
 - `owner_user = nil` requires `provisioning_origin = system`.
 - ownerless resources cannot be switched to `private`.
 
-No actor authorization rules are enforced at the service layer. API/UI
-authorization will be added later, with `Pundit` as the preferred direction.
+No general actor authorization framework is enforced at the service layer.
+Later API/UI authorization should use `Pundit` by default. This batch only
+ensures that app-facing lists and entry points do not expose resources that are
+no longer usable under the current visibility state.
 
 ## Bootstrap Rules
 
@@ -170,7 +172,7 @@ Primary code paths that must move together:
 - bundled bootstrap
 - agent visible-to-user query
 - new execution-runtime visible-to-user query
-- workspace and conversation access entry points
+- app-facing workspace and conversation access entry points
 - tests, helpers, seeds, and docs that still use `global/personal`
 
 ## Verification
