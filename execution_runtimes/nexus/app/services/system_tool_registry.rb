@@ -47,7 +47,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "command_run",
       "mutates_state" => true,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/command_run",
+      "implementation_ref" => "nexus/command_run",
       "supports_streaming_output" => true,
       "input_schema" => {
         "type" => "object",
@@ -66,7 +66,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "command_run",
       "mutates_state" => true,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/command_run",
+      "implementation_ref" => "nexus/command_run",
       "supports_streaming_output" => true,
       "input_schema" => {
         "type" => "object",
@@ -87,7 +87,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "command_run",
       "mutates_state" => false,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/command_run",
+      "implementation_ref" => "nexus/command_run",
       "supports_streaming_output" => false,
       "input_schema" => { "type" => "object", "properties" => {} },
     },
@@ -98,7 +98,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "command_run",
       "mutates_state" => false,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/command_run",
+      "implementation_ref" => "nexus/command_run",
       "supports_streaming_output" => true,
       "input_schema" => {
         "type" => "object",
@@ -115,7 +115,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "command_run",
       "mutates_state" => false,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/command_run",
+      "implementation_ref" => "nexus/command_run",
       "supports_streaming_output" => true,
       "input_schema" => {
         "type" => "object",
@@ -133,7 +133,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "command_run",
       "mutates_state" => true,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/command_run",
+      "implementation_ref" => "nexus/command_run",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -159,7 +159,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "process_run",
       "mutates_state" => true,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/process_run",
+      "implementation_ref" => "nexus/process_run",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -178,7 +178,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "process_run",
       "mutates_state" => false,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/process_run",
+      "implementation_ref" => "nexus/process_run",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -192,7 +192,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "process_run",
       "mutates_state" => false,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/process_run",
+      "implementation_ref" => "nexus/process_run",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -209,7 +209,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "process_run",
       "mutates_state" => false,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/process_run",
+      "implementation_ref" => "nexus/process_run",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -235,7 +235,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "browser_session",
       "mutates_state" => true,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/browser_session",
+      "implementation_ref" => "nexus/browser_session",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -251,7 +251,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "browser_session",
       "mutates_state" => false,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/browser_session",
+      "implementation_ref" => "nexus/browser_session",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -265,7 +265,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "browser_session",
       "mutates_state" => true,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/browser_session",
+      "implementation_ref" => "nexus/browser_session",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -283,7 +283,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "browser_session",
       "mutates_state" => false,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/browser_session",
+      "implementation_ref" => "nexus/browser_session",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -300,7 +300,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "browser_session",
       "mutates_state" => false,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/browser_session",
+      "implementation_ref" => "nexus/browser_session",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -317,7 +317,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "browser_session",
       "mutates_state" => false,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/browser_session",
+      "implementation_ref" => "nexus/browser_session",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",
@@ -335,7 +335,7 @@ class SystemToolRegistry
       "resource_identity_kind" => "browser_session",
       "mutates_state" => true,
       "implementation_source" => "execution_runtime",
-      "implementation_ref" => "nexus/executor/browser_session",
+      "implementation_ref" => "nexus/browser_session",
       "supports_streaming_output" => false,
       "input_schema" => {
         "type" => "object",

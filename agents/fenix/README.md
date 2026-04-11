@@ -1,15 +1,16 @@
 # Fenix
 
-`fenix` is the default out-of-the-box agent for Core Matrix.
+`fenix` is the default bundled agent for Core Matrix.
 
-Fenix has two jobs:
-
-- ship as a usable general assistant product
-- serve as the first technical validation agent for the Core Matrix loop
+Fenix is now an agent-only service. It owns prompt assembly, agent-owned tools,
+and agent mailbox handling. It does not execute runtime tools, manage detached
+processes, host browser sessions, or persist filesystem-backed skills or
+memory. Those responsibilities belong to
+[execution_runtimes/nexus](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus).
 
 ## Monorepo Role
 
-`agents/fenix` is the active cowork app in this monorepo.
+`agents/fenix` is the active cowork app for the bundled agent in this monorepo.
 
 - active agent/product work lands in `agents/fenix`
 - the default bundled execution runtime lives in `execution_runtimes/nexus`
@@ -27,519 +28,126 @@ bin/rails db:test:prepare
 bin/rails test
 ```
 
-## Product Definition
+## Responsibilities
 
-Fenix is a practical assistant that combines:
+Fenix currently owns:
 
-- general-assistant session behavior inspired by `openclaw`
-- coding-assistant behavior inspired by Codex-style workflows
-- everyday office-assistance behavior inspired by `accomplish` and `maxclaw`
+- agent prompt assembly
+- agent mailbox request handling
+- agent-owned deterministic tools
+- profile and subagent defaults
+- supervision-oriented agent behaviors
 
-Fenix may define agent-specific tools, deterministic logic, and
-composer completions such as slash commands or symbol-triggered references. It
-does not need every interaction to be driven by an LLM.
+Fenix currently does not own:
 
-## Boundary
+- execution-runtime tool execution
+- command runs or detached processes
+- browser sessions
+- filesystem-backed skill repositories
+- filesystem-backed memory storage
 
-Fenix is not:
+When a turn needs runtime-backed context such as skills or memory, Core Matrix
+freezes and forwards those materials into the agent request payload. Fenix
+consumes `memory_context` and `skill_context`; it does not resolve them from
+the local filesystem.
 
-- the kernel itself
-- the home for every future product shape
-- a universal agent meant to absorb all future experiments
+## Pairing Surface
 
-When Core Matrix needs to validate materially different product shapes, those
-should land in separate agents rather than forcing them into Fenix.
-
-## Role Today
-
-- prove the real agent loop end to end
-- become the first full Web product on top of the validated kernel
-- remain one validated product while other agents prove the
-  kernel is reusable beyond Fenix
-
-## Registration Surface
-
-`Fenix` now exposes one stable agent-facing pairing endpoint:
+Fenix exposes one pairing endpoint:
 
 - `GET /runtime/manifest`
 
-`GET /runtime/manifest` publishes the agent registration metadata needed for
-external pairing:
+The manifest advertises:
 
-- protocol version
-- SDK version
-- protocol methods
-- tool catalog
-- `profile_catalog`
-- `agent_plane`
-- `agent_plane`
-- config schema snapshots
-- default config snapshot
+- agent identity and fingerprint
+- protocol and SDK versions
+- supported control-plane methods
+- agent-owned tool catalog
+- profile catalog
+- agent-plane config snapshots
 
-The manifest declares agent-owned profile and subagent defaults:
+The current pairing contract models Fenix as an agent-only participant.
 
-- `default_config_snapshot.interactive.profile` is fixed to `main` for root
-  interactive sessions in this batch
-- `default_config_snapshot.model_slots.summary`
-  - points supervision sidechat summarization at `role:summary`
-- `default_config_snapshot.subagents.enabled`
-- `default_config_snapshot.subagents.allow_nested`
-- `default_config_snapshot.subagents.max_depth`
-- `conversation_override_schema_snapshot` exposes only `subagents.*`
-
-The current pairing contract models `Fenix` as an agent-only participant.
-
-`Core Matrix` is the orchestration truth and delivers agent-plane mailbox items
-through the control plane:
+Core Matrix remains the orchestration source of truth and delivers agent work
+through the agent control plane:
 
 - realtime push over `/cable`
 - `POST /agent_api/control/poll` fallback delivery
 - `POST /agent_api/control/report` for incremental reports back into the kernel
 
-The manifest therefore exists for registration and capability advertisement,
-not for direct execution dispatch. Execution resources, filesystem-backed skill
-assets, and filesystem-backed memory now belong to `execution_runtimes/nexus`.
+## Agent Request Surface
 
-Long-lived runtime resources also require a persistent mailbox worker.
-`Fenix` ships:
+Fenix handles these mailbox request kinds:
 
-- `bin/rails runtime:control_loop_once`
-  - one-shot realtime-or-poll worker used for targeted checks and short-lived
-    mailbox execution
-- `bin/rails runtime:control_loop_forever`
-  - persistent websocket-first worker that retains local `ProcessRun` handles
-    across mailbox iterations so later close requests can settle gracefully
-- `bin/jobs start`
-  - starts the local Solid Queue workers that execute `MailboxExecutionJob`
-    across the runtime topology queues
-  - only needed in the standalone worker topology, where the web process runs
-    with `STANDALONE_SOLID_QUEUE=true`
-- `bin/runtime-worker`
-  - convenience wrapper for the external runtime worker process
-  - always runs `bin/rails runtime:control_loop_forever`
-  - when `STANDALONE_SOLID_QUEUE=true`, it also starts `bin/jobs start` in the
-    background before entering the control loop
+- `prepare_round`
+- `execute_tool`
+- `supervision_status_refresh`
+- `supervision_guidance`
 
-When `Fenix` is registered as an external runtime, the control loop and the job
-worker must run with the same `CORE_MATRIX_BASE_URL` and
-`CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL`.
-
-In the default single-service deployment, Puma embeds the Solid Queue
-supervisor, so only the control loop must be started separately. When you
-split web and worker responsibilities across processes, enable
-`STANDALONE_SOLID_QUEUE=true` for the web process and run either `bin/jobs
-start` plus `bin/rails runtime:control_loop_forever`, or use
-`bin/runtime-worker`.
-
-Detached long-lived services therefore follow this contract:
-
-- `process_exec` first asks Core Matrix to create one `ProcessRun`
-- `Fenix` launches the local process only after that durable resource exists
-- the persistent control worker reports `process_started`, `process_output`,
-  `process_exited`, and `resource_close_*` over the control plane
-
-Detached process tools are implemented directly in the runtime service layer:
-
-- [process.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/execution_runtime/tool_executors/process.rb)
-- [launcher.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/execution_runtime/processes/launcher.rb)
-- [manager.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/execution_runtime/processes/manager.rb)
-- [proxy_registry.rb](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/execution_runtime/processes/proxy_registry.rb)
-
-When a tool call passes `proxy_port`, `Fenix` also registers a stable fixed-port
-proxy path under `/dev/<process_run_id>/*`. The proxy registry renders Caddy
-routes into `tmp/dev-proxy/routes.caddy`, and
-[bin/fenix-dev-proxy](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/fenix-dev-proxy)
-boots Caddy with [config/caddy/Caddyfile](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/config/caddy/Caddyfile)
-to expose those paths on the external proxy port.
-
-## Web Tool Surface
-
-`Fenix` now exposes a first local web capability slice through the execution
-tool catalog:
-
-- `web_fetch`
-  - local `http/https` fetch with SSRF/private-address blocking
-  - redirect targets are revalidated before following
-  - HTML is reduced to readable text for the agent-facing payload
-- `web_search`
-  - generic provider-backed search entrypoint
-  - current default provider is Firecrawl
-- `firecrawl_search`
-  - explicit Firecrawl search surface
-- `firecrawl_scrape`
-  - explicit Firecrawl scrape surface
-
-Firecrawl-backed tools use:
-
-- `FIRECRAWL_API_KEY`
-  - required for `web_search`, `firecrawl_search`, and `firecrawl_scrape`
-- `FIRECRAWL_BASE_URL`
-  - optional override
-  - defaults to `https://api.firecrawl.dev`
-
-## Browser Tool Surface
-
-`Fenix` now exposes a dedicated browser session surface:
-
-- `browser_list`
-- `browser_open`
-- `browser_navigate`
-- `browser_session_info`
-- `browser_get_content`
-- `browser_screenshot`
-- `browser_close`
-
-Browser sessions remain runtime-local handles rather than kernel-owned
-resources. The first cut uses Playwright-managed Chromium through
-[session_host.mjs](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/scripts/browser/session_host.mjs).
-
-Internally, `Fenix` is now split into:
-
-- `Agent`
-  - prompts, memory, skills, and agent request handling
-- `ExecutionRuntime`
-  - command runs, detached processes, browser sessions, and runtime tool registry
-- `Shared`
-  - control-plane transport, environment overlays, and shared value objects
-
-`Runtime` remains only as the appliance/entry layer that routes mailbox
-work, runs the control loop, and assembles the external manifest.
-
-Docker deployments inherit Playwright plus Chromium from
-[images/nexus](/Users/jasl/Workspaces/Ruby/cybros/images/nexus). Bare-metal
-operators can override the browser executable path with:
-
-- `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`
-
-Bare-metal hosts also need a globally installed Playwright package that matches
-the Nexus matrix. `Fenix` then uses `uv` to provision a managed Python runtime
-under `FENIX_HOME_ROOT/python`, defaulting to `~/.fenix/python` when
-`FENIX_HOME_ROOT` is unset. Once the agent boots, `python`, `python3`, `pip`,
-and `pip3` resolve from that managed runtime inside the agent process. A
-typical host bootstrap looks like:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros
-npm install -g "playwright@$(awk -F= '/^PLAYWRIGHT_VERSION=/{print $2}' images/nexus/versions.env)"
-playwright install chromium
-bin/check-runtime-host
-```
-
-## Runtime Command Matrix
-
-Inside the running `Fenix` agent process, the out-of-the-box command surface is:
-
-- system-level commands available without bootstrap:
-  - `ruby`, `bundle`
-  - `node`, `npm`, `pnpm`, `corepack`
-  - `playwright`, `vite`, `create-vite`
-  - `uv`
-  - `go`
-  - `rustc`, `cargo`
-  - `git`, `curl`, `jq`, `rg`, `fd`, `sqlite3`
-  - Chromium/Chrome browser executables
-- managed runtime commands available after `Fenix` bootstraps the host:
-  - `python`, `python3`
-  - `pip`, `pip3`
-
-That split is intentional:
-
-- `images/nexus` provides the stable system toolchain directly
-- `Fenix` owns the managed Python runtime under `FENIX_HOME_ROOT/python`
-- agent-executed commands see both layers through the process `PATH`
-
-## Workspace Env Overlay
-
-`Fenix` now supports one workspace-scoped execution overlay file:
-
-- `.fenix/workspace.env`
-
-The overlay is intentionally narrow:
-
-- it applies only to `exec_command`
-- it applies only to `process_exec`
-- it merges over the runtime baseline `ENV` for that child process only
-- it does not mutate the Rails/Fenix process `ENV`
-- it does not apply to Rails boot, mailbox workers, browser sessions, or skill
-  repository scope
-
-Parsing rules are strict:
-
-- blank lines are ignored
-- `#` comments are ignored
-- `export KEY=value` is accepted
-- only `KEY=VALUE` assignments are accepted
-- keys must match `\A[A-Z][A-Z0-9_]*\z`
-- no shell evaluation, interpolation, or multiline values
-
-Reserved runtime-owned keys are rejected instead of silently ignored. The first
-cut blocks overlays for:
-
-- `CORE_MATRIX_*`
-- `ACTIVE_RECORD_ENCRYPTION__*`
-- `SECRET_KEY_BASE`
-- `RAILS_ENV`
-- `DATABASE_URL`
-- `BUNDLE_GEMFILE`
-- `BUNDLE_PATH`
-- `FENIX_HOME_ROOT`
-- `FENIX_PYTHON_ROOT`
-- `FENIX_PYTHON_INSTALL_ROOT`
-- `UV_PYTHON_INSTALL_DIR`
-- `PLAYWRIGHT_BROWSERS_PATH`
-- `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`
-- `PATH`
-
-Example:
-
-```dotenv
-HELLO=workspace
-FEATURE_FLAG=enabled
-```
-
-From that workspace, `exec_command` and `process_exec` child processes see
-those values. If the file is invalid, the execution request fails with the
-normal tool validation error envelope.
-
-## Operator Surface
-
-The current runtime surface is organized around five operator object families:
-
-- `workspace`
-- `memory`
-- `command_run`
-- `process_run`
-- `browser_session`
-
-That object model is reflected in the pairing manifest, local `.fenix`
-operator snapshot, and the built-in operator prompt layer.
-
-Attached command runs currently expose:
-
-- `exec_command`
-- `write_stdin`
-- `command_run_list`
-- `command_run_read_output`
-- `command_run_wait`
-- `command_run_terminate`
-
-Detached process runs currently expose:
-
-- `process_exec`
-- `process_list`
-- `process_read_output`
-- `process_proxy_info`
-
-Browser sessions currently expose:
-
-- `browser_list`
-- `browser_open`
-- `browser_session_info`
-- `browser_navigate`
-- `browser_get_content`
-- `browser_screenshot`
-- `browser_close`
-
-## Agent Tool Slice
-
-The built-in agent tools are currently:
+Agent-owned tools are intentionally small:
 
 - `compact_context`
 - `calculator`
 
-`compact_context` remains an agent-owned helper. It estimates token load from
-the provided messages, applies the advisory compaction threshold from
-`budget_hints`, and emits a compacted message list when necessary. The only
-current model hint consumed by this helper is:
+Runtime-backed tool names can still appear in `agent_context.allowed_tool_names`
+because Core Matrix freezes the conversation-visible tool set for the turn.
+Fenix may reference those names in prompts, but it does not execute them
+locally.
 
-- `payload.provider_context.model_context.model_slug`
+Core Matrix composes the conversation-visible tool surface from
+`ExecutionRuntime`, `Agent`, and `Core Matrix` catalogs in that precedence
+order, then freezes `ToolBinding` rows before execution. Fenix only receives
+`execute_tool` requests for bindings whose winning implementation source is the
+agent.
 
-There is no separate `estimate_tokens` or `estimate_messages` runtime surface.
-Those heuristics now live inside the agent-owned tool implementation itself.
+## Worker Topology
 
-## Current Validation Path
+Fenix ships the same mailbox worker entrypoints as the rest of the platform,
+but they operate only on agent-plane work:
 
-The current runtime validation path is intentionally small and deterministic:
+- `bin/rails runtime:control_loop_once`
+- `bin/rails runtime:control_loop_forever`
+- `bin/jobs start`
+- `bin/runtime-worker`
 
-- `deterministic_tool` validates a local calculator tool call and finalizes a
-  user-facing output
-- `raise_error` proves the error hook and terminal failure reporting
+Long-lived runtime handles are not retained here anymore. The persistent worker
+exists to keep the agent control-plane connection healthy and to settle
+agent-owned close requests such as agent task runs or subagent connections.
 
-This preserves the runtime-stage contract needed for later mixed
-code-plus-LLM execution without forcing prompt building or provider transport
-back into the kernel.
+## Service Layout
 
-Prompt building, prompt-template choice, and profile-specific tool semantics
-remain inside `Fenix`. Core Matrix computes and freezes the
-conversation-visible tool set into `agent_context.allowed_tool_names`, and
-`Fenix` enforces that frozen set at execution time when handling
-`execute_tool`.
+Product services now live directly under `app/services`:
 
-## Skill Surface
+- `build_round_instructions.rb`
+- `hooks/`
+- `prompts/`
+- `requests/`
+- `runtime/`
+- `shared/`
 
-`Fenix` now keeps the skill boundary inside the agent rather
-than pushing skills into `Core Matrix`.
+There is no active `app/services/execution_runtime` tree in Fenix.
 
-Skill roots are separated intentionally:
+## Deployment
 
-- `skills/.system/<name>/` for reserved built-in `Fenix` skills
-- `skills/.curated/<name>/` for bundled curated catalog entries
-- `~/.fenix/skills-scopes/<agent_public_id>/<user_public_id>/live/<name>/` for installed third-party skills
-- `~/.fenix/skills-scopes/<agent_public_id>/<user_public_id>/staging/<nonce>/<name>/` for staged installs
-- `~/.fenix/skills-scopes/<agent_public_id>/<user_public_id>/backups/<timestamp>-<name>/` for replaced live backups
+Fenix is deployed as a lightweight agent service and is intended to run
+alongside Core Matrix plus one or more execution runtimes.
 
-The current minimal skill surface is:
-
-- `skills_catalog_list`
-- `skills_load`
-- `skills_read_file`
-- `skills_install`
-
-That surface is sufficient to:
-
-- discover reserved system skills and bundled curated entries
-- load one active system or installed skill body on demand
-- read additional files relative to an active skill root
-- stage and promote a third-party skill into the scoped live root
-
-The default writable runtime home is `~/.fenix`. In host mode, `Fenix` stores:
-
-- runtime skill state under `~/.fenix/skills-scopes/...`
-- uv-managed Python under `~/.fenix/python`
-- downloaded managed Python toolchains under `~/.fenix/toolchains/python`
-
-In Docker or any other ephemeral runtime environment, set `FENIX_HOME_ROOT`
-to a persistent volume-backed path such as `/rails/storage/fenix-home` so
-installed skills, the managed Python runtime, and downloaded Python toolchains
-survive container replacement.
-
-The current runtime keeps two explicit rules:
-
-- `.system` skill names are reserved and may not be overridden
-- installs become effective on the next top-level turn, not mid-turn
-
-The built-in `deploy-agent` system skill exists to prove that `Fenix` can use
-its own skill mechanism for an operational workflow, not just passive
-instruction storage.
-
-## Manual Acceptance Runtime Layout
-
-The retained manual-acceptance layout uses one `Fenix` runtime base URL:
-
-- `AGENT_FENIX_PORT=3101 bin/dev`
-  - default bundled/external runtime validation
-  - dedicated skills-validation scenario execution
-  - bundled mailbox execution
-  - external pairing
-  - deployment rotation
-  - pairs with `bin/runtime-worker` for external mailbox execution and
-    long-lived `ProcessRun` validation
-  - `FENIX_HOME_ROOT=/tmp/acceptance-fenix-home` in host validation
-  - `FENIX_HOME_ROOT=/rails/storage/fenix-home` inside docker validation
-
-The skills-validation scenario keeps scoped skill writes out of the repo tree
-by using a dedicated disposable `FENIX_HOME_ROOT`, not a separate runtime port.
-The manual acceptance scripts clear only that dedicated acceptance home root,
-never a shared global live or staging root.
-
-## Deployment Rotation
-
-`Fenix` treats release change as deployment rotation:
-
-- boot a new `Fenix` release as a new deployment
-- expose the same manifest and mailbox control contract
-- register it with Core Matrix
-- cut future work over once the new deployment reaches healthy runtime
-  participation
-
-There is no in-place self-updater in the current runtime. Upgrade and downgrade are the
-same kernel-facing operation.
-
-## Distribution Contract
-
-`Fenix` now documents one concrete distribution shape that matches the pairing
-manifest:
-
-- Docker on top of `images/nexus` is the default deployment path
-- Ubuntu 24.04 is the canonical bare-metal host
-- macOS remains a best-effort development environment
-
-### Docker On `images/nexus`
-
-Build the cowork runtime base first, then build the app image on top of it:
-
-```bash
-docker build -f images/nexus/Dockerfile -t nexus-local .
-docker build --build-arg NEXUS_BASE_IMAGE=nexus-local:latest -f agents/fenix/Dockerfile -t fenix-local agents/fenix
-```
-
-For local container runs:
-
-1. Copy [env.sample](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/env.sample) to `.env`
-2. Fill in `CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL` and either:
-   - keep runtime secrets in the env file for container deployments, or
-   - leave them blank and mount Rails credentials intentionally
-3. Start the app image with `docker run --env-file ./.env -p 3101:80 fenix-local`
-   - the Docker image defaults to `RAILS_ENV=production`
-
-The app image intentionally owns only app-local responsibilities:
-
-- copy source into `/rails`
-- install gems from `Gemfile.lock`
-- precompile bootsnap caches
-- provide the Rails entrypoint and default server command
-
-The broad cowork toolchain baseline lives in
+The heavy runtime/toolchain baseline lives in `images/nexus`, documented at
 [images/nexus](/Users/jasl/Workspaces/Ruby/cybros/images/nexus), not in the
-`fenix` app image.
+Fenix app image.
 
-Key environment variables in the sample:
+The default local stack is:
 
-- `SECRET_KEY_BASE=...`
-  - optional when Rails credentials already provide `secret_key_base`
-  - `Fenix` resolves it through `Rails.app.creds`, which prefers ENV over the
-    encrypted credentials file
-  - for container deployments, prefer keeping it in the env file used by
-    `docker run --env-file` or Compose `env_file`
-- `ACTIVE_RECORD_ENCRYPTION__*`
-  - optional when Rails credentials already provide
-    `active_record_encryption.*`
-  - for container deployments, keep them in the same env file as
-    `SECRET_KEY_BASE`
-- `FENIX_PUBLIC_BASE_URL=http://localhost:3101`
-  - the sample publishes the reachable manifest base URL explicitly
-  - set this to the externally reachable origin when a reverse proxy or TLS
-    terminator changes the public scheme/host/port
-- `CORE_MATRIX_BASE_URL`
-- `CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL`
-- `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=...`
-  - optional bare-metal override when Chromium is not on `PATH`
-- `FENIX_DEV_PROXY_PORT=3310`
-- `FENIX_DEV_PROXY_ROUTES_FILE=/rails/tmp/dev-proxy/routes.caddy`
+- `core_matrix`
+- `fenix`
+- `nexus`
 
-### Ubuntu 24.04 Bare Metal
+Fenix pairs with Core Matrix using `CORE_MATRIX_BASE_URL` and
+`CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL`. Execution happens through the
+selected execution runtime rather than inside the Fenix container or host.
 
-The canonical bare-metal target is Ubuntu 24.04. Operators should:
-
-- run [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/check-runtime-host)
-- satisfy any missing prerequisites it reports
-- provide `CORE_MATRIX_BASE_URL` and `CORE_MATRIX_AGENT_CONNECTION_CREDENTIAL`
-- provide runtime secrets either through ENV or by populating Rails credentials
-  with `bin/rails credentials:edit`
-- start the Rails runtime and any app-local worker processes the deployment
-  topology requires
-
-### macOS Development Caveats
-
-macOS is supported for development and validation, but not treated as the
-canonical appliance baseline:
-
-- run [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/bin/check-runtime-host)
-- satisfy any missing prerequisites it reports
-- keep using `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` only when you intentionally
-  want a non-default browser binary
-
-## License
-
-The `fenix` project is licensed under the O'Saasy License Agreement. See
-[LICENSE.md](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/LICENSE.md).
+An execution runtime is optional at conversation time. When no execution
+runtime is selected and no default execution runtime is available, Fenix can
+still drive agent-only conversations with prompt assembly plus any
+agent-owned or Core Matrix-owned tools that remain visible after profile
+policy masking.

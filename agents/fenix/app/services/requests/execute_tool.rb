@@ -7,10 +7,8 @@ module Requests
       new(...).call
     end
 
-    def initialize(payload:, supported_system_tool_names: [], system_tool_executor: nil)
+    def initialize(payload:)
       @payload = payload.deep_stringify_keys
-      @supported_system_tool_names = Array(supported_system_tool_names).map(&:to_s)
-      @system_tool_executor = system_tool_executor
     end
 
     def call
@@ -58,18 +56,6 @@ module Requests
           "output_chunks" => [],
           "summary_artifacts" => [],
         }
-      when *@supported_system_tool_names
-        execution = @system_tool_executor.call(
-          payload_context: payload_context,
-          tool_call: tool_call,
-          runtime_resource_refs: runtime_resource_refs
-        )
-
-        {
-          "result" => execution.tool_result,
-          "output_chunks" => execution.output_chunks,
-          "summary_artifacts" => [],
-        }
       else
         raise UnsupportedToolError, "unsupported agent tool #{tool_call.fetch("tool_name")}"
       end
@@ -87,10 +73,6 @@ module Requests
 
     def payload_context
       @payload_context ||= Shared::PayloadContext.call(payload: @payload)
-    end
-
-    def runtime_resource_refs
-      @runtime_resource_refs ||= @payload.fetch("runtime_resource_refs", {}).deep_stringify_keys
     end
 
     def tool_call

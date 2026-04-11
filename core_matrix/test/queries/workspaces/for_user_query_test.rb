@@ -63,4 +63,21 @@ class Workspaces::ForUserQueryTest < ActiveSupport::TestCase
 
     assert_equal [], Workspaces::ForUserQuery.call(user: context[:user])
   end
+
+  test "keeps workspaces visible when the default execution runtime becomes unusable" do
+    context = create_workspace_context!
+    replacement_owner = create_user!(
+      installation: context[:installation],
+      identity: create_identity!,
+      display_name: "Runtime Owner"
+    )
+
+    context[:execution_runtime].update!(
+      visibility: "private",
+      provisioning_origin: "user_created",
+      owner_user: replacement_owner
+    )
+
+    assert_equal [context[:workspace]], Workspaces::ForUserQuery.call(user: context[:user])
+  end
 end

@@ -10,7 +10,10 @@ module Turns
     end
 
     def call
-      runtime = @requested_execution_runtime || previous_turn_runtime || @conversation.agent.default_execution_runtime
+      runtime = @requested_execution_runtime ||
+        previous_turn_runtime ||
+        @conversation.workspace.default_execution_runtime ||
+        @conversation.agent.default_execution_runtime
       return nil if runtime.blank?
       return runtime if ExecutionRuntimeConnection.exists?(execution_runtime: runtime, lifecycle_state: "active")
 

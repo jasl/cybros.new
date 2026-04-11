@@ -6,6 +6,7 @@ class Workspace < ApplicationRecord
   belongs_to :installation
   belongs_to :user
   belongs_to :user_agent_binding
+  belongs_to :default_execution_runtime, class_name: "ExecutionRuntime", optional: true
 
   has_many :canonical_variables, dependent: :restrict_with_exception
 
@@ -14,6 +15,7 @@ class Workspace < ApplicationRecord
   validate :user_installation_match
   validate :binding_installation_match
   validate :binding_user_match
+  validate :default_execution_runtime_installation_match
   validate :single_default_workspace
 
   def private_workspace? = privacy == "private"
@@ -39,6 +41,13 @@ class Workspace < ApplicationRecord
     return if user_agent_binding.user_id == user_id
 
     errors.add(:user, "must match the binding owner")
+  end
+
+  def default_execution_runtime_installation_match
+    return if default_execution_runtime.blank?
+    return if default_execution_runtime.installation_id == installation_id
+
+    errors.add(:default_execution_runtime, "must belong to the same installation")
   end
 
   def single_default_workspace

@@ -25,24 +25,30 @@ class RuntimeParallelWorkTest < ActiveSupport::TestCase
     current_concurrency = 0
     mutex = Mutex.new
 
-    dispatch = lambda do |task_payload:, runtime_context:|
+    handler = lambda do |payload:|
       mutex.synchronize do
         current_concurrency += 1
         max_concurrency = [max_concurrency, current_concurrency].max
       end
-      started << task_payload.fetch("correlation_id")
+      started << payload.dig("runtime_context", "logical_work_id")
       release.pop
-      { "kind" => "skill_flow", "output" => { "correlation_id" => task_payload.fetch("correlation_id") } }
+      {
+        "status" => "ok",
+        "messages" => [{ "role" => "system", "content" => "ready" }],
+        "visible_tool_names" => [],
+        "summary_artifacts" => [],
+        "trace" => [],
+      }
     ensure
       mutex.synchronize do
         current_concurrency -= 1
       end
     end
 
-    with_dispatch_mode_stub(dispatch) do
+    with_prepare_round_stub(handler) do
       2.times do |index|
         Runtime::MailboxWorker.call(
-          mailbox_item: execution_assignment_mailbox_item(index: index),
+          mailbox_item: agent_request_mailbox_item(index: index),
           inline: false
         )
       end
@@ -52,7 +58,7 @@ class RuntimeParallelWorkTest < ActiveSupport::TestCase
 
       worker_thread = Thread.new { worker.start }
 
-      assert_equal %w[job-0 job-1], wait_for_values(started, count: 2).sort
+      assert_equal %w[prepare-round:job-0 prepare-round:job-1], wait_for_values(started, count: 2).sort
 
       2.times { release << true }
 
@@ -64,22 +70,32 @@ class RuntimeParallelWorkTest < ActiveSupport::TestCase
 
   private
 
-  def execution_assignment_mailbox_item(index:)
+  def agent_request_mailbox_item(index:)
     {
-      "item_type" => "execution_assignment",
+      "item_type" => "agent_request",
       "item_id" => "mailbox-item-#{index}",
       "protocol_message_id" => "protocol-message-#{index}",
       "logical_work_id" => "logical-work-#{index}",
       "attempt_no" => 1,
       "control_plane" => "agent",
       "payload" => {
+        "request_kind" => "prepare_round",
         "runtime_context" => {
           "agent_id" => "agent-1",
           "user_id" => "user-1",
+          "logical_work_id" => "prepare-round:job-#{index}",
         },
-        "task_payload" => {
-          "mode" => "deterministic_tool",
-          "correlation_id" => "job-#{index}",
+        "task" => {
+          "conversation_id" => "conversation-1",
+          "turn_id" => "turn-1",
+          "workflow_node_id" => "node-#{index}",
+          "kind" => "turn_step",
+        },
+        "round_context" => {
+          "messages" => [
+            { "role" => "user", "content" => "job-#{index}" },
+          ],
+          "context_imports" => [],
         },
       },
     }
@@ -109,9 +125,9 @@ class RuntimeParallelWorkTest < ActiveSupport::TestCase
     nil
   end
 
-  def with_dispatch_mode_stub(replacement)
-    singleton = Runtime::Assignments::DispatchMode.singleton_class
-    original = Runtime::Assignments::DispatchMode.method(:call)
+  def with_prepare_round_stub(replacement)
+    singleton = Requests::PrepareRound.singleton_class
+    original = Requests::PrepareRound.method(:call)
 
     singleton.send(:define_method, :call, replacement)
     yield

@@ -1,6 +1,8 @@
 require "test_helper"
 
 class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   test "maps stale heartbeat timeouts to stale reports without mutating execution progress" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -124,6 +126,129 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     assert_equal "running", supervision_state.overall_state
     assert_equal "agent_task_run", supervision_state.current_owner_kind
     assert_equal agent_task_run.public_id, supervision_state.current_owner_public_id
+  end
+
+  test "execution_complete resumes blocked workflow nodes waiting on execution-runtime tool calls" do
+    runtime_tool = {
+      "tool_name" => "memory_search",
+      "tool_kind" => "execution_runtime",
+      "implementation_source" => "execution_runtime",
+      "implementation_ref" => "runtime/memory_search",
+      "input_schema" => {
+        "type" => "object",
+        "properties" => {
+          "query" => { "type" => "string" },
+        },
+      },
+      "result_schema" => {
+        "type" => "object",
+        "properties" => {
+          "entries" => { "type" => "array" },
+        },
+      },
+      "streaming_support" => false,
+      "idempotency_policy" => "best_effort",
+    }
+    context = build_governed_tool_context!(
+      execution_runtime_tool_catalog: [runtime_tool],
+      profile_catalog: {
+        "main" => {
+          "label" => "Main",
+          "description" => "Primary interactive profile",
+          "allowed_tool_names" => %w[memory_search compact_context subagent_spawn],
+        },
+      }
+    )
+    root_node = context.fetch(:workflow_node)
+    source_binding = ProviderExecution::MaterializeRoundTools.call(
+      workflow_node: root_node,
+      tool_catalog: [runtime_tool]
+    ).includes(:tool_definition, :tool_implementation).sole
+
+    Workflows::Mutate.call(
+      workflow_run: root_node.workflow_run,
+      nodes: [
+        {
+          node_key: "provider_round_1_tool_runtime",
+          node_type: "tool_call",
+          decision_source: "llm",
+          yielding_node_key: root_node.node_key,
+          metadata: {},
+          tool_call_payload: {
+            "call_id" => "call-runtime-1",
+            "tool_name" => "memory_search",
+            "arguments" => { "query" => "skills" },
+            "provider_format" => "chat_completions",
+          },
+        },
+      ],
+      edges: [
+        {
+          from_node_key: root_node.node_key,
+          to_node_key: "provider_round_1_tool_runtime",
+        },
+      ]
+    )
+
+    tool_node = root_node.workflow_run.reload.workflow_nodes.find_by!(node_key: "provider_round_1_tool_runtime")
+
+    ToolBinding.create!(
+      installation: tool_node.installation,
+      workflow_node: tool_node,
+      tool_definition: source_binding.tool_definition,
+      tool_implementation: source_binding.tool_implementation,
+      binding_reason: "snapshot_default",
+      runtime_state: source_binding.runtime_state,
+      round_scoped: source_binding.round_scoped,
+      parallel_safe: source_binding.parallel_safe
+    )
+
+    ProviderExecution::ExecuteToolNode.call(workflow_node: tool_node)
+
+    agent_task_run = AgentTaskRun.find_by!(workflow_node: tool_node, kind: "agent_tool_call")
+    mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: agent_task_run, item_type: "execution_assignment")
+    tool_invocation = tool_node.tool_invocations.sole
+
+    assert_equal "waiting", tool_node.reload.lifecycle_state
+    assert_equal "execution_runtime_request", root_node.workflow_run.reload.wait_reason_kind
+
+    report_execution_started!(
+      agent_snapshot: context.fetch(:agent_snapshot),
+      mailbox_item: mailbox_item,
+      agent_task_run: agent_task_run
+    )
+
+    assert_equal "waiting", tool_node.reload.lifecycle_state
+
+    assert_enqueued_with(job: Workflows::ExecuteNodeJob) do
+      report_execution_complete!(
+        agent_snapshot: context.fetch(:agent_snapshot),
+        mailbox_item: mailbox_item,
+        agent_task_run: agent_task_run,
+        terminal_payload: {
+          "tool_invocations" => [
+            {
+              "event" => "completed",
+              "tool_invocation_id" => tool_invocation.public_id,
+              "call_id" => "call-runtime-1",
+              "tool_name" => "memory_search",
+              "response_payload" => {
+                "entries" => [],
+              },
+            },
+          ],
+          "output" => "Execution runtime completed the requested tool call.",
+        }
+      )
+    end
+
+    workflow_run = root_node.workflow_run.reload
+
+    assert_equal "ready", workflow_run.wait_state
+    assert_nil workflow_run.wait_reason_kind
+    assert_includes %w[pending queued], tool_node.reload.lifecycle_state
+    assert_equal "completed", mailbox_item.reload.status
+    assert_equal "succeeded", tool_invocation.reload.status
   end
 
   test "execution_complete appends a semantic completion entry" do

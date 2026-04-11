@@ -151,7 +151,7 @@ governance stay separate concerns:
   - policy metadata for the snapshot-default implementation
 - the current governance modes are:
   - `reserved`: only the Core Matrix-owned implementation may be bound
-  - `whitelist_only`: the environment-approved default implementation must be
+  - `whitelist_only`: the execution-runtime-approved default implementation must be
     used
   - `replaceable`: alternate implementations under the same logical tool name
     may be selected explicitly
@@ -179,7 +179,7 @@ governance stay separate concerns:
 #### `ToolInvocation`
 
 - `ToolInvocation` records the lifecycle of one bound tool use
-- runtime-owned, environment-approved, and Core Matrix-reserved tools all use
+- runtime-owned, execution-runtime-approved, and Core Matrix-reserved tools all use
   the same invocation row shape
 - invocation history therefore stays source-agnostic:
   there is no separate durable table for reserved tools versus agent-exposed

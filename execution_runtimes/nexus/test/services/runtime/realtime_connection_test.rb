@@ -135,7 +135,7 @@ class Runtime::RealtimeConnectionTest < ActiveSupport::TestCase
       "item_id" => item_id,
       "control_plane" => "execution_runtime",
       "payload" => {
-        "request_kind" => "prepare_round",
+        "request_kind" => "execution_assignment",
       },
     }
   end

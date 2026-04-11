@@ -1849,6 +1849,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
 
   create_table "workspaces", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.bigint "default_execution_runtime_id"
     t.bigint "installation_id", null: false
     t.boolean "is_default", default: false, null: false
     t.string "name", null: false
@@ -1857,6 +1858,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.datetime "updated_at", null: false
     t.bigint "user_agent_binding_id", null: false
     t.bigint "user_id", null: false
+    t.index ["default_execution_runtime_id"], name: "index_workspaces_on_default_execution_runtime_id"
     t.index ["installation_id", "user_id"], name: "index_workspaces_on_installation_id_and_user_id"
     t.index ["installation_id"], name: "index_workspaces_on_installation_id"
     t.index ["public_id"], name: "index_workspaces_on_public_id", unique: true
@@ -2139,6 +2141,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "workflow_runs", "installations"
   add_foreign_key "workflow_runs", "json_documents", column: "wait_snapshot_document_id"
   add_foreign_key "workflow_runs", "turns"
+  add_foreign_key "workspaces", "execution_runtimes", column: "default_execution_runtime_id"
   add_foreign_key "workspaces", "installations"
   add_foreign_key "workspaces", "user_agent_bindings"
   add_foreign_key "workspaces", "users"

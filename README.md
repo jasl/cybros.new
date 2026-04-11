@@ -8,10 +8,13 @@ product, plus its bundled and companion runtimes such as Fenix and Nexus.
 - `CoreMatrix` is the kernel product. It owns agent-loop execution,
   conversation state, workflow scheduling, human-interaction primitives,
   runtime supervision, and platform-level governance.
-- `Fenix` is the default bundled agent. It is both a usable assistant product
-  and the first technical validation agent for the CoreMatrix loop.
+- `Fenix` is the default bundled agent. It is both a usable assistant product,
+  the first technical validation agent for the CoreMatrix loop, and an
+  optional agent-side tool provider.
 - `Nexus` is the default bundled execution runtime. It owns the local runtime
-  tool surface and runtime-side resource execution for the CoreMatrix loop.
+  tool surface and runtime-side resource execution for the CoreMatrix loop,
+  but conversations may also run without a runtime when only agent-side and
+  CoreMatrix-owned tools are needed.
 
 ## Documentation Lifecycle
 

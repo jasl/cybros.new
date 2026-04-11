@@ -26,6 +26,8 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     ], body.dig("execution_runtime_contract", "methods")
     assert_includes protocol_method_ids, "capabilities_handshake"
     assert_includes protocol_method_ids, "execution_started"
+    refute_includes protocol_method_ids, "agent_completed"
+    refute_includes protocol_method_ids, "agent_failed"
     assert_includes protocol_method_ids, "process_started"
     assert_includes protocol_method_ids, "process_output"
     assert_includes protocol_method_ids, "process_exited"

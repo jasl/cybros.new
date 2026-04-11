@@ -56,7 +56,7 @@ module ResourceVisibility
       return false unless binding.user_id == @user.id
 
       agent = fresh_record(binding.agent)
-      usable_record?(agent) && usable_record?(agent&.default_execution_runtime)
+      usable_record?(agent)
     end
 
     def conversation_accessible?
@@ -64,7 +64,7 @@ module ResourceVisibility
       return false if conversation.blank?
       return false unless workspace_accessible_for?(conversation.workspace)
 
-      usable_record?(resolved_execution_runtime_for(conversation))
+      usable_record?(fresh_record(conversation.agent))
     end
 
     private
@@ -96,13 +96,6 @@ module ResourceVisibility
       return record unless record.id.present?
 
       record.class.find_by(id: record.id)
-    end
-
-    def resolved_execution_runtime_for(conversation)
-      latest_turn_runtime_id = conversation.turns.order(sequence: :desc).limit(1).pick(:execution_runtime_id)
-      return ExecutionRuntime.find_by(id: latest_turn_runtime_id) if latest_turn_runtime_id.present?
-
-      conversation.agent.default_execution_runtime
     end
   end
 end

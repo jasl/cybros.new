@@ -6,11 +6,12 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, tool_call:, round_bindings:, agent_request_exchange: nil)
+    def initialize(workflow_node:, tool_call:, round_bindings:, agent_request_exchange: nil, execution_runtime_exchange: nil)
       @workflow_node = workflow_node
       @tool_call = tool_call.deep_stringify_keys
       @round_bindings = Array(round_bindings)
       @agent_request_exchange = agent_request_exchange || ProviderExecution::AgentRequestExchange.new(agent_snapshot: workflow_node.turn.agent_snapshot)
+      @execution_runtime_exchange = execution_runtime_exchange || ProviderExecution::ExecutionRuntimeExchange.new(execution_runtime: workflow_node.turn.execution_runtime)
     end
 
     def call
@@ -21,7 +22,8 @@ module ProviderExecution
           workflow_node: @workflow_node,
           tool_call: @tool_call,
           binding: binding,
-          agent_request_exchange: @agent_request_exchange
+          agent_request_exchange: @agent_request_exchange,
+          execution_runtime_exchange: @execution_runtime_exchange
         )
     end
 

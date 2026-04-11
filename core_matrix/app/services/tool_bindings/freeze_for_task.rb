@@ -22,17 +22,18 @@ module ToolBindings
         end
         implementation = ToolBindings::SelectImplementation.call(tool_definition: definition)
 
-        ToolBinding.find_or_create_by!(
+        binding = ToolBinding.find_or_initialize_by(
           agent_task_run: @agent_task_run,
           tool_definition: definition
-        ) do |binding|
-          binding.installation = @agent_task_run.installation
-          binding.tool_implementation = implementation
-          binding.binding_reason = "snapshot_default"
-          binding.round_scoped = false
-          binding.parallel_safe = execution_policy_for(definition:, implementation:)
-          binding.runtime_state = {}
-        end
+        )
+        binding.installation = @agent_task_run.installation
+        binding.workflow_node ||= @agent_task_run.workflow_node
+        binding.tool_implementation = implementation
+        binding.binding_reason = "snapshot_default"
+        binding.round_scoped = false
+        binding.parallel_safe = execution_policy_for(definition:, implementation:)
+        binding.runtime_state ||= {}
+        binding.save!
       end
 
       @agent_task_run.tool_bindings

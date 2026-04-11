@@ -40,11 +40,42 @@ module Shared
     end
 
     def round_context
-      @round_context ||= @payload.fetch("round_context", {}).deep_stringify_keys
+      @round_context ||= begin
+        explicit = @payload.fetch("round_context", {}).deep_stringify_keys
+        if explicit.present?
+          explicit
+        else
+          conversation_projection = @payload.fetch("conversation_projection", {}).deep_stringify_keys
+          {
+            "messages" => Array(conversation_projection["messages"]).map { |entry| entry.deep_stringify_keys },
+            "context_imports" => Array(conversation_projection["context_imports"]).map { |entry| entry.deep_stringify_keys },
+            "work_context_view" => conversation_projection["work_context_view"],
+          }.compact
+        end
+      end
     end
 
     def agent_context
       projected = @payload.fetch("agent_context", {}).deep_stringify_keys
+      if projected.blank?
+        capability_projection = @payload.fetch("capability_projection", {}).deep_stringify_keys
+        allowed_tool_names =
+          if @payload.dig("tool_call", "tool_name").present?
+            [@payload.dig("tool_call", "tool_name").to_s]
+          else
+            Array(capability_projection["tool_surface"]).map { |entry| entry.deep_stringify_keys.fetch("tool_name") }.uniq
+          end
+
+        projected = {
+          "profile" => capability_projection["profile_key"] || "main",
+          "is_subagent" => capability_projection["is_subagent"] == true,
+          "subagent_connection_id" => capability_projection["subagent_connection_id"],
+          "parent_subagent_connection_id" => capability_projection["parent_subagent_connection_id"],
+          "subagent_depth" => capability_projection["subagent_depth"],
+          "owner_conversation_id" => capability_projection["owner_conversation_id"],
+          "allowed_tool_names" => allowed_tool_names,
+        }.compact
+      end
 
       {
         "profile" => projected["profile"] || "main",

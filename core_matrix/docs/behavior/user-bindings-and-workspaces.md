@@ -22,6 +22,10 @@ registry and private workspaces: `User -> UserAgentBinding -> Workspace`.
 - Workspaces are always private in v1.
 - A binding may have many workspaces, but only one default workspace.
 - Workspace ownership follows the binding owner and installation boundary.
+- `Workspace` may optionally pin a default `ExecutionRuntime`.
+- That workspace-level default runtime overrides the agent-level default when
+  new turns resolve runtime selection and no explicit or prior-turn runtime is
+  present.
 
 ## Services
 
@@ -38,10 +42,14 @@ registry and private workspaces: `User -> UserAgentBinding -> Workspace`.
 - Reuses the existing default workspace when called again.
 - Derives workspace ownership from the binding instead of accepting ad hoc
   user or installation arguments.
+- Seeds the workspace default execution runtime from the bound agent's current
+  `default_execution_runtime`.
 
 ## Invariants
 
 - `Workspace` remains private and user-owned.
+- Workspace access does not depend on any execution runtime being present or
+  currently usable.
 - Default workspace uniqueness is scoped to `user_agent_binding_id`, not the
   installation.
 - Service orchestration owns enable/default-workspace side effects; models do

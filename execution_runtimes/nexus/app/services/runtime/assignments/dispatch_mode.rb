@@ -12,6 +12,8 @@ module Runtime
 
       def call
         case @task_payload["mode"]
+        when "tool_call"
+          { "kind" => "tool_call" }
         when "raise_error"
           { "kind" => "raise_error" }
         when "skills_catalog_list"

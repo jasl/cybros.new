@@ -7,7 +7,12 @@ class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
   test "creates or reuses one default workspace inside the binding ownership boundary" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user)
+    execution_runtime = create_execution_runtime!(installation: installation)
+    agent = create_agent!(
+      installation: installation,
+      default_execution_runtime: execution_runtime
+    )
+    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
 
     first = Workspaces::CreateDefault.call(user_agent_binding: binding)
     second = Workspaces::CreateDefault.call(user_agent_binding: binding)
@@ -16,7 +21,19 @@ class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
     assert_equal installation, first.installation
     assert_equal user, first.user
     assert first.private_workspace?
+    assert_equal execution_runtime, first.default_execution_runtime
     assert_equal 1, Workspace.where(user_agent_binding: binding, is_default: true).count
+  end
+
+  test "allows the default workspace execution runtime to remain nil when the agent has no default" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    agent = create_agent!(installation: installation, default_execution_runtime: nil)
+    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
+
+    workspace = Workspaces::CreateDefault.call(user_agent_binding: binding)
+
+    assert_nil workspace.default_execution_runtime
   end
 
   test "reuses the existing default workspace when a concurrent uniqueness validation wins the race" do

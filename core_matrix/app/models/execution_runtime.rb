@@ -15,6 +15,7 @@ class ExecutionRuntime < ApplicationRecord
   belongs_to :owner_user, class_name: "User", optional: true, inverse_of: :owned_execution_runtimes
 
   has_many :agents, foreign_key: :default_execution_runtime_id, dependent: :restrict_with_exception
+  has_many :workspaces, foreign_key: :default_execution_runtime_id, dependent: :restrict_with_exception
   has_many :turns, foreign_key: :execution_runtime_id, dependent: :restrict_with_exception
   has_many :process_runs, foreign_key: :execution_runtime_id, dependent: :restrict_with_exception
   has_many :execution_runtime_connections, dependent: :restrict_with_exception

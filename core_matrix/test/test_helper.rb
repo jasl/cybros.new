@@ -533,11 +533,12 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), user_agent_binding: create_user_agent_binding!(installation: installation, user: user), name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, **attrs)
+    def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), user_agent_binding: create_user_agent_binding!(installation: installation, user: user), default_execution_runtime: nil, name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, **attrs)
       Workspace.create!({
         installation: installation,
         user: user,
         user_agent_binding: user_agent_binding,
+        default_execution_runtime: default_execution_runtime,
         name: name,
         privacy: privacy,
         is_default: is_default,
@@ -574,7 +575,8 @@ module ActiveSupport
       workspace = create_workspace!(
         installation: installation,
         user: user,
-        user_agent_binding: user_agent_binding
+        user_agent_binding: user_agent_binding,
+        default_execution_runtime: execution_runtime
       )
 
       {

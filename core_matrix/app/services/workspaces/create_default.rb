@@ -26,6 +26,7 @@ module Workspaces
         installation: @user_agent_binding.installation,
         user: @user_agent_binding.user,
         user_agent_binding: @user_agent_binding,
+        default_execution_runtime: @user_agent_binding.agent.default_execution_runtime,
         name: @name,
         privacy: "private",
         is_default: true

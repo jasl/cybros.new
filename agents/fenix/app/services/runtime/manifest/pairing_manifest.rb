@@ -12,7 +12,7 @@ module Runtime
           "resource_identity_kind" => "agent_context",
           "mutates_state" => false,
           "implementation_source" => "agent",
-          "implementation_ref" => "fenix/agent/compact_context",
+          "implementation_ref" => "fenix/compact_context",
           "input_schema" => {
             "type" => "object",
             "properties" => {
@@ -37,13 +37,6 @@ module Runtime
         capabilities_refresh
         agent_completed
         agent_failed
-        execution_started
-        execution_progress
-        execution_complete
-        execution_fail
-        process_started
-        process_output
-        process_exited
         resource_close_request
         resource_close_acknowledged
         resource_closed

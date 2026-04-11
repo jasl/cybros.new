@@ -27,8 +27,6 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
   teardown do
     clear_enqueued_jobs
     clear_performed_jobs
-    ExecutionRuntime::Processes::Manager.reset!
-    ExecutionRuntime::Processes::ProxyRegistry.reset!
     Shared::Values::MailboxDeliveryTracker.reset!
 
     if @original_control_plane_client == :__undefined__
@@ -74,62 +72,13 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     assert_equal :handled, result
   end
 
-  test "process run close requests report failure when the local handle is missing" do
-    client = build_control_client
-
-    result = Runtime::MailboxWorker.call(
-      mailbox_item: close_request(resource_type: "ProcessRun", resource_id: "process-1"),
-      deliver_reports: true,
-      control_client: client
-    )
-
-    assert_equal :handled, result
-    assert_equal ["resource_close_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
-    assert_equal "ProcessRun", client.reported_payloads.last.fetch("resource_type")
-  end
-
-  test "process run close requests are delegated to the local process manager when a durable process is present" do
-    client = build_control_client
-    process_run_id = "process-#{SecureRandom.uuid}"
-
-    ExecutionRuntime::Processes::Manager.spawn!(
-      process_run_id: process_run_id,
-      runtime_owner_id: "task-1",
-      command_line: "trap 'exit 0' TERM; while :; do sleep 1; done",
-      control_client: client
-    )
-
-    assert_eventually do
-      client.reported_payloads.any? { |payload| payload["method_id"] == "process_started" && payload["resource_id"] == process_run_id }
-    end
-
-    result = Runtime::MailboxWorker.call(
-      mailbox_item: close_request(resource_type: "ProcessRun", resource_id: process_run_id),
-      deliver_reports: true,
-      control_client: client
-    )
-
-    assert_equal :handled, result
-
-    assert_eventually do
-      client.reported_payloads.any? { |payload| payload["method_id"] == "resource_closed" && payload["resource_id"] == process_run_id }
-    end
-
-    method_ids = client.reported_payloads
-      .select { |payload| payload["resource_id"] == process_run_id }
-      .map { |payload| payload.fetch("method_id") }
-
-    assert_includes method_ids, "resource_close_acknowledged"
-    assert_includes method_ids, "resource_closed"
-  end
-
   test "non-inline executable mailbox items enqueue the runtime mailbox job" do
     Shared::ControlPlane.client = build_control_client
-    mailbox_item = execution_assignment_mailbox_item
+    mailbox_item = executable_mailbox_item
 
     result = nil
 
-    assert_enqueued_with(job: Runtime::MailboxExecutionJob) do
+    assert_enqueued_with(job: MailboxExecutionJob) do
       result = Runtime::MailboxWorker.call(mailbox_item: mailbox_item, inline: false)
     end
 
@@ -140,9 +89,9 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
   test "queued executable mailbox items are settled by the runtime mailbox job" do
     client = build_control_client
     Shared::ControlPlane.client = client
-    mailbox_item = execution_assignment_mailbox_item
+    mailbox_item = executable_mailbox_item
 
-    assert_enqueued_with(job: Runtime::MailboxExecutionJob) do
+    assert_enqueued_with(job: MailboxExecutionJob) do
       Runtime::MailboxWorker.call(
         mailbox_item: mailbox_item,
         deliver_reports: true,
@@ -152,14 +101,13 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
 
     perform_enqueued_jobs
 
-    assert_equal ["execution_started", "execution_fail"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
-    assert_equal 30, client.reported_payloads.first.fetch("expected_duration_seconds")
+    assert_equal ["agent_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
     assert_equal mailbox_item.fetch("item_id"), client.reported_payloads.last.fetch("mailbox_item_id")
   end
 
   test "non-inline executable mailbox items ignore duplicate deliveries for the same mailbox item" do
     Shared::ControlPlane.client = build_control_client
-    mailbox_item = execution_assignment_mailbox_item
+    mailbox_item = executable_mailbox_item
 
     assert_enqueued_jobs 1 do
       Runtime::MailboxWorker.call(mailbox_item: mailbox_item, inline: false)
@@ -169,7 +117,7 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
 
   test "non-inline executable mailbox items allow redelivery when delivery number increases" do
     Shared::ControlPlane.client = build_control_client
-    mailbox_item = execution_assignment_mailbox_item
+    mailbox_item = executable_mailbox_item
 
     assert_enqueued_jobs 2 do
       Runtime::MailboxWorker.call(mailbox_item: mailbox_item, inline: false)
@@ -185,9 +133,9 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
       base_url: "https://core-matrix.example.test",
       agent_connection_credential: "agent-secret"
     )
-    mailbox_item = execution_assignment_mailbox_item
+    mailbox_item = executable_mailbox_item
 
-    assert_enqueued_with(job: Runtime::MailboxExecutionJob) do
+    assert_enqueued_with(job: MailboxExecutionJob) do
       Runtime::MailboxWorker.call(
         mailbox_item: mailbox_item,
         deliver_reports: true,
@@ -204,7 +152,7 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
 
   test "inline executable mailbox items emit terminal failure reports" do
     client = build_control_client
-    mailbox_item = execution_assignment_mailbox_item
+    mailbox_item = executable_mailbox_item
 
     result = Runtime::MailboxWorker.call(
       mailbox_item: mailbox_item,
@@ -214,9 +162,8 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     )
 
     assert_equal "failed", result.fetch("status")
-    assert_equal ["execution_started", "execution_fail"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
-    assert_equal 30, client.reported_payloads.first.fetch("expected_duration_seconds")
-    assert_equal "invalid_deterministic_tool_request", client.reported_payloads.last.dig("terminal_payload", "code")
+    assert_equal ["agent_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "tool_not_allowed", client.reported_payloads.last.dig("error_payload", "code")
   end
 
   private
@@ -239,15 +186,16 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     }
   end
 
-  def execution_assignment_mailbox_item
+  def executable_mailbox_item
     {
-      "item_type" => "execution_assignment",
+      "item_type" => "agent_request",
       "item_id" => "mailbox-item-1",
       "protocol_message_id" => "protocol-message-1",
       "logical_work_id" => "logical-work-1",
       "attempt_no" => 1,
       "control_plane" => "agent",
       "payload" => {
+        "request_kind" => "execute_tool",
         "task" => {
           "agent_task_run_id" => "task-1",
           "workflow_run_id" => "workflow-1",
@@ -255,17 +203,17 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
           "conversation_id" => "conversation-1",
           "turn_id" => "turn-1",
         },
+        "agent_context" => {
+          "allowed_tool_names" => [],
+        },
+        "tool_call" => {
+          "call_id" => "tool-call-1",
+          "tool_name" => "exec_command",
+          "arguments" => {
+            "command_line" => "pwd",
+          },
+        },
       },
     }
-  end
-
-  def assert_eventually(timeout_seconds: 2)
-    deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
-
-    until yield
-      raise "condition was not met before timeout" if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
-
-      sleep(0.01)
-    end
   end
 end

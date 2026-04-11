@@ -76,9 +76,7 @@ module Runtime
     end
 
     def call
-      return handle_agent_task_close! if agent_task_close_request?
       return handle_process_run_close! if process_run_close_request?
-      return handle_subagent_connection_close! if subagent_connection_close_request?
 
       raise UnsupportedMailboxItemError, "unsupported mailbox item #{@mailbox_item.fetch("item_type", "execution_assignment")}" unless executable_mailbox_item?
 
@@ -91,34 +89,13 @@ module Runtime
       @mailbox_item.fetch("item_type", "execution_assignment") == "execution_assignment"
     end
 
-    def agent_request?
-      @mailbox_item.fetch("item_type", nil) == "agent_request"
-    end
-
     def executable_mailbox_item?
-      execution_assignment? || agent_request?
-    end
-
-    def agent_task_close_request?
-      @mailbox_item.fetch("item_type", nil) == "resource_close_request" &&
-        @mailbox_item.dig("payload", "resource_type") == "AgentTaskRun"
+      execution_assignment?
     end
 
     def process_run_close_request?
       @mailbox_item.fetch("item_type", nil) == "resource_close_request" &&
         @mailbox_item.dig("payload", "resource_type") == "ProcessRun"
-    end
-
-    def subagent_connection_close_request?
-      @mailbox_item.fetch("item_type", nil) == "resource_close_request" &&
-        @mailbox_item.dig("payload", "resource_type") == "SubagentConnection"
-    end
-
-    def handle_agent_task_close!
-      self.class.instrument_execution(mailbox_item: @mailbox_item) do
-        report_close_lifecycle! if @deliver_reports
-        :handled
-      end
     end
 
     def handle_process_run_close!
@@ -128,13 +105,6 @@ module Runtime
           deliver_reports: @deliver_reports,
           control_client: resolved_control_client_if_needed
         )
-      end
-    end
-
-    def handle_subagent_connection_close!
-      self.class.instrument_execution(mailbox_item: @mailbox_item) do
-        report_close_lifecycle! if @deliver_reports
-        :handled
       end
     end
 
@@ -151,11 +121,11 @@ module Runtime
     def enqueue_execution!
       return queued_result if duplicate_delivery?
 
-      Runtime::MailboxExecutionJob.perform_later(
+      MailboxExecutionJob.perform_later(
         @mailbox_item,
         deliver_reports: @deliver_reports,
         enqueued_at_iso8601: Time.current.iso8601(6),
-        queue_name: Runtime::MailboxExecutionJob.queue_name,
+        queue_name: MailboxExecutionJob.queue_name,
         control_plane_context: serialized_control_plane_context
       )
       queued_result

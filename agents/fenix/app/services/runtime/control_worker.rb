@@ -75,11 +75,11 @@ module Runtime
     end
 
     def cleanup!
-      ExecutionRuntime::CommandRunRegistry.reset!
+      nil
     end
 
     def sweep_local_process_handles!
-      ExecutionRuntime::Processes::Manager.prune_terminated_handles!
+      nil
     end
 
     def run_control_loop

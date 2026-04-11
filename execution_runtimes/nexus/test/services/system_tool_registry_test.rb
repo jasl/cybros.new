@@ -33,7 +33,7 @@ class SystemToolRegistryTest < ActiveSupport::TestCase
     assert_equal true, exec_command_entry.fetch(:registry_backed)
     assert_equal "command_run", exec_command_entry.dig(:catalog_entry, "operator_group")
     assert_equal true, exec_command_entry.dig(:catalog_entry, "supports_streaming_output")
-    assert_equal "nexus/executor/command_run", exec_command_entry.dig(:catalog_entry, "implementation_ref")
+    assert_equal "nexus/command_run", exec_command_entry.dig(:catalog_entry, "implementation_ref")
   end
 
   test "browser registry entries expose the browser executor slice" do

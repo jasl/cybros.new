@@ -66,6 +66,8 @@ Related design note:
 
 ### Tool Catalog
 
+- both `AgentSnapshot` and `ExecutionRuntime` register their own tool catalogs
+  independently
 - capability snapshots publish `tool_catalog` separately from
   `protocol_methods`
 - each tool entry carries a stable `snake_case` `tool_name`
@@ -87,6 +89,8 @@ Related design note:
   - `ExecutionRuntime`
   - `AgentSnapshot`
   - `Core Matrix`
+- the agent profile policy may still mask tools from that effective set through
+  `allowed_tool_names` before a turn freezes visible bindings
 - reserved `core_matrix__*` system tools remain outside ordinary collision
   resolution
 - `governed_effective_tool_catalog` decorates the effective entries with:
@@ -111,8 +115,9 @@ Related design note:
   current agent-snapshot capability payload
 - capabilities handshake returns `method_id: "capabilities_handshake"` and the
   current agent-snapshot capability payload
-- both capability endpoints also return execution-runtime identity and the
-  current execution-runtime capability payload and tool catalog
+- when a default execution runtime is present, both capability endpoints also
+  return execution-runtime identity and the current execution-runtime
+  capability payload and tool catalog
 
 ## Agent Snapshot Rules
 

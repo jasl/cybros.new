@@ -9,8 +9,6 @@ module Runtime
         agent_health
         capabilities_handshake
         capabilities_refresh
-        agent_completed
-        agent_failed
         execution_started
         execution_progress
         execution_complete

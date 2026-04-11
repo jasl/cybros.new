@@ -18,8 +18,6 @@ module Runtime
       case item_type
       when "execution_assignment"
         execute_execution_assignment!
-      when "agent_request"
-        execute_agent_request!
       else
         raise UnsupportedMailboxItemError, "unsupported mailbox item #{item_type.inspect}"
       end
@@ -35,6 +33,15 @@ module Runtime
       )
 
       case dispatch.fetch("kind")
+      when "tool_call"
+        emit_execution_completion(
+          Runtime::Assignments::ExecuteToolCall.call(
+            mailbox_item: @mailbox_item,
+            payload: mailbox_payload,
+            control_client: @control_client
+          ),
+          reports: reports
+        )
       when "skill_flow"
         emit_execution_completion(dispatch.fetch("output"), reports: reports)
       when "deterministic_tool"
@@ -99,76 +106,6 @@ module Runtime
       emit_execution_failure(error_payload, reports: reports)
     end
 
-    def execute_agent_request!
-      response_payload = execute_agent_request
-
-      return emit_agent_completion(response_payload) if response_payload.fetch("status") == "ok"
-
-      emit_agent_failure(response_payload.fetch("failure"))
-    rescue StandardError => error
-      emit_agent_failure(agent_request_error_payload_for(error))
-    end
-
-    def execute_agent_request
-      case request_kind
-      when "prepare_round"
-        Requests::PrepareRound.call(payload: mailbox_payload)
-      when "execute_tool"
-        Requests::ExecuteTool.call(
-          payload: mailbox_payload,
-          supported_system_tool_names: SystemToolRegistry.supported_tool_names,
-          system_tool_executor: system_tool_executor
-        )
-      when "supervision_status_refresh", "supervision_guidance"
-        Requests::ExecuteConversationControlRequest.call(payload: mailbox_payload)
-      else
-        raise UnsupportedMailboxItemError, "unsupported agent request kind #{request_kind.inspect}"
-      end
-    end
-
-    def emit_agent_completion(response_payload)
-      report = {
-        "method_id" => "agent_completed",
-        "protocol_message_id" => "nexus-agent_completed-#{SecureRandom.uuid}",
-        "mailbox_item_id" => @mailbox_item.fetch("item_id"),
-        "logical_work_id" => @mailbox_item.fetch("logical_work_id"),
-        "attempt_no" => @mailbox_item.fetch("attempt_no"),
-        "control_plane" => control_plane,
-        "request_kind" => request_kind,
-        "workflow_node_id" => mailbox_payload.dig("task", "workflow_node_id"),
-        "conversation_id" => conversation_id,
-        "turn_id" => mailbox_payload.dig("task", "turn_id"),
-        "response_payload" => response_payload,
-      }.compact
-
-      @control_client&.report!(payload: report) if @deliver_reports
-
-      {
-        "status" => "ok",
-        "mailbox_item_id" => @mailbox_item.fetch("item_id"),
-        "reports" => [report],
-        "response" => response_payload,
-      }
-    end
-
-    def emit_agent_failure(error_payload)
-      report = {
-        "method_id" => "agent_failed",
-        "protocol_message_id" => "nexus-agent_failed-#{SecureRandom.uuid}",
-        "mailbox_item_id" => @mailbox_item.fetch("item_id"),
-        "logical_work_id" => @mailbox_item.fetch("logical_work_id"),
-        "attempt_no" => @mailbox_item.fetch("attempt_no"),
-        "control_plane" => control_plane,
-        "request_kind" => request_kind,
-        "workflow_node_id" => mailbox_payload.dig("task", "workflow_node_id"),
-        "conversation_id" => conversation_id,
-        "turn_id" => mailbox_payload.dig("task", "turn_id"),
-        "error_payload" => error_payload,
-      }.compact
-
-      emit_result(report: report, reports: [], error_payload: error_payload)
-    end
-
     def emit_result(report:, reports:, error_payload:)
       @control_client&.report!(payload: report) if @deliver_reports
 
@@ -184,34 +121,12 @@ module Runtime
       @mailbox_item.fetch("item_type", "execution_assignment")
     end
 
-    def request_kind
-      mailbox_payload.fetch("request_kind")
-    end
-
     def mailbox_payload
       @mailbox_payload ||= @mailbox_item.fetch("payload", {}).deep_stringify_keys
     end
 
     def control_plane
       @mailbox_item.fetch("control_plane")
-    end
-
-    def conversation_id
-      mailbox_payload.dig("task", "conversation_id") ||
-        mailbox_payload.dig("conversation_control", "conversation_id")
-    end
-
-    def system_tool_executor
-      @system_tool_executor ||= lambda do |payload_context:, tool_call:, runtime_resource_refs:|
-        ToolExecutor.new(
-          context: payload_context,
-          control_client: @control_client
-        ).call(
-          tool_call: tool_call,
-          command_run: runtime_resource_refs["command_run"],
-          process_run: runtime_resource_refs["process_run"]
-        )
-      end
     end
 
     def execution_assignment_report(method_id:, expected_duration_seconds: nil, terminal_payload: nil)
@@ -272,13 +187,6 @@ module Runtime
           "message" => error.message,
           "retryable" => false,
         }
-      when Requests::ExecuteConversationControlRequest::InvalidRequestError
-        {
-          "classification" => "semantic",
-          "code" => "invalid_conversation_control_request",
-          "message" => error.message,
-          "retryable" => false,
-        }
       else
         {
           "classification" => "runtime",
@@ -287,29 +195,6 @@ module Runtime
           "retryable" => false,
         }
       end
-    end
-
-    def agent_request_error_payload_for(error)
-      case error
-      when Requests::ExecuteConversationControlRequest::InvalidRequestError
-        {
-          "classification" => "semantic",
-          "code" => "invalid_conversation_control_request",
-          "message" => error.message,
-          "retryable" => false,
-        }
-      else
-        runtime_error_payload_for(error)
-      end
-    end
-
-    def runtime_error_payload_for(error)
-      {
-        "classification" => "runtime",
-        "code" => "agent_request_failed",
-        "message" => error.message,
-        "retryable" => false,
-      }
     end
   end
 end

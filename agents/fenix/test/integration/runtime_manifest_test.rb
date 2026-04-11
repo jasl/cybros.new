@@ -25,10 +25,15 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
       supervision_guidance
     ], body.dig("agent_contract", "methods")
     assert_includes protocol_method_ids, "capabilities_handshake"
-    assert_includes protocol_method_ids, "execution_started"
-    assert_includes protocol_method_ids, "process_started"
-    assert_includes protocol_method_ids, "process_output"
-    assert_includes protocol_method_ids, "process_exited"
+    assert_includes protocol_method_ids, "agent_completed"
+    assert_includes protocol_method_ids, "agent_failed"
+    refute_includes protocol_method_ids, "execution_started"
+    refute_includes protocol_method_ids, "execution_progress"
+    refute_includes protocol_method_ids, "execution_complete"
+    refute_includes protocol_method_ids, "execution_fail"
+    refute_includes protocol_method_ids, "process_started"
+    refute_includes protocol_method_ids, "process_output"
+    refute_includes protocol_method_ids, "process_exited"
 
     assert_equal "agent", body.dig("agent_plane", "control_plane")
     assert_equal body.fetch("tool_catalog"), body.dig("agent_plane", "tool_catalog")

@@ -15,7 +15,7 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
       )
 
       mailbox_items = client.poll(limit: 5)
-      client.report!(payload: { "method_id" => "execution_started" })
+      client.report!(payload: { "method_id" => "agent_completed" })
     end
 
     assert_equal %w[agent-1], mailbox_items.map { |item| item.fetch("item_id") }
@@ -93,7 +93,7 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
         fingerprint: "bundled-fenix-release-0.1.0",
         protocol_version: "agent-runtime/2026-04-01",
         sdk_version: "fenix-0.1.0",
-        protocol_methods: [{ "method_id" => "execution_started" }],
+        protocol_methods: [{ "method_id" => "agent_completed" }],
         tool_catalog: [{ "tool_name" => "compact_context" }]
       )
     end

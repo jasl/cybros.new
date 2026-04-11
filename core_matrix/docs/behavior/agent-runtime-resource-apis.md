@@ -10,7 +10,8 @@ Core Matrix exposes two machine-facing runtime resource planes for:
 - conversation-scoped supervision status refresh and bounded control dispatch
 - workflow-owned human interaction request creation
 - workflow-owned `ToolInvocation` creation on the agent plane
-- workflow-owned `CommandRun` and `ProcessRun` creation on the executor plane
+- workflow-owned `CommandRun` and `ProcessRun` creation on the
+  execution-runtime plane
 - mailbox-driven execution delivery and close control
 
 The resource plane stays a thin HTTP boundary over authenticated lookups,
@@ -64,6 +65,11 @@ orchestration are still defined in:
   kernel
 - `POST /execution_runtime_api/control/report` carries execution-runtime-plane
   reports for execution-runtime-owned resources such as `ProcessRun`
+- the agent control plane uses one mailbox with multiple request kinds,
+  including prompt and loop preparation, supervision verbs, and agent-owned
+  tool calls
+- execution-runtime-plane mailbox items are only for runtime-owned work such
+  as tool execution, detached runtime resources, and close control
 - conversation-scoped status refresh and guidance requests are serialized into
   the same mailbox envelope after `ConversationControl::DispatchRequest`
 - `/cable` may stream the same mailbox-item envelope over `ControlPlaneChannel`
@@ -90,6 +96,8 @@ orchestration are still defined in:
   - `agent` for agent-loop work and agent-owned close control
   - `execution_runtime` for `ExecutionRuntime`-owned resources such as
     `ProcessRun`
+- turns may legitimately have no execution-runtime-plane work at all when the
+  conversation is running without a selected execution runtime
 - mailbox rows persist routing semantics as durable columns:
   - `control_plane`
   - `target_kind`
@@ -206,7 +214,7 @@ orchestration are still defined in:
 - terminal process close reports may also carry `output_chunks`; those chunks
   are broadcast before the terminal `runtime.process_run.*` event and are not
   persisted durably
-- executor-owned close reports are only accepted from the active
+- execution-runtime-owned close reports are only accepted from the active
   `ExecutionRuntimeConnection` attached to the owning `ExecutionRuntime`
 - `agent_health_report` now routes through `HandleHealthReport` and
   refreshes connection health plus `control_activity_state`
@@ -328,9 +336,9 @@ orchestration are still defined in:
   - `governed_effective_tool_catalog`
 - those capability sections and the conversation-facing runtime capability
   payload now come from the shared `RuntimeCapabilityContract`
-- `effective_tool_catalog` applies environment-first tool precedence for
-  ordinary tool names and keeps reserved `core_matrix__*` tools outside that
-  collision domain
+- `effective_tool_catalog` applies ordinary tool precedence in
+  `ExecutionRuntime -> Agent -> Core Matrix` order and keeps reserved
+  `core_matrix__*` tools outside that collision domain
 - `governed_effective_tool_catalog` adds the durable governance identifiers and
   `governance_mode` for the effective tool winner without exposing internal ids
 - `target_ref` is the durable owner reference, not a promise that the same
@@ -345,6 +353,8 @@ orchestration are still defined in:
 - later tool use is expected to record `ToolInvocation` rows against those
   bindings instead of bypassing the task boundary with source-specific audit
   paths
+- later delivery is routed from the frozen `ToolBinding` winner, not by
+  re-inferring ownership from the logical tool name at execution time
 - runtime-owned tool execution now requests kernel-owned `ToolInvocation`
   resources through `POST /agent_api/tool_invocations` before local side
   effects begin

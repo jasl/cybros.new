@@ -52,6 +52,37 @@ module ProviderExecutionTestSupport
     end
   end
 
+  class FakeExecutionRuntimeExchange
+    attr_reader :execute_tool_requests
+
+    def initialize(&block)
+      @block = block
+      @execute_tool_requests = []
+    end
+
+    def execute_tool(payload:, binding:)
+      request = {
+        "payload" => deep_copy(payload),
+        "binding_id" => binding.public_id,
+      }
+      @execute_tool_requests << request
+
+      return @block.call(payload: payload.deep_stringify_keys, binding: binding, request: request) if @block
+
+      raise ProviderExecution::ExecutionRuntimeExchange::PendingResponse.new(
+        mailbox_item_public_id: "mailbox-item-1",
+        logical_work_id: "tool-call:#{payload.dig("task", "workflow_node_id")}:#{payload.dig("tool_call", "call_id")}",
+        request_kind: "execute_tool"
+      )
+    end
+
+    private
+
+    def deep_copy(value)
+      JSON.parse(JSON.generate(value))
+    end
+  end
+
   class FakeJsonTransport
     attr_reader :last_uri, :last_method, :last_headers, :last_body
 
@@ -266,7 +297,7 @@ module ProviderExecutionTestSupport
       "tool_name" => tool_name,
       "tool_kind" => "agent_observation",
       "implementation_source" => "agent",
-      "implementation_ref" => "fenix/agent/#{tool_name}",
+      "implementation_ref" => "fenix/#{tool_name}",
       "input_schema" => { "type" => "object", "properties" => {} },
       "result_schema" => { "type" => "object", "properties" => {} },
       "streaming_support" => false,

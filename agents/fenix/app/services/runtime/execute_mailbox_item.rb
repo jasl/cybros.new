@@ -16,8 +16,6 @@ module Runtime
 
     def call
       case item_type
-      when "execution_assignment"
-        execute_execution_assignment!
       when "agent_request"
         execute_agent_request!
       else
@@ -26,76 +24,6 @@ module Runtime
     end
 
     private
-
-    def execute_execution_assignment!
-      reports = [emit_execution_started]
-      dispatch = Runtime::Assignments::DispatchMode.call(
-        task_payload: mailbox_payload.fetch("task_payload", {}),
-        runtime_context: mailbox_payload.fetch("runtime_context", {})
-      )
-
-      case dispatch.fetch("kind")
-      when "deterministic_tool"
-        emit_execution_completion(
-          Runtime::Assignments::DeterministicTool.call(
-            task_payload: mailbox_payload.fetch("task_payload", {})
-          ),
-          reports: reports
-        )
-      when "raise_error"
-        raise RuntimeError, "requested execution assignment failure"
-      else
-        fail_unsupported_execution_assignment_dispatch!(dispatch_kind: dispatch.fetch("kind"), reports: reports)
-      end
-
-    rescue StandardError => error
-      emit_execution_failure(execution_assignment_error_payload_for(error), reports: defined?(reports) ? reports : [])
-    end
-
-    def emit_execution_started
-      report = execution_assignment_report(
-        method_id: "execution_started",
-        expected_duration_seconds: 30
-      )
-
-      @control_client&.report!(payload: report) if @deliver_reports
-      report
-    end
-
-    def emit_execution_completion(output, reports:)
-      report = execution_assignment_report(
-        method_id: "execution_complete",
-        terminal_payload: output
-      )
-
-      @control_client&.report!(payload: report) if @deliver_reports
-
-      {
-        "status" => "ok",
-        "mailbox_item_id" => @mailbox_item.fetch("item_id"),
-        "reports" => reports + [report],
-        "output" => output,
-      }
-    end
-
-    def emit_execution_failure(error_payload, reports:)
-      report = execution_assignment_report(
-        method_id: "execution_fail",
-        terminal_payload: error_payload
-      )
-
-      emit_result(report: report, reports: reports, error_payload: error_payload)
-    end
-
-    def fail_unsupported_execution_assignment_dispatch!(dispatch_kind:, reports:)
-      error_payload = {
-        "classification" => "configuration",
-        "code" => "unsupported_execution_assignment_dispatch_kind",
-        "message" => "unsupported execution assignment dispatch kind #{dispatch_kind.inspect}",
-        "retryable" => false,
-      }
-      emit_execution_failure(error_payload, reports: reports)
-    end
 
     def execute_agent_request!
       response_payload = execute_agent_request
@@ -112,11 +40,7 @@ module Runtime
       when "prepare_round"
         Requests::PrepareRound.call(payload: mailbox_payload)
       when "execute_tool"
-        Requests::ExecuteTool.call(
-          payload: mailbox_payload,
-          supported_system_tool_names: ExecutionRuntime::SystemToolRegistry.supported_tool_names,
-          system_tool_executor: system_tool_executor
-        )
+        Requests::ExecuteTool.call(payload: mailbox_payload)
       when "supervision_status_refresh", "supervision_guidance"
         Requests::ExecuteConversationControlRequest.call(payload: mailbox_payload)
       else
@@ -179,7 +103,7 @@ module Runtime
     end
 
     def item_type
-      @mailbox_item.fetch("item_type", "execution_assignment")
+      @mailbox_item.fetch("item_type", "agent_request")
     end
 
     def request_kind
@@ -197,59 +121,6 @@ module Runtime
     def conversation_id
       mailbox_payload.dig("task", "conversation_id") ||
         mailbox_payload.dig("conversation_control", "conversation_id")
-    end
-
-    def system_tool_executor
-      @system_tool_executor ||= lambda do |payload_context:, tool_call:, runtime_resource_refs:|
-        ExecutionRuntime::ToolExecutor.new(
-          context: payload_context,
-          control_client: @control_client
-        ).call(
-          tool_call: tool_call,
-          command_run: runtime_resource_refs["command_run"],
-          process_run: runtime_resource_refs["process_run"]
-        )
-      end
-    end
-
-    def execution_assignment_report(method_id:, expected_duration_seconds: nil, terminal_payload: nil)
-      {
-        "method_id" => method_id,
-        "protocol_message_id" => "fenix-#{method_id}-#{SecureRandom.uuid}",
-        "control_plane" => control_plane,
-        "mailbox_item_id" => @mailbox_item.fetch("item_id"),
-        "agent_task_run_id" => @mailbox_item.dig("payload", "task", "agent_task_run_id"),
-        "logical_work_id" => @mailbox_item.fetch("logical_work_id"),
-        "attempt_no" => @mailbox_item.fetch("attempt_no"),
-        "expected_duration_seconds" => expected_duration_seconds,
-        "terminal_payload" => terminal_payload,
-      }.compact
-    end
-
-    def execution_assignment_error_payload_for(error)
-      case error
-      when Runtime::Assignments::DeterministicTool::InvalidRequestError
-        {
-          "classification" => "semantic",
-          "code" => "invalid_deterministic_tool_request",
-          "message" => error.message,
-          "retryable" => false,
-        }
-      when Requests::ExecuteConversationControlRequest::InvalidRequestError
-        {
-          "classification" => "semantic",
-          "code" => "invalid_conversation_control_request",
-          "message" => error.message,
-          "retryable" => false,
-        }
-      else
-        {
-          "classification" => "runtime",
-          "code" => "runtime_error",
-          "message" => error.message,
-          "retryable" => false,
-        }
-      end
     end
 
     def agent_request_error_payload_for(error)

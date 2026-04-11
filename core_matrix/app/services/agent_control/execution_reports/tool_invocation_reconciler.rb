@@ -83,7 +83,7 @@ module AgentControl
 
       def find_or_start_tool_invocation!(invocation_payload)
         if invocation_payload["tool_invocation_id"].present?
-          return @agent_task_run.tool_invocations.find_by!(public_id: invocation_payload.fetch("tool_invocation_id"))
+          return existing_tool_invocation!(invocation_payload.fetch("tool_invocation_id"))
         end
 
         binding = tool_binding_for!(invocation_payload.fetch("tool_name"))
@@ -134,7 +134,7 @@ module AgentControl
 
       def find_tool_invocation_for_output!(output_payload)
         if output_payload["tool_invocation_id"].present?
-          return @agent_task_run.tool_invocations.find_by!(public_id: output_payload.fetch("tool_invocation_id"))
+          return existing_tool_invocation!(output_payload.fetch("tool_invocation_id"))
         end
 
         binding = tool_binding_for!(output_payload.fetch("tool_name"))
@@ -152,6 +152,11 @@ module AgentControl
         return if command_run_id.blank?
 
         invocation.command_run || @agent_task_run.command_runs.find_by!(public_id: command_run_id)
+      end
+
+      def existing_tool_invocation!(public_id)
+        @agent_task_run.tool_invocations.find_by(public_id: public_id) ||
+          @agent_task_run.workflow_node.tool_invocations.find_by!(public_id: public_id)
       end
 
       def reconcile_completed_command_run!(command_run, response_payload)

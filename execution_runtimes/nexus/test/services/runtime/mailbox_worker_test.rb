@@ -38,42 +38,6 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     end
   end
 
-  test "agent task close requests emit close lifecycle reports" do
-    client = build_control_client
-
-    result = Runtime::MailboxWorker.call(
-      mailbox_item: close_request(resource_type: "AgentTaskRun", resource_id: "task-1"),
-      deliver_reports: true,
-      control_client: client
-    )
-
-    assert_equal :handled, result
-    assert_equal %w[resource_close_acknowledged resource_closed], client.reported_payloads.map { |payload| payload.fetch("method_id") }
-  end
-
-  test "subagent connection close requests emit close lifecycle reports" do
-    client = build_control_client
-
-    result = Runtime::MailboxWorker.call(
-      mailbox_item: close_request(resource_type: "SubagentConnection", resource_id: "subagent-1"),
-      deliver_reports: true,
-      control_client: client
-    )
-
-    assert_equal :handled, result
-    assert_equal %w[resource_close_acknowledged resource_closed], client.reported_payloads.map { |payload| payload.fetch("method_id") }
-    assert_equal "SubagentConnection", client.reported_payloads.last.fetch("resource_type")
-  end
-
-  test "close requests without report delivery do not require a configured control plane" do
-    result = Runtime::MailboxWorker.call(
-      mailbox_item: close_request(resource_type: "AgentTaskRun", resource_id: "task-1"),
-      deliver_reports: false
-    )
-
-    assert_equal :handled, result
-  end
-
   test "process run close requests report failure when the local handle is missing" do
     client = build_control_client
 
@@ -129,7 +93,7 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
 
     result = nil
 
-    assert_enqueued_with(job: Runtime::MailboxExecutionJob) do
+    assert_enqueued_with(job: MailboxExecutionJob) do
       result = Runtime::MailboxWorker.call(mailbox_item: mailbox_item, inline: false)
     end
 
@@ -142,7 +106,7 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     Shared::ControlPlane.client = client
     mailbox_item = execution_assignment_mailbox_item
 
-    assert_enqueued_with(job: Runtime::MailboxExecutionJob) do
+    assert_enqueued_with(job: MailboxExecutionJob) do
       Runtime::MailboxWorker.call(
         mailbox_item: mailbox_item,
         deliver_reports: true,
@@ -187,7 +151,7 @@ class Runtime::MailboxWorkerTest < ActiveSupport::TestCase
     )
     mailbox_item = execution_assignment_mailbox_item
 
-    assert_enqueued_with(job: Runtime::MailboxExecutionJob) do
+    assert_enqueued_with(job: MailboxExecutionJob) do
       Runtime::MailboxWorker.call(
         mailbox_item: mailbox_item,
         deliver_reports: true,

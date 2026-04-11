@@ -20,6 +20,15 @@ class SharedArchitectureBoundariesTest < ActiveSupport::TestCase
     refute_path_exists Rails.root.join("test/services/nexus")
   end
 
+  test "nexus no longer ships agent-side request assembly directories" do
+    refute_path_exists Rails.root.join("app/services/requests")
+    refute_path_exists Rails.root.join("app/services/prompts")
+    refute_path_exists Rails.root.join("app/services/build_round_instructions.rb")
+    refute_path_exists Rails.root.join("test/services/requests")
+    refute_path_exists Rails.root.join("test/services/prompts")
+    refute_path_exists Rails.root.join("test/services/build_round_instructions_test.rb")
+  end
+
   private
 
   def service_and_runtime_files

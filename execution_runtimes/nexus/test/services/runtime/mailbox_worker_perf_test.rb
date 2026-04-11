@@ -77,7 +77,7 @@ class Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
 
   test "enqueues mailbox execution job with queue timing metadata" do
     assert_enqueued_with(
-      job: Runtime::MailboxExecutionJob,
+      job: MailboxExecutionJob,
       queue: "runtime_control",
       args: ->(job_args) do
         job_args.first.fetch("item_id") == "mailbox-item-1" &&

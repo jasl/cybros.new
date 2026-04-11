@@ -27,6 +27,9 @@ Related design note:
 
 - `Agent` is the stable logical identity of an agent inside
   one installation.
+- It participates in prompt and loop preparation for turns.
+- It may also advertise agent-owned tools that Core Matrix can bind and route
+  back to the agent control plane.
 - Visibility is `public` or `private`.
 - `public` agents may be system-provisioned and ownerless, or user-created and
   owner-bound.
@@ -36,6 +39,8 @@ Related design note:
 ### ExecutionRuntime
 
 - `ExecutionRuntime` is the stable runtime-resource owner aggregate.
+- It may advertise runtime-owned tools, but it is not a required participant
+  for every conversation.
 - It is the durable owner for environment-backed resources such as
   `ProcessRun` and future shell or file sessions.
 - Visibility is `public` or `private`, with the same owner and provisioning
@@ -44,7 +49,7 @@ Related design note:
 - Stable reconciliation identity is `execution_runtime_fingerprint`, scoped to one
   installation.
 - Connection details live in `connection_metadata`.
-- Lifecycle state tracks whether the executor carrier is still available for
+- Lifecycle state tracks whether the runtime carrier is still available for
   new work.
 
 ### AgentEnrollment
@@ -93,7 +98,9 @@ Related design note:
 - Resolves an enrollment token by digest lookup.
 - Rejects invalid, consumed, or expired tokens.
 - Creates or reuses the advertised `AgentSnapshot` and opens the live
-  `AgentConnection` plus `ExecutionRuntimeConnection` in one transaction.
+  `AgentConnection`.
+- Reuses the agent's current `default_execution_runtime` when one is already
+  registered; it does not open a new `ExecutionRuntimeConnection`.
 - Exchanges the one-time enrollment token for a durable connection credential.
 - Works for bundled and external runtimes because the kernel only needs
   registration metadata, not a callback path into the runtime's private
@@ -124,6 +131,9 @@ Related design note:
   `execution_runtime_fingerprint` is unchanged
 - mailbox control targets logical owners plus live connections, not persisted
   agent-snapshot rows
+- conversations may omit an execution runtime entirely; in that case Core
+  Matrix still coordinates agent-only turns and only runtime-owned tool
+  bindings are absent
 
 ## Invariants
 

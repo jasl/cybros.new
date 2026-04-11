@@ -1,9 +1,0 @@
-{
-	auto_https off
-	admin off
-}
-
-:{$FENIX_DEV_PROXY_PORT:3310} {
-	import {$FENIX_DEV_PROXY_ROUTES_FILE:/rails/tmp/dev-proxy/routes.caddy}
-	respond "no dev route registered" 404
-}

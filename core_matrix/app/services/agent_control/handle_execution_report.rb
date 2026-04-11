@@ -49,6 +49,8 @@ module AgentControl
     private
 
     def handle_execution_started!
+      waiting_on_execution_runtime_request = blocked_on_execution_runtime_request?
+
       agent_task_run.update!(
         lifecycle_state: "running",
         started_at: @occurred_at,
@@ -57,11 +59,13 @@ module AgentControl
         supervision_state: "running",
         last_progress_at: @occurred_at
       )
-      agent_task_run.workflow_node.update!(
-        lifecycle_state: "running",
-        started_at: agent_task_run.workflow_node.started_at || @occurred_at,
-        finished_at: nil
-      )
+      unless waiting_on_execution_runtime_request
+        agent_task_run.workflow_node.update!(
+          lifecycle_state: "running",
+          started_at: agent_task_run.workflow_node.started_at || @occurred_at,
+          finished_at: nil
+        )
+      end
       sync_subagent_connection_started_state!
 
       unless agent_task_run.execution_lease&.active?
@@ -99,6 +103,7 @@ module AgentControl
 
     def handle_execution_terminal!
       heartbeat_task_lease!
+      waiting_on_execution_runtime_request = blocked_on_execution_runtime_request?
 
       lifecycle_state = case @method_id
       when "execution_complete" then "completed"
@@ -111,14 +116,17 @@ module AgentControl
         terminal_payload: terminal_payload_for_terminal_message,
         finished_at: @occurred_at
       )
-      agent_task_run.workflow_node.update!(
-        lifecycle_state: workflow_node_terminal_state_for(lifecycle_state),
-        started_at: agent_task_run.workflow_node.started_at || agent_task_run.started_at || @occurred_at,
-        finished_at: @occurred_at
-      )
+      unless waiting_on_execution_runtime_request
+        agent_task_run.workflow_node.update!(
+          lifecycle_state: workflow_node_terminal_state_for(lifecycle_state),
+          started_at: agent_task_run.workflow_node.started_at || agent_task_run.started_at || @occurred_at,
+          finished_at: @occurred_at
+        )
+      end
 
       apply_tool_invocation_terminal_events!
       terminalize_running_command_runs!(lifecycle_state: lifecycle_state)
+      resume_blocked_workflow! if waiting_on_execution_runtime_request
       workflow_follow_up.apply!(lifecycle_state: lifecycle_state)
       append_terminal_progress_entry!(lifecycle_state: lifecycle_state)
       refresh_related_supervision_states!
@@ -229,6 +237,21 @@ module AgentControl
         blocked_summary: nil,
         last_progress_at: @occurred_at
       )
+    end
+
+    def blocked_on_execution_runtime_request?
+      workflow_run = agent_task_run.workflow_run
+
+      workflow_run.waiting? &&
+        workflow_run.wait_reason_kind == "execution_runtime_request" &&
+        workflow_run.blocking_resource_type == "WorkflowNode" &&
+        workflow_run.blocking_resource_id == agent_task_run.workflow_node.public_id
+    end
+
+    def resume_blocked_workflow!
+      Workflows::ResumeBlockedStep.call(workflow_run: agent_task_run.workflow_run)
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound
+      nil
     end
 
     def terminal_summary_for(lifecycle_state:)

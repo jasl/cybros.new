@@ -42,9 +42,12 @@ inventing demo users or UI state.
 - The query does not widen access for admins or other users.
 - Default workspaces are ordered first so a user-agent binding presents an
   immediately usable primary workspace before secondary ones.
-- Workspaces disappear from the list when their bound `Agent` or default
-  `ExecutionRuntime` is no longer usable by the owning user under the current
-  `public/private` visibility rules.
+- Workspaces disappear from the list when their bound `Agent` is no longer
+  usable by the owning user under the current `public/private` visibility
+  rules.
+- Workspaces do not disappear merely because a default `ExecutionRuntime`
+  becomes unavailable or unusable; the product remains agent-first and runtime
+  selection stays optional.
 
 ## Provider Usage Window Query
 

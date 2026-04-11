@@ -20,6 +20,11 @@ class SharedArchitectureBoundariesTest < ActiveSupport::TestCase
     refute_path_exists Rails.root.join("test/services/fenix")
   end
 
+  test "fenix no longer ships execution-runtime implementation directories" do
+    refute_path_exists Rails.root.join("app/services/execution_runtime")
+    refute_path_exists Rails.root.join("test/services/execution_runtime")
+  end
+
   private
 
   def service_and_runtime_files

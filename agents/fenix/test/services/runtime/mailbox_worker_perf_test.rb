@@ -30,7 +30,7 @@ class Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
 
     ActiveSupport::Notifications.subscribed(->(*args) { events << args.last }, "perf.runtime.mailbox_execution") do
       Runtime::MailboxWorker.call(
-        mailbox_item: execution_assignment_mailbox_item,
+        mailbox_item: agent_request_mailbox_item,
         deliver_reports: false,
         inline: true
       )
@@ -40,6 +40,7 @@ class Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
     assert_equal true, events.first.fetch("success")
     assert_equal "mailbox-item-1", events.first.fetch("mailbox_item_public_id")
     assert_equal "agent", events.first.fetch("control_plane")
+    assert_equal "agent_request", events.first.fetch("item_type")
     assert_equal "conversation-1", events.first.fetch("conversation_public_id")
     assert_equal "turn-1", events.first.fetch("turn_public_id")
     assert_equal "agent-1", events.first.fetch("agent_public_id")
@@ -59,7 +60,7 @@ class Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
     error = assert_raises(RuntimeError) do
       ActiveSupport::Notifications.subscribed(->(*args) { events << args.last }, "perf.runtime.mailbox_execution") do
         Runtime::MailboxWorker.call(
-          mailbox_item: execution_assignment_mailbox_item,
+          mailbox_item: agent_request_mailbox_item,
           deliver_reports: false,
           inline: true
         )
@@ -77,7 +78,7 @@ class Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
 
   test "enqueues mailbox execution job with queue timing metadata" do
     assert_enqueued_with(
-      job: Runtime::MailboxExecutionJob,
+      job: MailboxExecutionJob,
       queue: "runtime_control",
       args: ->(job_args) do
         job_args.first.fetch("item_id") == "mailbox-item-1" &&
@@ -89,7 +90,7 @@ class Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
       end
     ) do
       Runtime::MailboxWorker.call(
-        mailbox_item: execution_assignment_mailbox_item,
+        mailbox_item: agent_request_mailbox_item,
         deliver_reports: false,
         inline: false
       )
@@ -98,15 +99,16 @@ class Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
 
   private
 
-  def execution_assignment_mailbox_item
+  def agent_request_mailbox_item
     {
-      "item_type" => "execution_assignment",
+      "item_type" => "agent_request",
       "item_id" => "mailbox-item-1",
       "protocol_message_id" => "protocol-message-1",
       "logical_work_id" => "logical-work-1",
       "attempt_no" => 1,
       "control_plane" => "agent",
       "payload" => {
+        "request_kind" => "prepare_round",
         "runtime_context" => {
           "agent_id" => "agent-1",
           "user_id" => "user-1",
@@ -115,6 +117,12 @@ class Runtime::MailboxWorkerPerfTest < ActiveSupport::TestCase
           "conversation_id" => "conversation-1",
           "turn_id" => "turn-1",
           "workflow_node_id" => "node-1",
+        },
+        "round_context" => {
+          "messages" => [
+            { "role" => "user", "content" => "Perf run." },
+          ],
+          "context_imports" => [],
         },
       },
     }

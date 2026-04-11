@@ -66,4 +66,40 @@ class WorkspaceTest < ActiveSupport::TestCase
     assert_not duplicate.valid?
     assert_includes duplicate.errors[:user_agent_binding_id], "already has a default workspace"
   end
+
+  test "default execution runtime must belong to the same installation" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    binding = create_user_agent_binding!(installation: installation, user: user)
+    foreign_installation = Installation.new(
+      id: installation.id.to_i + 1,
+      name: "Foreign Installation",
+      bootstrap_state: "bootstrapped",
+      global_settings: {}
+    )
+    foreign_runtime = ExecutionRuntime.new(
+      installation: foreign_installation,
+      visibility: "public",
+      provisioning_origin: "system",
+      kind: "local",
+      display_name: "Foreign Runtime",
+      execution_runtime_fingerprint: "foreign-runtime-#{next_test_sequence}",
+      connection_metadata: {},
+      capability_payload: {},
+      tool_catalog: [],
+      lifecycle_state: "active"
+    )
+
+    workspace = Workspace.new(
+      installation: installation,
+      user: user,
+      user_agent_binding: binding,
+      name: "Foreign Runtime Workspace",
+      privacy: "private",
+      default_execution_runtime: foreign_runtime
+    )
+
+    assert_not workspace.valid?
+    assert_includes workspace.errors[:default_execution_runtime], "must belong to the same installation"
+  end
 end

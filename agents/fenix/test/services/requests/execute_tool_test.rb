@@ -17,7 +17,7 @@ class Requests::ExecuteToolTest < ActiveSupport::TestCase
     assert_equal [], response.fetch("summary_artifacts")
   end
 
-  test "delegates system tool execution through an injected boundary" do
+  test "rejects execution-runtime tools because fenix only owns agent tools" do
     payload = {
       "task" => {
         "workflow_node_id" => "workflow-node-public-id",
@@ -38,27 +38,9 @@ class Requests::ExecuteToolTest < ActiveSupport::TestCase
       },
     }
 
-    captured = nil
-    response = Requests::ExecuteTool.call(
-      payload: payload,
-      supported_system_tool_names: ["exec_command"],
-      system_tool_executor: lambda do |payload_context:, tool_call:, runtime_resource_refs:|
-        captured = {
-          payload_context: payload_context,
-          tool_call: tool_call,
-          runtime_resource_refs: runtime_resource_refs,
-        }
+    response = Requests::ExecuteTool.call(payload: payload)
 
-        Struct.new(:tool_result, :output_chunks).new(
-          { "exit_status" => 0, "stdout" => "/tmp\n", "stderr" => "" },
-          []
-        )
-      end
-    )
-
-    assert_equal "ok", response.fetch("status")
-    assert_equal "exec_command", captured.dig(:tool_call, "tool_name")
-    assert_equal "conversation-public-id", captured.dig(:payload_context, "conversation_id")
-    assert_equal({ "exit_status" => 0, "stdout" => "/tmp\n", "stderr" => "" }, response.fetch("result"))
+    assert_equal "failed", response.fetch("status")
+    assert_equal "unsupported_tool", response.dig("failure", "code")
   end
 end
