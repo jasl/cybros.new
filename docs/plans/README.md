@@ -12,6 +12,8 @@ The current active planning documents in this directory are:
 - [2026-04-03-recoverable-failure-step-resume-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-03-recoverable-failure-step-resume-implementation.md)
 - [2026-04-11-agent-runtime-conversation-reset-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-11-agent-runtime-conversation-reset-design.md)
 - [2026-04-11-agent-runtime-conversation-reset.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-11-agent-runtime-conversation-reset.md)
+- [2026-04-11-agent-runtime-visibility-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-11-agent-runtime-visibility-design.md)
+- [2026-04-11-agent-runtime-visibility-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-11-agent-runtime-visibility-implementation.md)
 
 Practical state:
 
@@ -21,8 +23,11 @@ Practical state:
 - The recoverable-failure step-resume work remains the only still-open
   legacy execution family in this directory.
 - The agent/runtime/conversation reset is now an active destructive architecture
-  reset track spanning `core_matrix`, `agents/fenix`, `executors/nexus`, docs,
-  and acceptance.
+  reset track spanning `core_matrix`, `agents/fenix`,
+  `execution_runtimes/nexus`, docs, and acceptance.
+- The agent/runtime visibility reset is now an active follow-up track for
+  `public/private` ownership semantics, bundled system provisioning, and
+  workspace/conversation usability after visibility changes.
 - Current acceptance runs now execute through the top-level
   [acceptance harness](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md),
   not the old `core_matrix/script/manual/acceptance` path.
