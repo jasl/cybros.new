@@ -34,10 +34,10 @@ module UserAgentBindings
     end
 
     def validate_visibility!
-      return if @agent.global?
-      return if @agent.owner_user_id == @user.id
+      return if @agent.visibility_public?
+      return if @agent.visibility_private? && @agent.owner_user_id == @user.id
 
-      raise AccessDenied, "user cannot enable this personal agent"
+      raise AccessDenied, "user cannot enable this private agent"
     end
 
     def find_or_create_binding!

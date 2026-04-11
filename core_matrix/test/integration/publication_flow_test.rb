@@ -76,4 +76,38 @@ class PublicationFlowTest < ActionDispatch::IntegrationTest
     )
     assert_equal 3, PublicationAccessEvent.where(publication: publication).count
   end
+
+  test "read-only publication access remains available after the backing agent becomes private" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    replacement_owner = create_user!(
+      installation: context[:installation],
+      identity: create_identity!,
+      display_name: "Replacement Owner"
+    )
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      execution_runtime: context[:execution_runtime],
+      agent_snapshot: context[:agent_snapshot]
+    )
+
+    publication = Publications::PublishLive.call(
+      conversation: conversation,
+      actor: context[:user],
+      visibility_mode: "external_public"
+    )
+
+    context[:agent].update!(
+      visibility: "private",
+      provisioning_origin: "user_created",
+      owner_user: replacement_owner
+    )
+
+    access = Publications::RecordAccess.call(
+      access_token: publication.plaintext_access_token,
+      request_metadata: { "ip" => "127.0.0.9" }
+    )
+
+    assert_equal publication, access.publication
+    assert_nil access.viewer_user
+  end
 end

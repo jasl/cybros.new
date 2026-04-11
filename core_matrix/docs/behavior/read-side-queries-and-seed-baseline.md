@@ -13,10 +13,10 @@ inventing demo users or UI state.
 - Returns only `Agent` rows that are visible to one user inside the
   single installation.
 - Visibility remains distinct:
-  - `global` agents are visible to every user in the installation
-  - `personal` agents are visible only to their `owner_user`
+  - `public` agents are visible to every user in the installation
+  - `private` agents are visible only to their `owner_user`
 - Retired logical agent rows are excluded from the default visible list.
-- Results are ordered with global agents first, then personal agents, with a
+- Results are ordered with public agents first, then private agents, with a
   stable secondary order by display name and id.
 
 ## Human Interaction Inbox Query
@@ -42,6 +42,9 @@ inventing demo users or UI state.
 - The query does not widen access for admins or other users.
 - Default workspaces are ordered first so a user-agent binding presents an
   immediately usable primary workspace before secondary ones.
+- Workspaces disappear from the list when their bound `Agent` or default
+  `ExecutionRuntime` is no longer usable by the owning user under the current
+  `public/private` visibility rules.
 
 ## Provider Usage Window Query
 
@@ -167,10 +170,11 @@ of carrying separate counter families and close-summary logic in parallel.
 
 ## Failure Modes
 
-- Agent visibility queries exclude another user's personal agent
+- Agent visibility queries exclude another user's private agent
 - Human interaction inbox queries exclude resolved requests and requests owned
   by another user's private workspace
-- Workspace queries never cross the private workspace ownership boundary
+- Workspace queries never cross the private workspace ownership boundary and
+  hide rows whose bound resources are no longer usable by the owner
 - Rolling-window usage queries ignore hourly and daily rollups
 - Execution profiling summaries ignore facts outside the requested time window
 - Seed execution with no installation present remains a safe no-op for runtime

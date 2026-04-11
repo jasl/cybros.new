@@ -4,7 +4,7 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
   test "issues enrollment registers a agent_snapshot and records heartbeat state" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
-    agent = create_agent!(installation: installation, visibility: "global")
+    agent = create_agent!(installation: installation, visibility: "public")
     enrollment = AgentEnrollments::Issue.call(
       agent: agent,
       actor: actor,

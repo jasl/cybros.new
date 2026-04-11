@@ -13,7 +13,7 @@ registry and private workspaces: `User -> UserAgentBinding -> Workspace`.
 - One binding exists at most once for a given user-agent pair.
 - Bindings stay inside one installation and inherit that boundary from both the
   user and the agent.
-- Personal agents may only be bound by their owner user.
+- Private agents may only be bound by their owner user.
 - Binding presence represents that the agent is enabled for that user in v1.
 
 ### Workspace
@@ -29,7 +29,7 @@ registry and private workspaces: `User -> UserAgentBinding -> Workspace`.
 
 - Enables an agent for a user by reusing or creating the unique binding row.
 - Rejects cross-installation binding attempts.
-- Rejects enabling another user's personal agent.
+- Rejects enabling another user's private agent.
 - Ensures the binding has a default workspace.
 
 ### `Workspaces::CreateDefault`
@@ -52,6 +52,6 @@ registry and private workspaces: `User -> UserAgentBinding -> Workspace`.
 
 - Cross-installation bindings are invalid at both the model and service
   boundary.
-- Attempting to enable another user's personal agent raises
+- Attempting to enable another user's private agent raises
   `UserAgentBindings::Enable::AccessDenied`.
 - A second default workspace for the same binding is invalid.

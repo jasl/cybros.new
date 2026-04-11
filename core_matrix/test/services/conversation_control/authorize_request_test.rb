@@ -19,7 +19,32 @@ class ConversationControl::AuthorizeRequestTest < ActiveSupport::TestCase
     assert_equal fixture.fetch(:conversation).public_id, result.target_public_id
   end
 
-  test "rejects unauthorized callers until an explicit capability grant is present" do
+  test "rejects the original owner after a visibility change when no explicit capability grant exists" do
+    fixture = prepare_conversation_supervision_context!(control_enabled: true)
+    session = create_conversation_supervision_session!(fixture)
+    replacement_owner = create_user!(
+      installation: fixture.fetch(:installation),
+      identity: create_identity!,
+      display_name: "Replacement Owner"
+    )
+    fixture.fetch(:agent).update!(
+      visibility: "private",
+      provisioning_origin: "user_created",
+      owner_user: replacement_owner
+    )
+
+    denied = ConversationControl::AuthorizeRequest.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      request_kind: "request_turn_interrupt",
+      request_payload: {}
+    )
+
+    assert_not denied.allowed?
+    assert_equal "actor is not allowed to control this conversation", denied.rejection_reason
+  end
+
+  test "allows an explicit capability grant for a non-owner caller" do
     fixture = prepare_conversation_supervision_context!(control_enabled: true)
     session = create_conversation_supervision_session!(fixture)
     outsider = create_user!(installation: fixture.fetch(:installation))

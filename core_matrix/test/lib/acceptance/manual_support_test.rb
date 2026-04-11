@@ -299,7 +299,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       ["rm", "-f", "db/schema.rb"],
       ["bin/rails", "db:create"],
       ["bin/rails", "db:migrate"],
-      ["bin/rails", "db:reset"]
+      ["bin/rails", "db:reset"],
     ], commands
   end
 

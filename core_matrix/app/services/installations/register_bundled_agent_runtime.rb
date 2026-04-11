@@ -4,7 +4,8 @@ module Installations
       enabled: false,
       agent_key: "fenix",
       display_name: "Bundled Fenix",
-      visibility: "global",
+      visibility: "public",
+      provisioning_origin: "system",
       lifecycle_state: "active",
       execution_runtime_kind: "local",
       execution_runtime_fingerprint: "bundled-fenix-environment",
@@ -106,6 +107,7 @@ module Installations
       agent.update!(
         display_name: @configuration[:display_name],
         visibility: @configuration[:visibility],
+        provisioning_origin: @configuration[:provisioning_origin],
         lifecycle_state: @configuration[:lifecycle_state],
         owner_user: nil,
         default_execution_runtime: execution_runtime
@@ -120,7 +122,12 @@ module Installations
         kind: @configuration[:execution_runtime_kind],
         connection_metadata: @configuration[:connection_metadata]
       )
-      execution_runtime.update!(display_name: @configuration[:executor_display_name])
+      execution_runtime.update!(
+        display_name: @configuration[:executor_display_name],
+        visibility: "public",
+        provisioning_origin: "system",
+        owner_user: nil
+      )
       ExecutionRuntimes::RecordCapabilities.call(
         execution_runtime: execution_runtime,
         capability_payload: @configuration[:execution_runtime_capability_payload],

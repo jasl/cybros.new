@@ -23,7 +23,7 @@ class UserAgentBindingTest < ActiveSupport::TestCase
     assert_includes duplicate.errors[:user_id], "has already been taken"
   end
 
-  test "requires the owner to bind personal agents" do
+  test "requires the owner to bind private agents" do
     installation = create_installation!
     owner_user = create_user!(installation: installation)
     other_user = create_user!(
@@ -33,8 +33,8 @@ class UserAgentBindingTest < ActiveSupport::TestCase
     )
     agent = create_agent!(
       installation: installation,
-      key: "personal-program",
-      visibility: "personal",
+      key: "private-agent",
+      visibility: "private",
       owner_user: owner_user
     )
 
@@ -46,6 +46,6 @@ class UserAgentBindingTest < ActiveSupport::TestCase
     )
 
     assert_not invalid_binding.valid?
-    assert_includes invalid_binding.errors[:user], "must own the personal agent"
+    assert_includes invalid_binding.errors[:user], "must own the private agent"
   end
 end

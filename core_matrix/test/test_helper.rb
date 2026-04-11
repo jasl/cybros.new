@@ -152,10 +152,18 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent!(installation: create_installation!, visibility: "global", owner_user: nil, key: "agent-#{next_test_sequence}", display_name: "Agent #{next_test_sequence}", lifecycle_state: "active", default_execution_runtime: nil, **attrs)
+    def create_agent!(installation: create_installation!, visibility: "public", owner_user: nil, provisioning_origin: nil, key: "agent-#{next_test_sequence}", display_name: "Agent #{next_test_sequence}", lifecycle_state: "active", default_execution_runtime: nil, **attrs)
+      visibility = visibility.to_s
+      provisioning_origin ||= if owner_user.present? || visibility == "private"
+        "user_created"
+      else
+        "system"
+      end
+
       Agent.create!({
         installation: installation,
         visibility: visibility,
+        provisioning_origin: provisioning_origin,
         owner_user: owner_user,
         key: key,
         display_name: display_name,
@@ -164,10 +172,20 @@ module ActiveSupport
       }.merge(attrs.symbolize_keys.slice(*Agent.attribute_names.map(&:to_sym))))
     end
 
-    def create_execution_runtime!(installation: create_installation!, kind: "local", display_name: "Execution Runtime #{next_test_sequence}", execution_runtime_fingerprint: "runtime-#{next_test_sequence}", connection_metadata: {}, capability_payload: {}, tool_catalog: [], lifecycle_state: "active", **attrs)
+    def create_execution_runtime!(installation: create_installation!, kind: "local", visibility: "public", owner_user: nil, provisioning_origin: nil, display_name: "Execution Runtime #{next_test_sequence}", execution_runtime_fingerprint: "runtime-#{next_test_sequence}", connection_metadata: {}, capability_payload: {}, tool_catalog: [], lifecycle_state: "active", **attrs)
+      visibility = visibility.to_s
+      provisioning_origin ||= if owner_user.present? || visibility == "private"
+        "user_created"
+      else
+        "system"
+      end
+
       ExecutionRuntime.create!({
         installation: installation,
         kind: kind,
+        visibility: visibility,
+        owner_user: owner_user,
+        provisioning_origin: provisioning_origin,
         display_name: display_name,
         execution_runtime_fingerprint: execution_runtime_fingerprint,
         connection_metadata: connection_metadata,
@@ -705,7 +723,8 @@ module ActiveSupport
         enabled: enabled,
         agent_key: "fenix",
         display_name: "Bundled Fenix",
-        visibility: "global",
+        visibility: "public",
+        provisioning_origin: "system",
         lifecycle_state: "active",
         execution_runtime_kind: "local",
         execution_runtime_fingerprint: "bundled-fenix-environment",

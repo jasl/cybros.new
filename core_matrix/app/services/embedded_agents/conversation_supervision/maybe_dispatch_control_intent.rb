@@ -69,7 +69,7 @@ module EmbeddedAgents
       def result_for_creation_error(classification:, error:)
         message = error.record.errors.full_messages.to_sentence
         response_kind =
-          if message.match?(/not allowed to control/i)
+          if message.match?(/not allowed to control|not allowed to access/i)
             "control_denied"
           elsif message.match?(/control is not enabled/i)
             "control_unavailable"

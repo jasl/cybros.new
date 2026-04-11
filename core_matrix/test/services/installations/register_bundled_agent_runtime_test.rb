@@ -60,6 +60,12 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal 1, ExecutionRuntimeConnection.count
     assert_equal 0, UserAgentBinding.count
     assert_equal first.execution_runtime, first.agent.default_execution_runtime
+    assert first.agent.visibility_public?
+    assert first.agent.provisioning_origin_system?
+    assert_nil first.agent.owner_user_id
+    assert first.execution_runtime.visibility_public?
+    assert first.execution_runtime.provisioning_origin_system?
+    assert_nil first.execution_runtime.owner_user_id
     assert_equal "active", first.agent_snapshot.bootstrap_state
     assert first.agent_snapshot.healthy?
     assert_equal first.agent_connection, AgentConnection.find_by_plaintext_connection_credential(first.agent_connection_credential)

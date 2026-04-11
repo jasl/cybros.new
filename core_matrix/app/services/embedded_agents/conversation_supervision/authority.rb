@@ -33,7 +33,14 @@ module EmbeddedAgents
       end
 
       def allowed?
-        owner_on_own_conversation?
+        accessible? && owner_on_own_conversation?
+      end
+
+      def accessible?
+        return false if actor.blank? || conversation.blank?
+        return false unless actor.respond_to?(:installation_id)
+
+        ResourceVisibility::Usability.conversation_accessible_by_user?(user: actor, conversation: conversation)
       end
 
       def supervision_enabled?
@@ -85,7 +92,6 @@ module EmbeddedAgents
       end
 
       def owner_on_own_conversation?
-        return false if actor.blank? || conversation.blank?
         return false unless actor.respond_to?(:id)
         return false unless conversation.respond_to?(:workspace) && conversation.workspace.present?
 

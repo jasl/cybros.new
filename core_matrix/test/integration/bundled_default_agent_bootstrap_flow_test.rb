@@ -20,9 +20,17 @@ class BundledDefaultAgentBootstrapFlowTest < ActionDispatch::IntegrationTest
 
     binding = UserAgentBinding.find_by!(user: result.user)
     workspace = Workspace.find_by!(user_agent_binding: binding, is_default: true)
+    bundled_agent = Agent.find_by!(key: "fenix")
+    bundled_runtime = ExecutionRuntime.first
 
-    assert_equal Agent.find_by!(key: "fenix"), binding.agent
-    assert_equal "bundled-fenix-environment", ExecutionRuntime.first.execution_runtime_fingerprint
+    assert_equal bundled_agent, binding.agent
+    assert bundled_agent.visibility_public?
+    assert bundled_agent.provisioning_origin_system?
+    assert_nil bundled_agent.owner_user_id
+    assert_equal "bundled-fenix-environment", bundled_runtime.execution_runtime_fingerprint
+    assert bundled_runtime.visibility_public?
+    assert bundled_runtime.provisioning_origin_system?
+    assert_nil bundled_runtime.owner_user_id
     assert_equal result.user, workspace.user
     assert_equal result.installation, workspace.installation
     assert workspace.private_workspace?

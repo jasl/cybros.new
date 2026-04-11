@@ -129,4 +129,41 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
 
     assert_response :not_found
   end
+
+  test "returns not found when the conversation becomes inaccessible after an agent visibility change" do
+    fixture = prepare_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    session = create_conversation_supervision_session!(fixture)
+    replacement_owner = create_user!(
+      installation: fixture[:installation],
+      identity: create_identity!,
+      display_name: "Replacement Owner"
+    )
+
+    fixture[:agent].update!(
+      visibility: "private",
+      provisioning_origin: "user_created",
+      owner_user: replacement_owner
+    )
+
+    post "/app_api/conversation_supervision_sessions",
+      params: {
+        conversation_id: fixture[:conversation].public_id,
+      },
+      headers: app_api_headers(registration[:agent_connection_credential]),
+      as: :json
+
+    assert_response :not_found
+
+    get "/app_api/conversation_supervision_sessions/#{session.public_id}",
+      headers: app_api_headers(registration[:agent_connection_credential])
+
+    assert_response :not_found
+
+    post "/app_api/conversation_supervision_sessions/#{session.public_id}/close",
+      headers: app_api_headers(registration[:agent_connection_credential]),
+      as: :json
+
+    assert_response :not_found
+  end
 end

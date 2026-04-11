@@ -10,7 +10,7 @@ class UserAgentBinding < ApplicationRecord
   validate :preferences_must_be_hash
   validate :user_installation_match
   validate :agent_installation_match
-  validate :personal_agent_ownership
+  validate :private_agent_ownership
 
   private
 
@@ -32,11 +32,11 @@ class UserAgentBinding < ApplicationRecord
     errors.add(:agent, "must belong to the same installation")
   end
 
-  def personal_agent_ownership
+  def private_agent_ownership
     return if agent.blank? || user.blank?
-    return unless agent.personal?
+    return unless agent.visibility_private?
     return if agent.owner_user_id == user_id
 
-    errors.add(:user, "must own the personal agent")
+    errors.add(:user, "must own the private agent")
   end
 end

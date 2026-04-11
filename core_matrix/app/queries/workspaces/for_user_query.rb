@@ -11,8 +11,10 @@ module Workspaces
     def call
       Workspace
         .where(installation: @user.installation, user: @user, privacy: "private")
+        .includes(user_agent_binding: { agent: :default_execution_runtime })
         .order(is_default: :desc, name: :asc, id: :asc)
         .to_a
+        .select { |workspace| ResourceVisibility::Usability.workspace_accessible_by_user?(user: @user, workspace: workspace) }
     end
   end
 end

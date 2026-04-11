@@ -27,9 +27,10 @@ Related design note:
 
 - `Agent` is the stable logical identity of an agent inside
   one installation.
-- Visibility is `personal` or `global`.
-- Personal agents require an owner user from the same
-  installation.
+- Visibility is `public` or `private`.
+- `public` agents may be system-provisioned and ownerless, or user-created and
+  owner-bound.
+- `private` agents require an owner user from the same installation.
 - Lifecycle state is tracked separately from runtime health.
 
 ### ExecutionRuntime
@@ -37,6 +38,8 @@ Related design note:
 - `ExecutionRuntime` is the stable runtime-resource owner aggregate.
 - It is the durable owner for environment-backed resources such as
   `ProcessRun` and future shell or file sessions.
+- Visibility is `public` or `private`, with the same owner and provisioning
+  invariants as `Agent`.
 - Kind is `local`, `container`, or `remote`.
 - Stable reconciliation identity is `execution_runtime_fingerprint`, scoped to one
   installation.
@@ -137,7 +140,7 @@ Related design note:
 
 ## Failure Modes
 
-- Personal agents without an owner user are invalid.
+- Private agents without an owner user are invalid.
 - Enrollment reuse or unknown enrollment tokens raise `InvalidEnrollment`.
 - Expired enrollment tokens raise `ExpiredEnrollment`.
 - Cross-installation issuance or registration raises `ArgumentError`.

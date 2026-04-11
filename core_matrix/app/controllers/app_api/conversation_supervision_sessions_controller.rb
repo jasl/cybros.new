@@ -23,6 +23,7 @@ module AppAPI
       session = find_supervision_session!(params.fetch(:id))
       target_conversation = session.target_conversation
       raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if target_conversation.blank?
+      authorize_conversation_usability!(target_conversation)
       return head :gone if session.closed?
 
       render json: {
@@ -36,6 +37,7 @@ module AppAPI
       session = find_supervision_session!(params.fetch(:id))
       target_conversation = session.target_conversation
       raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if target_conversation.blank?
+      authorize_conversation_usability!(target_conversation)
 
       session = EmbeddedAgents::ConversationSupervision::CloseSession.call(
         actor: session.initiator,
