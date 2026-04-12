@@ -273,7 +273,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   end
 
   create_table "agents", force: :cascade do |t|
-    t.bigint "active_agent_definition_version_id"
     t.datetime "created_at", null: false
     t.bigint "default_execution_runtime_id"
     t.string "display_name", null: false
@@ -283,9 +282,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.bigint "owner_user_id"
     t.string "provisioning_origin", default: "system", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.bigint "published_agent_definition_version_id"
     t.datetime "updated_at", null: false
     t.string "visibility", default: "public", null: false
-    t.index ["active_agent_definition_version_id"], name: "index_agents_on_active_agent_definition_version_id"
     t.index ["default_execution_runtime_id"], name: "index_agents_on_default_execution_runtime_id"
     t.index ["installation_id", "key"], name: "index_agents_on_installation_id_and_key", unique: true
     t.index ["installation_id", "provisioning_origin"], name: "index_agents_on_installation_id_and_provisioning_origin"
@@ -293,6 +292,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["installation_id"], name: "index_agents_on_installation_id"
     t.index ["owner_user_id"], name: "index_agents_on_owner_user_id"
     t.index ["public_id"], name: "index_agents_on_public_id", unique: true
+    t.index ["published_agent_definition_version_id"], name: "index_agents_on_published_agent_definition_version_id"
   end
 
   create_table "audit_logs", force: :cascade do |t|
@@ -973,7 +973,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   end
 
   create_table "execution_runtimes", force: :cascade do |t|
-    t.bigint "active_execution_runtime_version_id"
     t.datetime "created_at", null: false
     t.string "display_name", null: false
     t.bigint "installation_id", null: false
@@ -982,15 +981,16 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.bigint "owner_user_id"
     t.string "provisioning_origin", default: "system", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.bigint "published_execution_runtime_version_id"
     t.datetime "updated_at", null: false
     t.string "visibility", default: "public", null: false
-    t.index ["active_execution_runtime_version_id"], name: "idx_on_active_execution_runtime_version_id_469be0999f"
     t.index ["installation_id", "kind"], name: "index_execution_runtimes_on_installation_id_and_kind"
     t.index ["installation_id", "provisioning_origin"], name: "idx_on_installation_id_provisioning_origin_3ec0756f3e"
     t.index ["installation_id", "visibility"], name: "index_execution_runtimes_on_installation_id_and_visibility"
     t.index ["installation_id"], name: "index_execution_runtimes_on_installation_id"
     t.index ["owner_user_id"], name: "index_execution_runtimes_on_owner_user_id"
     t.index ["public_id"], name: "index_execution_runtimes_on_public_id", unique: true
+    t.index ["published_execution_runtime_version_id"], name: "idx_on_published_execution_runtime_version_id_33547d051c"
   end
 
   create_table "human_interaction_requests", force: :cascade do |t|
@@ -1987,7 +1987,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "agent_task_runs", "turns", column: "origin_turn_id"
   add_foreign_key "agent_task_runs", "workflow_nodes"
   add_foreign_key "agent_task_runs", "workflow_runs"
-  add_foreign_key "agents", "agent_definition_versions", column: "active_agent_definition_version_id"
+  add_foreign_key "agents", "agent_definition_versions", column: "published_agent_definition_version_id"
   add_foreign_key "agents", "execution_runtimes", column: "default_execution_runtime_id"
   add_foreign_key "agents", "installations"
   add_foreign_key "agents", "users", column: "owner_user_id"
@@ -2094,7 +2094,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "execution_runtime_versions", "json_documents", column: "capability_payload_document_id"
   add_foreign_key "execution_runtime_versions", "json_documents", column: "reflected_host_metadata_document_id"
   add_foreign_key "execution_runtime_versions", "json_documents", column: "tool_catalog_document_id"
-  add_foreign_key "execution_runtimes", "execution_runtime_versions", column: "active_execution_runtime_version_id"
+  add_foreign_key "execution_runtimes", "execution_runtime_versions", column: "published_execution_runtime_version_id"
   add_foreign_key "execution_runtimes", "installations"
   add_foreign_key "execution_runtimes", "users", column: "owner_user_id"
   add_foreign_key "human_interaction_requests", "conversations"

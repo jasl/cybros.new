@@ -8,7 +8,7 @@ class Agent < ApplicationRecord
   belongs_to :installation
   belongs_to :owner_user, class_name: "User", optional: true, inverse_of: :owned_agents
   belongs_to :default_execution_runtime, class_name: "ExecutionRuntime", optional: true
-  belongs_to :active_agent_definition_version, class_name: "AgentDefinitionVersion", optional: true
+  belongs_to :published_agent_definition_version, class_name: "AgentDefinitionVersion", optional: true
 
   has_many :pairing_sessions, dependent: :restrict_with_exception
   has_many :agent_definition_versions, dependent: :restrict_with_exception
@@ -28,7 +28,7 @@ class Agent < ApplicationRecord
   validate :default_execution_runtime_installation_match
 
   def current_agent_definition_version
-    active_agent_connection&.agent_definition_version || active_agent_definition_version
+    active_agent_connection&.agent_definition_version || published_agent_definition_version
   end
 
   private

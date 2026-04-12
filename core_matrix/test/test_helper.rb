@@ -739,7 +739,7 @@ module ActiveSupport
         conversation_override_schema_snapshot: conversation_override_schema_snapshot,
         default_config_snapshot: default_config_snapshot
       )
-      context[:agent].update!(active_agent_definition_version: agent_definition_version)
+      context[:agent].update!(published_agent_definition_version: agent_definition_version)
       AgentConfigStates::Reconcile.call(
         agent: context[:agent],
         agent_definition_version: agent_definition_version
@@ -759,7 +759,7 @@ module ActiveSupport
     end
 
     def adopt_agent_definition_version!(context, agent_definition_version, turn: context[:turn])
-      context[:agent].update!(active_agent_definition_version: agent_definition_version)
+      context[:agent].update!(published_agent_definition_version: agent_definition_version)
       agent_config_state = AgentConfigStates::Reconcile.call(
         agent: context[:agent],
         agent_definition_version: agent_definition_version

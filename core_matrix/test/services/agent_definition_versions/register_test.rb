@@ -20,7 +20,7 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
       execution_runtime: execution_runtime,
       execution_runtime_fingerprint: "runtime-host-a"
     )
-    execution_runtime.update!(active_execution_runtime_version: execution_runtime_version)
+    execution_runtime.update!(published_execution_runtime_version: execution_runtime_version)
     agent.update!(default_execution_runtime: execution_runtime)
 
     result = AgentDefinitionVersions::Register.call(
@@ -38,7 +38,7 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
     assert pairing_session.agent_registered_at.present?
     assert pairing_session.last_used_at.present?
     assert_equal execution_runtime, result.execution_runtime
-    assert_equal result.agent_definition_version, agent.active_agent_definition_version
+    assert_equal result.agent_definition_version, agent.published_agent_definition_version
     assert_equal result.agent_definition_version, result.agent_connection.agent_definition_version
     assert result.agent_connection.active?
     assert result.agent_connection.pending?

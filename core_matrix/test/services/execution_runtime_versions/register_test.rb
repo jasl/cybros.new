@@ -29,7 +29,7 @@ class ExecutionRuntimeVersions::RegisterTest < ActiveSupport::TestCase
     assert pairing_session.runtime_registered_at.present?
     assert pairing_session.last_used_at.present?
     assert_equal result.execution_runtime, agent.default_execution_runtime
-    assert_equal result.execution_runtime_version, result.execution_runtime.active_execution_runtime_version
+    assert_equal result.execution_runtime_version, result.execution_runtime.published_execution_runtime_version
     assert_equal result.execution_runtime_version, result.execution_runtime_connection.execution_runtime_version
     assert result.execution_runtime_connection.active?
     assert_equal result.execution_runtime_connection, ExecutionRuntimeConnection.find_by_plaintext_connection_credential(result.execution_runtime_connection_credential)

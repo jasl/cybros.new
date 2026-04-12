@@ -77,10 +77,10 @@ class CreateAgentVersioningCore < ActiveRecord::Migration[8.2]
       name: "idx_execution_runtime_versions_runtime_fingerprint"
 
     add_reference :agents,
-      :active_agent_definition_version,
+      :published_agent_definition_version,
       foreign_key: { to_table: :agent_definition_versions }
     add_reference :execution_runtimes,
-      :active_execution_runtime_version,
+      :published_execution_runtime_version,
       foreign_key: { to_table: :execution_runtime_versions }
   end
 end

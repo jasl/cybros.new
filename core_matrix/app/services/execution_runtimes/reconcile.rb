@@ -29,7 +29,7 @@ module ExecutionRuntimes
       ExecutionRuntime
         .where(installation: @installation)
         .where(
-          active_execution_runtime_version_id: ExecutionRuntimeVersion.where(
+          published_execution_runtime_version_id: ExecutionRuntimeVersion.where(
             execution_runtime_fingerprint: @execution_runtime_fingerprint
           ).select(:id)
         )

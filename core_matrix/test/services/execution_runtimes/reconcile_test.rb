@@ -14,7 +14,7 @@ module ExecutionRuntimes
         execution_runtime_fingerprint: "fenix-host-a"
       )
       existing.update!(
-        active_execution_runtime_version: existing_version
+        published_execution_runtime_version: existing_version
       )
 
       reconciled = ExecutionRuntimes::Reconcile.call(
@@ -29,7 +29,7 @@ module ExecutionRuntimes
 
       assert_equal existing, reconciled
       assert_equal "container", reconciled.kind
-      assert_equal existing_version, reconciled.active_execution_runtime_version
+      assert_equal existing_version, reconciled.published_execution_runtime_version
       assert_equal "fenix-host-a", reconciled.execution_runtime_fingerprint
     end
 

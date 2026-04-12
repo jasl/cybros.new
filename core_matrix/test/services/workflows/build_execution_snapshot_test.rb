@@ -193,7 +193,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
         payload: context[:execution_runtime].current_execution_runtime_version&.reflected_host_metadata || {}
       )
     )
-    context[:execution_runtime].update!(active_execution_runtime_version: restricted_runtime_version)
+    context[:execution_runtime].update!(published_execution_runtime_version: restricted_runtime_version)
     context[:execution_runtime_connection].update!(execution_runtime_version: restricted_runtime_version)
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(

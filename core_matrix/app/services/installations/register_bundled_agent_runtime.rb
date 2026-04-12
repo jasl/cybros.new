@@ -135,7 +135,7 @@ module Installations
         version_package: bundled_runtime_version_package
       )
       execution_runtime.update!(
-        active_execution_runtime_version: upsert_result.execution_runtime_version
+        published_execution_runtime_version: upsert_result.execution_runtime_version
       )
       execution_runtime
     end
@@ -145,7 +145,7 @@ module Installations
         agent: agent,
         definition_package: bundled_definition_package
       )
-      agent.update!(active_agent_definition_version: upsert_result.agent_definition_version)
+      agent.update!(published_agent_definition_version: upsert_result.agent_definition_version)
       upsert_result.agent_definition_version
     rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
       agent.agent_definition_versions.find_by!(
@@ -236,7 +236,7 @@ module Installations
       end
 
       execution_runtime_connection.update!(
-        execution_runtime_version: execution_runtime.active_execution_runtime_version,
+        execution_runtime_version: execution_runtime.published_execution_runtime_version,
         endpoint_metadata: @configuration[:connection_metadata],
         lifecycle_state: "active",
         last_heartbeat_at: Time.current
@@ -257,7 +257,7 @@ module Installations
       execution_runtime_connection = ExecutionRuntimeConnection.create!(
         installation: @installation,
         execution_runtime: execution_runtime,
-        execution_runtime_version: execution_runtime.active_execution_runtime_version,
+        execution_runtime_version: execution_runtime.published_execution_runtime_version,
         connection_credential_digest: connection_credential_digest,
         connection_token_digest: connection_token_digest,
         endpoint_metadata: @configuration[:connection_metadata],

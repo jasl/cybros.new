@@ -8,7 +8,7 @@ class ExecutionRuntime < ApplicationRecord
 
   belongs_to :installation
   belongs_to :owner_user, class_name: "User", optional: true, inverse_of: :owned_execution_runtimes
-  belongs_to :active_execution_runtime_version, class_name: "ExecutionRuntimeVersion", optional: true
+  belongs_to :published_execution_runtime_version, class_name: "ExecutionRuntimeVersion", optional: true
 
   has_many :agents, foreign_key: :default_execution_runtime_id, dependent: :restrict_with_exception
   has_many :workspaces, foreign_key: :default_execution_runtime_id, dependent: :restrict_with_exception
@@ -26,7 +26,7 @@ class ExecutionRuntime < ApplicationRecord
   validate :owner_user_installation_match
 
   def current_execution_runtime_version
-    active_execution_runtime_connection&.execution_runtime_version || active_execution_runtime_version
+    active_execution_runtime_connection&.execution_runtime_version || published_execution_runtime_version
   end
 
   def execution_runtime_fingerprint

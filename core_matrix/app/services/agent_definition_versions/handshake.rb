@@ -31,7 +31,7 @@ module AgentDefinitionVersions
       )
 
       ApplicationRecord.transaction do
-        @agent_connection.agent.update!(active_agent_definition_version: agent_definition_version)
+        @agent_connection.agent.update!(published_agent_definition_version: agent_definition_version)
         @agent_connection.update!(agent_definition_version: agent_definition_version)
 
         ToolBindings::ProjectCapabilitySnapshot.call(

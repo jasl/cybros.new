@@ -841,9 +841,9 @@ After implementation and cleanup, the core model split should be understood as:
 
 This is mostly orthogonal. Two intentional convenience overlaps remain:
 
-- `Agent.active_agent_definition_version` and
+- `Agent.published_agent_definition_version` and
   `Agent.current_agent_definition_version`
-- `ExecutionRuntime.active_execution_runtime_version` and
+- `ExecutionRuntime.published_execution_runtime_version` and
   `ExecutionRuntime.current_execution_runtime_version`
 
 Those overlaps are acceptable for now because the product needs both:
@@ -854,19 +854,68 @@ Those overlaps are acceptable for now because the product needs both:
 The important rule is that turn entry and recovery must always freeze from the
 live connection identity, not from a stale published pointer.
 
-One simplification was already applied during implementation:
+Two simplifications were already applied during implementation:
 
+- `active_*_version` was renamed to `published_*_version` so the durable
+  publication/default pointer is clearly distinguished from the live connected
+  pointer returned by `current_*_version`
 - the old `capability_snapshot_version` / `pinned_capability_snapshot_version`
   concept was removed because it no longer participated in execution identity
   or recovery decisions
 
-The main future simplification worth considering, but not required for this
-phase, is a vocabulary cleanup:
+## Post-Implementation Audit Follow-Ups
 
-- rename `active_*_version` to `published_*_version`
+After the `published_*_version` cleanup, the main remaining issues are no
+longer schema-level. They are vocabulary and contract-shaping cleanups.
 
-That would better distinguish stable publication state from live connection
-state, but it is not necessary to make the platform correct.
+### 1. Snapshot-era alias vocabulary still exists above the version layer
+
+The platform model now uses:
+
+- `definition_package`
+- `version_package`
+- `profile_policy`
+- `canonical_config_schema`
+- `default_canonical_config`
+
+But several higher-level contracts still expose compatibility aliases such as:
+
+- `tool_catalog`
+- `profile_catalog`
+- `config_schema_snapshot`
+- `conversation_override_schema_snapshot`
+- `default_config_snapshot`
+
+These aliases still appear in:
+
+- `Runtime::Manifest::PairingManifest` for Fenix
+- `RuntimeCapabilityContract`
+- acceptance helpers and scenarios
+
+This is not a correctness problem, but it is the next major cleanup if the
+goal is a truly uniform vocabulary.
+
+### 2. Pairing sessions remain reusable until expiry or explicit revocation
+
+`PairingSession` currently models a short-lived pairing workflow rather than a
+single-use enrollment token. That means:
+
+- repeated runtime registration is allowed while the session remains active
+- repeated agent registration is allowed while the session remains active
+- the session is not automatically closed when both sides have registered
+
+This is consistent with the current product direction, but it is still a
+deliberate policy choice, not an accident. If the product later wants stricter
+pairing finalization, it should be implemented explicitly as a lifecycle
+policy, not by overloading version registration behavior.
+
+### 3. Verification discipline for `core_matrix`
+
+`core_matrix` test commands already run with Rails worker parallelism. Do not
+run two `bin/rails test ...` commands that target `core_matrix` at the same
+time from the same checkout, because both commands will race to create the
+same `core_matrix_test_*` databases and can produce misleading infrastructure
+failures unrelated to application behavior.
 
 ## Migration Strategy
 

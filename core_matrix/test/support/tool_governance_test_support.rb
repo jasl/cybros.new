@@ -88,7 +88,7 @@ module ToolGovernanceTestSupport
         payload: execution_runtime.current_execution_runtime_version&.reflected_host_metadata || {}
       )
     )
-    execution_runtime.update!(active_execution_runtime_version: execution_runtime_version)
+    execution_runtime.update!(published_execution_runtime_version: execution_runtime_version)
     context.fetch(:execution_runtime_connection).update!(execution_runtime_version: execution_runtime_version)
 
     activate_agent_definition_version!(

@@ -36,7 +36,7 @@ module AgentDefinitionVersions
           agent_definition_version: agent_definition_version
         )
 
-        pairing_session.agent.update!(active_agent_definition_version: agent_definition_version)
+        pairing_session.agent.update!(published_agent_definition_version: agent_definition_version)
 
         AgentConnection.where(agent: pairing_session.agent, lifecycle_state: "active").update_all(
           lifecycle_state: "stale",

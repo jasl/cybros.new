@@ -51,8 +51,8 @@
 - keep `execution_runtimes` as the logical runtime identity table
 - remove definition-like JSON blobs from `execution_runtimes`
 - add active-version refs such as:
-  - `agents.active_agent_definition_version_id`
-  - `execution_runtimes.active_execution_runtime_version_id`
+  - `agents.published_agent_definition_version_id`
+  - `execution_runtimes.published_execution_runtime_version_id`
 - keep `agents.default_execution_runtime_id` as an operational preference only
 
 **Step 3: Rebuild `turns` around version refs instead of `agent_snapshot`**
@@ -231,7 +231,7 @@ Expected:
 - normalize the incoming Fenix definition package into `AgentDefinitionVersion`
 - create or update the singleton `AgentConfigState` for the logical `Agent`
 - rotate the active `AgentConnection`
-- update `Agent.active_agent_definition_version_id`
+- update `Agent.published_agent_definition_version_id`
 
 **Step 4: Keep capabilities refresh separate from logical identity**
 

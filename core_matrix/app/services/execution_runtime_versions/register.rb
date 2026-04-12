@@ -35,7 +35,7 @@ module ExecutionRuntimeVersions
         execution_runtime.update!(
           kind: execution_runtime_version.kind,
           display_name: execution_runtime_version.reflected_host_metadata["display_name"].presence || execution_runtime.display_name,
-          active_execution_runtime_version: execution_runtime_version,
+          published_execution_runtime_version: execution_runtime_version,
           lifecycle_state: "active"
         )
         pairing_session.agent.update!(default_execution_runtime: execution_runtime)

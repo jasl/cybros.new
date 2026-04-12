@@ -114,12 +114,12 @@ class ExecutionRuntimeTest < ActiveSupport::TestCase
     assert_includes invalid_owner.errors[:owner_user], "must belong to the same installation"
   end
 
-  test "tracks the active runtime version" do
+  test "tracks the published runtime version" do
     execution_runtime = create_execution_runtime!
     runtime_version = create_execution_runtime_version!(execution_runtime: execution_runtime, installation: execution_runtime.installation)
 
-    execution_runtime.update!(active_execution_runtime_version: runtime_version)
+    execution_runtime.update!(published_execution_runtime_version: runtime_version)
 
-    assert_equal runtime_version, execution_runtime.active_execution_runtime_version
+    assert_equal runtime_version, execution_runtime.published_execution_runtime_version
   end
 end
