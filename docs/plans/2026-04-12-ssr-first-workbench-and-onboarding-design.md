@@ -1,0 +1,550 @@
+# SSR-First Workbench And Onboarding Design
+
+**Date:** 2026-04-12
+
+## Goal
+
+Define the first real Web product surface for `core_matrix` using an
+SSR-first hybrid architecture that supports:
+
+- a cowork-style end-user workbench
+- an admin console for private-installation operators
+- document-driven onboarding for `Agent` and `ExecutionRuntime`
+- future migration to a fully separated frontend without changing product
+  semantics
+
+## Scope
+
+This design applies to:
+
+- `core_matrix` Web product architecture
+- app-facing API boundaries and realtime event contracts
+- workbench and admin information architecture
+- onboarding flows for `Agent` and `ExecutionRuntime`
+- guide-driven manual acceptance expectations
+
+This design does not apply to:
+
+- the internal machine control protocol between `core_matrix` and
+  `agents/fenix`
+- the internal machine control protocol between `core_matrix` and
+  `execution_runtimes/nexus`
+- implementation-level CSS, component, or controller details
+- the final choice of frontend framework after the SSR-first phase
+
+## Product Constraints
+
+The approved product constraints are:
+
+- end users never interact directly with `Agent` or `ExecutionRuntime`
+  machine-control surfaces
+- `agent_api` stays machine-facing
+- `execution_runtime_api` stays machine-facing
+- browser and future custom apps use `app_api` plus realtime subscriptions
+- the first Web product should be SSR-first, but the product API must remain
+  reusable by a future SPA, desktop app, or custom agent-specific app
+- onboarding flows for `Agent` and `ExecutionRuntime` must be documented in
+  `guides` and manually accepted by following the published steps
+
+## Architectural Recommendation
+
+The approved approach is `SSR-first hybrid`.
+
+`core_matrix` remains the single Web host and exposes:
+
+- Rails-rendered page shells
+- typed app-facing APIs
+- realtime event subscriptions
+
+The browser uses:
+
+- SSR for initial page load, navigation shell, auth/session state, and admin
+  forms
+- Turbo/Stimulus-style progressive enhancement for dynamic sections
+- realtime updates for long-running conversation and onboarding activity
+
+This is preferred over a full frontend/backend split because:
+
+- `core_matrix` already owns the durable app-facing read models and
+  supervision concepts
+- the admin console is form-heavy and operational rather than highly visual
+- the workbench needs event-driven updates more than client-side routing
+- the product semantics are still evolving and should not be frozen behind an
+  extra frontend/backend split yet
+
+## Product Surface Layers
+
+`core_matrix` should be treated as three explicit layers:
+
+1. `Domain / Orchestration`
+   - conversations
+   - turns
+   - supervision
+   - agent/runtime pairing
+   - audit and execution governance
+2. `App Surface`
+   - stable app-facing read models
+   - stable app-facing user/admin actions
+   - stable realtime event vocabulary
+3. `Web Shell`
+   - Rails routes, controllers, views
+   - Turbo/Stimulus behavior
+   - HTML presentation for the SSR-first client
+
+The Web Shell is only one client of the App Surface. Future custom apps should
+consume the same `app_api` contracts and realtime event model rather than
+reaching into machine control endpoints.
+
+## Hard Boundary Rules
+
+- Do not expose `agent_api/*` directly to browsers or future custom apps.
+- Do not expose `execution_runtime_api/*` directly to browsers or future
+  custom apps.
+- Do not leak `poll/report` semantics into the app-facing product API.
+- Use `public_id` at every app-facing boundary.
+- HTML controllers should render from shared presenters/serializers instead of
+  page-specific ad hoc JSON.
+- Realtime events and REST read models must share the same resource naming and
+  field vocabulary.
+
+## Product Resource Model
+
+### Core Relationship Model
+
+The approved user-facing relationship model is:
+
+- `Agent has many Workspaces`
+- `Workspace has many Conversations`
+
+`Conversation` should not be modeled as the direct first-level container under
+an end-user-visible `Agent`.
+
+### Why Workspace Is Required
+
+`Workspace` is the durable work container analogous to a project/work area.
+It gives the user a stable place to return to, while `Conversation` remains a
+thread inside that place.
+
+This lets the product support:
+
+- multiple threads under one work area
+- stable runtime and policy defaults at the workspace layer
+- future workspace-level tools, artifacts, and visibility rules
+
+## Default Workspace Policy
+
+Each user-usable `Agent` should expose one default workspace entry point.
+
+However, the system should not eagerly create a real workspace row for every
+possible user-agent combination.
+
+The approved policy is `lazy materialization`.
+
+### Lazy Materialization
+
+The UI should behave as if the default workspace already exists, but the
+backend only materializes the real `Workspace` record when the user performs a
+first substantive action such as:
+
+- sending the first message
+- explicitly starting the workspace
+- uploading an initial attachment
+
+### Product Behavior
+
+For the user:
+
+- the agent appears immediately usable
+- the default workspace appears in the UI immediately
+- no explicit "create workspace first" step is shown
+
+For the backend:
+
+- the app surface may return a `default_workspace_ref`
+- that ref may be `virtual` until first use
+- the first conversation-creating action may atomically materialize the
+  workspace and create the conversation
+
+### UX Rule
+
+Do not surface internal terms such as `virtual workspace` or
+`materialization` in the user UI. Use product language such as:
+
+- `Start working`
+- `Your first conversation will set up this workspace`
+
+## App API Direction
+
+The app-facing API should be resource-oriented with explicit user/admin
+actions, not a generic RPC façade.
+
+### Workbench Read Models
+
+Approved read-model families:
+
+- `agent_home`
+- `workspace`
+- `conversation`
+- `conversation_transcript`
+- `turn_todo_plan`
+- `turn_runtime_event`
+- `supervision_session`
+- `approval_request`
+- `export_request`
+
+### Workbench Actions
+
+Approved action families:
+
+- `send_message`
+- `create_conversation`
+- `branch_conversation`
+- `rename_conversation`
+- `resolve_approval`
+- `start_supervision_session`
+- `close_supervision_session`
+
+These actions should appear as explicit app-facing operations rather than
+leaking internal workflow verbs.
+
+### Admin Read Models
+
+Approved admin-facing resource families:
+
+- `installation`
+- `agent`
+- `agent_release`
+- `execution_runtime`
+- `runtime_host`
+- `workspace_policy`
+- `provider_account`
+- `onboarding_session`
+- `audit_entry`
+
+### Admin Actions
+
+Approved admin-facing action families:
+
+- `create_agent_onboarding_session`
+- `create_runtime_onboarding_session`
+- `rotate_agent_credential`
+- `rotate_runtime_credential`
+- `bind_workspace_policy`
+- `update_provider_account`
+
+## Suggested App API Shape
+
+Illustrative examples, not final route lock-in:
+
+### Workbench
+
+- `GET /app_api/agents`
+- `GET /app_api/agents/:agent_id/home`
+- `GET /app_api/agents/:agent_id/workspaces`
+- `GET /app_api/agents/:agent_id/workspaces/:workspace_id`
+- `GET /app_api/agents/:agent_id/workspaces/:workspace_id/conversations`
+- `POST /app_api/agents/:agent_id/conversations`
+  - if no `workspace_id` is supplied, the system uses the agent default
+    workspace and materializes it on first use if needed
+- `GET /app_api/conversation_transcripts?conversation_id=...`
+- `GET /app_api/conversation_turn_todo_plans?conversation_id=...&turn_id=...`
+- `GET /app_api/conversation_turn_runtime_events?conversation_id=...&turn_id=...`
+- `POST /app_api/conversation_supervision_sessions`
+- `POST /app_api/conversation_supervision_sessions/:id/messages`
+- `POST /app_api/approval_requests/:id/resolve`
+
+### Admin
+
+- `GET /app_api/admin/installation`
+- `GET /app_api/admin/agents`
+- `POST /app_api/admin/agents/onboarding_sessions`
+- `GET /app_api/admin/agents/:id`
+- `POST /app_api/admin/agents/:id/rotate_credential`
+- `GET /app_api/admin/execution_runtimes`
+- `POST /app_api/admin/execution_runtimes/onboarding_sessions`
+- `GET /app_api/admin/execution_runtimes/:id`
+- `POST /app_api/admin/execution_runtimes/:id/rotate_credential`
+- `GET /app_api/admin/workspace_policies`
+- `PATCH /app_api/admin/workspace_policies/:id`
+- `GET /app_api/admin/provider_accounts`
+- `PATCH /app_api/admin/provider_accounts/:id`
+- `GET /app_api/admin/audit_entries`
+
+## Realtime Event Model
+
+Realtime is approved as a product requirement for:
+
+- active conversation work
+- plan updates
+- runtime activity summaries
+- approvals
+- onboarding progress
+
+Transport may begin with ActionCable, but event naming and payload shape should
+remain transport-neutral so the system can later move to SSE or a dedicated
+frontend gateway without changing product semantics.
+
+### Event Envelope
+
+Recommended shape:
+
+```json
+{
+  "event_type": "turn.runtime_event.appended",
+  "resource_type": "conversation_turn_runtime_event",
+  "resource_id": "trev_public_123",
+  "conversation_id": "conv_public_123",
+  "turn_id": "turn_public_123",
+  "sequence": 42,
+  "occurred_at": "2026-04-12T10:00:00Z",
+  "payload": {
+    "summary": "Started the preview server in /workspace/foo"
+  }
+}
+```
+
+### Approved Event Families
+
+- `conversation.updated`
+- `transcript.item.appended`
+- `turn.started`
+- `turn.completed`
+- `turn.runtime_event.appended`
+- `turn.todo_plan.updated`
+- `approval_request.created`
+- `approval_request.resolved`
+- `supervision_session.updated`
+- `onboarding_session.updated`
+- `agent.updated`
+- `execution_runtime.updated`
+
+Do not use internal workflow node names, `provider_round_*`, `poll/report`, or
+machine-control labels as browser event types.
+
+## Workbench Information Architecture
+
+The approved workbench is a cowork-style workspace-first product surface.
+
+### Primary Navigation
+
+The user entry sequence should be:
+
+- `Agents`
+- selected `Agent`
+- selected `Workspace`
+- selected `Conversation`
+
+The default workspace may be implicit in the UI, but the product model remains
+workspace-first.
+
+### Main Desktop Layout
+
+The approved desktop layout is three columns:
+
+1. left column
+   - agent switcher
+   - workspace switcher
+   - conversation list
+2. center column
+   - transcript
+   - composer
+   - inline approval cards when needed
+3. right column
+   - active plan
+   - live activity feed
+   - pending approvals
+   - supervision entry points
+
+### Mobile Layout
+
+Mobile should not force a cramped three-column rendering. Use:
+
+- default `Transcript` view
+- `Activity` tab
+- `Plan / Approvals` tab
+
+### State Semantics
+
+The user-facing status vocabulary should stay human and product-safe:
+
+- `Working`
+- `Waiting for your input`
+- `Completed`
+- `Needs attention`
+
+Avoid surfacing machine terms such as:
+
+- `provider round`
+- `command_run_wait`
+- raw tool names
+- internal workflow node keys
+
+### Transcript Rule
+
+`Transcript` is the formal human/agent thread.
+
+`Live activity` is a separate runtime/supporting lane.
+
+Do not collapse raw runtime activity into the transcript. Approval prompts may
+appear in both the transcript and the approval/activity lane because they are
+blocking user-facing moments, not merely machine activity.
+
+## Admin Console Information Architecture
+
+The admin console should optimize for deployment ergonomics, not for exposing
+internal topology.
+
+### Approved Admin Areas
+
+- `/admin`
+  - installation overview
+  - recent onboarding sessions
+  - degraded agents/runtimes
+  - recent audit items
+- `/admin/setup`
+  - first-install bootstrap
+  - provider setup
+  - default workspace policy
+- `/admin/agents`
+  - list, inspect, onboard, rotate credential
+- `/admin/runtimes`
+  - list, inspect, onboard, rotate credential
+- `/admin/audit`
+  - operational and diagnostic review
+
+### Onboarding As Product Object
+
+The approved product object for setup flows is `onboarding_session`.
+
+Browsers should reason about:
+
+- session created
+- session waiting
+- session registered
+- capabilities received
+- healthy
+- failed
+
+Browsers should not reason directly about internal registration or heartbeat
+endpoints.
+
+## Document-Driven Onboarding
+
+Onboarding for `Agent` and `ExecutionRuntime` must be documented in
+`guides` and must be manually validated by following those documents.
+
+The guide is not an optional help page. It is the intended operator-facing
+procedure.
+
+### Product Rule
+
+Guide and UI must use the same:
+
+- step ordering
+- state names
+- command snippets
+- success criteria
+- failure diagnosis vocabulary
+
+### Approved Guide Families
+
+The `guides` site should eventually contain at least:
+
+- `first-installation`
+- `runtime-onboarding`
+- `agent-onboarding`
+- `manual-acceptance-runtime-onboarding`
+- `manual-acceptance-agent-onboarding`
+
+### Admin UX Rule
+
+Each onboarding page should:
+
+- link to the canonical guide
+- show the current onboarding step
+- show exact commands to run on the target machine
+- show current status and recent events
+- show next-step guidance on success
+- show the shortest diagnosis path on failure
+
+## Onboarding Page Layout
+
+The recommended onboarding page layout is two-column:
+
+1. main column
+   - current step
+   - status badge
+   - copyable command blocks
+   - next action
+2. supporting column
+   - guide summary
+   - expected observations
+   - recent onboarding events
+   - common failure hints
+
+This keeps the operator inside one product surface rather than forcing context
+switches between a document site and an admin page.
+
+## Manual Acceptance Requirements
+
+The design is only correctly implemented when onboarding can be manually
+followed end to end using the published `guides`.
+
+Required manual checks include:
+
+### Runtime Onboarding
+
+- create a runtime onboarding session in the admin UI
+- follow the documented commands on a workstation
+- observe the expected state progression in the admin UI
+- confirm the runtime becomes healthy and inspectable
+
+### Agent Onboarding
+
+- create an agent onboarding session in the admin UI
+- follow the documented commands
+- observe registration, capability receipt, and healthy state
+
+### Default Workspace Lazy Materialization
+
+- enter an agent that has never been used by the user
+- observe that the default workspace appears immediately in the UI
+- confirm no real workspace is created before first substantive use
+- send the first message
+- confirm the workspace and conversation are materialized correctly
+- revisit the same agent and confirm the existing default workspace is reused
+
+## Future Frontend Separation Compatibility
+
+The approved SSR-first phase must preserve a later path to full frontend
+separation.
+
+That means:
+
+- `app_api` is the real contract
+- HTML is not the contract
+- server-side presenters and serializers define resource shape
+- realtime events use a stable transport-neutral envelope
+- page flows should be expressible entirely in terms of app-facing resources
+  and actions
+
+Implementation should always ask:
+
+- if this page were replaced by a custom React or native app later, would the
+  same `app_api` endpoints and realtime events still make sense?
+
+If the answer is no, the design has leaked SSR-specific behavior into the app
+surface and should be corrected.
+
+## Verification
+
+This design should be considered correctly implemented only when:
+
+- end-user workbench flows are workspace-first rather than
+  conversation-direct-under-agent
+- the default workspace is lazy-materialized rather than eagerly created
+- browsers use `app_api` and realtime events rather than machine control APIs
+- admin onboarding is centered on `onboarding_session`
+- `guides` document the onboarding flows and are used for manual acceptance
+- the Web UI remains SSR-first without coupling the product contract to HTML
+  rendering details
