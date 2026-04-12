@@ -909,6 +909,19 @@ Expected:
 
 **Step 3: Implement the remaining admin and user configuration surfaces**
 
+Current product decision for runtime selection:
+
+- workspace policy owns the default execution runtime for new conversations
+- `POST /app_api/agents/:id/conversations` may override the runtime for the
+  first turn only
+- `POST /app_api/conversations/:id/messages` must not switch runtime
+- follow-up runtime-switch attempts must return an explicit product error until
+  a dedicated conversation handoff API exists
+- runtime version refresh within the same runtime identity remains internal and
+  is not part of the user-facing handoff surface
+- agent visibility/home/workspace read surfaces stay visibility-based; only the
+  conversation-start action evaluates launchability
+
 Keep the browser-facing admin layer on top of product resources:
 
 ```ruby

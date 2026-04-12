@@ -44,7 +44,7 @@ class AppApiAgentsTest < ActionDispatch::IntegrationTest
       key: "retired-agent",
       display_name: "Retired Agent"
     )
-    create_agent!(
+    unconfigured_agent = create_agent!(
       installation: installation,
       visibility: "public",
       key: "unconfigured-agent",
@@ -57,7 +57,10 @@ class AppApiAgentsTest < ActionDispatch::IntegrationTest
 
     response_body = response.parsed_body
     assert_equal "agents_index", response_body.fetch("method_id")
-    assert_equal [public_agent.public_id, owned_private_agent.public_id], response_body.fetch("agents").map { |item| item.fetch("agent_id") }
+    assert_equal(
+      [public_agent.public_id, owned_private_agent.public_id, unconfigured_agent.public_id].sort,
+      response_body.fetch("agents").map { |item| item.fetch("agent_id") }.sort
+    )
     refute_includes response.body, %("#{public_agent.id}")
   end
 end

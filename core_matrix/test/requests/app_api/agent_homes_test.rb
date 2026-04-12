@@ -53,4 +53,25 @@ class AppApiAgentHomesTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  test "shows agent home even when the agent default runtime is currently unavailable" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    session = create_session!(user: user)
+    runtime = create_execution_runtime!(installation: installation)
+    agent = create_agent!(
+      installation: installation,
+      visibility: "public",
+      default_execution_runtime: runtime,
+      display_name: "Alpha Agent"
+    )
+    create_agent_connection!(installation: installation, agent: agent)
+
+    get "/app_api/agents/#{agent.public_id}/home",
+      headers: app_api_headers(session.plaintext_token)
+
+    assert_response :success
+    assert_equal agent.public_id, response.parsed_body.fetch("agent").fetch("agent_id")
+    assert_equal "virtual", response.parsed_body.fetch("default_workspace_ref").fetch("state")
+  end
 end

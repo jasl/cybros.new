@@ -99,6 +99,17 @@ execution-snapshot persistence on the turn row.
 
 - `Turns::StartUserTurn` creates an active manual-user turn plus an initial
   selected `UserMessage`
+- execution-runtime selection is creation-scoped:
+  - when a conversation has no prior turns, runtime selection comes from the
+    workspace default, falling back to the agent default unless an explicit
+    first-turn override is supplied
+  - once a conversation already has a turn history, ordinary end-user message
+    APIs must not switch the execution runtime
+  - conversation runtime handoff is therefore deferred to a future dedicated
+    flow rather than piggybacking on follow-up message creation
+- agent discovery and agent-home visibility are separate from launchability;
+  the launchability check happens when a conversation is started, not when an
+  agent is merely listed or viewed
 - manual-user turns persist `source_ref_type = "User"` with the owning user's
   `public_id` in `source_ref_id`
 - ordinary user-turn entry rejects automation-purpose conversations
@@ -154,6 +165,9 @@ execution-snapshot persistence on the turn row.
 - automation-origin turns may exist without a transcript-bearing `UserMessage`
 - queued follow-up only exists when there is already active work to follow
 - selected transcript pointers remain explicit turn-owned state
+- execution-runtime identity may advance to newer versions for the same runtime
+  id, but user-facing follow-up message APIs do not change the conversation to
+  a different runtime id
 
 ## Failure Modes
 

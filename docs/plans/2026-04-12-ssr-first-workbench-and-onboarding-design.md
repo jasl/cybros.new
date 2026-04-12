@@ -288,6 +288,47 @@ This lets the product support:
 - stable runtime and policy defaults at the workspace layer
 - future workspace-level tools, artifacts, and visibility rules
 
+### Execution Runtime Selection
+
+The current product decision is intentionally narrow:
+
+- `workspace` provides the default `execution_runtime`
+- the first turn of a newly created conversation may explicitly override that
+  runtime
+- once the conversation exists, ordinary conversation message APIs must not
+  switch the runtime
+- runtime version refresh within the same runtime identity remains an internal
+  execution concern, not a user-facing handoff flow
+
+This means conversation runtime selection is treated as a creation-time choice,
+not a mutable thread setting.
+
+Agent visibility and agent launchability are intentionally separate concerns:
+
+- users may still see an agent and its home/workspace surfaces even if the
+  agent default runtime is currently unavailable
+- launchability is evaluated only when starting a conversation
+- an explicit first-turn runtime override can therefore make an otherwise
+  visible-but-not-launchable agent usable for that conversation
+
+### Runtime Handoff Is Deferred
+
+Conversation-to-runtime handoff is approved as future work, not as a Phase 2
+or Phase 3 gap in the current implementation.
+
+For now:
+
+- any follow-up `execution_runtime_id` on message-send APIs should return a
+  product-facing error
+- the error should make it explicit that runtime handoff is not implemented
+  yet
+- the system should not silently reinterpret follow-up runtime changes as a
+  cheap metadata swap
+
+The design assumption is that real handoff will likely require durable
+conversation locking, execution-context reconciliation, and recovery-safe state
+transitions rather than a simple row update.
+
 ## Default Workspace Policy
 
 Each user-usable `Agent` should expose one default workspace entry point.

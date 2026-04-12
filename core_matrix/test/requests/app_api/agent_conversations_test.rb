@@ -65,7 +65,6 @@ class AppApiAgentConversationsTest < ActionDispatch::IntegrationTest
     session = create_session!(user: user)
     default_runtime = create_execution_runtime!(installation: installation)
     override_runtime = create_execution_runtime!(installation: installation)
-    create_execution_runtime_connection!(installation: installation, execution_runtime: default_runtime)
     create_execution_runtime_connection!(installation: installation, execution_runtime: override_runtime)
     agent = create_agent!(
       installation: installation,
@@ -108,5 +107,62 @@ class AppApiAgentConversationsTest < ActionDispatch::IntegrationTest
       override_runtime,
       Turn.find_by_public_id!(response.parsed_body.fetch("turn_id")).execution_runtime
     )
+  end
+
+  test "rejects first-turn runtime overrides that are not accessible to the current user" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    session = create_session!(user: user)
+    owner = create_user!(
+      installation: installation,
+      identity: create_identity!,
+      display_name: "Private Runtime Owner"
+    )
+    default_runtime = create_execution_runtime!(installation: installation)
+    private_runtime = create_execution_runtime!(
+      installation: installation,
+      visibility: "private",
+      owner_user: owner
+    )
+    create_execution_runtime_connection!(installation: installation, execution_runtime: default_runtime)
+    create_execution_runtime_connection!(installation: installation, execution_runtime: private_runtime)
+    agent = create_agent!(
+      installation: installation,
+      visibility: "public",
+      default_execution_runtime: default_runtime
+    )
+    create_agent_connection!(installation: installation, agent: agent)
+    ProviderEntitlement.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      entitlement_key: "shared_window",
+      window_kind: "rolling_five_hours",
+      window_seconds: 5.hours.to_i,
+      quota_limit: 200_000,
+      active: true,
+      metadata: {}
+    )
+    ProviderCredential.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex",
+      access_token: "oauth-codex-access-token",
+      refresh_token: "oauth-codex-refresh-token",
+      expires_at: 2.hours.from_now,
+      last_rotated_at: Time.current,
+      metadata: {}
+    )
+
+    assert_no_difference(["Conversation.count", "Turn.count", "Message.count", "WorkflowRun.count"]) do
+      post "/app_api/agents/#{agent.public_id}/conversations",
+        params: {
+          content: "Use a private runtime",
+          execution_runtime_id: private_runtime.public_id,
+        },
+        headers: app_api_headers(session.plaintext_token),
+        as: :json
+    end
+
+    assert_response :not_found
   end
 end

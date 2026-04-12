@@ -119,6 +119,35 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     assert_equal "disabled_capabilities must be a subset of the available capabilities", response.parsed_body.fetch("error")
   end
 
+  test "rejects default runtime updates that target an inaccessible runtime" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    other_user = create_user!(
+      installation: context[:installation],
+      identity: create_identity!,
+      display_name: "Private Runtime Owner"
+    )
+    private_runtime = create_execution_runtime!(
+      installation: context[:installation],
+      visibility: "private",
+      owner_user: other_user
+    )
+    create_execution_runtime_connection!(
+      installation: context[:installation],
+      execution_runtime: private_runtime
+    )
+
+    patch "/app_api/workspaces/#{context[:workspace].public_id}/policies",
+      params: {
+        default_execution_runtime_id: private_runtime.public_id,
+      },
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :not_found
+    assert_equal context[:execution_runtime], context[:workspace].reload.default_execution_runtime
+  end
+
   test "treats non-owned workspaces as not found" do
     context = create_workspace_context!
     other_user = create_user!(installation: context[:installation])

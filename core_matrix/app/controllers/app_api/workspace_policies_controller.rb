@@ -38,10 +38,7 @@ module AppAPI
       return :__preserve__ unless params.key?(:default_execution_runtime_id)
       return nil if params[:default_execution_runtime_id].blank?
 
-      ExecutionRuntime.find_by!(
-        public_id: params.fetch(:default_execution_runtime_id),
-        installation_id: workspace.installation_id
-      )
+      find_accessible_execution_runtime!(params.fetch(:default_execution_runtime_id))
     end
   end
 end

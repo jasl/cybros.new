@@ -47,6 +47,25 @@ module AppAPI
       authorize_conversation_usability!(conversation)
     end
 
+    def find_accessible_execution_runtime!(execution_runtime_id)
+      execution_runtime = find_execution_runtime!(execution_runtime_id)
+      authorize_execution_runtime_usability!(execution_runtime)
+    end
+
+    def find_launchable_agent!(agent_id, execution_runtime: AppSurface::Policies::AgentLaunchability::DEFAULT_RUNTIME)
+      agent = Agent.find_by!(
+        public_id: agent_id,
+        installation_id: current_installation_id
+      )
+      raise ActiveRecord::RecordNotFound, "Couldn't find Agent" unless AppSurface::Policies::AgentLaunchability.call(
+        user: current_user,
+        agent: agent,
+        execution_runtime: execution_runtime
+      )
+
+      agent
+    end
+
     def authorize_workspace_usability!(workspace)
       raise ActiveRecord::RecordNotFound, "Couldn't find Workspace" unless resource_visibility_user_can_access_workspace?(workspace)
 
@@ -59,16 +78,26 @@ module AppAPI
       conversation
     end
 
+    def authorize_execution_runtime_usability!(execution_runtime)
+      raise ActiveRecord::RecordNotFound, "Couldn't find ExecutionRuntime" unless resource_visibility_user_can_access_execution_runtime?(execution_runtime)
+
+      execution_runtime
+    end
+
     def resource_visibility_user_can_access_workspace?(workspace)
       AppSurface::Policies::WorkspaceAccess.call(user: current_user, workspace: workspace)
     end
 
     def resource_visibility_user_can_access_agent?(agent)
-      AppSurface::Policies::AgentAccess.call(user: current_user, agent: agent)
+      AppSurface::Policies::AgentVisibility.call(user: current_user, agent: agent)
     end
 
     def resource_visibility_user_can_access_conversation?(conversation)
       AppSurface::Policies::ConversationAccess.call(user: current_user, conversation: conversation)
+    end
+
+    def resource_visibility_user_can_access_execution_runtime?(execution_runtime)
+      AppSurface::Policies::ExecutionRuntimeAccess.call(user: current_user, execution_runtime: execution_runtime)
     end
 
     def method_response(method_id:, **payload)

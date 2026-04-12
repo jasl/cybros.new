@@ -54,7 +54,7 @@ class AppSurface::Queries::VisibleAgentsTest < ActiveSupport::TestCase
       key: "retired-agent",
       display_name: "Retired Agent"
     )
-    create_agent!(
+    unconfigured_agent = create_agent!(
       installation: installation,
       visibility: "public",
       key: "unconfigured-agent",
@@ -63,6 +63,6 @@ class AppSurface::Queries::VisibleAgentsTest < ActiveSupport::TestCase
 
     result = AppSurface::Queries::VisibleAgents.call(user: user)
 
-    assert_equal [public_agent, owned_private_agent], result
+    assert_equal [public_agent, unconfigured_agent, owned_private_agent], result
   end
 end
