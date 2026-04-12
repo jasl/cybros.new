@@ -192,7 +192,7 @@ git commit -m "feat: drive turn continuity from execution epochs"
 
 **Files:**
 - Create: `core_matrix/app/controllers/app_api/conversations_controller.rb`
-- Modify: `core_matrix/app/controllers/app_api/conversation_messages_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversations/messages_controller.rb`
 - Modify: `core_matrix/app/services/workbench/create_conversation_from_agent.rb`
 - Modify: `core_matrix/config/routes.rb`
 - Modify: `core_matrix/app/services/app_surface/presenters/conversation_presenter.rb`

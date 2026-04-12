@@ -86,7 +86,7 @@ git commit -m "Declare data lifecycle classes"
 ### Task 2: Harden diagnostics reads against missing snapshots
 
 **Files:**
-- Modify: `core_matrix/app/controllers/app_api/conversation_diagnostics_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversations/diagnostics_controller.rb`
 - Modify: `core_matrix/app/services/conversation_diagnostics/recompute_conversation_snapshot.rb`
 - Modify: `core_matrix/app/services/conversation_diagnostics/recompute_turn_snapshot.rb`
 - Test: `core_matrix/test/requests/app_api/conversation_diagnostics_test.rb`
@@ -123,7 +123,7 @@ Expected: PASS.
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/app/controllers/app_api/conversation_diagnostics_controller.rb core_matrix/app/services/conversation_diagnostics core_matrix/test/requests/app_api/conversation_diagnostics_test.rb core_matrix/test/services/conversation_diagnostics
+git add core_matrix/app/controllers/app_api/conversations/diagnostics_controller.rb core_matrix/app/services/conversation_diagnostics core_matrix/test/requests/app_api/conversation_diagnostics_test.rb core_matrix/test/services/conversation_diagnostics
 git commit -m "Allow diagnostics snapshots to be recomputed on demand"
 ```
 
