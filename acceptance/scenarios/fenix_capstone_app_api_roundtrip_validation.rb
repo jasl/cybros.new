@@ -104,7 +104,8 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
       agent_id: bundled_registration.agent_definition_version.agent.public_id,
       content: prompt,
       selector: selector,
-      session_token: app_api_session_token
+      session_token: app_api_session_token,
+      execution_runtime_id: bring_your_own_runtime_registration.fetch(:execution_runtime).public_id
     )
     run = Acceptance::ManualSupport.wait_for_turn_workflow_terminal!(
       turn_id: created.fetch("turn_id"),

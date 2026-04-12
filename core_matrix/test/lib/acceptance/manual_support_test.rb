@@ -1144,6 +1144,40 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     end
   end
 
+  test "app_api_create_conversation! forwards execution runtime overrides to app_api" do
+    captured = nil
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_post_json,
+      lambda do |path, payload, session_token:|
+        captured = [path, payload, session_token]
+        { "conversation_id" => "conv_123", "turn_id" => "turn_123" }
+      end
+    ) do
+      result = Acceptance::ManualSupport.app_api_create_conversation!(
+        agent_id: "agt_123",
+        content: "Build the app",
+        selector: "candidate:openrouter/openai-gpt-5.4",
+        session_token: "sess_123",
+        execution_runtime_id: "rt_123"
+      )
+
+      assert_equal "conv_123", result.fetch("conversation_id")
+    end
+
+    assert_equal "/app_api/agents/agt_123/conversations", captured.fetch(0)
+    assert_equal(
+      {
+        content: "Build the app",
+        selector: "candidate:openrouter/openai-gpt-5.4",
+        execution_runtime_id: "rt_123",
+      },
+      captured.fetch(1)
+    )
+    assert_equal "sess_123", captured.fetch(2)
+  end
+
   private
 
   def with_redefined_singleton_method(target, method_name, replacement)

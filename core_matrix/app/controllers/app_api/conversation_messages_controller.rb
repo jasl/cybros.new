@@ -5,7 +5,8 @@ module AppAPI
       result = Workbench::SendMessage.call(
         conversation: conversation,
         content: params.fetch(:content),
-        selector: params[:selector]
+        selector: params[:selector],
+        execution_runtime: resolve_execution_runtime
       )
 
       render_method_response(
@@ -15,6 +16,14 @@ module AppAPI
         turn_id: result.turn.public_id,
         message: serialize_message(result.message)
       )
+    end
+
+    private
+
+    def resolve_execution_runtime
+      return nil if params[:execution_runtime_id].blank?
+
+      find_execution_runtime!(params.fetch(:execution_runtime_id))
     end
   end
 end

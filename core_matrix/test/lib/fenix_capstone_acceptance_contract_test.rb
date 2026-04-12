@@ -61,6 +61,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "ManualAcceptance::ConversationRuntimeValidation.build"
     assert_includes scenario, "Acceptance::HostValidation.run!"
     assert_includes scenario, "app_api_export_conversation!"
+    assert_includes scenario, "execution_runtime_id: bring_your_own_runtime_registration.fetch(:execution_runtime).public_id"
   end
 
   test "capstone prompt forbids foreground shell servers for long-running app startup" do

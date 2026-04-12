@@ -225,13 +225,15 @@ module Acceptance
       )
     end
 
-    def app_api_create_conversation!(agent_id:, content:, session_token:, workspace_id: nil, selector: nil)
+    def app_api_create_conversation!(agent_id:, content:, session_token:, workspace_id: nil, selector: nil,
+                                     execution_runtime_id: nil)
       app_api_post_json(
         "/app_api/agents/#{agent_id}/conversations",
         {
           content: content,
           workspace_id: workspace_id,
-          selector: selector
+          selector: selector,
+          execution_runtime_id: execution_runtime_id
         }.compact,
         session_token: session_token
       )

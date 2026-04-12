@@ -6,16 +6,18 @@ module Workbench
       new(...).call
     end
 
-    def initialize(conversation:, content:, selector: nil)
+    def initialize(conversation:, content:, selector: nil, execution_runtime: nil)
       @conversation = conversation
       @content = content
       @selector = selector
+      @execution_runtime = execution_runtime
     end
 
     def call
       turn = Turns::StartUserTurn.call(
         conversation: @conversation,
         content: @content,
+        execution_runtime: @execution_runtime,
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
