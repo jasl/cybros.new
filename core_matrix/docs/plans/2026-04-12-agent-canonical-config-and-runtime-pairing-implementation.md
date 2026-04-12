@@ -45,12 +45,12 @@
 - keep the new tables installation-scoped with explicit `installation_id`
   foreign keys, matching the rest of Core Matrix
 
-**Step 2: Rebuild `agents` and `execution_runtimes` around active version refs**
+**Step 2: Rebuild `agents` and `execution_runtimes` around published version refs**
 
 - keep `agents` as the logical identity table
 - keep `execution_runtimes` as the logical runtime identity table
 - remove definition-like JSON blobs from `execution_runtimes`
-- add active-version refs such as:
+- add published-version refs such as:
   - `agents.published_agent_definition_version_id`
   - `execution_runtimes.published_execution_runtime_version_id`
 - keep `agents.default_execution_runtime_id` as an operational preference only
@@ -192,8 +192,8 @@ Expected:
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/pairing_sessions/record_progress.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_definition_versions/register.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_definition_versions/handshake.rb`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_definition_versions/build_recovery_plan.rb`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_definition_versions/resolve_recovery_target.rb`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/execution_identity_recovery/build_plan.rb`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/execution_identity_recovery/resolve_target.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_config_states/reconcile.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/execution_runtime_versions/register.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/execution_runtimes/register.rb`

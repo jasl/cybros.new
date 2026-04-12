@@ -37,7 +37,7 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
     assert_nil turn.selected_output_message
   end
 
-  test "freezes the active agent snapshot instead of a caller supplied snapshot" do
+  test "freezes the active agent definition version instead of a caller supplied version" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(
       workspace: context[:workspace]

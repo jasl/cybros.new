@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
-  test "execution-runtime-plane close reports from a agent snapshot on the wrong execution runtime are stale" do
+  test "execution-runtime-plane close reports from an agent definition version on the wrong execution runtime are stale" do
     context = build_agent_control_context!
     correct_harness = FakeAgentRuntimeHarness.new(
       test_case: self,

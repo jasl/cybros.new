@@ -113,7 +113,7 @@ module SubagentConnections
           if requested == DEFAULT_SUBAGENT_PROFILE_ALIAS
             default_subagent_profile_key(conversation:)
           else
-            raise_invalid!(conversation, :profile_key, "must exist in the runtime profile catalog") unless profile_policy(conversation:).key?(requested)
+            raise_invalid!(conversation, :profile_key, "must exist in the runtime profile policy") unless profile_policy(conversation:).key?(requested)
             requested
           end
         else

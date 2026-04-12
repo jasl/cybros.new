@@ -3,7 +3,7 @@
 ## Status
 
 - Date: 2026-04-11
-- Status: approved for implementation planning
+- Status: superseded by `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-12-agent-canonical-config-and-runtime-pairing-design.md`; terminology normalized here for consistency with the implemented model
 
 ## Goal
 
@@ -26,13 +26,13 @@ The current codebase still carries a transitional split based on the earlier
 already mid-migration toward:
 
 - `Agent`
-- `AgentSnapshot`
+- `AgentDefinitionVersion`
 - `ExecutionRuntime`
 - `AgentConnection`
 - `ExecutionRuntimeConnection`
 - `Conversation`
 
-That model already improved on the earlier agent snapshot/environment design, but
+That model already improved on the earlier agent-definition/environment design, but
 it still preserves two incorrect assumptions:
 
 1. the kernel still thinks in terms of a product-specific "agent" and an
@@ -62,7 +62,7 @@ The approved target behavior for this reset is:
 - CoreMatrix models a single reusable `Agent`
 - CoreMatrix models a single reusable `ExecutionRuntime`
 - a user-facing thread is a `Conversation`
-- `Turn` freezes the exact `AgentSnapshot` and execution-runtime contract used
+- `Turn` freezes the exact `AgentDefinitionVersion` and execution-runtime contract used
   for that turn
 - the system records actual runtime snapshots for audit, but does not attempt
   a full release-management product around snapshots
@@ -84,7 +84,7 @@ The approved target behavior for this reset is:
 ### New Core Domain Names
 
 - `Agent` becomes `Agent`
-- `AgentSnapshot` becomes `AgentSnapshot`
+- `AgentDefinitionVersion` becomes `AgentDefinitionVersion`
 - `ExecutionRuntime` becomes `ExecutionRuntime`
 - `AgentConnection` becomes `AgentConnection`
 - `ExecutionRuntimeConnection` becomes `ExecutionRuntimeConnection`
@@ -129,9 +129,9 @@ It does not own:
 - filesystem-backed skill assets
 - filesystem-backed memory storage
 
-### `AgentSnapshot`
+### `AgentDefinitionVersion`
 
-`AgentSnapshot` is an immutable audit snapshot of the agent-plane capability
+`AgentDefinitionVersion` is an immutable audit snapshot of the agent-plane capability
 contract that was actually used for execution.
 
 It owns:
@@ -141,10 +141,10 @@ It owns:
 - SDK version
 - protocol methods
 - agent-owned tool catalog
-- profile catalog
-- config schema
-- override schema
-- default config snapshot
+- profile policy
+- canonical config schema
+- conversation override schema
+- default canonical config
 
 It does not own:
 
@@ -174,7 +174,7 @@ It does not own:
 ### Runtime Freeze
 
 The approved target model is that each turn freezes both the selected
-`AgentSnapshot` and the execution-runtime surface used for the turn.
+`AgentDefinitionVersion` and the execution-runtime surface used for the turn.
 
 In the current implementation, that runtime-side freeze is carried by the
 execution contract stack (`ExecutionCapabilitySnapshot`,
@@ -207,7 +207,7 @@ It does not own:
 It owns:
 
 - one `Conversation`
-- one `AgentSnapshot`
+- one `AgentDefinitionVersion`
 - one frozen execution-runtime contract
 - resolved visible tool surface
 - resolved config and model snapshots
@@ -222,7 +222,7 @@ It owns:
 - connection credential digest
 - connection token digest
 - liveness and health fields
-- currently connected `AgentSnapshot`
+- currently connected `AgentDefinitionVersion`
 
 Single-active-connection is enforced per `Agent`.
 
@@ -307,7 +307,7 @@ It submits:
 CoreMatrix creates or reuses:
 
 - `Agent`
-- `AgentSnapshot`
+- `AgentDefinitionVersion`
 - `AgentConnection`
 
 ### Execution Runtime Registration
@@ -343,7 +343,7 @@ When a new `Turn` starts:
 1. CoreMatrix resolves the `Conversation` agent/runtime pair
 2. CoreMatrix resolves the current active `AgentConnection` and
    `ExecutionRuntimeConnection`
-3. CoreMatrix freezes the pointed `AgentSnapshot` plus the execution-runtime
+3. CoreMatrix freezes the pointed `AgentDefinitionVersion` plus the execution-runtime
    surface through the execution contract snapshot stack
 4. CoreMatrix resolves the effective tool surface using the approved priority
    rules

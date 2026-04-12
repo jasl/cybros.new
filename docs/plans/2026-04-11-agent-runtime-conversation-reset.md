@@ -4,6 +4,8 @@
 
 **Goal:** Replace the remaining `Agent` / `ExecutionRuntime` / dual-role runtime assumptions with the final `Agent` / `ExecutionRuntime` / `Conversation` architecture, split Fenix and Nexus into separate registration identities, and update the monorepo so code, APIs, docs, files, and folders all use the new architecture.
 
+> Superseded by `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-12-agent-canonical-config-and-runtime-pairing-design.md`; terminology is normalized here to match the implemented model.
+
 **Architecture:** CoreMatrix becomes the single orchestrator for `Agent`, `ExecutionRuntime`, `Conversation`, and frozen turn snapshots. Fenix becomes the pure agent decision layer, while Nexus becomes the single execution runtime appliance that owns runtime tools, runtime context materialization, filesystem-backed skill assets, and filesystem-backed memory. Tool resolution follows `ExecutionRuntime > Agent > CoreMatrix`, except for reserved CoreMatrix names that can never be overridden.
 
 **Tech Stack:** Ruby on Rails, Active Record, Action Cable, Active Job, filesystem-backed skill packages, filesystem-backed memory, mailbox control plane, acceptance harness, Dockerized runtime image.
@@ -60,7 +62,7 @@ Expected: exit `0`
 **Step 1: Write failing tests**
 
 - `Conversation` binds to `Agent` and `ExecutionRuntime`
-- `Turn` freezes `AgentSnapshot` and the selected execution-runtime contract
+- `Turn` freezes `AgentDefinitionVersion` and the selected execution-runtime contract
 - single active connection is enforced per `Agent`
 - single active connection is enforced per `ExecutionRuntime`
 - runtime default binding uses `default_execution_runtime`
@@ -357,7 +359,7 @@ Expected: PASS
 **Step 1: Sweep and rewrite old names**
 
 - `Agent` -> `Agent`
-- `AgentSnapshot` -> `AgentSnapshot`
+- `AgentSnapshot` -> `AgentDefinitionVersion`
 - `ExecutionRuntime` -> `ExecutionRuntime`
 - `AgentConnection` -> `AgentConnection`
 - `ExecutionRuntimeConnection` -> `ExecutionRuntimeConnection`
@@ -370,7 +372,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-rg -n "Agent|AgentSnapshot|ExecutionRuntime|AgentConnection|ExecutionRuntimeConnection" core_matrix agents/fenix execution_runtimes/nexus docs acceptance
+rg -n "Agent|AgentDefinitionVersion|ExecutionRuntime|AgentConnection|ExecutionRuntimeConnection" core_matrix agents/fenix execution_runtimes/nexus docs acceptance
 rg -n "Agent|ExecutionRuntime|AgentConnection|ExecutionRuntimeConnection|connection_credential|connection credential" core_matrix agents/fenix execution_runtimes/nexus docs acceptance -g '!docs/finished-plans/**' -g '!docs/archived-plans/**'
 ```
 

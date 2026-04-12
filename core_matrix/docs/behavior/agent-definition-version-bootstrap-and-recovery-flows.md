@@ -192,7 +192,7 @@ Related design note:
 - the override is frozen onto the resumed or retried turn snapshot only.
 - the override does not mutate:
   - conversation interactive selector state
-  - agent definition version default config snapshots
+  - agent definition version default canonical config
   - agent definition version model-slot configuration
 - audit metadata records the temporary override when one was supplied.
 

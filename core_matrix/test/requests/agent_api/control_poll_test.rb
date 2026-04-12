@@ -45,7 +45,7 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     refute_includes response.body, %("#{context[:workflow_run].id}")
   end
 
-  test "poll does not deliver execution-runtime-plane close work even when the rotated agent snapshot shares the execution runtime" do
+  test "poll does not deliver execution-runtime-plane close work even when the rotated agent definition version shares the execution runtime" do
     context = build_rotated_runtime_context!
     other_agent = create_agent!(installation: context[:installation])
     mailbox_item = create_agent_control_mailbox_item!(

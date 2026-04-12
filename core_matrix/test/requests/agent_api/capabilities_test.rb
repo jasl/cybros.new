@@ -73,7 +73,7 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_equal contract.execution_runtime_plane, response_body.fetch("execution_runtime_plane")
   end
 
-  test "capabilities handshake refreshes the frozen agent snapshot contract without mutating the current runtime contract" do
+  test "capabilities handshake refreshes the frozen agent definition contract without mutating the current runtime contract" do
     registration = register_agent_runtime!(
       profile_policy: default_profile_policy,
       canonical_config_schema: profile_aware_canonical_config_schema,

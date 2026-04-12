@@ -457,7 +457,7 @@ Recommended responder kinds:
 - `builtin`
   - platform-owned observer implementation
 - `agent_contract`
-  - a dedicated responder method on an `AgentSnapshot`
+  - a dedicated responder method on an `AgentDefinitionVersion`
 
 The responder contract is separate from ordinary turn execution.
 

@@ -37,7 +37,7 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     assert_equal "Follow up input", queued.selected_input_message.content
   end
 
-  test "freezes the active agent snapshot instead of a caller supplied snapshot" do
+  test "freezes the active agent definition version instead of a caller supplied version" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]

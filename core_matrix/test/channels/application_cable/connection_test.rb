@@ -54,7 +54,7 @@ module ApplicationCable
       assert_equal publication, connection.current_publication
     end
 
-    test "rejects connection without a verified agent snapshot or publication token" do
+    test "rejects connection without a verified agent definition version or publication token" do
       assert_reject_connection { connect }
     end
   end

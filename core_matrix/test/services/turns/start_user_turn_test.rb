@@ -59,7 +59,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_not_nil conversation.title_updated_at
   end
 
-  test "freezes the active agent snapshot instead of a caller supplied snapshot" do
+  test "freezes the active agent definition version instead of a caller supplied version" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]

@@ -25,7 +25,7 @@ class AgentConnections::RecordHeartbeatTest < ActiveSupport::TestCase
     assert agent_connection.auto_resume_eligible?
   end
 
-  test "agent snapshot lookup resolves through the active agent connection" do
+  test "agent definition version lookup resolves through the active agent connection" do
     registration = register_agent_runtime!
 
     result = AgentConnections::RecordHeartbeat.call(

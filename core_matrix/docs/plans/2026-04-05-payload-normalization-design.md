@@ -185,8 +185,9 @@ Suggested fields:
 - `installation_id`
 - `turn_id`
 - `public_id`
-- `agent_snapshot_id`
+- `agent_definition_version_id`
 - `execution_runtime_id`
+- `execution_runtime_version_id`
 - `selected_input_message_id`
 - `selected_output_message_id`
 - `execution_capability_snapshot_id`
@@ -208,7 +209,7 @@ The contract is the frozen agreement between orchestration and execution:
 - which attachments are in play
 
 It does not duplicate data already owned by `Turn`, `Conversation`, `Message`,
-or `AgentSnapshot`.
+or `AgentDefinitionVersion`.
 
 ## Existing Tables After Refactor
 

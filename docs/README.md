@@ -30,8 +30,8 @@ For the current implementation state, start here:
 Many older design, research, report, and checklist records are intentionally
 kept for traceability. Superseded non-plan documents that preserve pre-reset
 naming now live under `docs/archived/`. The current codebase uses `Agent`,
-`AgentSnapshot`, `AgentConnection`, `ExecutionRuntime`, and
-`ExecutionRuntimeConnection`.
+`AgentDefinitionVersion`, `AgentConnection`, `ExecutionRuntime`,
+`ExecutionRuntimeVersion`, and `ExecutionRuntimeConnection`.
 
 ## Lifecycle
 

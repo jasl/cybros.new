@@ -63,8 +63,8 @@ The manifest advertises:
 - protocol and SDK versions
 - supported control-plane methods
 - agent-owned tool catalog
-- profile catalog
-- agent-plane config snapshots
+- profile policy
+- agent-plane canonical config surfaces
 
 The current pairing contract models Fenix as an agent-only participant.
 

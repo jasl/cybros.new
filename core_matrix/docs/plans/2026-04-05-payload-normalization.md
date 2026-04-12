@@ -86,7 +86,7 @@
 - Modify: `app/services/workflows/create_for_turn.rb`
 - Modify: `app/services/workflows/re_enter_agent.rb`
 - Modify: `app/services/workflows/resume_paused_turn.rb`
-- Modify: `app/services/agent_snapshots/rebind_turn.rb`
+- Modify: `app/services/execution_identity_recovery/rebind_turn.rb`
 - Modify: `app/models/turn.rb`
 - Modify: `app/models/workflow_run.rb`
 - Modify: `app/models/turn_execution_snapshot.rb`
