@@ -8,9 +8,11 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent = create_agent!(installation: installation)
-    pairing_session = PairingSessions::Issue.call(
-      agent: agent,
-      actor: actor,
+    onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "agent",
+      target: agent,
+      issued_by: actor,
       expires_at: 2.hours.from_now
     )
 
@@ -24,7 +26,7 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
     agent.update!(default_execution_runtime: execution_runtime)
 
     result = AgentDefinitionVersions::Register.call(
-      pairing_token: pairing_session.plaintext_token,
+      onboarding_token: onboarding_session.plaintext_token,
       endpoint_metadata: {
         "transport" => "http",
         "base_url" => "https://agents.example.test",
@@ -32,11 +34,11 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
       definition_package: definition_package_payload
     )
 
-    pairing_session.reload
+    onboarding_session.reload
     agent.reload
 
-    assert pairing_session.agent_registered_at.present?
-    assert pairing_session.last_used_at.present?
+    assert onboarding_session.agent_registered_at.present?
+    assert onboarding_session.last_used_at.present?
     assert_equal execution_runtime, result.execution_runtime
     assert_equal result.agent_definition_version, agent.published_agent_definition_version
     assert_equal result.agent_definition_version, result.agent_connection.agent_definition_version
@@ -54,20 +56,30 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent = create_agent!(installation: installation)
-    pairing_session = PairingSessions::Issue.call(
-      agent: agent,
-      actor: actor,
+    onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "agent",
+      target: agent,
+      issued_by: actor,
       expires_at: 2.hours.from_now
     )
 
     first = AgentDefinitionVersions::Register.call(
-      pairing_token: pairing_session.plaintext_token,
+      onboarding_token: onboarding_session.plaintext_token,
       endpoint_metadata: { "transport" => "http", "base_url" => "https://agents.example.test" },
       definition_package: definition_package_payload
     )
 
+    second_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "agent",
+      target: agent,
+      issued_by: actor,
+      expires_at: 2.hours.from_now
+    )
+
     second = AgentDefinitionVersions::Register.call(
-      pairing_token: pairing_session.plaintext_token,
+      onboarding_token: second_session.plaintext_token,
       endpoint_metadata: { "transport" => "http", "base_url" => "https://agents.example.test/v2" },
       definition_package: definition_package_payload
     )

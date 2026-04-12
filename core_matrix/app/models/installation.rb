@@ -7,7 +7,7 @@ class Installation < ApplicationRecord
   has_many :json_documents, dependent: :destroy
   has_many :agents, dependent: :destroy
   has_many :execution_runtimes, dependent: :destroy
-  has_many :pairing_sessions, dependent: :destroy
+  has_many :onboarding_sessions, dependent: :destroy
   has_many :agent_definition_versions, dependent: :destroy
   has_many :agent_config_states, dependent: :destroy
   has_many :agent_connections, dependent: :destroy

@@ -34,7 +34,8 @@ registry and private workspaces: `User -> UserAgentBinding -> Workspace`.
 - Enables an agent for a user by reusing or creating the unique binding row.
 - Rejects cross-installation binding attempts.
 - Rejects enabling another user's private agent.
-- Ensures the binding has a default workspace.
+- Returns a default workspace reference without eagerly creating a real
+  workspace row.
 
 ### `Workspaces::CreateDefault`
 
@@ -45,6 +46,17 @@ registry and private workspaces: `User -> UserAgentBinding -> Workspace`.
 - Seeds the workspace default execution runtime from the bound agent's current
   `default_execution_runtime`.
 
+### `Workspaces::BuildDefaultReference`
+
+- Builds the app-facing default workspace reference for a binding.
+- Returns `state: "virtual"` until a real default workspace row exists.
+- Returns `state: "materialized"` once the default workspace has been created.
+
+### `Workspaces::MaterializeDefault`
+
+- Creates the first real default workspace on first substantive use.
+- Is idempotent for repeated calls against the same binding.
+
 ## Invariants
 
 - `Workspace` remains private and user-owned.
@@ -54,6 +66,7 @@ registry and private workspaces: `User -> UserAgentBinding -> Workspace`.
   installation.
 - Service orchestration owns enable/default-workspace side effects; models do
   not use callbacks to create default workspaces.
+- Binding enablement does not eagerly create a default workspace row.
 - Bundled-agent bootstrap is still deferred to Task 04.2.
 
 ## Failure Modes

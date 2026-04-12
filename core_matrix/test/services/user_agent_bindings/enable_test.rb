@@ -4,18 +4,24 @@ module UserAgentBindings
 end
 
 class UserAgentBindings::EnableTest < ActiveSupport::TestCase
-  test "enables a public agent once and creates a default workspace" do
+  test "enables a public agent once without materializing the default workspace" do
     installation = create_installation!
     user = create_user!(installation: installation)
     agent = create_agent!(installation: installation, visibility: "public")
 
-    first = UserAgentBindings::Enable.call(user: user, agent: agent)
-    second = UserAgentBindings::Enable.call(user: user, agent: agent)
+    first = nil
+    second = nil
+
+    assert_no_difference("Workspace.count") do
+      first = UserAgentBindings::Enable.call(user: user, agent: agent)
+      second = UserAgentBindings::Enable.call(user: user, agent: agent)
+    end
 
     assert_equal first.binding, second.binding
-    assert_equal first.workspace, second.workspace
+    assert_equal "virtual", first.default_workspace_ref.state
+    assert_equal "virtual", second.default_workspace_ref.state
     assert_equal 1, UserAgentBinding.where(user: user, agent: agent).count
-    assert_equal 1, Workspace.where(user_agent_binding: first.binding, is_default: true).count
+    assert_equal 0, Workspace.where(user_agent_binding: first.binding, is_default: true).count
   end
 
   test "rejects enabling another users private agent" do
@@ -68,21 +74,14 @@ class UserAgentBindings::EnableTest < ActiveSupport::TestCase
       raise ActiveRecord::RecordInvalid.new(invalid_binding)
     end
 
-    create_default_singleton = Workspaces::CreateDefault.singleton_class
-    original_create_default_call = Workspaces::CreateDefault.method(:call)
-
-    create_default_singleton.send(:define_method, :call) do |*|
-      existing_workspace
-    end
-
     begin
       result = UserAgentBindings::Enable.call(user: user, agent: agent)
 
       assert_equal existing_binding, result.binding
-      assert_equal existing_workspace, result.workspace
+      assert_equal "materialized", result.default_workspace_ref.state
+      assert_equal existing_workspace, result.default_workspace_ref.workspace
     ensure
       binding_singleton.send(:define_method, :find_or_create_by!, original_find_or_create_by)
-      create_default_singleton.send(:define_method, :call, original_create_default_call)
     end
   end
 end

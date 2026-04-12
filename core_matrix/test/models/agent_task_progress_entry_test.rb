@@ -53,8 +53,6 @@ class AgentTaskProgressEntryTest < ActiveSupport::TestCase
     )
     unrelated_owner = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     unrelated_child = create_conversation_record!(
       workspace: context[:workspace],

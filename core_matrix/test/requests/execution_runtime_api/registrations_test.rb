@@ -1,19 +1,20 @@
 require "test_helper"
 
 class ExecutionRuntimeApiRegistrationsTest < ActionDispatch::IntegrationTest
-  test "registration exchanges a pairing token for an execution runtime connection and current runtime version" do
+  test "registration exchanges an onboarding token for an execution runtime connection and current runtime version" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
-    agent = create_agent!(installation: installation)
-    pairing_session = PairingSessions::Issue.call(
-      agent: agent,
-      actor: actor,
+    onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "execution_runtime",
+      target: nil,
+      issued_by: actor,
       expires_at: 2.hours.from_now
     )
 
     post "/execution_runtime_api/registrations",
       params: {
-        pairing_token: pairing_session.plaintext_token,
+        onboarding_token: onboarding_session.plaintext_token,
         endpoint_metadata: {
           transport: "http",
           base_url: "https://runtime.example.test",
@@ -47,17 +48,18 @@ class ExecutionRuntimeApiRegistrationsTest < ActionDispatch::IntegrationTest
   test "registration rejects invalid version packages with an unprocessable response" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
-    agent = create_agent!(installation: installation)
-    pairing_session = PairingSessions::Issue.call(
-      agent: agent,
-      actor: actor,
+    onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "execution_runtime",
+      target: nil,
+      issued_by: actor,
       expires_at: 2.hours.from_now
     )
 
     assert_no_difference("ExecutionRuntimeVersion.count") do
       post "/execution_runtime_api/registrations",
         params: {
-          pairing_token: pairing_session.plaintext_token,
+          onboarding_token: onboarding_session.plaintext_token,
           endpoint_metadata: {
             transport: "http",
             base_url: "https://runtime.example.test",

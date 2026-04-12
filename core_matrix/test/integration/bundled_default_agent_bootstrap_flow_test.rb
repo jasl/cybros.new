@@ -1,7 +1,7 @@
 require "test_helper"
 
 class BundledDefaultAgentBootstrapFlowTest < ActionDispatch::IntegrationTest
-  test "first-admin bootstrap auto-binds the bundled agent only after registry reconciliation" do
+  test "first-admin bootstrap auto-binds the bundled agent only after registry reconciliation and leaves the default workspace virtual" do
     result = Installations::BootstrapFirstAdmin.call(
       name: "Primary Installation",
       email: "admin@example.com",
@@ -16,10 +16,10 @@ class BundledDefaultAgentBootstrapFlowTest < ActionDispatch::IntegrationTest
     assert_equal 1, ExecutionRuntime.count
     assert_equal 1, AgentDefinitionVersion.count
     assert_equal 1, UserAgentBinding.count
-    assert_equal 1, Workspace.count
+    assert_equal 0, Workspace.count
 
     binding = UserAgentBinding.find_by!(user: result.user)
-    workspace = Workspace.find_by!(user_agent_binding: binding, is_default: true)
+    default_workspace_ref = Workspaces::BuildDefaultReference.call(user_agent_binding: binding)
     bundled_agent = Agent.find_by!(key: "fenix")
     bundled_runtime = ExecutionRuntime.first
 
@@ -31,9 +31,10 @@ class BundledDefaultAgentBootstrapFlowTest < ActionDispatch::IntegrationTest
     assert bundled_runtime.visibility_public?
     assert bundled_runtime.provisioning_origin_system?
     assert_nil bundled_runtime.owner_user_id
-    assert_equal result.user, workspace.user
-    assert_equal result.installation, workspace.installation
-    assert workspace.private_workspace?
+    assert_equal "virtual", default_workspace_ref.state
+    assert_equal result.user.public_id, default_workspace_ref.user_id
+    assert_equal bundled_agent.public_id, default_workspace_ref.agent_id
+    assert_equal bundled_runtime.public_id, default_workspace_ref.default_execution_runtime_id
   end
 
   test "bundled runtime rotation keeps the same execution environment" do

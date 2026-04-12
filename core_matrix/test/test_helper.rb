@@ -149,6 +149,17 @@ module ActiveSupport
       }.merge(attrs))
     end
 
+    def create_session!(user: create_user!, identity: user.identity, expires_at: 30.days.from_now, metadata: {}, **attrs)
+      Session.issue_for!(
+        identity: identity,
+        user: user,
+        expires_at: expires_at,
+        metadata: metadata
+      ).tap do |session|
+        session.update!(attrs) if attrs.present?
+      end
+    end
+
     def create_user!(installation: create_installation!, identity: create_identity!, role: "member", display_name: "Test User #{next_test_sequence}", **attrs)
       User.create!({
         installation: installation,
@@ -293,14 +304,19 @@ module ActiveSupport
       build_execution_runtime_version(**attrs).tap(&:save!)
     end
 
-    def create_pairing_session!(installation: create_installation!, agent: create_agent!(installation: installation), expires_at: 1.hour.from_now, issued_at: Time.current, **attrs)
-      PairingSession.issue!(
+    def create_onboarding_session!(installation: create_installation!, target_kind: "agent", target: nil, issued_by_user: create_user!(installation: installation, role: "admin"), expires_at: 1.hour.from_now, issued_at: Time.current, **attrs)
+      target ||= create_agent!(installation: installation) if target_kind == "agent"
+
+      OnboardingSession.issue!(
         installation: installation,
-        agent: agent,
+        target_kind: target_kind,
+        target_agent: target_kind == "agent" ? target : nil,
+        target_execution_runtime: target_kind == "execution_runtime" ? target : nil,
+        issued_by_user: issued_by_user,
         expires_at: expires_at,
         issued_at: issued_at
-      ).tap do |pairing_session|
-        pairing_session.update!(attrs) if attrs.present?
+      ).tap do |onboarding_session|
+        onboarding_session.update!(attrs) if attrs.present?
       end
     end
 
@@ -485,24 +501,24 @@ module ActiveSupport
       }
     end
 
-    def connection_api_headers(agent_connection_credential)
+    def connection_api_headers(bearer_token)
       {
-        "Authorization" => ActionController::HttpAuthentication::Token.encode_credentials(agent_connection_credential),
+        "Authorization" => ActionController::HttpAuthentication::Token.encode_credentials(bearer_token),
         "Content-Type" => "application/json",
         "Accept" => "application/json",
       }
     end
 
-    def agent_api_headers(agent_connection_credential)
-      connection_api_headers(agent_connection_credential)
+    def agent_api_headers(bearer_token)
+      connection_api_headers(bearer_token)
     end
 
-    def execution_runtime_api_headers(agent_connection_credential)
-      connection_api_headers(agent_connection_credential)
+    def execution_runtime_api_headers(bearer_token)
+      connection_api_headers(bearer_token)
     end
 
-    def app_api_headers(agent_connection_credential)
-      connection_api_headers(agent_connection_credential)
+    def app_api_headers(bearer_token)
+      connection_api_headers(bearer_token)
     end
 
     def register_agent_runtime!(
@@ -522,20 +538,18 @@ module ActiveSupport
       canonical_config_schema: default_canonical_config_schema,
       conversation_override_schema: { "type" => "object", "properties" => {} },
       default_canonical_config: default_default_canonical_config,
-      reuse_enrollment: false,
       **attrs
     )
-      pairing_session = PairingSessions::Issue.call(
-        agent: agent,
-        actor: actor,
+      runtime_onboarding_session = OnboardingSessions::Issue.call(
+        installation: installation,
+        target_kind: "execution_runtime",
+        target: execution_runtime,
+        issued_by: actor,
         expires_at: 2.hours.from_now
       )
-      if execution_runtime.present? && agent.default_execution_runtime != execution_runtime
-        agent.update!(default_execution_runtime: execution_runtime)
-      end
 
       runtime_registration = ExecutionRuntimeVersions::Register.call(
-        pairing_token: pairing_session.plaintext_token,
+        onboarding_token: runtime_onboarding_session.plaintext_token,
         endpoint_metadata: execution_runtime_connection_metadata || default_execution_runtime_connection_metadata(base_url: endpoint_metadata.fetch("base_url")),
         version_package: {
           "execution_runtime_fingerprint" => execution_runtime_fingerprint,
@@ -550,9 +564,19 @@ module ActiveSupport
         }
       )
 
+      agent.update!(default_execution_runtime: runtime_registration.execution_runtime) if execution_runtime.blank? || agent.default_execution_runtime != runtime_registration.execution_runtime
+
+      agent_onboarding_session = OnboardingSessions::Issue.call(
+        installation: installation,
+        target_kind: "agent",
+        target: agent,
+        issued_by: actor,
+        expires_at: 2.hours.from_now
+      )
+
       fingerprint = attrs.delete(:fingerprint) || "runtime-#{next_test_sequence}"
       agent_registration = AgentDefinitionVersions::Register.call(
-        pairing_token: pairing_session.plaintext_token,
+        onboarding_token: agent_onboarding_session.plaintext_token,
         endpoint_metadata: endpoint_metadata,
         definition_package: {
           "program_manifest_fingerprint" => fingerprint,
@@ -575,8 +599,9 @@ module ActiveSupport
         actor: actor,
         agent: agent,
         execution_runtime: runtime_registration.execution_runtime,
-        pairing_session: pairing_session,
-        enrollment: pairing_session,
+        agent_onboarding_session: agent_onboarding_session,
+        runtime_onboarding_session: runtime_onboarding_session,
+        onboarding_session: agent_onboarding_session,
         agent_definition_version: agent_registration.agent_definition_version,
         agent_connection_credential: agent_registration.agent_connection_credential,
         execution_runtime_connection_credential: runtime_registration.execution_runtime_connection_credential,
@@ -589,11 +614,19 @@ module ActiveSupport
       context,
       actor: create_user!(installation: context[:installation], role: "admin")
     )
-      register_agent_runtime!(
+      registration = register_agent_runtime!(
         installation: context[:installation],
         actor: actor,
         agent: context[:agent],
         execution_runtime: context[:execution_runtime]
+      )
+
+      session = create_session!(user: context[:user])
+
+      registration.merge(
+        user: context[:user],
+        session: session,
+        session_token: session.plaintext_token
       )
     end
 
@@ -813,7 +846,7 @@ module ActiveSupport
         lifecycle_state: "active",
         execution_runtime_kind: "local",
         execution_runtime_fingerprint: "bundled-fenix-environment",
-        connection_metadata: default_execution_runtime_connection_metadata(base_url: "http://127.0.0.1:4100"),
+        execution_runtime_connection_metadata: default_execution_runtime_connection_metadata(base_url: "http://127.0.0.1:4100"),
         endpoint_metadata: default_fenix_endpoint_metadata(base_url: "http://127.0.0.1:4100"),
         execution_runtime_capability_payload: {},
         execution_runtime_tool_catalog: [],
@@ -856,7 +889,7 @@ module ActiveSupport
 
       unless explicit_endpoint_metadata
         configuration[:endpoint_metadata] = default_fenix_endpoint_metadata(
-          base_url: configuration.fetch(:connection_metadata).fetch("base_url")
+          base_url: configuration.fetch(:execution_runtime_connection_metadata).fetch("base_url")
         )
       end
       configuration
@@ -993,13 +1026,10 @@ module ActiveSupport
       context = prepare_workflow_execution_setup!(create_workspace_context!)
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
-        execution_runtime: context[:execution_runtime],
-        agent_definition_version: context[:agent_definition_version]
       )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Human interaction input",
-        agent_definition_version: context[:agent_definition_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -1038,13 +1068,10 @@ module ActiveSupport
       context = create_workspace_context!
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
-        execution_runtime: context[:execution_runtime],
-        agent_definition_version: context[:agent_definition_version]
       )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Canonical variable input",
-        agent_definition_version: context[:agent_definition_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -1137,13 +1164,10 @@ module ActiveSupport
       context = prepare_workflow_execution_setup!(create_workspace_context!)
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
-        execution_runtime: context[:execution_runtime],
-        agent_definition_version: context[:agent_definition_version]
       )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Subagent coordination input",
-        agent_definition_version: context[:agent_definition_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -1284,8 +1308,7 @@ module ActiveSupport
         actor: context.fetch(:actor),
         agent: context.fetch(:agent),
         execution_runtime: context.fetch(:execution_runtime),
-        execution_runtime_fingerprint: context.fetch(:execution_runtime).execution_runtime_fingerprint || "runtime-env-#{next_test_sequence}",
-        reuse_enrollment: true
+        execution_runtime_fingerprint: context.fetch(:execution_runtime).execution_runtime_fingerprint || "runtime-env-#{next_test_sequence}"
       )
 
       replacement.fetch(:agent_connection).update!(

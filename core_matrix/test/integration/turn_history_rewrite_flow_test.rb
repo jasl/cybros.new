@@ -5,14 +5,11 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -22,7 +19,6 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Second input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -62,14 +58,11 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     failed_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Failed input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -84,7 +77,6 @@ class TurnHistoryRewriteFlowTest < ActionDispatch::IntegrationTest
     completed_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Completed input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

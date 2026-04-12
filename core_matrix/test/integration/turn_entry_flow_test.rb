@@ -5,8 +5,6 @@ class TurnEntryFlowTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     Conversations::UpdateOverride.call(
@@ -21,7 +19,6 @@ class TurnEntryFlowTest < ActionDispatch::IntegrationTest
     active_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Primary input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: { "temperature" => 0.3 },
       resolved_model_selection_snapshot: {
         "selector_source" => "conversation",
@@ -33,7 +30,6 @@ class TurnEntryFlowTest < ActionDispatch::IntegrationTest
     queued_turn = Turns::QueueFollowUp.call(
       conversation: conversation,
       content: "Queued follow up",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: { "temperature" => 0.3 },
       resolved_model_selection_snapshot: {
         "selector_source" => "conversation",
@@ -43,8 +39,6 @@ class TurnEntryFlowTest < ActionDispatch::IntegrationTest
 
     automation_conversation = Conversations::CreateAutomationRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     automation_turn = Turns::StartAutomationTurn.call(
       conversation: automation_conversation,
@@ -54,7 +48,6 @@ class TurnEntryFlowTest < ActionDispatch::IntegrationTest
       source_ref_id: "hook-9",
       idempotency_key: "idemp-9",
       external_event_key: "evt-9",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {
         "selector_source" => "conversation",
@@ -72,7 +65,6 @@ class TurnEntryFlowTest < ActionDispatch::IntegrationTest
       Turns::StartUserTurn.call(
         conversation: automation_conversation,
         content: "forbidden",
-        agent_definition_version: context[:agent_definition_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )

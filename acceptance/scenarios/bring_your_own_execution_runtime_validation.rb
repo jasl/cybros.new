@@ -13,13 +13,15 @@ bundled_registration = Acceptance::ManualSupport.register_bundled_runtime_from_m
   execution_runtime_fingerprint: "acceptance-bundled-fenix-environment",
   fingerprint: "acceptance-bundled-fenix-runtime"
 )
-pairing_session = PairingSessions::Issue.call(
-  agent: bundled_registration.agent_definition_version.agent,
-  actor: bootstrap.user,
+onboarding_session = OnboardingSessions::Issue.call(
+  installation: bootstrap.installation,
+  target_kind: "execution_runtime",
+  target: nil,
+  issued_by: bootstrap.user,
   expires_at: 2.hours.from_now
 )
 bring_your_own_runtime_registration = Acceptance::ManualSupport.register_bring_your_own_execution_runtime!(
-  pairing_token: pairing_session.plaintext_token,
+  onboarding_token: onboarding_session.plaintext_token,
   runtime_base_url: runtime_base_url,
   execution_runtime_fingerprint: "acceptance-bring-your-own-runtime-environment"
 )
@@ -103,7 +105,7 @@ Acceptance::ManualSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      "pairing_session_id" => pairing_session.public_id,
+      "onboarding_session_id" => onboarding_session.public_id,
       "agent_definition_version_id" => bundled_registration.agent_definition_version.public_id,
       "agent_connection_id" => bundled_registration.agent_connection_id,
       "bundled_execution_runtime_id" => bundled_registration.execution_runtime.public_id,

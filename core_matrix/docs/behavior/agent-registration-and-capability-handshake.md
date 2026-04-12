@@ -3,7 +3,7 @@
 ## Purpose
 
 Task 11.1 adds the first machine-facing HTTP protocol boundary for Core Matrix:
-registration by enrollment token, authenticated heartbeat and health probes,
+registration by onboarding token, authenticated heartbeat and health probes,
 capability refresh, and capability handshake with config reconciliation.
 
 ## Status
@@ -43,8 +43,10 @@ Related design note:
 
 ## Authentication Model
 
-- registration uses a one-time `PairingSession` token and exchanges it for a
-  durable connection credential
+- agent registration uses a one-time `OnboardingSession` token targeted at
+  `agent` and exchanges it for a durable agent connection credential
+- execution-runtime registration uses a separate one-time `OnboardingSession`
+  token targeted at `execution_runtime`
 - all follow-up agent API calls authenticate with HTTP token auth using the
   `AgentConnection` credential
 - execution-runtime-plane calls authenticate separately with the
@@ -176,10 +178,10 @@ Related design note:
 
 ## Failure Modes
 
-- invalid, consumed, or expired enrollment tokens are rejected during
+- invalid, expired, revoked, or closed onboarding tokens are rejected during
   registration
 - blank `execution_runtime_fingerprint` values are rejected during registration
-- execution-runtime reconciliation remains scoped to the enrollment
+- execution-runtime reconciliation remains scoped to the onboarding-session
   installation instead of trusting caller-provided runtime ids
 - machine-facing endpoints reject unknown connection credentials before mutating
   connection health or capability state

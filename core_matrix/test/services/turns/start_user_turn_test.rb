@@ -101,6 +101,23 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal alternate_execution_runtime, turn.execution_runtime
   end
 
+  test "rejects unexpected keyword arguments" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace]
+    )
+
+    assert_raises(ArgumentError) do
+      Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "Hello strict contract",
+        agent_definition_version: context[:agent_definition_version],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+  end
+
   test "rejects automation purpose conversations" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(

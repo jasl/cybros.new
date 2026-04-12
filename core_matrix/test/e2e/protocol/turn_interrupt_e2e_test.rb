@@ -14,8 +14,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       installation: context[:installation],
       actor: context[:actor],
       agent: sibling_agent,
-      execution_runtime: sibling_execution_runtime,
-      reuse_enrollment: true
+      execution_runtime: sibling_execution_runtime
     )
     sibling_registration.fetch(:agent_connection).update!(
       health_status: "healthy",

@@ -6,7 +6,7 @@ module Turns
       new(...).call
     end
 
-    def initialize(conversation:, content:, sender_kind:, sender_conversation: nil, execution_runtime: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:, **_ignored)
+    def initialize(conversation:, content:, sender_kind:, sender_conversation: nil, execution_runtime: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:)
       @conversation = conversation
       @content = content
       @sender_kind = sender_kind

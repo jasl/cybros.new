@@ -4,7 +4,7 @@ module Conversations
       new(...).call
     end
 
-    def initialize(workspace:, agent: nil, **_ignored)
+    def initialize(workspace:, agent: nil)
       @workspace = workspace
       @agent = agent
     end

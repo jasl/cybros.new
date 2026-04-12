@@ -4,7 +4,7 @@ module Turns
       new(...).call
     end
 
-    def initialize(conversation:, origin_kind:, origin_payload:, source_ref_type:, source_ref_id:, idempotency_key:, external_event_key:, execution_runtime: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:, **_ignored)
+    def initialize(conversation:, origin_kind:, origin_payload:, source_ref_type:, source_ref_id:, idempotency_key:, external_event_key:, execution_runtime: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:)
       @conversation = conversation
       @origin_kind = origin_kind
       @origin_payload = origin_payload

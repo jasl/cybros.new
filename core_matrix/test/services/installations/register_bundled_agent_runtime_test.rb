@@ -95,7 +95,7 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
         enabled: true,
         fingerprint: "bundled-fenix-runtime-v2",
         sdk_version: "fenix-0.2.0",
-        connection_metadata: {
+        execution_runtime_connection_metadata: {
           "transport" => "http",
           "base_url" => "http://127.0.0.1:4200",
         },

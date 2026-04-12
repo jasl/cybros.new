@@ -62,7 +62,7 @@ module GovernedValidationSupport
         lifecycle_state: "active",
         execution_runtime_kind: "local",
         execution_runtime_fingerprint: execution_runtime_fingerprint,
-        connection_metadata: {
+        execution_runtime_connection_metadata: {
           "transport" => "http",
           "base_url" => "http://127.0.0.1:4100",
         },
@@ -132,7 +132,6 @@ module GovernedValidationSupport
       execution_runtime: agent_definition_version.agent.default_execution_runtime,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: resolved_model_selection_snapshot(
-        agent_definition_version: agent_definition_version,
         normalized_selector: normalized_selector
       )
     )

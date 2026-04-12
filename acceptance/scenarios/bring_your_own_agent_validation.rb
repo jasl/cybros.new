@@ -14,7 +14,7 @@ bring_your_own_agent = Acceptance::ManualSupport.create_bring_your_own_agent!(
   display_name: "Bring Your Own Agent"
 )
 registration = Acceptance::ManualSupport.register_bring_your_own_runtime!(
-  pairing_token: bring_your_own_agent.fetch(:pairing_token),
+  onboarding_token: bring_your_own_agent.fetch(:onboarding_token),
   runtime_base_url: runtime_base_url,
   agent_base_url: agent_base_url,
   execution_runtime_fingerprint: "acceptance-bring-your-own-agent-environment"
@@ -92,7 +92,7 @@ Acceptance::ManualSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      "pairing_session_id" => registration.pairing_session&.public_id,
+      "onboarding_session_id" => registration.onboarding_session&.public_id,
       "agent_definition_version_id" => registration.agent_definition_version.public_id,
       "execution_runtime_id" => registration.execution_runtime&.public_id,
       "agent_connection_id" => registration.agent_connection_id,

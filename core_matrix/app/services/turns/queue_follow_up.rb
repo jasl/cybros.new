@@ -4,7 +4,7 @@ module Turns
       new(...).call
     end
 
-    def initialize(conversation:, content:, execution_runtime: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:, **_ignored)
+    def initialize(conversation:, content:, execution_runtime: nil, resolved_config_snapshot:, resolved_model_selection_snapshot:)
       @conversation = conversation
       @content = content
       @execution_runtime = execution_runtime

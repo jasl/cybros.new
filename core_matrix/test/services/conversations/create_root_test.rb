@@ -6,8 +6,6 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     assert_equal context[:installation], conversation.installation
@@ -22,5 +20,16 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
     assert_equal [[conversation.id, conversation.id, 0]],
       ConversationClosure.where(descendant_conversation: conversation)
         .pluck(:ancestor_conversation_id, :descendant_conversation_id, :depth)
+  end
+
+  test "rejects unexpected keyword arguments" do
+    context = create_workspace_context!
+
+    assert_raises(ArgumentError) do
+      Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+        execution_runtime: context[:execution_runtime],
+      )
+    end
   end
 end

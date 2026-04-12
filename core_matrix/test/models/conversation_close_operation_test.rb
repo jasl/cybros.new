@@ -5,8 +5,6 @@ class ConversationCloseOperationTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     operation = ConversationCloseOperation.new(
@@ -30,8 +28,6 @@ class ConversationCloseOperationTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     ConversationCloseOperation.create!(
       installation: conversation.installation,

@@ -15,7 +15,7 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
     )
 
     get "/app_api/conversations/#{conversation.public_id}/metadata",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 
@@ -42,7 +42,7 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
 
     patch "/app_api/conversations/#{conversation.public_id}/metadata",
       params: { title: "Pinned by user" }.to_json,
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 
@@ -76,7 +76,7 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
     begin
       post "/app_api/conversations/#{conversation.public_id}/metadata/regenerate",
         params: { field: "title" }.to_json,
-        headers: app_api_headers(registration[:agent_connection_credential])
+        headers: app_api_headers(registration[:session_token])
     ensure
       Conversations::Metadata::GenerateField.singleton_class.send(:define_method, :call, original_call)
     end
@@ -102,7 +102,7 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
 
     post "/app_api/conversations/#{conversation.public_id}/metadata/regenerate",
       params: { field: "title" }.to_json,
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :unprocessable_entity
     assert_includes response.body, "generation is unavailable"
@@ -114,17 +114,17 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
     conversation = context[:conversation]
 
     get "/app_api/conversations/#{conversation.id}/metadata",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
     assert_response :not_found
 
     patch "/app_api/conversations/#{conversation.id}/metadata",
       params: { title: "new title" }.to_json,
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
     assert_response :not_found
 
     post "/app_api/conversations/#{conversation.id}/metadata/regenerate",
       params: { field: "title" }.to_json,
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
     assert_response :not_found
   end
 

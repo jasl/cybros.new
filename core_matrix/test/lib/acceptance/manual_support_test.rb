@@ -564,7 +564,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
   test "runtime registration exposes session ids without reaching into raw registration payloads" do
     registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
-      pairing_token: "pairing-token",
+      onboarding_token: "onboarding-token",
       agent_connection_credential: "agent-secret",
       execution_runtime_connection_credential: "execution-secret",
       agent_definition_version: "adv",
@@ -574,11 +574,11 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       }
     )
 
-    assert_equal "pairing-token", registration.pairing_token
+    assert_equal "onboarding-token", registration.onboarding_token
     assert_equal "adv", registration.agent_definition_version
     assert_equal "agent-session-public-id", registration.agent_connection_id
     assert_equal "execution-runtime-connection-public-id", registration.execution_runtime_connection_id
-    assert_equal "pairing-token", registration.fetch(:pairing_token)
+    assert_equal "onboarding-token", registration.fetch(:onboarding_token)
     assert_equal "adv", registration.fetch(:agent_definition_version)
     assert_equal "agent-session-public-id", registration.fetch(:agent_connection_id)
     assert_equal "execution-runtime-connection-public-id", registration.fetch(:execution_runtime_connection_id)
@@ -631,8 +631,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       },
       "execution_runtime_connection_metadata" => { "transport" => "http", "base_url" => "http://127.0.0.1:3101" },
     }
-    pairing_session = Struct.new(:plaintext_token, :agent).new("pairing-token", Struct.new(:public_id).new("agt_123"))
-    agent_definition_version = Struct.new(:public_id, :agent).new("adv_123", pairing_session.agent)
+    onboarding_session = Struct.new(:plaintext_token, :target_agent).new("onboarding-token", Struct.new(:public_id).new("agt_123"))
+    agent_definition_version = Struct.new(:public_id, :agent).new("adv_123", onboarding_session.target_agent)
     agent_connection = Struct.new(:public_id).new("acn_123")
     execution_runtime = Struct.new(:public_id, :execution_runtime_fingerprint).new("rt_123", "runtime-fingerprint")
     execution_runtime_version = Struct.new(:public_id).new("erv_123")
@@ -664,7 +664,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           end
         end
       ) do
-        with_redefined_singleton_method(PairingSession, :find_by_plaintext_token, ->(plaintext) { plaintext == "pairing-token" ? pairing_session : nil }) do
+        with_redefined_singleton_method(OnboardingSession, :find_by_plaintext_token, ->(plaintext) { plaintext == "onboarding-token" ? onboarding_session : nil }) do
           with_redefined_singleton_method(AgentDefinitionVersion, :find_by_public_id!, ->(public_id) { public_id == "adv_123" ? agent_definition_version : nil }) do
             with_redefined_singleton_method(AgentConnection, :find_by_public_id!, ->(public_id) { public_id == "acn_123" ? agent_connection : nil }) do
               with_redefined_singleton_method(
@@ -683,7 +683,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
                     ->(public_id) { public_id == "rtc_123" ? execution_runtime_connection : nil }
                   ) do
                     result = Acceptance::ManualSupport.register_bring_your_own_runtime!(
-                      pairing_token: "pairing-token",
+                      onboarding_token: "onboarding-token",
                       runtime_base_url: "http://127.0.0.1:3101",
                       execution_runtime_fingerprint: "runtime-fingerprint"
                     )
@@ -691,8 +691,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
                     assert_instance_of Acceptance::ManualSupport::RuntimeRegistration, result
                     assert_equal "agent-secret", result.agent_connection_credential
                     assert_equal "execution-secret", result.execution_runtime_connection_credential
-                    assert_equal pairing_session, result.pairing_session
-                    assert_equal "pairing-token", result.pairing_token
+                    assert_equal onboarding_session, result.onboarding_session
+                    assert_equal "onboarding-token", result.onboarding_token
                     assert_equal agent_definition_version, result.agent_definition_version
                     assert_equal execution_runtime, result.execution_runtime
                     assert_equal execution_runtime_version, result.execution_runtime_version
@@ -705,9 +705,9 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
                     agent_registration_payload = agent_registration_calls.first.fetch(1)
                     execution_registration_payload = execution_registration_calls.first.fetch(1)
 
-                    assert_equal "pairing-token", agent_registration_payload.fetch(:pairing_token)
+                    assert_equal "onboarding-token", agent_registration_payload.fetch(:onboarding_token)
                     assert_equal manifest.fetch("definition_package"), agent_registration_payload.fetch(:definition_package)
-                    assert_equal "pairing-token", execution_registration_payload.fetch(:pairing_token)
+                    assert_equal "onboarding-token", execution_registration_payload.fetch(:onboarding_token)
                     assert_equal manifest.fetch("version_package"), execution_registration_payload.fetch(:version_package)
                     assert_equal(
                       manifest.fetch("execution_runtime_connection_metadata"),
@@ -769,7 +769,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         with_redefined_singleton_method(AgentDefinitionVersion, :find_by_public_id!, ->(public_id) { public_id == "adv_456" ? agent_definition_version : nil }) do
           with_redefined_singleton_method(AgentConnection, :find_by_public_id!, ->(public_id) { public_id == "acn_456" ? agent_connection : nil }) do
           result = Acceptance::ManualSupport.register_bring_your_own_agent_from_manifest!(
-            pairing_token: "pairing-token",
+            onboarding_token: "onboarding-token",
             agent_base_url: "http://127.0.0.1:3101"
           )
 
@@ -780,7 +780,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           assert_equal agent_connection, result.fetch(:agent_connection)
           assert_equal 1, registration_calls.length
           assert_equal 1, heartbeat_calls.length
-          assert_equal "pairing-token", registration_calls.first.fetch(1).fetch(:pairing_token)
+          assert_equal "onboarding-token", registration_calls.first.fetch(1).fetch(:onboarding_token)
           assert_equal manifest.fetch("definition_package"), registration_calls.first.fetch(1).fetch(:definition_package)
           end
         end
@@ -824,7 +824,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           with_redefined_singleton_method(ExecutionRuntimeVersion, :find_by_public_id!, ->(public_id) { public_id == "erv_456" ? execution_runtime_version : nil }) do
             with_redefined_singleton_method(ExecutionRuntimeConnection, :find_by_public_id!, ->(public_id) { public_id == "rtc_456" ? execution_runtime_connection : nil }) do
           result = Acceptance::ManualSupport.register_bring_your_own_execution_runtime!(
-            pairing_token: "pairing-token",
+            onboarding_token: "onboarding-token",
             runtime_base_url: "http://127.0.0.1:3201",
             execution_runtime_fingerprint: "runtime-fingerprint"
           )
@@ -836,7 +836,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           assert_equal "rtc_456", result.fetch(:execution_runtime_connection_id)
           assert_equal 1, registration_calls.length
           assert_match(%r{/execution_runtime_api/registrations\z}, registration_calls.first.fetch(0))
-          assert_equal "pairing-token", registration_calls.first.fetch(1).fetch(:pairing_token)
+          assert_equal "onboarding-token", registration_calls.first.fetch(1).fetch(:onboarding_token)
           assert_equal manifest.fetch("version_package"), registration_calls.first.fetch(1).fetch(:version_package)
           assert_equal manifest.fetch("execution_runtime_connection_metadata"), registration_calls.first.fetch(1).fetch(:endpoint_metadata)
             end
@@ -896,7 +896,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         )
 
         assert_instance_of Acceptance::ManualSupport::RuntimeRegistration, result
-        assert_equal manifest.fetch("execution_runtime_connection_metadata"), captured_configuration.fetch(:connection_metadata)
+        assert_equal manifest.fetch("execution_runtime_connection_metadata"), captured_configuration.fetch(:execution_runtime_connection_metadata)
         assert result.agent_connection_credential.present?
         assert result.execution_runtime_connection_credential.present?
       end
@@ -940,7 +940,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         "transport" => "http",
         "base_url" => "http://127.0.0.1:3101",
       },
-      captured_configuration.fetch(:connection_metadata)
+      captured_configuration.fetch(:execution_runtime_connection_metadata)
     )
     assert_equal manifest.fetch("endpoint_metadata"), captured_configuration.fetch(:endpoint_metadata)
   end

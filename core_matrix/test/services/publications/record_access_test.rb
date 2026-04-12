@@ -6,8 +6,6 @@ class Publications::RecordAccessTest < ActiveSupport::TestCase
     viewer = create_user!(installation: context[:installation])
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     publication = Publications::PublishLive.call(
       conversation: conversation,
@@ -36,8 +34,6 @@ class Publications::RecordAccessTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     publication = Publications::PublishLive.call(
       conversation: conversation,

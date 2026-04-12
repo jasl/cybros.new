@@ -3,7 +3,7 @@
 ## Purpose
 
 Task 03 establishes the machine-facing registry substrate for Core Matrix:
-agents, execution runtimes, pairing sessions,
+agents, execution runtimes, onboarding sessions,
 immutable agent definition versions, and connection-backed heartbeat state.
 
 ## Status
@@ -48,16 +48,22 @@ Related design note:
 - Kind is `local`, `container`, or `remote`.
 - Stable reconciliation identity is `execution_runtime_fingerprint`, scoped to one
   installation.
-- Connection details live in `connection_metadata`.
+- Live runtime connection details are exposed through
+  `ExecutionRuntime#connection_metadata`.
+- Bundled-runtime registration configuration uses
+  `execution_runtime_connection_metadata` when seeding the corresponding
+  `ExecutionRuntimeConnection.endpoint_metadata`.
 - Lifecycle state tracks whether the runtime carrier is still available for
   new work.
 
-### PairingSession
+### OnboardingSession
 
-- Pairing sessions are expiring and scoped to one `Agent`.
-- Pairing token digests are stored, not plaintext tokens.
+- Onboarding sessions are expiring and scoped to one installation.
+- An onboarding session targets exactly one logical resource kind:
+  `agent` or `execution_runtime`.
+- Onboarding token digests are stored, not plaintext tokens.
 - Progress through runtime registration and agent registration is recorded on
-  the pairing session row.
+  the onboarding session row.
 
 ### AgentDefinitionVersion
 
@@ -88,25 +94,37 @@ Related design note:
 
 ## Services
 
-### `PairingSessions::Issue`
+### `OnboardingSessions::Issue`
 
-- Mints an expiring pairing token for an agent.
+- Mints an expiring onboarding token for an `Agent` or
+  `ExecutionRuntime`.
 - Requires the issuing actor to belong to the same installation.
-- Writes the `pairing_session.issued` audit row.
+- Writes the `onboarding_session.issued` audit row.
 
 ### `AgentDefinitionVersions::Register`
 
-- Resolves a pairing token by digest lookup.
-- Rejects invalid or expired pairing tokens.
+- Resolves an agent onboarding token by digest lookup.
+- Rejects invalid, expired, revoked, or closed onboarding tokens.
 - Creates or reuses the advertised `AgentDefinitionVersion` and opens the live
   `AgentConnection`.
 - Reuses the agent's current `default_execution_runtime` when one is already
   registered; it does not open a new `ExecutionRuntimeConnection`.
-- Reuses the pairing session instead of inventing a second enrollment contract.
 - Works for bundled and external runtimes because the kernel only needs
   registration metadata, not a callback path into the runtime's private
   network.
 - Writes the `agent_connection.registered` audit row.
+
+### `ExecutionRuntimeVersions::Register`
+
+- Resolves an execution-runtime onboarding token by digest lookup.
+- Rejects invalid, expired, revoked, or closed onboarding tokens.
+- Creates or reuses the advertised `ExecutionRuntimeVersion` and opens the
+  live `ExecutionRuntimeConnection`.
+- Creates the logical `ExecutionRuntime` when the onboarding session does not
+  target a pre-existing runtime row.
+- Does not mutate `Agent.default_execution_runtime` as a side effect of
+  runtime registration.
+- Writes the `execution_runtime_connection.registered` audit row.
 
 ### `AgentConnections::RecordHeartbeat`
 
@@ -115,7 +133,7 @@ Related design note:
   immutable `AgentDefinitionVersion`.
 - Preserves version identity while connectivity changes over time.
 
-## Pairing And Rotation
+## Onboarding And Rotation
 
 - external runtimes pair outbound with Core Matrix; normal execution delivery
   does not require the kernel to dial runtime-private addresses
@@ -140,7 +158,7 @@ Related design note:
 - `Agent` and `AgentDefinitionVersion` remain separate aggregates.
 - `ExecutionRuntime` remains stable across version rotation for the same
   runtime carrier.
-- Cross-installation references are rejected for owners, enrollments, and
+- Cross-installation references are rejected for owners, onboarding sessions, and
   versions.
 - Active connection uniqueness is scoped to the logical owner (`agent_id`
   or `execution_runtime_id`), not the top-level installation.
@@ -151,8 +169,12 @@ Related design note:
 ## Failure Modes
 
 - Private agents without an owner user are invalid.
-- Pairing-session reuse or unknown pairing tokens raise `PairingSessions::Resolve::Invalid`.
-- Expired pairing tokens raise `PairingSessions::Resolve::Expired`.
+- Unknown onboarding tokens raise
+  `OnboardingSessions::ResolveFromToken::InvalidOnboardingToken`.
+- Expired onboarding tokens raise
+  `OnboardingSessions::ResolveFromToken::ExpiredOnboardingSession`.
+- Closed or revoked onboarding tokens are rejected before registration
+  continues.
 - Cross-installation issuance or registration raises `ArgumentError`.
 - Attempting to mutate a persisted `AgentDefinitionVersion` raises
   `ActiveRecord::ReadOnlyRecord`.

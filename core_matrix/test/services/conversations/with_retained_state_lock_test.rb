@@ -36,8 +36,6 @@ class Conversations::WithRetainedStateLockTest < ActiveSupport::TestCase
     context = create_workspace_context!
     Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
   end
 end

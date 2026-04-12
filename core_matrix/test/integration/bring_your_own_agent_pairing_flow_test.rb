@@ -65,7 +65,6 @@ class BringYourOwnAgentPairingFlowTest < ActionDispatch::IntegrationTest
     initial_agent_definition_version = context.fetch(:agent_definition_version)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,

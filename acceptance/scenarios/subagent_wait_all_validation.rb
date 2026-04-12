@@ -11,7 +11,7 @@ bundled_configuration = {
   lifecycle_state: "active",
   execution_runtime_kind: "local",
   execution_runtime_fingerprint: "acceptance-d-subagents-environment",
-  connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
+  execution_runtime_connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
   endpoint_metadata: {
     "transport" => "http",
     "base_url" => "http://127.0.0.1:4100",
@@ -124,7 +124,6 @@ conversation = Conversations::CreateRoot.call(
 turn = Turns::StartUserTurn.call(
   conversation: conversation,
   content: "Delegate both research tasks and wait for them to finish.",
-  agent_definition_version: registry.agent_definition_version,
   resolved_config_snapshot: {},
   resolved_model_selection_snapshot: {}
 )

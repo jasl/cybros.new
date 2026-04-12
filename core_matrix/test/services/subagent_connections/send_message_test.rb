@@ -5,8 +5,6 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_agent_addressable_child_conversation!(
       context: context,
@@ -14,8 +12,6 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     )
     outsider_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     invalid_sender = assert_raises(ActiveRecord::RecordInvalid) do
@@ -51,8 +47,6 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_agent_addressable_child_conversation!(
       context: context,

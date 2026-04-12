@@ -4,7 +4,7 @@ module AppAPI
       conversation = find_conversation!(params.fetch(:conversation_id))
       request = ConversationDebugExports::CreateRequest.call(
         conversation: conversation,
-        user: conversation.workspace.user
+        user: current_user
       )
 
       render json: {
@@ -44,7 +44,7 @@ module AppAPI
     def find_debug_export_request!(request_id)
       ConversationDebugExportRequest.find_by!(
         public_id: request_id,
-        installation_id: current_agent_definition_version.installation_id
+        installation_id: current_installation_id
       )
     end
 

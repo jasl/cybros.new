@@ -23,6 +23,12 @@ class Session < ApplicationRecord
     ).attach_plaintext_token(token)
   end
 
+  def self.find_by_plaintext_token(token)
+    return if token.blank?
+
+    find_by(token_digest: digest_token(token))
+  end
+
   def matches_token?(token)
     self.class.digest_token(token) == token_digest
   end

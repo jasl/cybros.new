@@ -13,7 +13,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
           workspace_id: context[:workspace].public_id,
           upload_file: upload,
         },
-        headers: app_api_headers(registration[:agent_connection_credential])
+        headers: app_api_headers(registration[:session_token])
     end
 
     assert_response :created
@@ -31,7 +31,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     )
 
     get "/app_api/conversation_bundle_import_requests/#{request_id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -66,12 +66,12 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
         workspace_id: context[:workspace].id,
         upload_file: upload,
       },
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
 
     get "/app_api/conversation_bundle_import_requests/#{request.id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
   ensure
@@ -109,7 +109,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     request.update_columns(imported_conversation_id: nil)
 
     get "/app_api/conversation_bundle_import_requests/#{request.public_id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
     response_body = JSON.parse(response.body)

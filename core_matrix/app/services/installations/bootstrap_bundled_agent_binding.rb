@@ -7,7 +7,7 @@ module Installations
       :agent_connection,
       :execution_runtime_connection,
       :binding,
-      :workspace,
+      :default_workspace_ref,
       keyword_init: true
     )
 
@@ -40,7 +40,7 @@ module Installations
         agent_connection: registry.agent_connection,
         execution_runtime_connection: registry.execution_runtime_connection,
         binding: binding_result.binding,
-        workspace: binding_result.workspace
+        default_workspace_ref: binding_result.default_workspace_ref
       )
     end
   end

@@ -1,18 +1,18 @@
 require "test_helper"
 
 class DummyAgentRuntimeTest < ActiveSupport::TestCase
-  test "register payload includes pairing token and a stable definition package fingerprint" do
+  test "register payload includes onboarding token and a stable definition package fingerprint" do
     load_dummy_agent_runtime_class!
 
     payload =
       with_modified_env(
-        "CORE_MATRIX_PAIRING_TOKEN" => "manual-pairing-token",
+        "CORE_MATRIX_ONBOARDING_TOKEN" => "manual-onboarding-token",
         "CORE_MATRIX_FINGERPRINT" => "dummy-host-a",
       ) do
         DummyAgentRuntime.new(["register"]).send(:register_payload)
       end
 
-    assert_equal "manual-pairing-token", payload["pairing_token"]
+    assert_equal "manual-onboarding-token", payload["onboarding_token"]
     assert_equal "dummy-host-a", payload.dig("definition_package", "program_manifest_fingerprint")
     refute payload.key?("execution_runtime_id")
   end

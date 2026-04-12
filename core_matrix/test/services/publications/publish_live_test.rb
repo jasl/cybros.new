@@ -5,8 +5,6 @@ class Publications::PublishLiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     ConversationCloseOperation.create!(
       installation: conversation.installation,
@@ -31,8 +29,6 @@ class Publications::PublishLiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     publication = Publications::PublishLive.call(
@@ -58,8 +54,6 @@ class Publications::PublishLiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     publication = Publications::PublishLive.call(
       conversation: conversation,
@@ -87,8 +81,6 @@ class Publications::PublishLiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
@@ -107,8 +99,6 @@ class Publications::PublishLiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     request_deletion_during_lock!(conversation)
 

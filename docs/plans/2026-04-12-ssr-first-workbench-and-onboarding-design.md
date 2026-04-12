@@ -41,6 +41,9 @@ The approved product constraints are:
 - `agent_api` stays machine-facing
 - `execution_runtime_api` stays machine-facing
 - browser and future custom apps use `app_api` plus realtime subscriptions
+- the SSR Web client should authenticate through same-origin session cookies
+  protected by CSRF, while non-browser app clients may continue using
+  bearer-style session tokens until a dedicated client-token model is added
 - the first Web product should be SSR-first, but the product API must remain
   reusable by a future SPA, desktop app, or custom agent-specific app
 - onboarding flows for `Agent` and `ExecutionRuntime` must be documented in
@@ -71,6 +74,56 @@ This is preferred over a full frontend/backend split because:
 - the workbench needs event-driven updates more than client-side routing
 - the product semantics are still evolving and should not be frozen behind an
   extra frontend/backend split yet
+
+## Implementation Sequencing
+
+The approved rollout order is intentionally split into three parts.
+
+### Phase 1: Foundation Reset
+
+Do all structural and destructive adjustments first, before any serious UI
+implementation.
+
+This phase includes:
+
+- separating human-facing `app_api` foundations from machine-facing
+  `agent_api` and `execution_runtime_api`
+- replacing `PairingSession` with a neutral `OnboardingSession`
+- removing eager default workspace creation
+- adding user-authenticated realtime foundations
+
+The purpose of this phase is to stop future UI and API work from building on
+the wrong seams.
+
+### Phase 2: App Surface
+
+Build and stabilize the workspace-first app-facing surface next.
+
+This phase includes:
+
+- app-surface policies, queries, and presenters
+- workspace-first workbench read models and actions
+- admin-facing onboarding and installation resources
+- transport-neutral app-facing realtime event contracts
+
+The goal of this phase is to make `app_api` the true product contract before
+HTML becomes the primary expression of behavior.
+
+### Phase 3: SSR UI
+
+Build the Rails SSR workbench/admin product only after the first two phases
+are stable enough to support iteration.
+
+This phase includes:
+
+- login/setup/admin HTML flows
+- the cowork workbench UI
+- the admin onboarding UI
+- guide publication and manual acceptance
+
+This sequencing is deliberate. UI work is expected to iterate heavily and
+should sit on top of already-correct boundaries rather than forcing those
+boundaries to move underneath it.
 
 ## Existing Frontend Baseline
 
@@ -166,6 +219,8 @@ reaching into machine control endpoints.
   page-specific ad hoc JSON.
 - Realtime events and REST read models must share the same resource naming and
   field vocabulary.
+- Preserve separate machine/runtime streams and app-facing streams; browser
+  clients should subscribe only to app-facing realtime channels.
 
 ## Product Resource Model
 
@@ -343,6 +398,10 @@ Realtime is approved as a product requirement for:
 Transport may begin with ActionCable, but event naming and payload shape should
 remain transport-neutral so the system can later move to SSE or a dedicated
 frontend gateway without changing product semantics.
+
+The implementation should preserve a separate raw runtime stream for existing
+publication or machine-adjacent consumers and project a distinct app-facing
+stream for the workbench.
 
 ### Event Envelope
 

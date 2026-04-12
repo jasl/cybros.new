@@ -136,8 +136,6 @@ class SubagentConnections::WaitTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_conversation_record!(
       installation: context[:installation],

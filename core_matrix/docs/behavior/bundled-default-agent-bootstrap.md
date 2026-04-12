@@ -21,6 +21,9 @@ existing binding and workspace services.
 - Concurrent bundled-runtime reconciliation serializes around the logical
   agent and execution runtime so repeated passes reuse the same version and
   session rows without duplicate-key races.
+- Uses `execution_runtime_connection_metadata` for the execution-runtime
+  connection surface and `endpoint_metadata` for the agent connection surface;
+  the config names intentionally mirror the two distinct planes.
 - Does not create user bindings or workspaces.
 - Returns `nil` when bundled bootstrap is not enabled in configuration.
 
@@ -28,8 +31,8 @@ existing binding and workspace services.
 
 - Runs only when bundled bootstrap is explicitly enabled.
 - Calls bundled runtime reconciliation before any user binding is created.
-- Composes `UserAgentBindings::Enable` so default workspace creation continues
-  to flow through the existing workspace service.
+- Composes `UserAgentBindings::Enable` so the binding is created and the
+  default workspace reference remains virtual until first real use.
 
 ### `Installations::BootstrapFirstAdmin`
 
@@ -43,7 +46,8 @@ existing binding and workspace services.
 - Registry reconciliation happens before first-admin binding.
 - The packaged runtime is modeled with the same registry aggregates as external
   runtimes; no special-case domain tables are introduced.
-- Binding and default workspace creation continue to reuse Task 04.1 services.
+- Binding enablement continues to reuse Task 04.1 services, but default
+  workspace rows remain lazily materialized.
 
 ## Failure Modes
 

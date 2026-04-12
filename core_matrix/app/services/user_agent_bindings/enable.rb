@@ -2,7 +2,7 @@ module UserAgentBindings
   class Enable
     AccessDenied = Class.new(StandardError)
 
-    Result = Struct.new(:binding, :workspace, keyword_init: true)
+    Result = Struct.new(:binding, :default_workspace_ref, keyword_init: true)
 
     def self.call(...)
       new(...).call
@@ -19,9 +19,11 @@ module UserAgentBindings
 
       ApplicationRecord.transaction do
         binding = find_or_create_binding!
-        workspace = Workspaces::CreateDefault.call(user_agent_binding: binding)
 
-        Result.new(binding: binding, workspace: workspace)
+        Result.new(
+          binding: binding,
+          default_workspace_ref: Workspaces::BuildDefaultReference.call(user_agent_binding: binding)
+        )
       end
     end
 

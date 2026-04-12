@@ -1,8 +1,16 @@
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
-    identified_by :current_agent_connection, :current_execution_runtime_connection, :current_agent_definition_version, :current_execution_runtime, :current_publication
+    identified_by :current_session,
+      :current_user,
+      :current_agent_connection,
+      :current_execution_runtime_connection,
+      :current_agent_definition_version,
+      :current_execution_runtime,
+      :current_publication
 
     def connect
+      self.current_session = find_verified_session
+      self.current_user = current_session&.user
       self.current_agent_connection = find_verified_agent_connection
       self.current_execution_runtime_connection = find_verified_execution_runtime_connection
       self.current_agent_definition_version = current_agent_connection&.agent_definition_version
@@ -10,10 +18,18 @@ module ApplicationCable
         current_execution_runtime_connection&.execution_runtime ||
         current_agent_connection&.agent&.default_execution_runtime
       self.current_publication = find_verified_publication
-      reject_unauthorized_connection if current_agent_definition_version.blank? && current_execution_runtime.blank? && current_publication.blank?
+      reject_unauthorized_connection if current_user.blank? && current_agent_definition_version.blank? && current_execution_runtime.blank? && current_publication.blank?
     end
 
     private
+
+    def find_verified_session
+      session = Session.find_by_plaintext_token(session_token)
+      return if session.blank?
+      return if !session.active? || session.user.blank? || session.identity.blank? || !session.identity.enabled?
+
+      session
+    end
 
     def find_verified_agent_connection
       return if token_credential.blank?
@@ -29,6 +45,13 @@ module ApplicationCable
 
     def token_credential
       request.params[:token].presence || token_from_authorization_header
+    end
+
+    def session_token
+      request.params[:session_token].presence ||
+        request.cookie_jar.encrypted[:session_token] ||
+        request.cookie_jar.signed[:session_token] ||
+        request.cookie_jar[:session_token]
     end
 
     def token_from_authorization_header

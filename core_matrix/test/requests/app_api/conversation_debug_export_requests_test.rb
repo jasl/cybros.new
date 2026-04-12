@@ -11,7 +11,7 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
           params: {
             conversation_id: context[:conversation].public_id,
           },
-          headers: app_api_headers(registration[:agent_connection_credential]),
+          headers: app_api_headers(registration[:session_token]),
           as: :json
       end
     end
@@ -26,7 +26,7 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     refute_includes response.body, %("#{context[:conversation].id}")
 
     get "/app_api/conversation_debug_export_requests/#{request_id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
     response_body = JSON.parse(response.body)
@@ -50,7 +50,7 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     ConversationDebugExports::ExecuteRequest.call(request: request)
 
     get "/app_api/conversation_debug_export_requests/#{request.public_id}/download",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
     assert_equal "application/zip", response.media_type
@@ -75,13 +75,13 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     request.bundle_file.purge
 
     get "/app_api/conversation_debug_export_requests/#{request.public_id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
     assert_equal false, JSON.parse(response.body).dig("debug_export_request", "bundle_available")
 
     get "/app_api/conversation_debug_export_requests/#{request.public_id}/download",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :gone
   end
@@ -102,13 +102,13 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     ConversationDebugExports::ExecuteRequest.call(request: request)
 
     get "/app_api/conversation_debug_export_requests/#{request.public_id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
     assert_equal false, JSON.parse(response.body).dig("debug_export_request", "bundle_available")
 
     get "/app_api/conversation_debug_export_requests/#{request.public_id}/download",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :gone
   end
@@ -130,18 +130,18 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
       params: {
         conversation_id: context[:conversation].id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :not_found
 
     get "/app_api/conversation_debug_export_requests/#{request.id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
 
     get "/app_api/conversation_debug_export_requests/#{request.id}/download",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
   end

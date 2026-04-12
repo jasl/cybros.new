@@ -65,6 +65,28 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
     refute_equal alternate_agent_definition_version, turn.agent_definition_version
   end
 
+  test "rejects unexpected keyword arguments" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateAutomationRoot.call(
+      workspace: context[:workspace]
+    )
+
+    assert_raises(ArgumentError) do
+      Turns::StartAutomationTurn.call(
+        conversation: conversation,
+        origin_kind: "automation_schedule",
+        origin_payload: { "cron" => "0 9 * * *" },
+        source_ref_type: "AutomationSchedule",
+        source_ref_id: "schedule-2",
+        idempotency_key: "idemp-2",
+        external_event_key: "evt-2",
+        agent_definition_version: context[:agent_definition_version],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+  end
+
   test "rejects pending delete automation conversations" do
     context = create_workspace_context!
     conversation = Conversations::CreateAutomationRoot.call(

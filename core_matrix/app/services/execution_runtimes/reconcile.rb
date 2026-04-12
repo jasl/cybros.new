@@ -6,11 +6,10 @@ module ExecutionRuntimes
       new(...).call
     end
 
-    def initialize(installation:, execution_runtime_fingerprint:, kind:, connection_metadata:)
+    def initialize(installation:, execution_runtime_fingerprint:, kind:)
       @installation = installation
       @execution_runtime_fingerprint = execution_runtime_fingerprint.to_s.strip
       @kind = kind
-      @connection_metadata = connection_metadata
     end
 
     def call

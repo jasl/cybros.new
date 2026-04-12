@@ -4,9 +4,9 @@ require "action_cable/test_helper"
 class ConversationRuntime::PublishEventTest < ActiveSupport::TestCase
   include ActionCable::TestHelper
 
-  test "broadcasts and projects workflow node runtime events with a replaceable stream key" do
+  test "broadcasts app-safe runtime envelopes and projects workflow node runtime events with a replaceable stream key" do
     context = build_runtime_context!
-    stream_name = ConversationRuntime::StreamName.for_conversation(context.fetch(:conversation))
+    stream_name = ConversationRuntime::StreamName.for_app_conversation(context.fetch(:conversation))
 
     broadcasts = capture_broadcasts(stream_name) do
       ConversationRuntime::PublishEvent.call(
@@ -32,7 +32,9 @@ class ConversationRuntime::PublishEventTest < ActiveSupport::TestCase
       )
     end
 
-    assert_equal ["runtime.workflow_node.started", "runtime.workflow_node.completed"], broadcasts.map { |payload| payload.fetch("event_kind") }
+    assert_equal ["turn.runtime_event.appended", "turn.runtime_event.appended"], broadcasts.map { |payload| payload.fetch("event_type") }
+    assert broadcasts.all? { |payload| payload.fetch("resource_type") == "conversation_turn_runtime_event" }
+    refute_match(/workflow_node|provider_round/, broadcasts.to_json)
 
     runtime_projection = ConversationEvent.live_projection(conversation: context.fetch(:conversation))
       .select { |event| event.event_kind.start_with?("runtime.workflow_node.") }
@@ -51,7 +53,7 @@ class ConversationRuntime::PublishEventTest < ActiveSupport::TestCase
       workflow_node: context.fetch(:workflow_node),
       execution_runtime: context.fetch(:execution_runtime)
     )
-    stream_name = ConversationRuntime::StreamName.for_conversation(process_run.conversation)
+    stream_name = ConversationRuntime::StreamName.for_app_conversation(process_run.conversation)
 
     broadcasts = capture_broadcasts(stream_name) do
       ConversationRuntime::PublishEvent.call(
@@ -68,8 +70,9 @@ class ConversationRuntime::PublishEventTest < ActiveSupport::TestCase
       )
     end
 
-    assert_equal ["runtime.process_run.output"], broadcasts.map { |payload| payload.fetch("event_kind") }
+    assert_equal ["turn.runtime_event.appended"], broadcasts.map { |payload| payload.fetch("event_type") }
     assert_equal "hello world", broadcasts.first.dig("payload", "text")
+    refute_match(/workflow_node|provider_round/, broadcasts.to_json)
 
     projection = ConversationEvent.live_projection(conversation: process_run.conversation)
       .select { |event| event.event_kind == "runtime.process_run.output" }
@@ -85,13 +88,10 @@ class ConversationRuntime::PublishEventTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context.fetch(:workspace),
-      execution_runtime: context.fetch(:execution_runtime),
-      agent_definition_version: context.fetch(:agent_definition_version)
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Runtime event input",
-      agent_definition_version: context.fetch(:agent_definition_version),
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

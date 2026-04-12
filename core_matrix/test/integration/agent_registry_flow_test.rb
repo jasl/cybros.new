@@ -1,18 +1,27 @@
 require "test_helper"
 
 class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
-  test "issues a pairing session, registers an agent definition version, and records heartbeat state" do
+  test "issues onboarding sessions, registers an agent definition version, and records heartbeat state" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent = create_agent!(installation: installation, visibility: "public")
-    pairing_session = PairingSessions::Issue.call(
-      agent: agent,
-      actor: actor,
+    runtime_onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "execution_runtime",
+      target: nil,
+      issued_by: actor,
+      expires_at: 2.hours.from_now
+    )
+    agent_onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "agent",
+      target: agent,
+      issued_by: actor,
       expires_at: 2.hours.from_now
     )
 
     runtime_registration = ExecutionRuntimeVersions::Register.call(
-      pairing_token: pairing_session.plaintext_token,
+      onboarding_token: runtime_onboarding_session.plaintext_token,
       endpoint_metadata: {
         "transport" => "http",
         "base_url" => "http://127.0.0.1:4100",
@@ -40,9 +49,10 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
         },
       }
     )
+    agent.update!(default_execution_runtime: runtime_registration.execution_runtime)
 
     registration = AgentDefinitionVersions::Register.call(
-      pairing_token: pairing_session.plaintext_token,
+      onboarding_token: agent_onboarding_session.plaintext_token,
       endpoint_metadata: {
         "transport" => "http",
         "base_url" => "http://127.0.0.1:4100",
@@ -105,7 +115,7 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
     assert_equal "active", registration.agent_definition_version.bootstrap_state
     assert registration.agent_definition_version.healthy?
     assert_equal({ "latency_ms" => 45 }, registration.agent_definition_version.health_metadata)
-    assert_equal 1, AuditLog.where(action: "pairing_session.issued").count
+    assert_equal 2, AuditLog.where(action: "onboarding_session.issued").count
     assert_equal 1, AuditLog.where(action: "execution_runtime_connection.registered").count
     assert_equal 1, AuditLog.where(action: "agent_connection.registered").count
   end

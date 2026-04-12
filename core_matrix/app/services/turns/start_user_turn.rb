@@ -9,8 +9,7 @@ module Turns
       content:,
       execution_runtime: nil,
       resolved_config_snapshot:,
-      resolved_model_selection_snapshot:,
-      **_ignored
+      resolved_model_selection_snapshot:
     )
       @conversation = conversation
       @content = content

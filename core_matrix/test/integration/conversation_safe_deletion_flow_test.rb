@@ -40,7 +40,6 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
       Turns::StartUserTurn.call(
         conversation: context[:conversation],
         content: "Blocked input",
-        agent_definition_version: context[:agent_definition_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -50,7 +49,6 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
       Turns::QueueFollowUp.call(
         conversation: context[:conversation],
         content: "Blocked follow up",
-        agent_definition_version: context[:agent_definition_version],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
@@ -88,14 +86,11 @@ class ConversationSafeDeletionFlowTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     parent = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     child = Conversations::CreateFork.call(parent: parent)
     child_turn = Turns::StartUserTurn.call(
       conversation: child,
       content: "Child still running",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

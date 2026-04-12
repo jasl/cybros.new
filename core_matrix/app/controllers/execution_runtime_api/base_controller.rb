@@ -1,7 +1,22 @@
+require_relative "../api_error_rendering"
+require_relative "../installation_scoped_lookup"
+require_relative "../machine_api_support"
+
 module ExecutionRuntimeAPI
-  class BaseController < AgentAPI::BaseController
-    skip_before_action :authenticate_agent_connection!
+  class BaseController < ActionController::API
+    include ApiErrorRendering
+    include InstallationScopedLookup
+    include MachineApiSupport
+    include ActionController::HttpAuthentication::Token::ControllerMethods
+
     before_action :authenticate_execution_runtime_connection!
+
+    rescue_from OnboardingSessions::ResolveFromToken::InvalidOnboardingToken, with: :render_unprocessable_entity
+    rescue_from OnboardingSessions::ResolveFromToken::ExpiredOnboardingSession, with: :render_unprocessable_entity
+    rescue_from OnboardingSessions::ResolveFromToken::ClosedOnboardingSession, with: :render_unprocessable_entity
+    rescue_from OnboardingSessions::ResolveFromToken::RevokedOnboardingSession, with: :render_unprocessable_entity
+    rescue_from OnboardingSessions::ResolveFromToken::UnexpectedTargetKind, with: :render_unprocessable_entity
+    rescue_from ExecutionRuntimeVersions::UpsertFromPackage::InvalidVersionPackage, with: :render_unprocessable_entity
 
     private
 
@@ -19,41 +34,6 @@ module ExecutionRuntimeAPI
 
     def current_installation_id
       current_execution_runtime.installation_id
-    end
-
-    def find_turn!(turn_id)
-      Turn.find_by!(
-        public_id: turn_id,
-        installation_id: current_installation_id
-      )
-    end
-
-    def find_agent_task_run!(agent_task_run_id)
-      AgentTaskRun.find_by!(
-        public_id: agent_task_run_id,
-        installation_id: current_installation_id
-      )
-    end
-
-    def find_tool_invocation!(tool_invocation_id)
-      ToolInvocation.find_by!(
-        public_id: tool_invocation_id,
-        installation_id: current_installation_id
-      )
-    end
-
-    def find_command_run!(command_run_id)
-      CommandRun.find_by!(
-        public_id: command_run_id,
-        installation_id: current_installation_id
-      )
-    end
-
-    def find_message_attachment!(attachment_id)
-      MessageAttachment.find_by!(
-        public_id: attachment_id,
-        installation_id: current_installation_id
-      )
     end
 
     def authorize_turn_execution_runtime!(turn)

@@ -1,7 +1,7 @@
 module ExecutionRuntimeVersions
   class Register
     Result = Struct.new(
-      :pairing_session,
+      :onboarding_session,
       :execution_runtime,
       :execution_runtime_version,
       :execution_runtime_connection,
@@ -13,8 +13,8 @@ module ExecutionRuntimeVersions
       new(...).call
     end
 
-    def initialize(pairing_token:, endpoint_metadata:, version_package:)
-      @pairing_token = pairing_token
+    def initialize(onboarding_token:, endpoint_metadata:, version_package:)
+      @onboarding_token = onboarding_token
       @endpoint_metadata = normalize_hash(endpoint_metadata)
       @version_package = normalize_hash(version_package)
     end
@@ -22,10 +22,13 @@ module ExecutionRuntimeVersions
     def call
       validate_endpoint_metadata!
       UpsertFromPackage.validate_package!(@version_package)
-      pairing_session = PairingSessions::ResolveFromToken.call(pairing_token: @pairing_token)
+      onboarding_session = OnboardingSessions::ResolveFromToken.call(
+        onboarding_token: @onboarding_token,
+        target_kind: "execution_runtime"
+      )
 
       ApplicationRecord.transaction do
-        execution_runtime = resolve_execution_runtime(pairing_session)
+        execution_runtime = resolve_execution_runtime(onboarding_session)
         upsert_result = UpsertFromPackage.call(
           execution_runtime: execution_runtime,
           version_package: @version_package
@@ -38,7 +41,6 @@ module ExecutionRuntimeVersions
           published_execution_runtime_version: execution_runtime_version,
           lifecycle_state: "active"
         )
-        pairing_session.agent.update!(default_execution_runtime: execution_runtime)
 
         ExecutionRuntimeConnection.where(execution_runtime: execution_runtime, lifecycle_state: "active").update_all(
           lifecycle_state: "stale",
@@ -48,7 +50,7 @@ module ExecutionRuntimeVersions
         plaintext_credential, credential_digest = ExecutionRuntimeConnection.issue_connection_credential
         _plaintext_token, token_digest = ExecutionRuntimeConnection.issue_connection_token
         execution_runtime_connection = ExecutionRuntimeConnection.create!(
-          installation: pairing_session.installation,
+          installation: onboarding_session.installation,
           execution_runtime: execution_runtime,
           execution_runtime_version: execution_runtime_version,
           connection_credential_digest: credential_digest,
@@ -58,24 +60,24 @@ module ExecutionRuntimeVersions
           last_heartbeat_at: Time.current
         )
 
-        PairingSessions::RecordProgress.call(
-          pairing_session: pairing_session,
-          runtime_registered: true
+        OnboardingSessions::RecordProgress.call(
+          onboarding_session: onboarding_session,
+          runtime_registered: true,
+          target_execution_runtime: execution_runtime
         )
 
         AuditLog.record!(
-          installation: pairing_session.installation,
+          installation: onboarding_session.installation,
           action: "execution_runtime_connection.registered",
           subject: execution_runtime_connection,
           metadata: {
-            "agent_id" => pairing_session.agent_id,
             "execution_runtime_id" => execution_runtime.id,
             "execution_runtime_version_id" => execution_runtime_version.id,
           }
         )
 
         Result.new(
-          pairing_session: pairing_session,
+          onboarding_session: onboarding_session,
           execution_runtime: execution_runtime,
           execution_runtime_version: execution_runtime_version,
           execution_runtime_connection: execution_runtime_connection,
@@ -92,22 +94,25 @@ module ExecutionRuntimeVersions
       raise UpsertFromPackage::InvalidVersionPackage, "Endpoint metadata must be a Hash"
     end
 
-    def resolve_execution_runtime(pairing_session)
+    def resolve_execution_runtime(onboarding_session)
       reflected_host_metadata = @version_package["reflected_host_metadata"]
       display_name =
         if reflected_host_metadata.is_a?(Hash)
           reflected_host_metadata["display_name"].presence
         end
 
-      pairing_session.agent.default_execution_runtime ||
-        ExecutionRuntime.create!(
-          installation: pairing_session.installation,
-          kind: @version_package.fetch("kind"),
-          visibility: "public",
-          provisioning_origin: "system",
-          display_name: display_name || @version_package.fetch("execution_runtime_fingerprint"),
-          lifecycle_state: "active"
-        )
+      onboarding_session.target_execution_runtime ||
+        ExecutionRuntimes::Reconcile.call(
+          installation: onboarding_session.installation,
+          execution_runtime_fingerprint: @version_package.fetch("execution_runtime_fingerprint"),
+          kind: @version_package.fetch("kind")
+        ).tap do |execution_runtime|
+          execution_runtime.update!(
+            visibility: "public",
+            provisioning_origin: "system",
+            display_name: display_name || execution_runtime.display_name
+          )
+        end
     end
 
     def normalize_hash(value)

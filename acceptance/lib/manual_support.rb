@@ -709,39 +709,41 @@ module Acceptance
         provisioning_origin: "system",
         lifecycle_state: "active"
       )
-      pairing_session = PairingSessions::Issue.call(
-        agent: agent,
-        actor: actor,
+      onboarding_session = OnboardingSessions::Issue.call(
+        installation: installation,
+        target_kind: "agent",
+        target: agent,
+        issued_by: actor,
         expires_at: 2.hours.from_now
       )
 
       {
         agent: agent,
-        pairing_session: pairing_session,
-        pairing_token: pairing_session.plaintext_token
+        onboarding_session: onboarding_session,
+        onboarding_token: onboarding_session.plaintext_token
       }
     end
 
     def register_bring_your_own_runtime!(
-      pairing_token:,
+      onboarding_token:,
       runtime_base_url:,
       execution_runtime_fingerprint:,
       agent_base_url: runtime_base_url
     )
-      pairing_session = PairingSession.find_by_plaintext_token(pairing_token)
+      onboarding_session = OnboardingSession.find_by_plaintext_token(onboarding_token)
       execution_runtime_registration = register_bring_your_own_execution_runtime!(
-        pairing_token:,
+        onboarding_token:,
         runtime_base_url: runtime_base_url,
         execution_runtime_fingerprint: execution_runtime_fingerprint
       )
       agent_registration = register_bring_your_own_agent_from_manifest!(
-        pairing_token:,
+        onboarding_token:,
         agent_base_url: agent_base_url
       )
 
       RuntimeRegistration.new(
-        pairing_session: pairing_session,
-        pairing_token: pairing_token,
+        onboarding_session: onboarding_session,
+        onboarding_token: onboarding_token,
         manifest: agent_registration.fetch(:manifest),
         agent: agent_registration.fetch(:agent),
         registration: agent_registration.fetch(:registration).merge(
@@ -759,12 +761,12 @@ module Acceptance
       )
     end
 
-    def register_bring_your_own_agent_from_manifest!(pairing_token:, agent_base_url:)
+    def register_bring_your_own_agent_from_manifest!(onboarding_token:, agent_base_url:)
       manifest = live_manifest(base_url: agent_base_url)
       registration = http_post_json(
         "#{CONTROL_BASE_URL}/agent_api/registrations",
         {
-          pairing_token: pairing_token,
+          onboarding_token: onboarding_token,
           endpoint_metadata: manifest.fetch('endpoint_metadata'),
           definition_package: manifest.fetch('definition_package')
         }
@@ -796,12 +798,12 @@ module Acceptance
       }
     end
 
-    def register_bring_your_own_execution_runtime!(pairing_token:, runtime_base_url:, execution_runtime_fingerprint:)
+    def register_bring_your_own_execution_runtime!(onboarding_token:, runtime_base_url:, execution_runtime_fingerprint:)
       manifest = live_manifest(base_url: runtime_base_url)
       registration = http_post_json(
         "#{CONTROL_BASE_URL}/execution_runtime_api/registrations",
         {
-          pairing_token: pairing_token,
+          onboarding_token: onboarding_token,
           endpoint_metadata: manifest.fetch(
             'execution_runtime_connection_metadata',
             default_execution_runtime_connection_metadata(runtime_base_url:)
@@ -850,7 +852,7 @@ module Acceptance
           lifecycle_state: "active",
           execution_runtime_kind: manifest.fetch('execution_runtime_kind', manifest.fetch('execution_runtime_kind', 'local')),
           execution_runtime_fingerprint: execution_runtime_fingerprint,
-          connection_metadata: manifest.fetch(
+          execution_runtime_connection_metadata: manifest.fetch(
             'execution_runtime_connection_metadata',
             default_execution_runtime_connection_metadata(runtime_base_url:)
           ),

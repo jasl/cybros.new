@@ -11,7 +11,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
       params: {
         conversation_id: fixture[:conversation].public_id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :created
@@ -35,7 +35,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     refute_includes response.body, %("#{fixture[:conversation].id}")
 
     get "/app_api/conversation_supervision_sessions/#{session_id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 
@@ -54,7 +54,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
         conversation_id: fixture[:conversation].public_id,
         responder_strategy: "agent_contract",
       },
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :unprocessable_entity
@@ -70,13 +70,13 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
       params: {
         conversation_id: fixture[:conversation].id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :not_found
 
     get "/app_api/conversation_supervision_sessions/#{session.id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
   end
@@ -88,7 +88,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     session.update!(lifecycle_state: "closed")
 
     get "/app_api/conversation_supervision_sessions/#{session.public_id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :gone
 
@@ -99,7 +99,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     end
 
     get "/app_api/conversation_supervision_sessions/#{session.public_id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
   end
@@ -110,7 +110,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     session = create_conversation_supervision_session!(fixture)
 
     post "/app_api/conversation_supervision_sessions/#{session.public_id}/close",
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :success
@@ -124,7 +124,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     assert session.closed_at.present?
 
     post "/app_api/conversation_supervision_sessions/#{session.id}/close",
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :not_found
@@ -150,18 +150,18 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
       params: {
         conversation_id: fixture[:conversation].public_id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :not_found
 
     get "/app_api/conversation_supervision_sessions/#{session.public_id}",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
 
     post "/app_api/conversation_supervision_sessions/#{session.public_id}/close",
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :not_found

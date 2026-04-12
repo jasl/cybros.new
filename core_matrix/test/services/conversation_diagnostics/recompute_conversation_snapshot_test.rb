@@ -32,7 +32,6 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Second question",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

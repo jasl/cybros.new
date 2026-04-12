@@ -1,5 +1,9 @@
 # Agent Definition Version And Pairing Session V2 Design
 
+> **Status:** Historical design context only. The current codebase has moved
+> to `OnboardingSession` and no longer implements the `PairingSession` model
+> described below.
+
 ## Goal
 
 Define a cleaner long-term platform model for Core Matrix that supports:

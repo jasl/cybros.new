@@ -319,7 +319,6 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       content: "Reusable delegated work",
       sender_kind: "owner_agent",
       sender_conversation: context[:conversation],
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

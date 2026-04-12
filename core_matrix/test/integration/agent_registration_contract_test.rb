@@ -5,15 +5,24 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent = create_agent!(installation: installation)
-    pairing_session = PairingSessions::Issue.call(
-      agent: agent,
-      actor: actor,
+    agent_onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "agent",
+      target: agent,
+      issued_by: actor,
+      expires_at: 2.hours.from_now
+    )
+    runtime_onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "execution_runtime",
+      target: nil,
+      issued_by: actor,
       expires_at: 2.hours.from_now
     )
 
     post "/execution_runtime_api/registrations",
       params: {
-        pairing_token: pairing_session.plaintext_token,
+        onboarding_token: runtime_onboarding_session.plaintext_token,
         endpoint_metadata: {
           transport: "http",
           base_url: "https://fenix.example.test",
@@ -47,10 +56,11 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     runtime_registration_body = JSON.parse(response.body)
+    agent.update!(default_execution_runtime: ExecutionRuntime.find_by_public_id!(runtime_registration_body.fetch("execution_runtime_id")))
 
     post "/agent_api/registrations",
       params: {
-        pairing_token: pairing_session.plaintext_token,
+        onboarding_token: agent_onboarding_session.plaintext_token,
         endpoint_metadata: {
           transport: "http",
           base_url: "https://agents.example.test",

@@ -139,13 +139,13 @@ bring_your_own_agent_b = Acceptance::ManualSupport.create_bring_your_own_agent!(
 )
 
 registration_a = Acceptance::ManualSupport.register_bring_your_own_runtime!(
-  pairing_token: bring_your_own_agent_a.fetch(:pairing_token),
+  onboarding_token: bring_your_own_agent_a.fetch(:onboarding_token),
   runtime_base_url: runtime_base_url,
   agent_base_url: agent_base_url,
   execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-a'
 )
 registration_b = Acceptance::ManualSupport.register_bring_your_own_runtime!(
-  pairing_token: bring_your_own_agent_b.fetch(:pairing_token),
+  onboarding_token: bring_your_own_agent_b.fetch(:onboarding_token),
   runtime_base_url: runtime_base_url,
   agent_base_url: agent_base_url,
   execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-b'

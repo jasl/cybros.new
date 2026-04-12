@@ -15,7 +15,7 @@ acceptance operator path.
   replaced the older in-process `delete_all` chains once foreign-key roots
   started changing too frequently to keep a static reset list reliable.
 - `script/manual/dummy_agent_runtime.rb register` is part of the supported
-  registry validation path and must send the enrollment token plus a stable
+  registry validation path and must send the onboarding token plus a stable
   `execution_runtime_fingerprint`. The manual checklist currently drives that through
   `CORE_MATRIX_RUNTIME_FINGERPRINT`.
 - Publication validation in phase 1 is intentionally service-level.

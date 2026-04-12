@@ -6,8 +6,6 @@ class Conversations::CreateAutomationRootTest < ActiveSupport::TestCase
 
     conversation = Conversations::CreateAutomationRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     assert_equal context[:installation], conversation.installation
@@ -19,5 +17,16 @@ class Conversations::CreateAutomationRootTest < ActiveSupport::TestCase
     assert_nil conversation.parent_conversation
     assert_nil conversation.historical_anchor_message_id
     assert_equal "root", conversation.lineage_store_reference.lineage_store_snapshot.snapshot_kind
+  end
+
+  test "rejects unexpected keyword arguments" do
+    context = create_workspace_context!
+
+    assert_raises(ArgumentError) do
+      Conversations::CreateAutomationRoot.call(
+        workspace: context[:workspace],
+        execution_runtime: context[:execution_runtime],
+      )
+    end
   end
 end

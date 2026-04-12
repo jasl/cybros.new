@@ -6,7 +6,7 @@ module Conversations
       new(...).call
     end
 
-    def initialize(workspace:, agent: nil, purpose: "interactive", **_ignored)
+    def initialize(workspace:, agent: nil, purpose: "interactive")
       @workspace = workspace
       @agent = agent || workspace.user_agent_binding.agent
       @purpose = purpose

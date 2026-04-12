@@ -13,7 +13,7 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
       params: {
         content: "What changed most recently?",
       },
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :created
@@ -30,7 +30,7 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
     assert_equal "supervisor_agent", response_body.dig("supervisor_message", "role")
 
     get "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 
@@ -50,13 +50,13 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
       params: {
         content: "What changed most recently?",
       },
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :not_found
 
     get "/app_api/conversation_supervision_sessions/#{session.id}/messages",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
   end
@@ -68,7 +68,7 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
     session.update!(lifecycle_state: "closed")
 
     get "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :gone
 
@@ -76,7 +76,7 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
       params: {
         content: "What changed most recently?",
       },
-      headers: app_api_headers(registration[:agent_connection_credential]),
+      headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :gone
@@ -92,7 +92,7 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
         params: {
           content: "快住手",
         },
-        headers: app_api_headers(registration[:agent_connection_credential]),
+        headers: app_api_headers(registration[:session_token]),
         as: :json
     end
 

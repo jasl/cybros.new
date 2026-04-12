@@ -5,8 +5,6 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     archived = Conversations::Archive.call(conversation: root)
@@ -22,13 +20,10 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     Turns::StartUserTurn.call(
       conversation: root,
       content: "Still running",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -45,8 +40,6 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     open_session = create_open_owned_subagent_connection!(
       installation: context[:installation],
@@ -89,8 +82,6 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     root.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
@@ -105,8 +96,6 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     root.update!(lifecycle_state: "archived")
 
@@ -121,8 +110,6 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     root.update!(lifecycle_state: "archived")
 
@@ -244,8 +231,6 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     archived = Conversations::Archive.call(

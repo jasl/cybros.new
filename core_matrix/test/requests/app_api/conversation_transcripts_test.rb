@@ -9,7 +9,6 @@ class AppApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
     second_turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Second question",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -27,7 +26,7 @@ class AppApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
         conversation_id: context[:conversation].public_id,
         limit: 2,
       },
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 
@@ -50,7 +49,7 @@ class AppApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
 
@@ -59,7 +58,7 @@ class AppApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
         conversation_id: context[:conversation].public_id,
         cursor: context[:turn].selected_input_message.id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
   end

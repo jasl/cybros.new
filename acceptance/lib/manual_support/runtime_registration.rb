@@ -6,8 +6,8 @@ module Acceptance
     # rubocop:disable Metrics/ParameterLists
     class RuntimeRegistration
       FETCHABLE_KEYS = {
-        pairing_session: :pairing_session,
-        pairing_token: :pairing_token,
+        onboarding_session: :onboarding_session,
+        onboarding_token: :onboarding_token,
         manifest: :manifest,
         registration: :registration,
         heartbeat: :heartbeat,
@@ -26,8 +26,8 @@ module Acceptance
       }.freeze
 
       attr_reader :manifest,
-                  :pairing_session,
-                  :pairing_token,
+                  :onboarding_session,
+                  :onboarding_token,
                   :registration,
                   :heartbeat,
                   :agent,
@@ -40,8 +40,8 @@ module Acceptance
 
       def initialize(
         manifest:,
-        pairing_session: nil,
-        pairing_token: nil,
+        onboarding_session: nil,
+        onboarding_token: nil,
         agent: nil,
         agent_connection_credential:,
         agent_definition_version: nil,
@@ -53,8 +53,8 @@ module Acceptance
         heartbeat: nil
       )
         @manifest = manifest
-        @pairing_session = pairing_session
-        @pairing_token = pairing_token
+        @onboarding_session = onboarding_session
+        @onboarding_token = onboarding_token
         @registration = registration
         @heartbeat = heartbeat
         @agent = agent
@@ -68,12 +68,12 @@ module Acceptance
         @runtime = runtime
       end
 
-      def pairing_session
-        runtime&.respond_to?(:pairing_session) ? runtime.pairing_session : @pairing_session
+      def onboarding_session
+        runtime&.respond_to?(:onboarding_session) ? runtime.onboarding_session : @onboarding_session
       end
 
-      def pairing_token
-        @pairing_token
+      def onboarding_token
+        @onboarding_token
       end
 
       def agent_definition_version
@@ -81,7 +81,7 @@ module Acceptance
       end
 
       def agent
-        runtime&.respond_to?(:agent) ? runtime.agent : @agent || agent_definition_version.try(:agent) || pairing_session&.agent
+        runtime&.respond_to?(:agent) ? runtime.agent : @agent || agent_definition_version.try(:agent) || onboarding_session&.target_agent
       end
 
       def agent_connection

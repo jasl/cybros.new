@@ -11,7 +11,7 @@ bundled_configuration = {
   lifecycle_state: "active",
   execution_runtime_kind: "local",
   execution_runtime_fingerprint: "acceptance-d-steering-environment",
-  connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
+  execution_runtime_connection_metadata: { "transport" => "http", "base_url" => "http://127.0.0.1:4100" },
   endpoint_metadata: {
     "transport" => "http",
     "base_url" => "http://127.0.0.1:4100",
@@ -131,7 +131,6 @@ def build_active_work!(workspace:, registry:, policy:, content:)
   turn = Turns::StartUserTurn.call(
     conversation: conversation,
     content: content,
-    agent_definition_version: registry.agent_definition_version,
     resolved_config_snapshot: {},
     resolved_model_selection_snapshot: {}
   )
@@ -199,7 +198,6 @@ feature_conversation = Conversations::CreateRoot.call(
 feature_turn = Turns::StartUserTurn.call(
   conversation: feature_conversation,
   content: "Feature policy anchor",
-  agent_definition_version: registry.agent_definition_version,
   resolved_config_snapshot: {},
   resolved_model_selection_snapshot: {}
 )
@@ -226,7 +224,6 @@ stale_conversation = Conversations::CreateRoot.call(
 stale_turn = Turns::StartUserTurn.call(
   conversation: stale_conversation,
   content: "Frozen stale-work input",
-  agent_definition_version: registry.agent_definition_version,
   resolved_config_snapshot: {},
   resolved_model_selection_snapshot: {}
 )

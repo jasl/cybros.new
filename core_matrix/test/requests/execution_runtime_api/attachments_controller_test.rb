@@ -42,8 +42,7 @@ class ExecutorApiAttachmentsControllerTest < ActionDispatch::IntegrationTest
       installation: context[:installation],
       actor: context[:actor],
       agent: create_agent!(installation: context[:installation]),
-      execution_runtime: create_execution_runtime!(installation: context[:installation]),
-      reuse_enrollment: true
+      execution_runtime: create_execution_runtime!(installation: context[:installation])
     )
 
     post "/execution_runtime_api/attachments/request",

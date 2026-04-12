@@ -2,15 +2,758 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build the first real Web product for `core_matrix`: a workspace-first cowork workbench for end users plus an admin console for setup and agent/runtime onboarding, while keeping the product API reusable by future custom apps.
+**Goal:** Rebuild the `core_matrix` product surface in three phases: first a destructive foundation reset, then a stable workspace-first app surface, and only then the SSR workbench/admin UI.
 
-**Architecture:** Keep `core_matrix` as the single Web host. Add human web sessions and HTML routes, extend `app_api` into a real user-facing contract, render SSR page shells for workbench/admin areas, and drive long-running activity through shared read models plus realtime subscriptions. Reuse `Workspace`, `UserAgentBinding`, `PairingSession`, and existing conversation/supervision services instead of creating a parallel product model. Follow `references/original/references/fizzy` for Rails SSR/Hotwire implementation style, and follow Codex/ChatGPT for product layout and workbench interaction patterns.
+**Architecture:** Treat the current codebase as needing a structural reset before product UI work begins. In Phase 1, split human-facing and machine-facing controller/auth boundaries, replace `PairingSession` with a neutral `OnboardingSession`, remove eager default workspace creation, and add user-authenticated realtime plumbing. Cookie-backed browser sessions must be CSRF-protected, while non-browser app clients may still use bearer-style session tokens. App-facing realtime must remain separate from the existing raw runtime stream used by publication or machine-adjacent consumers. In Phase 2, build the app-facing resource/query/presenter layer and stabilize `app_api` plus realtime contracts. In Phase 3, build the SSR workbench/admin UI on top of those contracts, following `references/original/references/fizzy` for Rails SSR style and Codex/ChatGPT for product layout.
 
-**Tech Stack:** Ruby on Rails, Hotwire Turbo, Stimulus, Tailwind CSS 4, daisyUI 5, tailwindcss-motion, `@rails/request.js`, ActionCable, Minitest, Rails system tests, VitePress guides
+**Tech Stack:** Ruby on Rails, Hotwire Turbo, Stimulus, Tailwind CSS 4, daisyUI 5, tailwindcss-motion, ActionCable, Minitest, Rails system tests, VitePress guides
 
 ---
 
-### Task 1: Add Human Web Sessions, Setup, And Admin Guards
+## Phase 1: Foundation Reset
+
+### Task 1: Split Human And Machine API Foundations
+
+**Files:**
+- Modify: `core_matrix/app/controllers/application_controller.rb`
+- Modify: `core_matrix/app/controllers/agent_api/base_controller.rb`
+- Modify: `core_matrix/app/controllers/execution_runtime_api/base_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/base_controller.rb`
+- Create: `core_matrix/app/controllers/api_error_rendering.rb`
+- Create: `core_matrix/app/controllers/session_authentication.rb`
+- Create: `core_matrix/app/controllers/installation_scoped_lookup.rb`
+- Create: `core_matrix/app/controllers/machine_api_support.rb`
+- Create: `core_matrix/test/requests/app_api/authentication_test.rb`
+- Modify: `core_matrix/test/requests/agent_api/registrations_test.rb`
+- Modify: `core_matrix/test/requests/execution_runtime_api/registrations_test.rb`
+
+**Step 1: Write the failing request tests**
+
+Add request coverage that proves:
+
+- `app_api` no longer accepts machine connection credentials
+- `app_api` requires a valid human session
+- `agent_api` still authenticates by agent connection credential
+- `execution_runtime_api` still authenticates by runtime connection credential
+
+```ruby
+test "app api rejects agent credentials and requires a human session" do
+  get "/app_api/conversation_transcripts",
+    headers: { "Authorization" => %(Token token="#{agent_connection.plaintext_connection_credential}") }
+
+  assert_response :unauthorized
+  assert_equal "session is required", response.parsed_body.fetch("error")
+end
+```
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/requests/app_api/authentication_test.rb test/requests/agent_api/registrations_test.rb test/requests/execution_runtime_api/registrations_test.rb
+```
+
+Expected: FAIL because `AppAPI::BaseController` still inherits `AgentAPI::BaseController`.
+
+**Step 3: Implement separate controller foundations**
+
+Extract shared API rendering and installation lookup helpers into shared
+controller support modules. Keep:
+
+- `AgentAPI::BaseController` machine-only
+- `ExecutionRuntimeAPI::BaseController` machine-only
+- `AppAPI::BaseController` human-session-only via `ApplicationController`
+- cookie-backed browser writes guarded by CSRF
+- bearer session tokens available for non-browser app clients
+
+Representative shape:
+
+```ruby
+module SessionAuthentication
+  private
+
+  def require_session!
+    @current_session = Session.find_by_plaintext_token(session_cookie)
+    @current_user = @current_session&.user if @current_session&.active?
+    render json: { error: "session is required" }, status: :unauthorized if @current_user.blank?
+  end
+end
+```
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:test:prepare
+bin/rails test test/requests/app_api/authentication_test.rb test/requests/agent_api/registrations_test.rb test/requests/execution_runtime_api/registrations_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add core_matrix/app/controllers/application_controller.rb core_matrix/app/controllers/agent_api/base_controller.rb core_matrix/app/controllers/execution_runtime_api/base_controller.rb core_matrix/app/controllers/app_api/base_controller.rb core_matrix/app/controllers/api_error_rendering.rb core_matrix/app/controllers/session_authentication.rb core_matrix/app/controllers/installation_scoped_lookup.rb core_matrix/app/controllers/machine_api_support.rb core_matrix/test/requests/app_api/authentication_test.rb core_matrix/test/requests/agent_api/registrations_test.rb core_matrix/test/requests/execution_runtime_api/registrations_test.rb
+git commit -m "refactor: split human and machine api foundations"
+```
+
+### Task 2: Replace `PairingSession` With Neutral `OnboardingSession`
+
+**Files:**
+- Delete: `core_matrix/app/models/pairing_session.rb`
+- Delete: `core_matrix/app/services/pairing_sessions/issue.rb`
+- Delete: `core_matrix/app/services/pairing_sessions/resolve_from_token.rb`
+- Delete: `core_matrix/app/services/pairing_sessions/record_progress.rb`
+- Modify: `core_matrix/app/controllers/agent_api/base_controller.rb`
+- Modify: `core_matrix/app/controllers/agent_api/registrations_controller.rb`
+- Modify: `core_matrix/app/controllers/execution_runtime_api/registrations_controller.rb`
+- Modify: `core_matrix/app/services/agent_definition_versions/register.rb`
+- Modify: `core_matrix/app/services/execution_runtime_versions/register.rb`
+- Create: `core_matrix/app/models/onboarding_session.rb`
+- Create: `core_matrix/app/services/onboarding_sessions/issue.rb`
+- Create: `core_matrix/app/services/onboarding_sessions/resolve_from_token.rb`
+- Create: `core_matrix/app/services/onboarding_sessions/record_progress.rb`
+- Create: `core_matrix/db/migrate/20260324090009_create_onboarding_sessions.rb`
+- Modify: `core_matrix/db/schema.rb`
+- Delete: `core_matrix/test/models/pairing_session_test.rb`
+- Delete: `core_matrix/test/services/pairing_sessions/issue_test.rb`
+- Create: `core_matrix/test/models/onboarding_session_test.rb`
+- Create: `core_matrix/test/services/onboarding_sessions/issue_test.rb`
+- Modify: `core_matrix/test/services/agent_definition_versions/register_test.rb`
+- Modify: `core_matrix/test/services/execution_runtime_versions/register_test.rb`
+- Modify: `core_matrix/test/requests/agent_api/registrations_test.rb`
+- Modify: `core_matrix/test/requests/execution_runtime_api/registrations_test.rb`
+
+**Step 1: Write the failing aggregate tests**
+
+Add coverage that proves:
+
+- agent onboarding sessions and runtime onboarding sessions use the same aggregate
+- session tokens resolve by `target_kind`
+- runtime onboarding no longer mutates `agent.default_execution_runtime` as a side effect
+
+```ruby
+test "runtime onboarding session does not require an agent" do
+  session = OnboardingSessions::Issue.call(
+    installation: installation,
+    target_kind: "execution_runtime",
+    target: nil,
+    issued_by: admin_user
+  )
+
+  assert_equal "execution_runtime", session.target_kind
+  assert_nil session.target_agent
+end
+```
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/models/onboarding_session_test.rb test/services/onboarding_sessions/issue_test.rb test/services/agent_definition_versions/register_test.rb test/services/execution_runtime_versions/register_test.rb test/requests/agent_api/registrations_test.rb test/requests/execution_runtime_api/registrations_test.rb
+```
+
+Expected: FAIL because only `PairingSession` exists.
+
+**Step 3: Implement the destructive replacement**
+
+Create a new aggregate with explicit status and target typing:
+
+```ruby
+class OnboardingSession < ApplicationRecord
+  enum :target_kind, { agent: "agent", execution_runtime: "execution_runtime" }, validate: true
+  enum :status, { issued: "issued", waiting: "waiting", registered: "registered", capabilities_received: "capabilities_received", healthy: "healthy", failed: "failed", revoked: "revoked", closed: "closed" }, validate: true
+end
+```
+
+Refactor both registration flows to resolve through `OnboardingSessions::ResolveFromToken` and record progress against the onboarding aggregate, not against an agent-specific pairing object.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:test:prepare
+bin/rails test test/models/onboarding_session_test.rb test/services/onboarding_sessions/issue_test.rb test/services/agent_definition_versions/register_test.rb test/services/execution_runtime_versions/register_test.rb test/requests/agent_api/registrations_test.rb test/requests/execution_runtime_api/registrations_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add core_matrix/app/controllers/agent_api/base_controller.rb core_matrix/app/controllers/agent_api/registrations_controller.rb core_matrix/app/controllers/execution_runtime_api/registrations_controller.rb core_matrix/app/services/agent_definition_versions/register.rb core_matrix/app/services/execution_runtime_versions/register.rb core_matrix/app/models/onboarding_session.rb core_matrix/app/services/onboarding_sessions/issue.rb core_matrix/app/services/onboarding_sessions/resolve_from_token.rb core_matrix/app/services/onboarding_sessions/record_progress.rb core_matrix/db/migrate/20260324090009_create_onboarding_sessions.rb core_matrix/db/schema.rb core_matrix/test/models/onboarding_session_test.rb core_matrix/test/services/onboarding_sessions/issue_test.rb core_matrix/test/services/agent_definition_versions/register_test.rb core_matrix/test/services/execution_runtime_versions/register_test.rb core_matrix/test/requests/agent_api/registrations_test.rb core_matrix/test/requests/execution_runtime_api/registrations_test.rb
+git rm core_matrix/app/models/pairing_session.rb core_matrix/app/services/pairing_sessions/issue.rb core_matrix/app/services/pairing_sessions/resolve_from_token.rb core_matrix/app/services/pairing_sessions/record_progress.rb core_matrix/test/models/pairing_session_test.rb core_matrix/test/services/pairing_sessions/issue_test.rb
+git commit -m "refactor: replace pairing sessions with onboarding sessions"
+```
+
+### Task 3: Stop Eager Default Workspace Creation
+
+**Files:**
+- Modify: `core_matrix/app/services/user_agent_bindings/enable.rb`
+- Modify: `core_matrix/app/services/installations/bootstrap_bundled_agent_binding.rb`
+- Modify: `core_matrix/app/services/installations/bootstrap_first_admin.rb`
+- Modify: `core_matrix/app/services/workspaces/create_default.rb`
+- Create: `core_matrix/app/services/workspaces/materialize_default.rb`
+- Create: `core_matrix/app/services/workspaces/build_default_reference.rb`
+- Modify: `core_matrix/test/services/user_agent_bindings/enable_test.rb`
+- Modify: `core_matrix/test/services/installations/bootstrap_bundled_agent_binding_test.rb`
+- Modify: `core_matrix/test/services/workspaces/create_default_test.rb`
+- Create: `core_matrix/test/services/workspaces/materialize_default_test.rb`
+- Modify: `core_matrix/test/integration/user_binding_workspace_flow_test.rb`
+
+**Step 1: Write the failing domain tests**
+
+Add coverage that proves:
+
+- enabling a user-agent binding does not create a workspace
+- bundled bootstrap creates a binding but leaves the default workspace virtual
+- explicit materialization is idempotent
+
+```ruby
+test "enable creates only the binding" do
+  assert_difference("UserAgentBinding.count", +1) do
+    assert_no_difference("Workspace.count") do
+      UserAgentBindings::Enable.call(user: user, agent: agent)
+    end
+  end
+end
+```
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/services/user_agent_bindings/enable_test.rb test/services/installations/bootstrap_bundled_agent_binding_test.rb test/services/workspaces/create_default_test.rb test/services/workspaces/materialize_default_test.rb test/integration/user_binding_workspace_flow_test.rb
+```
+
+Expected: FAIL because `UserAgentBindings::Enable` still calls `Workspaces::CreateDefault`.
+
+**Step 3: Implement lazy materialization**
+
+Change the binding flow so it only creates the binding. Move workspace creation into a dedicated idempotent service:
+
+```ruby
+module Workspaces
+  class MaterializeDefault
+    def call
+      user_agent_binding.default_workspace || Workspaces::CreateDefault.call(user_agent_binding: user_agent_binding)
+    end
+  end
+end
+```
+
+Also add a lightweight default reference builder that returns a virtual ref until materialization.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:test:prepare
+bin/rails test test/services/user_agent_bindings/enable_test.rb test/services/installations/bootstrap_bundled_agent_binding_test.rb test/services/workspaces/create_default_test.rb test/services/workspaces/materialize_default_test.rb test/integration/user_binding_workspace_flow_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add core_matrix/app/services/user_agent_bindings/enable.rb core_matrix/app/services/installations/bootstrap_bundled_agent_binding.rb core_matrix/app/services/installations/bootstrap_first_admin.rb core_matrix/app/services/workspaces/create_default.rb core_matrix/app/services/workspaces/materialize_default.rb core_matrix/app/services/workspaces/build_default_reference.rb core_matrix/test/services/user_agent_bindings/enable_test.rb core_matrix/test/services/installations/bootstrap_bundled_agent_binding_test.rb core_matrix/test/services/workspaces/create_default_test.rb core_matrix/test/services/workspaces/materialize_default_test.rb core_matrix/test/integration/user_binding_workspace_flow_test.rb
+git commit -m "refactor: make default workspaces lazy"
+```
+
+### Task 4: Add User-Authenticated Realtime Foundations
+
+**Files:**
+- Modify: `core_matrix/app/channels/application_cable/connection.rb`
+- Modify: `core_matrix/app/services/conversation_runtime/broadcast.rb`
+- Modify: `core_matrix/app/services/conversation_runtime/stream_name.rb`
+- Create: `core_matrix/app/channels/workbench_channel.rb`
+- Create: `core_matrix/app/services/conversation_runtime/authorize_subscription.rb`
+- Create: `core_matrix/app/services/conversation_runtime/build_app_event.rb`
+- Modify: `core_matrix/test/channels/application_cable/connection_test.rb`
+- Create: `core_matrix/test/channels/workbench_channel_test.rb`
+- Modify: `core_matrix/test/services/conversation_runtime/publish_event_test.rb`
+
+**Step 1: Write the failing channel and event tests**
+
+Add coverage that proves:
+
+- ActionCable accepts a logged-in human session
+- a user can subscribe only to accessible conversation/workspace streams
+- broadcast payloads use a stable app event envelope rather than raw internal event names
+
+```ruby
+test "signed-in user can subscribe to a visible conversation stream" do
+  connect params: { session_token: session.plaintext_token }
+  subscribe conversation_id: conversation.public_id
+
+  assert subscription.confirmed?
+end
+```
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/channels/application_cable/connection_test.rb test/channels/workbench_channel_test.rb test/services/conversation_runtime/publish_event_test.rb
+```
+
+Expected: FAIL because `ApplicationCable::Connection` only identifies machine tokens and publications.
+
+**Step 3: Implement the human realtime layer**
+
+Teach the cable connection to identify `current_session` and `current_user`, then authorize user subscriptions in a dedicated channel:
+
+```ruby
+class WorkbenchChannel < ApplicationCable::Channel
+  def subscribed
+    conversation = authorize_subscription!(params.fetch("conversation_id"))
+    stream_from ConversationRuntime::StreamName.for_app_conversation(conversation)
+  end
+end
+```
+
+Preserve the existing raw runtime stream for publication/internal consumers and
+add a separate app-facing conversation stream normalized through
+`ConversationRuntime::BuildAppEvent` so later app clients and SSR partial
+updaters both receive the same semantic event envelope.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:test:prepare
+bin/rails test test/channels/application_cable/connection_test.rb test/channels/workbench_channel_test.rb test/services/conversation_runtime/publish_event_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add core_matrix/app/channels/application_cable/connection.rb core_matrix/app/channels/workbench_channel.rb core_matrix/app/services/conversation_runtime/broadcast.rb core_matrix/app/services/conversation_runtime/stream_name.rb core_matrix/app/services/conversation_runtime/authorize_subscription.rb core_matrix/app/services/conversation_runtime/build_app_event.rb core_matrix/test/channels/application_cable/connection_test.rb core_matrix/test/channels/workbench_channel_test.rb core_matrix/test/services/conversation_runtime/publish_event_test.rb
+git commit -m "feat: add user-authenticated realtime foundations"
+```
+
+## Phase 2: App Surface And `app_api`
+
+### Task 5: Extract App-Surface Policies, Queries, And Presenters
+
+**Files:**
+- Modify: `core_matrix/app/controllers/app_api/base_controller.rb`
+- Create: `core_matrix/app/services/app_surface/method_response.rb`
+- Create: `core_matrix/app/services/app_surface/policies/workspace_access.rb`
+- Create: `core_matrix/app/services/app_surface/policies/conversation_access.rb`
+- Create: `core_matrix/app/services/app_surface/presenters/workspace_presenter.rb`
+- Create: `core_matrix/app/services/app_surface/presenters/conversation_presenter.rb`
+- Create: `core_matrix/app/services/app_surface/presenters/onboarding_session_presenter.rb`
+- Create: `core_matrix/app/services/app_surface/queries/visible_agents.rb`
+- Create: `core_matrix/test/services/app_surface/policies/workspace_access_test.rb`
+- Create: `core_matrix/test/services/app_surface/presenters/workspace_presenter_test.rb`
+- Create: `core_matrix/test/services/app_surface/queries/visible_agents_test.rb`
+
+**Step 1: Write the failing service tests**
+
+Add coverage that proves:
+
+- app-surface policies authorize by `current_user`, not by resource owner lookup shortcuts
+- presenters emit `public_id` only
+- method responses wrap payloads consistently
+
+```ruby
+test "workspace presenter emits only public ids" do
+  payload = AppSurface::Presenters::WorkspacePresenter.call(workspace: workspace)
+
+  assert_equal workspace.public_id, payload.fetch("workspace_id")
+  refute_includes payload.to_json, %("#{workspace.id}")
+end
+```
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/services/app_surface/policies/workspace_access_test.rb test/services/app_surface/presenters/workspace_presenter_test.rb test/services/app_surface/queries/visible_agents_test.rb
+```
+
+Expected: FAIL because the app-surface layer does not exist.
+
+**Step 3: Implement the shared app-surface layer**
+
+Build a small, explicit layer that every later `app_api` controller must use:
+
+```ruby
+module AppSurface
+  class MethodResponse
+    def self.call(method_id:, **payload)
+      payload.deep_stringify_keys.merge("method_id" => method_id)
+    end
+  end
+end
+```
+
+Do not let controllers hand-roll JSON after this task.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/services/app_surface/policies/workspace_access_test.rb test/services/app_surface/presenters/workspace_presenter_test.rb test/services/app_surface/queries/visible_agents_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add core_matrix/app/controllers/app_api/base_controller.rb core_matrix/app/services/app_surface/method_response.rb core_matrix/app/services/app_surface/policies/workspace_access.rb core_matrix/app/services/app_surface/policies/conversation_access.rb core_matrix/app/services/app_surface/presenters/workspace_presenter.rb core_matrix/app/services/app_surface/presenters/conversation_presenter.rb core_matrix/app/services/app_surface/presenters/onboarding_session_presenter.rb core_matrix/app/services/app_surface/queries/visible_agents.rb core_matrix/test/services/app_surface/policies/workspace_access_test.rb core_matrix/test/services/app_surface/presenters/workspace_presenter_test.rb core_matrix/test/services/app_surface/queries/visible_agents_test.rb
+git commit -m "refactor: add app surface query and presenter layer"
+```
+
+### Task 6: Build Workspace-First Agent And Workspace Read APIs
+
+**Files:**
+- Modify: `core_matrix/config/routes.rb`
+- Create: `core_matrix/app/controllers/app_api/agents_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/agent_homes_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/workspaces_controller.rb`
+- Create: `core_matrix/app/services/app_surface/queries/agent_home.rb`
+- Create: `core_matrix/app/services/app_surface/queries/workspaces_for_agent.rb`
+- Create: `core_matrix/test/requests/app_api/agents_test.rb`
+- Create: `core_matrix/test/requests/app_api/agent_homes_test.rb`
+- Create: `core_matrix/test/requests/app_api/workspaces_test.rb`
+
+**Step 1: Write the failing request tests**
+
+Add request coverage for:
+
+- `GET /app_api/agents`
+- `GET /app_api/agents/:agent_id/home`
+- `GET /app_api/agents/:agent_id/workspaces`
+
+Assert:
+
+- only visible agents appear
+- `default_workspace_ref` can be `virtual`
+- all external identifiers are `public_id`
+
+```ruby
+assert_equal "agent_home_show", response.parsed_body.fetch("method_id")
+assert_equal "virtual", response.parsed_body.fetch("default_workspace_ref").fetch("state")
+```
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/requests/app_api/agents_test.rb test/requests/app_api/agent_homes_test.rb test/requests/app_api/workspaces_test.rb
+```
+
+Expected: FAIL because these routes/controllers do not exist.
+
+**Step 3: Implement the workspace-first read surfaces**
+
+Represent an agent home with an explicit default workspace ref:
+
+```ruby
+render json: AppSurface::MethodResponse.call(
+  method_id: "agent_home_show",
+  agent: agent_payload,
+  default_workspace_ref: Workspaces::BuildDefaultReference.call(user_agent_binding: binding),
+  workspaces: workspaces_payload
+)
+```
+
+Do not materialize a workspace in the read path.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:test:prepare
+bin/rails test test/requests/app_api/agents_test.rb test/requests/app_api/agent_homes_test.rb test/requests/app_api/workspaces_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add core_matrix/config/routes.rb core_matrix/app/controllers/app_api/agents_controller.rb core_matrix/app/controllers/app_api/agent_homes_controller.rb core_matrix/app/controllers/app_api/workspaces_controller.rb core_matrix/app/services/app_surface/queries/agent_home.rb core_matrix/app/services/app_surface/queries/workspaces_for_agent.rb core_matrix/test/requests/app_api/agents_test.rb core_matrix/test/requests/app_api/agent_homes_test.rb core_matrix/test/requests/app_api/workspaces_test.rb
+git commit -m "feat: add workspace-first agent read apis"
+```
+
+### Task 7: Build Conversation Actions And Workbench Read Models
+
+**Files:**
+- Modify: `core_matrix/config/routes.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversation_transcripts_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversation_turn_todo_plans_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversation_turn_runtime_events_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversation_supervision_messages_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/agent_conversations_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/conversation_messages_controller.rb`
+- Create: `core_matrix/app/services/workbench/create_conversation_from_agent.rb`
+- Create: `core_matrix/app/services/workbench/send_message.rb`
+- Modify: `core_matrix/app/services/conversations/create_root.rb`
+- Modify: `core_matrix/app/services/turns/start_user_turn.rb`
+- Create: `core_matrix/test/requests/app_api/agent_conversations_test.rb`
+- Create: `core_matrix/test/requests/app_api/conversation_messages_test.rb`
+- Modify: `core_matrix/test/requests/app_api/conversation_transcripts_test.rb`
+- Modify: `core_matrix/test/requests/app_api/conversation_turn_todo_plans_controller_test.rb`
+- Modify: `core_matrix/test/requests/app_api/conversation_turn_runtime_events_controller_test.rb`
+- Modify: `core_matrix/test/requests/app_api/conversation_supervision_sessions_test.rb`
+- Modify: `core_matrix/test/requests/app_api/conversation_supervision_messages_test.rb`
+- Create: `core_matrix/test/services/workbench/create_conversation_from_agent_test.rb`
+- Create: `core_matrix/test/services/workbench/send_message_test.rb`
+
+**Step 1: Write the failing workbench action tests**
+
+Add coverage that proves:
+
+- `POST /app_api/agents/:agent_id/conversations` materializes the default workspace on first use
+- `POST /app_api/conversations/:conversation_id/messages` appends user input through a product action
+- transcript/plan/activity/supervision endpoints are authenticated via human session and presented via the new app-surface layer
+
+```ruby
+assert_difference("Workspace.count", +1) do
+  post "/app_api/agents/#{agent.public_id}/conversations",
+    params: { content: "Help me start" },
+    headers: auth_headers(session)
+end
+```
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/requests/app_api/agent_conversations_test.rb test/requests/app_api/conversation_messages_test.rb test/requests/app_api/conversation_transcripts_test.rb test/requests/app_api/conversation_turn_todo_plans_controller_test.rb test/requests/app_api/conversation_turn_runtime_events_controller_test.rb test/requests/app_api/conversation_supervision_sessions_test.rb test/requests/app_api/conversation_supervision_messages_test.rb test/services/workbench/create_conversation_from_agent_test.rb test/services/workbench/send_message_test.rb
+```
+
+Expected: FAIL because no workspace-first workbench actions exist yet.
+
+**Step 3: Implement the workbench app surface**
+
+Route all write operations through explicit product services:
+
+```ruby
+conversation = Workbench::CreateConversationFromAgent.call(
+  user: current_user,
+  agent: agent,
+  workspace_id: params[:workspace_id],
+  content: params[:content]
+)
+```
+
+Use the same app-surface presenters for read endpoints so UI work later consumes already-stable payloads.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:test:prepare
+bin/rails test test/requests/app_api/agent_conversations_test.rb test/requests/app_api/conversation_messages_test.rb test/requests/app_api/conversation_transcripts_test.rb test/requests/app_api/conversation_turn_todo_plans_controller_test.rb test/requests/app_api/conversation_turn_runtime_events_controller_test.rb test/requests/app_api/conversation_supervision_sessions_test.rb test/requests/app_api/conversation_supervision_messages_test.rb test/services/workbench/create_conversation_from_agent_test.rb test/services/workbench/send_message_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add core_matrix/config/routes.rb core_matrix/app/controllers/app_api/conversation_transcripts_controller.rb core_matrix/app/controllers/app_api/conversation_turn_todo_plans_controller.rb core_matrix/app/controllers/app_api/conversation_turn_runtime_events_controller.rb core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb core_matrix/app/controllers/app_api/conversation_supervision_messages_controller.rb core_matrix/app/controllers/app_api/agent_conversations_controller.rb core_matrix/app/controllers/app_api/conversation_messages_controller.rb core_matrix/app/services/workbench/create_conversation_from_agent.rb core_matrix/app/services/workbench/send_message.rb core_matrix/app/services/conversations/create_root.rb core_matrix/app/services/turns/start_user_turn.rb core_matrix/test/requests/app_api/agent_conversations_test.rb core_matrix/test/requests/app_api/conversation_messages_test.rb core_matrix/test/requests/app_api/conversation_transcripts_test.rb core_matrix/test/requests/app_api/conversation_turn_todo_plans_controller_test.rb core_matrix/test/requests/app_api/conversation_turn_runtime_events_controller_test.rb core_matrix/test/requests/app_api/conversation_supervision_sessions_test.rb core_matrix/test/requests/app_api/conversation_supervision_messages_test.rb core_matrix/test/services/workbench/create_conversation_from_agent_test.rb core_matrix/test/services/workbench/send_message_test.rb
+git commit -m "feat: add workbench app api actions and projections"
+```
+
+### Task 8: Build Admin `app_api` Surfaces
+
+**Files:**
+- Modify: `core_matrix/config/routes.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/base_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/installations_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/agents_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/execution_runtimes_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/onboarding_sessions_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/workspace_policies_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/provider_accounts_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/audit_entries_controller.rb`
+- Create: `core_matrix/app/services/app_surface/queries/admin/installation_overview.rb`
+- Create: `core_matrix/app/services/app_surface/queries/admin/list_agents.rb`
+- Create: `core_matrix/app/services/app_surface/queries/admin/list_execution_runtimes.rb`
+- Create: `core_matrix/app/services/app_surface/queries/admin/list_onboarding_sessions.rb`
+- Create: `core_matrix/test/requests/app_api/admin/installations_test.rb`
+- Create: `core_matrix/test/requests/app_api/admin/agents_test.rb`
+- Create: `core_matrix/test/requests/app_api/admin/execution_runtimes_test.rb`
+- Create: `core_matrix/test/requests/app_api/admin/onboarding_sessions_test.rb`
+
+**Step 1: Write the failing admin request tests**
+
+Add request coverage that proves:
+
+- admin endpoints require an admin user
+- runtime and agent onboarding sessions are surfaced through the same resource family
+- admin JSON uses `public_id` and stable method IDs
+
+```ruby
+test "non-admin cannot list onboarding sessions" do
+  get "/app_api/admin/onboarding_sessions", headers: auth_headers(non_admin_session)
+
+  assert_response :forbidden
+end
+```
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/requests/app_api/admin/installations_test.rb test/requests/app_api/admin/agents_test.rb test/requests/app_api/admin/execution_runtimes_test.rb test/requests/app_api/admin/onboarding_sessions_test.rb
+```
+
+Expected: FAIL because no admin `app_api` surface exists.
+
+**Step 3: Implement the admin app surface**
+
+Keep the browser-facing admin layer on top of product resources:
+
+```ruby
+render json: AppSurface::MethodResponse.call(
+  method_id: "admin_onboarding_session_index",
+  onboarding_sessions: sessions.map { |session| AppSurface::Presenters::OnboardingSessionPresenter.call(onboarding_session: session) }
+)
+```
+
+Do not leak raw registration or heartbeat endpoints into admin JSON.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:test:prepare
+bin/rails test test/requests/app_api/admin/installations_test.rb test/requests/app_api/admin/agents_test.rb test/requests/app_api/admin/execution_runtimes_test.rb test/requests/app_api/admin/onboarding_sessions_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add core_matrix/config/routes.rb core_matrix/app/controllers/app_api/admin/base_controller.rb core_matrix/app/controllers/app_api/admin/installations_controller.rb core_matrix/app/controllers/app_api/admin/agents_controller.rb core_matrix/app/controllers/app_api/admin/execution_runtimes_controller.rb core_matrix/app/controllers/app_api/admin/onboarding_sessions_controller.rb core_matrix/app/controllers/app_api/admin/workspace_policies_controller.rb core_matrix/app/controllers/app_api/admin/provider_accounts_controller.rb core_matrix/app/controllers/app_api/admin/audit_entries_controller.rb core_matrix/app/services/app_surface/queries/admin/installation_overview.rb core_matrix/app/services/app_surface/queries/admin/list_agents.rb core_matrix/app/services/app_surface/queries/admin/list_execution_runtimes.rb core_matrix/app/services/app_surface/queries/admin/list_onboarding_sessions.rb core_matrix/test/requests/app_api/admin/installations_test.rb core_matrix/test/requests/app_api/admin/agents_test.rb core_matrix/test/requests/app_api/admin/execution_runtimes_test.rb core_matrix/test/requests/app_api/admin/onboarding_sessions_test.rb
+git commit -m "feat: add admin app api surfaces"
+```
+
+### Task 9: Finalize App-Facing Event Contracts
+
+**Files:**
+- Modify: `core_matrix/app/channels/workbench_channel.rb`
+- Modify: `core_matrix/app/services/conversation_runtime/build_app_event.rb`
+- Create: `core_matrix/app/services/onboarding_sessions/build_app_event.rb`
+- Create: `core_matrix/app/services/onboarding_sessions/broadcast.rb`
+- Create: `core_matrix/test/services/onboarding_sessions/broadcast_test.rb`
+- Modify: `core_matrix/test/channels/workbench_channel_test.rb`
+- Modify: `core_matrix/test/services/conversation_runtime/publish_event_test.rb`
+
+**Step 1: Write the failing event contract tests**
+
+Add coverage that proves:
+
+- conversation event envelopes use product-safe event names
+- onboarding session events use the same envelope structure
+- no internal node keys or `provider_round_*` names leak to app-facing subscribers
+
+```ruby
+assert_equal "turn.runtime_event.appended", payload.fetch("event_type")
+refute_match(/provider_round|workflow_node/, payload.to_json)
+```
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/channels/workbench_channel_test.rb test/services/conversation_runtime/publish_event_test.rb test/services/onboarding_sessions/broadcast_test.rb
+```
+
+Expected: FAIL because the current event envelope is conversation-runtime specific and not yet unified across onboarding.
+
+**Step 3: Implement the final event envelope**
+
+Standardize every app-facing broadcast on:
+
+```ruby
+{
+  "event_type" => "onboarding_session.updated",
+  "resource_type" => "onboarding_session",
+  "resource_id" => onboarding_session.public_id,
+  "occurred_at" => occurred_at.iso8601(6),
+  "payload" => payload
+}
+```
+
+This is the contract Phase 3 UI and future custom apps should consume.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/channels/workbench_channel_test.rb test/services/conversation_runtime/publish_event_test.rb test/services/onboarding_sessions/broadcast_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add core_matrix/app/channels/workbench_channel.rb core_matrix/app/services/conversation_runtime/build_app_event.rb core_matrix/app/services/onboarding_sessions/build_app_event.rb core_matrix/app/services/onboarding_sessions/broadcast.rb core_matrix/test/services/onboarding_sessions/broadcast_test.rb core_matrix/test/channels/workbench_channel_test.rb core_matrix/test/services/conversation_runtime/publish_event_test.rb
+git commit -m "feat: finalize app event contracts"
+```
+
+## Phase 3: SSR UI And Guides
+
+### Task 10: Add Web Sessions, Setup Flows, And Authenticated HTML Shell
 
 **Files:**
 - Modify: `core_matrix/config/routes.rb`
@@ -18,30 +761,26 @@
 - Create: `core_matrix/app/controllers/web/base_controller.rb`
 - Create: `core_matrix/app/controllers/sessions_controller.rb`
 - Create: `core_matrix/app/controllers/setup/installations_controller.rb`
-- Create: `core_matrix/app/controllers/invitations_controller.rb`
 - Create: `core_matrix/app/controllers/admin/base_controller.rb`
+- Create: `core_matrix/app/views/layouts/web.html.erb`
 - Create: `core_matrix/app/views/sessions/new.html.erb`
 - Create: `core_matrix/app/views/setup/installations/new.html.erb`
-- Create: `core_matrix/app/views/invitations/show.html.erb`
 - Create: `core_matrix/test/system/web_bootstrap_and_login_test.rb`
 - Create: `core_matrix/test/requests/web_sessions_test.rb`
 
-**Step 1: Write the failing bootstrap/login system test**
+**Step 1: Write the failing HTML auth tests**
 
-Add a high-level system test that proves:
+Add coverage that proves:
 
-- the first-admin bootstrap page renders when no installation exists
-- submitting bootstrap data calls `Installations::BootstrapFirstAdmin`
-- a login page exists for an existing identity
-- a logged-in admin reaches an authenticated shell
+- first-install bootstrap renders when no installation exists
+- login creates a human session cookie
+- an authenticated user reaches the web shell
 
 ```ruby
-test "bootstrap then login reaches the authenticated web shell" do
+test "bootstrap then login reaches the authenticated shell" do
   visit "/setup"
-  fill_in "Installation name", with: "Cybros"
   fill_in "Email", with: "owner@example.com"
   fill_in "Password", with: "Password123!"
-  fill_in "Password confirmation", with: "Password123!"
   click_button "Create installation"
 
   assert_text "Signed in as owner@example.com"
@@ -57,30 +796,15 @@ cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/rails test test/system/web_bootstrap_and_login_test.rb test/requests/web_sessions_test.rb
 ```
 
-Expected: FAIL because no human session routes/controllers/views exist yet.
+Expected: FAIL because the HTML shell does not exist yet.
 
-**Step 3: Implement the minimal authenticated web shell**
+**Step 3: Implement the minimal SSR shell**
 
-Use the existing `Session` and `Identity` models. Add cookie-backed current-session helpers in `ApplicationController` and route HTML flows through small controllers.
+Keep this HTML-first:
 
-Keep the client side minimal in the `fizzy` style:
-
-- server-render the page shell
+- server-render the shell
 - use Turbo navigation
-- use small Stimulus controllers only where interaction is needed
-- do not introduce a SPA router or client state store
-
-Route sketch:
-
-```ruby
-get "/setup", to: "setup/installations#new"
-post "/setup", to: "setup/installations#create"
-get "/login", to: "sessions#new"
-post "/login", to: "sessions#create"
-delete "/logout", to: "sessions#destroy"
-get "/invitations/:token", to: "invitations#show"
-post "/invitations/:token", to: "invitations#create"
-```
+- leave app data loading to the already-built `app_api`
 
 **Step 4: Run the tests to verify they pass**
 
@@ -98,304 +822,44 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/config/routes.rb core_matrix/app/controllers/application_controller.rb core_matrix/app/controllers/web/base_controller.rb core_matrix/app/controllers/sessions_controller.rb core_matrix/app/controllers/setup/installations_controller.rb core_matrix/app/controllers/invitations_controller.rb core_matrix/app/controllers/admin/base_controller.rb core_matrix/app/views/sessions/new.html.erb core_matrix/app/views/setup/installations/new.html.erb core_matrix/app/views/invitations/show.html.erb core_matrix/test/system/web_bootstrap_and_login_test.rb core_matrix/test/requests/web_sessions_test.rb
-git commit -m "feat: add human web session shell"
+git add core_matrix/config/routes.rb core_matrix/app/controllers/application_controller.rb core_matrix/app/controllers/web/base_controller.rb core_matrix/app/controllers/sessions_controller.rb core_matrix/app/controllers/setup/installations_controller.rb core_matrix/app/controllers/admin/base_controller.rb core_matrix/app/views/layouts/web.html.erb core_matrix/app/views/sessions/new.html.erb core_matrix/app/views/setup/installations/new.html.erb core_matrix/test/system/web_bootstrap_and_login_test.rb core_matrix/test/requests/web_sessions_test.rb
+git commit -m "feat: add authenticated web shell"
 ```
 
-### Task 2: Turn `app_api` Into A User-Facing Workspace-First Surface
+### Task 11: Build The Workbench SSR UI
 
 **Files:**
-- Modify: `core_matrix/app/controllers/app_api/base_controller.rb`
-- Modify: `core_matrix/config/routes.rb`
-- Create: `core_matrix/app/controllers/app_api/agents_controller.rb`
-- Create: `core_matrix/app/controllers/app_api/agent_homes_controller.rb`
-- Create: `core_matrix/app/controllers/app_api/workspaces_controller.rb`
-- Create: `core_matrix/app/services/app_api/agents/list_visible.rb`
-- Create: `core_matrix/app/services/app_api/agents/build_home.rb`
-- Create: `core_matrix/app/services/app_api/workspaces/list_for_agent.rb`
-- Create: `core_matrix/app/services/app_api/workspaces/build_default_ref.rb`
-- Create: `core_matrix/test/requests/app_api/agents_test.rb`
-- Create: `core_matrix/test/requests/app_api/agent_homes_test.rb`
-- Create: `core_matrix/test/requests/app_api/workspaces_test.rb`
-
-**Step 1: Write the failing request tests**
-
-Add request coverage for:
-
-- `GET /app_api/agents`
-- `GET /app_api/agents/:agent_id/home`
-- `GET /app_api/agents/:agent_id/workspaces`
-
-Assert:
-
-- only user-visible agents appear
-- response IDs are `public_id`
-- the agent home includes a `default_workspace_ref`
-- `default_workspace_ref` can be `virtual` before first use
-
-```ruby
-assert_equal "agent_home_show", body.fetch("method_id")
-assert_equal "virtual", body.fetch("default_workspace_ref").fetch("state")
-refute_includes response.body, %("#{agent.id}")
-```
-
-**Step 2: Run the focused tests to verify failure**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/requests/app_api/agents_test.rb test/requests/app_api/agent_homes_test.rb test/requests/app_api/workspaces_test.rb
-```
-
-Expected: FAIL because the routes, controllers, and serializers do not exist.
-
-**Step 3: Implement the shared read models**
-
-Keep this layer resource-oriented and user-facing. Reuse `UserAgentBinding`,
-`Workspace`, and `ResourceVisibility::Usability`.
-
-Do not make the read models HTML-specific. The SSR pages will consume them
-first, but future custom apps must be able to consume the same contract.
-
-Controller sketch:
-
-```ruby
-render json: {
-  method_id: "agent_home_show",
-  agent_id: agent.public_id,
-  default_workspace_ref: AppAPI::Workspaces::BuildDefaultRef.call(
-    user_agent_binding: binding
-  ),
-  workspaces: workspaces.map { |workspace| serialize_workspace(workspace) },
-}
-```
-
-Do not materialize a workspace row in the read path.
-
-**Step 4: Run the tests to verify they pass**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare
-bin/rails test test/requests/app_api/agents_test.rb test/requests/app_api/agent_homes_test.rb test/requests/app_api/workspaces_test.rb
-```
-
-Expected: PASS.
-
-**Step 5: Commit**
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/app/controllers/app_api/base_controller.rb core_matrix/config/routes.rb core_matrix/app/controllers/app_api/agents_controller.rb core_matrix/app/controllers/app_api/agent_homes_controller.rb core_matrix/app/controllers/app_api/workspaces_controller.rb core_matrix/app/services/app_api/agents/list_visible.rb core_matrix/app/services/app_api/agents/build_home.rb core_matrix/app/services/app_api/workspaces/list_for_agent.rb core_matrix/app/services/app_api/workspaces/build_default_ref.rb core_matrix/test/requests/app_api/agents_test.rb core_matrix/test/requests/app_api/agent_homes_test.rb core_matrix/test/requests/app_api/workspaces_test.rb
-git commit -m "feat: add workspace-first app api surfaces"
-```
-
-### Task 3: Add Lazy Default Workspace Materialization And Conversation Creation
-
-**Files:**
-- Modify: `core_matrix/config/routes.rb`
-- Create: `core_matrix/app/controllers/app_api/agent_conversations_controller.rb`
-- Create: `core_matrix/app/services/workspaces/resolve_default_reference.rb`
-- Create: `core_matrix/app/services/workbench/create_conversation_from_agent.rb`
-- Modify: `core_matrix/app/services/workspaces/create_default.rb`
-- Modify: `core_matrix/app/services/conversations/create_root.rb`
-- Modify: `core_matrix/app/services/turns/start_user_turn.rb`
-- Create: `core_matrix/test/services/workbench/create_conversation_from_agent_test.rb`
-- Create: `core_matrix/test/requests/app_api/agent_conversations_test.rb`
-- Modify: `core_matrix/test/services/workspaces/create_default_test.rb`
-
-**Step 1: Write the failing creation tests**
-
-Add coverage that proves:
-
-- posting to `POST /app_api/agents/:agent_id/conversations` without a
-  `workspace_id` uses the agent default workspace
-- the default workspace is created only on first substantive use
-- the first request can create the workspace, the conversation, and the first
-  user turn in one path
-
-```ruby
-assert_difference("Workspace.count", +1) do
-  post "/app_api/agents/#{agent.public_id}/conversations", params: {
-    content: "Help me start"
-  }
-end
-
-assert_equal "conversation_create", body.fetch("method_id")
-```
-
-**Step 2: Run the focused tests to verify failure**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/services/workbench/create_conversation_from_agent_test.rb test/requests/app_api/agent_conversations_test.rb test/services/workspaces/create_default_test.rb
-```
-
-Expected: FAIL because no agent-scoped conversation creation action exists.
-
-**Step 3: Implement the materialization path**
-
-Build one orchestration service that:
-
-1. resolves the caller's `UserAgentBinding`
-2. resolves or creates the default workspace only when needed
-3. creates the root conversation
-4. optionally starts the first user turn
-
-Keep the endpoint as an app-facing action rather than exposing the lower-level
-conversation/turn orchestration vocabulary directly.
-
-Service sketch:
-
-```ruby
-workspace =
-  if workspace_id.present?
-    find_workspace!(workspace_id)
-  else
-    Workspaces::CreateDefault.call(user_agent_binding: binding)
-  end
-
-conversation = Conversations::CreateRoot.call(workspace: workspace)
-Turns::StartUserTurn.call(conversation: conversation, content: content, ...)
-```
-
-**Step 4: Run the tests to verify they pass**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare
-bin/rails test test/services/workbench/create_conversation_from_agent_test.rb test/requests/app_api/agent_conversations_test.rb test/services/workspaces/create_default_test.rb
-```
-
-Expected: PASS.
-
-**Step 5: Commit**
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/config/routes.rb core_matrix/app/controllers/app_api/agent_conversations_controller.rb core_matrix/app/services/workspaces/resolve_default_reference.rb core_matrix/app/services/workbench/create_conversation_from_agent.rb core_matrix/app/services/workspaces/create_default.rb core_matrix/app/services/conversations/create_root.rb core_matrix/app/services/turns/start_user_turn.rb core_matrix/test/services/workbench/create_conversation_from_agent_test.rb core_matrix/test/requests/app_api/agent_conversations_test.rb core_matrix/test/services/workspaces/create_default_test.rb
-git commit -m "feat: add lazy default workspace conversation creation"
-```
-
-### Task 4: Build The SSR Workbench Shell
-
-**Files:**
-- Modify: `core_matrix/config/routes.rb`
-- Create: `core_matrix/app/controllers/workbench/base_controller.rb`
 - Create: `core_matrix/app/controllers/workbench/agents_controller.rb`
 - Create: `core_matrix/app/controllers/workbench/workspaces_controller.rb`
 - Create: `core_matrix/app/controllers/workbench/conversations_controller.rb`
-- Create: `core_matrix/app/views/layouts/workbench.html.erb`
-- Create: `core_matrix/app/views/workbench/agents/show.html.erb`
+- Create: `core_matrix/app/views/workbench/agents/index.html.erb`
 - Create: `core_matrix/app/views/workbench/workspaces/show.html.erb`
 - Create: `core_matrix/app/views/workbench/conversations/show.html.erb`
+- Create: `core_matrix/app/views/workbench/conversations/_transcript.html.erb`
+- Create: `core_matrix/app/views/workbench/conversations/_activity_lane.html.erb`
+- Create: `core_matrix/app/views/workbench/conversations/_plan_lane.html.erb`
+- Create: `core_matrix/app/javascript/controllers/workbench_composer_controller.js`
+- Create: `core_matrix/app/javascript/controllers/workbench_subscription_controller.js`
 - Create: `core_matrix/test/system/workbench_navigation_test.rb`
+- Create: `core_matrix/test/system/workbench_conversation_flow_test.rb`
 
-**Step 1: Write the failing workbench system test**
+**Step 1: Write the failing system tests**
 
-Cover the happy path:
+Add coverage that proves:
 
-- log in
-- open an agent
-- land in the default workspace view
-- open a conversation
-- see the three-column shell
-
-```ruby
-assert_selector "[data-role='agent-switcher']"
-assert_selector "[data-role='workspace-switcher']"
-assert_selector "[data-role='conversation-list']"
-assert_selector "[data-role='transcript-pane']"
-assert_selector "[data-role='activity-pane']"
-```
-
-**Step 2: Run the focused test to verify failure**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/system/workbench_navigation_test.rb
-```
-
-Expected: FAIL because no workbench HTML routes or views exist.
-
-**Step 3: Implement the SSR shell with server-rendered initial data**
-
-Keep the workbench page server-first:
-
-- preload agent/workspace/conversation state on the server
-- render the current transcript snapshot
-- render current plan and recent activity in adjacent panes
-- style with the existing Tailwind + daisyUI stack
-- follow Codex/ChatGPT information density and column hierarchy rather than a
-  dashboard/card-heavy layout
-
-View skeleton:
-
-```erb
-<main class="grid min-h-screen grid-cols-[18rem_minmax(0,1fr)_22rem]">
-  <aside data-role="agent-switcher"></aside>
-  <section data-role="transcript-pane"></section>
-  <aside data-role="activity-pane"></aside>
-</main>
-```
-
-Use daisyUI only as a component vocabulary and utility accelerator. Do not let
-the workbench collapse into generic boxed-card UI.
-
-**Step 4: Run the test to verify it passes**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare
-bin/rails test test/system/workbench_navigation_test.rb
-```
-
-Expected: PASS.
-
-**Step 5: Commit**
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/config/routes.rb core_matrix/app/controllers/workbench/base_controller.rb core_matrix/app/controllers/workbench/agents_controller.rb core_matrix/app/controllers/workbench/workspaces_controller.rb core_matrix/app/controllers/workbench/conversations_controller.rb core_matrix/app/views/layouts/workbench.html.erb core_matrix/app/views/workbench/agents/show.html.erb core_matrix/app/views/workbench/workspaces/show.html.erb core_matrix/app/views/workbench/conversations/show.html.erb core_matrix/test/system/workbench_navigation_test.rb
-git commit -m "feat: add SSR workbench shell"
-```
-
-### Task 5: Add Realtime Transcript, Plan, Activity, And Approval Updates
-
-**Files:**
-- Create: `core_matrix/app/javascript/controllers/workbench_realtime_controller.js`
-- Create: `core_matrix/app/javascript/controllers/composer_controller.js`
-- Modify: `core_matrix/app/javascript/controllers/index.js`
-- Modify: `core_matrix/app/views/workbench/conversations/show.html.erb`
-- Modify: `core_matrix/app/channels/publication_runtime_channel.rb`
-- Modify: `core_matrix/app/services/conversation_runtime/broadcast.rb`
-- Modify: `core_matrix/app/services/conversation_supervision/publish_update.rb`
-- Create: `core_matrix/test/system/workbench_realtime_updates_test.rb`
-- Modify: `core_matrix/test/channels/publication_runtime_channel_test.rb`
-
-**Step 1: Write the failing realtime test**
-
-Cover one browser-visible update path:
-
-- open a conversation page
-- append a runtime event / plan update / approval update from the server side
-- assert the DOM updates without a full page reload
+- the user enters via agent -> workspace -> conversation
+- the default workspace appears even before materialization
+- sending the first message creates the workspace and shows transcript/activity updates
 
 ```ruby
-assert_text "Working"
-perform_enqueued_jobs { publish_runtime_event_for!(conversation) }
-assert_text "Started the preview server"
+test "first message materializes the default workspace" do
+  visit "/workbench/agents/#{agent.public_id}"
+  click_button "Start working"
+  fill_in "Message", with: "Help me start"
+  click_button "Send"
+
+  assert_text "Help me start"
+end
 ```
 
 **Step 2: Run the focused tests to verify failure**
@@ -404,49 +868,29 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/system/workbench_realtime_updates_test.rb test/channels/publication_runtime_channel_test.rb
+bin/rails test test/system/workbench_navigation_test.rb test/system/workbench_conversation_flow_test.rb
 ```
 
-Expected: FAIL because the workbench page does not subscribe/render these updates yet.
+Expected: FAIL because the workbench HTML/controllers do not exist.
 
-**Step 3: Implement one shared browser subscription controller**
+**Step 3: Implement the Codex/ChatGPT-style workbench**
 
-Use one Stimulus controller to subscribe to the conversation stream and route
-known event types into small DOM updates for:
+Follow the approved UI shape:
 
-- transcript append
-- activity append
-- plan replacement
-- approval card add/remove
+- left rail for agent/workspace/conversation
+- center transcript/composer
+- right lane for plan/activity/approvals
 
-Keep this controller narrow. Prefer one focused realtime controller plus small
-supporting controllers over a large client-side app runtime, following the
-`fizzy` Stimulus style.
+Use `app_api` for data fetches and the app event contract for live updates. Keep JS to small Stimulus controllers.
 
-Controller sketch:
-
-```js
-received(data) {
-  switch (data.event_type) {
-    case "transcript.item.appended":
-      this.appendTranscript(data.payload)
-      break
-    case "turn.runtime_event.appended":
-      this.appendActivity(data.payload)
-      break
-  }
-}
-```
-
-**Step 4: Run the tests plus JS lint**
+**Step 4: Run the tests to verify they pass**
 
 Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/rails db:test:prepare
-bin/rails test test/system/workbench_realtime_updates_test.rb test/channels/publication_runtime_channel_test.rb
-bun run lint:js
+bin/rails test test/system/workbench_navigation_test.rb test/system/workbench_conversation_flow_test.rb
 ```
 
 Expected: PASS.
@@ -455,45 +899,42 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/app/javascript/controllers/workbench_realtime_controller.js core_matrix/app/javascript/controllers/composer_controller.js core_matrix/app/javascript/controllers/index.js core_matrix/app/views/workbench/conversations/show.html.erb core_matrix/app/channels/publication_runtime_channel.rb core_matrix/app/services/conversation_runtime/broadcast.rb core_matrix/app/services/conversation_supervision/publish_update.rb core_matrix/test/system/workbench_realtime_updates_test.rb core_matrix/test/channels/publication_runtime_channel_test.rb
-git commit -m "feat: add realtime workbench updates"
+git add core_matrix/app/controllers/workbench/agents_controller.rb core_matrix/app/controllers/workbench/workspaces_controller.rb core_matrix/app/controllers/workbench/conversations_controller.rb core_matrix/app/views/workbench/agents/index.html.erb core_matrix/app/views/workbench/workspaces/show.html.erb core_matrix/app/views/workbench/conversations/show.html.erb core_matrix/app/views/workbench/conversations/_transcript.html.erb core_matrix/app/views/workbench/conversations/_activity_lane.html.erb core_matrix/app/views/workbench/conversations/_plan_lane.html.erb core_matrix/app/javascript/controllers/workbench_composer_controller.js core_matrix/app/javascript/controllers/workbench_subscription_controller.js core_matrix/test/system/workbench_navigation_test.rb core_matrix/test/system/workbench_conversation_flow_test.rb
+git commit -m "feat: add workbench ssr ui"
 ```
 
-### Task 6: Build The Admin Console And Onboarding Session UI
+### Task 12: Build The Admin Console SSR UI
 
 **Files:**
-- Modify: `core_matrix/config/routes.rb`
 - Create: `core_matrix/app/controllers/admin/dashboard_controller.rb`
-- Create: `core_matrix/app/controllers/admin/setup_controller.rb`
 - Create: `core_matrix/app/controllers/admin/agents_controller.rb`
 - Create: `core_matrix/app/controllers/admin/execution_runtimes_controller.rb`
 - Create: `core_matrix/app/controllers/admin/onboarding_sessions_controller.rb`
-- Create: `core_matrix/app/services/admin/build_dashboard.rb`
-- Create: `core_matrix/app/services/admin/build_onboarding_session_view.rb`
-- Modify: `core_matrix/app/models/pairing_session.rb`
-- Modify: `core_matrix/app/services/pairing_sessions/issue.rb`
-- Modify: `core_matrix/app/services/pairing_sessions/record_progress.rb`
-- Create: `core_matrix/app/views/layouts/admin.html.erb`
 - Create: `core_matrix/app/views/admin/dashboard/show.html.erb`
 - Create: `core_matrix/app/views/admin/agents/index.html.erb`
 - Create: `core_matrix/app/views/admin/execution_runtimes/index.html.erb`
 - Create: `core_matrix/app/views/admin/onboarding_sessions/show.html.erb`
+- Create: `core_matrix/app/views/admin/onboarding_sessions/_command_block.html.erb`
+- Create: `core_matrix/app/javascript/controllers/onboarding_status_controller.js`
 - Create: `core_matrix/test/system/admin_runtime_onboarding_test.rb`
 - Create: `core_matrix/test/system/admin_agent_onboarding_test.rb`
 
-**Step 1: Write the failing admin onboarding system tests**
+**Step 1: Write the failing admin system tests**
 
-Cover:
+Add coverage that proves:
 
-- admin can issue a runtime onboarding session
-- admin can issue an agent onboarding session
-- the show page displays commands, current state, and expected next steps
+- an admin can create an onboarding session
+- the page shows the canonical command block and status progression
+- non-admins cannot enter the admin console
 
 ```ruby
-click_link "Add runtime"
-assert_text "Waiting for registration"
-assert_selector "[data-role='onboarding-command']"
-assert_link "Open guide"
+test "admin sees runtime onboarding status progression" do
+  visit "/admin/runtimes/new"
+  fill_in "Display name", with: "Workstation Nexus"
+  click_button "Create onboarding session"
+
+  assert_text "waiting"
+end
 ```
 
 **Step 2: Run the focused tests to verify failure**
@@ -505,33 +946,19 @@ cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/rails test test/system/admin_runtime_onboarding_test.rb test/system/admin_agent_onboarding_test.rb
 ```
 
-Expected: FAIL because the admin pages do not exist.
+Expected: FAIL because the admin SSR pages do not exist.
 
-**Step 3: Implement admin pages around `PairingSession` as the onboarding object**
+**Step 3: Implement the operator console**
 
-Do not invent a second onboarding aggregate. Reuse `PairingSession` and
-present it as an onboarding session in the UI.
+Keep the page layout document-driven:
 
-Render these pages as Rails views with Tailwind/daisyUI styling and small
-Stimulus helpers for copy-to-clipboard, live status refresh, and guide links.
+- current step
+- command block
+- status badge
+- recent events
+- guide link
 
-Show fields such as:
-
-- `created`
-- `waiting_for_registration`
-- `registered`
-- `capabilities_received`
-- `healthy`
-- `failed`
-
-View sketch:
-
-```erb
-<section data-role="onboarding-status">
-  <span>Waiting for registration</span>
-  <pre data-role="onboarding-command"><%= @onboarding.command %></pre>
-</section>
-```
+Use `app_api/admin/*` plus the shared event contract rather than reaching into machine endpoints.
 
 **Step 4: Run the tests to verify they pass**
 
@@ -549,168 +976,86 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/config/routes.rb core_matrix/app/controllers/admin/dashboard_controller.rb core_matrix/app/controllers/admin/setup_controller.rb core_matrix/app/controllers/admin/agents_controller.rb core_matrix/app/controllers/admin/execution_runtimes_controller.rb core_matrix/app/controllers/admin/onboarding_sessions_controller.rb core_matrix/app/services/admin/build_dashboard.rb core_matrix/app/services/admin/build_onboarding_session_view.rb core_matrix/app/models/pairing_session.rb core_matrix/app/services/pairing_sessions/issue.rb core_matrix/app/services/pairing_sessions/record_progress.rb core_matrix/app/views/layouts/admin.html.erb core_matrix/app/views/admin/dashboard/show.html.erb core_matrix/app/views/admin/agents/index.html.erb core_matrix/app/views/admin/execution_runtimes/index.html.erb core_matrix/app/views/admin/onboarding_sessions/show.html.erb core_matrix/test/system/admin_runtime_onboarding_test.rb core_matrix/test/system/admin_agent_onboarding_test.rb
+git add core_matrix/app/controllers/admin/dashboard_controller.rb core_matrix/app/controllers/admin/agents_controller.rb core_matrix/app/controllers/admin/execution_runtimes_controller.rb core_matrix/app/controllers/admin/onboarding_sessions_controller.rb core_matrix/app/views/admin/dashboard/show.html.erb core_matrix/app/views/admin/agents/index.html.erb core_matrix/app/views/admin/execution_runtimes/index.html.erb core_matrix/app/views/admin/onboarding_sessions/show.html.erb core_matrix/app/views/admin/onboarding_sessions/_command_block.html.erb core_matrix/app/javascript/controllers/onboarding_status_controller.js core_matrix/test/system/admin_runtime_onboarding_test.rb core_matrix/test/system/admin_agent_onboarding_test.rb
 git commit -m "feat: add admin onboarding console"
 ```
 
-### Task 7: Publish Guides And Manual Acceptance Flows
+### Task 13: Publish Guides And Run Manual Acceptance
 
 **Files:**
-- Modify: `guides/.vitepress/config.mjs`
+- Create: `guides/docs/first-installation.md`
+- Create: `guides/docs/runtime-onboarding.md`
+- Create: `guides/docs/agent-onboarding.md`
+- Create: `guides/docs/manual-acceptance-runtime-onboarding.md`
+- Create: `guides/docs/manual-acceptance-agent-onboarding.md`
 - Modify: `guides/index.md`
-- Create: `guides/first-installation.md`
-- Create: `guides/runtime-onboarding.md`
-- Create: `guides/agent-onboarding.md`
-- Create: `guides/manual-acceptance-runtime-onboarding.md`
-- Create: `guides/manual-acceptance-agent-onboarding.md`
-- Create: `guides/manual-acceptance-default-workspace.md`
-- Create: `core_matrix/test/system/admin_guides_linkage_test.rb`
+- Create: `core_matrix/test/system/manual_acceptance_runtime_onboarding_test.rb`
+- Create: `core_matrix/test/system/manual_acceptance_agent_onboarding_test.rb`
 
-**Step 1: Write the failing guides-linkage test**
+**Step 1: Write the failing acceptance tests and document outlines**
 
-Add one system test that proves:
+Add test and doc stubs that prove:
 
-- onboarding pages link to the correct guide pages
-- the guide labels match the onboarding step names shown in the UI
+- the documented onboarding flow matches the UI step names
+- runtime onboarding and agent onboarding can be followed manually from the guides
+- the lazy default workspace behavior is explicitly documented for acceptance
 
 ```ruby
-assert_link "Runtime onboarding guide"
-assert_text "Step 1: Create onboarding session"
+test "runtime onboarding guide matches the admin status vocabulary" do
+  visit "/admin/runtimes/new"
+
+  assert_text "waiting"
+  assert_text "registered"
+  assert_text "healthy"
+end
 ```
 
-**Step 2: Run the focused test to verify failure**
+**Step 2: Run the focused tests to verify failure**
 
 Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/system/admin_guides_linkage_test.rb
+bin/rails test test/system/manual_acceptance_runtime_onboarding_test.rb test/system/manual_acceptance_agent_onboarding_test.rb
 ```
 
-Expected: FAIL because no guide pages or UI linkage exist yet.
+Expected: FAIL because the acceptance guides and guide-linked UI are not yet aligned.
 
-**Step 3: Write the guides and wire them into the admin UI**
+**Step 3: Publish the guides and execute full verification**
 
-Update VitePress nav/sidebar and create canonical operator documents that
-contain:
-
-- exact commands
-- expected state changes
-- failure diagnosis checkpoints
-- manual acceptance instructions
-
-Make the guide language match the admin UI labels exactly so the same steps can
-be followed manually during acceptance without translation.
-
-Guide nav sketch:
-
-```js
-nav: [
-  { text: "Guides", link: "/" },
-  { text: "Runtime Onboarding", link: "/runtime-onboarding" },
-  { text: "Agent Onboarding", link: "/agent-onboarding" },
-]
-```
-
-**Step 4: Run the system test and build the docs**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare
-bin/rails test test/system/admin_guides_linkage_test.rb
-cd /Users/jasl/Workspaces/Ruby/cybros
-bunx vitepress build guides
-```
-
-Expected: PASS.
-
-**Step 5: Commit**
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros
-git add guides/.vitepress/config.mjs guides/index.md guides/first-installation.md guides/runtime-onboarding.md guides/agent-onboarding.md guides/manual-acceptance-runtime-onboarding.md guides/manual-acceptance-agent-onboarding.md guides/manual-acceptance-default-workspace.md core_matrix/test/system/admin_guides_linkage_test.rb
-git commit -m "docs: add onboarding guides and manual acceptance flows"
-```
-
-### Task 8: Run Full Verification And Manual Acceptance
-
-**Files:**
-- Modify as needed: any files touched in earlier tasks
-- Test: `core_matrix/test/system/*.rb`
-- Test: `core_matrix/test/requests/app_api/*.rb`
-- Test: `core_matrix/test/services/workbench/*.rb`
-- Test: `guides/*.md`
-
-**Step 1: Run the complete focused automated verification set**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:test:prepare
-bin/rails test \
-  test/system/web_bootstrap_and_login_test.rb \
-  test/system/workbench_navigation_test.rb \
-  test/system/workbench_realtime_updates_test.rb \
-  test/system/admin_runtime_onboarding_test.rb \
-  test/system/admin_agent_onboarding_test.rb \
-  test/system/admin_guides_linkage_test.rb \
-  test/requests/web_sessions_test.rb \
-  test/requests/app_api/agents_test.rb \
-  test/requests/app_api/agent_homes_test.rb \
-  test/requests/app_api/workspaces_test.rb \
-  test/requests/app_api/agent_conversations_test.rb \
-  test/services/workbench/create_conversation_from_agent_test.rb \
-  test/services/workspaces/create_default_test.rb
-bun run lint:js
-cd /Users/jasl/Workspaces/Ruby/cybros
-bunx vitepress build guides
-```
-
-Expected: PASS.
-
-**Step 2: Run the existing project verification commands**
-
-Run:
+Document the exact operator flows. Then run the full `core_matrix` verification suite:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/brakeman --no-pager
 bin/bundler-audit
 bin/rubocop -f github
+bun run lint:js
+bin/rails db:test:prepare
 bin/rails test
 bin/rails test:system
 ```
 
-Expected: PASS.
+Then manually follow:
 
-**Step 3: Perform the documented manual acceptance runs**
+- `guides/docs/runtime-onboarding.md`
+- `guides/docs/agent-onboarding.md`
+- `guides/docs/manual-acceptance-runtime-onboarding.md`
+- `guides/docs/manual-acceptance-agent-onboarding.md`
 
-Follow these guides exactly in the browser and workstation shell:
+**Step 4: Confirm everything passes**
 
-- `guides/runtime-onboarding.md`
-- `guides/agent-onboarding.md`
-- `guides/manual-acceptance-default-workspace.md`
+Expected:
 
-Record:
+- guides match UI language and sequence
+- full verification PASS
+- manual onboarding PASS
+- default workspace lazy-materialization PASS
 
-- onboarding state progression
-- copy/paste ergonomics of command blocks
-- first-use default workspace behavior
-- any confusing step names or missing recovery guidance
-
-**Step 4: Fix any failures or UX dead ends, then rerun the affected checks**
-
-Use `superpowers:systematic-debugging` if any automated or manual verification
-fails unexpectedly. Keep fixes minimal and rerun only the affected checks first,
-then rerun the full verification set.
-
-**Step 5: Commit the final verified batch**
+**Step 5: Commit**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix guides
-git commit -m "feat: ship SSR-first workbench and onboarding surfaces"
+git add guides/docs/first-installation.md guides/docs/runtime-onboarding.md guides/docs/agent-onboarding.md guides/docs/manual-acceptance-runtime-onboarding.md guides/docs/manual-acceptance-agent-onboarding.md guides/index.md core_matrix/test/system/manual_acceptance_runtime_onboarding_test.rb core_matrix/test/system/manual_acceptance_agent_onboarding_test.rb
+git commit -m "docs: publish onboarding guides and acceptance flows"
 ```

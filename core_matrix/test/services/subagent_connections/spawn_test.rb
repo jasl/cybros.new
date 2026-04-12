@@ -67,13 +67,10 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -130,13 +127,10 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -177,13 +171,10 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -223,13 +214,10 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -252,13 +240,10 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -282,13 +267,10 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
 
     other_owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     other_owner_turn = Turns::StartUserTurn.call(
       conversation: other_owner_conversation,
       content: "Other delegate",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -316,13 +298,10 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

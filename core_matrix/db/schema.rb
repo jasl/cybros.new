@@ -1183,25 +1183,31 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["turn_id"], name: "index_messages_on_turn_id"
   end
 
-  create_table "pairing_sessions", force: :cascade do |t|
-    t.bigint "agent_id", null: false
+  create_table "onboarding_sessions", force: :cascade do |t|
     t.datetime "agent_registered_at"
     t.datetime "closed_at"
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
     t.bigint "installation_id", null: false
     t.datetime "issued_at", null: false
+    t.bigint "issued_by_user_id"
     t.datetime "last_used_at"
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "revoked_at"
     t.datetime "runtime_registered_at"
+    t.string "status", default: "issued", null: false
+    t.bigint "target_agent_id"
+    t.bigint "target_execution_runtime_id"
+    t.string "target_kind", null: false
     t.string "token_digest", null: false
     t.datetime "updated_at", null: false
-    t.index ["agent_id"], name: "index_pairing_sessions_on_agent_id"
-    t.index ["installation_id", "agent_id", "expires_at"], name: "idx_pairing_sessions_installation_agent_expiry"
-    t.index ["installation_id"], name: "index_pairing_sessions_on_installation_id"
-    t.index ["public_id"], name: "index_pairing_sessions_on_public_id", unique: true
-    t.index ["token_digest"], name: "index_pairing_sessions_on_token_digest", unique: true
+    t.index ["installation_id", "target_kind", "expires_at"], name: "idx_onboarding_sessions_installation_kind_expiry"
+    t.index ["installation_id"], name: "index_onboarding_sessions_on_installation_id"
+    t.index ["issued_by_user_id"], name: "index_onboarding_sessions_on_issued_by_user_id"
+    t.index ["public_id"], name: "index_onboarding_sessions_on_public_id", unique: true
+    t.index ["target_agent_id"], name: "index_onboarding_sessions_on_target_agent_id"
+    t.index ["target_execution_runtime_id"], name: "index_onboarding_sessions_on_target_execution_runtime_id"
+    t.index ["token_digest"], name: "index_onboarding_sessions_on_token_digest", unique: true
   end
 
   create_table "process_runs", force: :cascade do |t|
@@ -2124,8 +2130,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "messages", "installations"
   add_foreign_key "messages", "messages", column: "source_input_message_id"
   add_foreign_key "messages", "turns"
-  add_foreign_key "pairing_sessions", "agents"
-  add_foreign_key "pairing_sessions", "installations"
+  add_foreign_key "onboarding_sessions", "agents", column: "target_agent_id"
+  add_foreign_key "onboarding_sessions", "execution_runtimes", column: "target_execution_runtime_id"
+  add_foreign_key "onboarding_sessions", "installations"
+  add_foreign_key "onboarding_sessions", "users", column: "issued_by_user_id"
   add_foreign_key "process_runs", "conversations"
   add_foreign_key "process_runs", "execution_runtimes"
   add_foreign_key "process_runs", "installations"

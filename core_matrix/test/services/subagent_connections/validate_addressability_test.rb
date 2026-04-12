@@ -5,8 +5,6 @@ class SubagentConnections::ValidateAddressabilityTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     SubagentConnections::ValidateAddressability.call(
@@ -30,8 +28,6 @@ class SubagentConnections::ValidateAddressabilityTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     conversation = create_conversation_record!(
       installation: context[:installation],

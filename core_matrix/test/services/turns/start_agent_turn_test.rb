@@ -64,6 +64,30 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:addressability], "must be agent_addressable for agent turn entry"
   end
 
+  test "rejects unexpected keyword arguments" do
+    context = create_workspace_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace]
+    )
+    child_conversation = create_agent_addressable_child_conversation!(
+      context: context,
+      owner_conversation: owner_conversation,
+      profile_key: "researcher"
+    )
+
+    assert_raises(ArgumentError) do
+      Turns::StartAgentTurn.call(
+        conversation: child_conversation,
+        content: "Investigate this",
+        sender_kind: "owner_agent",
+        sender_conversation: owner_conversation,
+        agent_definition_version: context[:agent_definition_version],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+  end
+
   private
 
   def create_agent_addressable_child_conversation!(context:, owner_conversation:, profile_key:)

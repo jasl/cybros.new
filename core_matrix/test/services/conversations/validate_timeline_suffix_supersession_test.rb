@@ -153,13 +153,10 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
   def build_suffix_supersession_context!(context: create_workspace_context!, later_turn_state: "completed")
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     target_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Earlier input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -169,7 +166,6 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
     later_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Later input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

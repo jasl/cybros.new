@@ -49,13 +49,15 @@ bundled_registration = Acceptance::ManualSupport.register_bundled_runtime_from_m
   execution_runtime_fingerprint: "acceptance-capstone-bundled-fenix-environment",
   fingerprint: "acceptance-capstone-bundled-fenix-runtime"
 )
-pairing_session = PairingSessions::Issue.call(
-  agent: bundled_registration.agent_definition_version.agent,
-  actor: bootstrap.user,
+onboarding_session = OnboardingSessions::Issue.call(
+  installation: bootstrap.installation,
+  target_kind: "execution_runtime",
+  target: nil,
+  issued_by: bootstrap.user,
   expires_at: 2.hours.from_now
 )
 bring_your_own_runtime_registration = Acceptance::ManualSupport.register_bring_your_own_execution_runtime!(
-  pairing_token: pairing_session.plaintext_token,
+  onboarding_token: onboarding_session.plaintext_token,
   runtime_base_url: runtime_base_url,
   execution_runtime_fingerprint: "acceptance-capstone-bring-your-own-runtime-environment"
 )
@@ -66,7 +68,7 @@ write_json(
     agent_definition_version: bundled_registration.agent_definition_version,
     execution_runtime: bring_your_own_runtime_registration.fetch(:execution_runtime),
     agent_connection_credential: bundled_registration.agent_connection_credential,
-    pairing_session: pairing_session
+    onboarding_session: onboarding_session
   ).merge(
     "agent_connection_id" => bundled_registration.agent_connection_id,
     "execution_runtime_connection_id" => bring_your_own_runtime_registration.fetch(:execution_runtime_connection_id)
@@ -201,7 +203,7 @@ result = Acceptance::ManualSupport.scenario_result(
   extra: {
     "agent_base_url" => agent_base_url,
     "runtime_base_url" => runtime_base_url,
-    "pairing_session_id" => pairing_session.public_id,
+    "onboarding_session_id" => onboarding_session.public_id,
     "agent_definition_version_id" => bundled_registration.agent_definition_version.public_id,
     "execution_runtime_id" => bring_your_own_runtime_registration.fetch(:execution_runtime).public_id,
     "execution_runtime_version_id" => bring_your_own_runtime_registration.fetch(:execution_runtime_version).public_id,

@@ -34,7 +34,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].public_id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 
@@ -69,7 +69,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].public_id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 
@@ -127,7 +127,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].public_id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
     assert_nil JSON.parse(response.body).dig("snapshot", "prompt_cache_hit_rate")
@@ -141,7 +141,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
 
@@ -149,7 +149,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       params: {
         conversation_id: context[:conversation].id,
       },
-      headers: app_api_headers(registration[:agent_connection_credential])
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
   end

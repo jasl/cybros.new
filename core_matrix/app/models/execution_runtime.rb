@@ -16,6 +16,7 @@ class ExecutionRuntime < ApplicationRecord
   has_many :process_runs, foreign_key: :execution_runtime_id, dependent: :restrict_with_exception
   has_many :execution_runtime_versions, dependent: :restrict_with_exception
   has_many :execution_runtime_connections, dependent: :restrict_with_exception
+  has_many :onboarding_sessions, foreign_key: :target_execution_runtime_id, dependent: :restrict_with_exception
   has_one :active_execution_runtime_connection,
     -> { where(lifecycle_state: "active") },
     class_name: "ExecutionRuntimeConnection",

@@ -288,8 +288,6 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
 
     Conversations::CreateRoot.call(
       workspace: workspace,
-      execution_runtime: registration[:execution_runtime],
-      agent_definition_version: registration[:agent_definition_version]
     )
   end
 

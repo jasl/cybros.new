@@ -4,7 +4,7 @@ module AgentAPI
 
     def create
       registration = AgentDefinitionVersions::Register.call(
-        pairing_token: request_payload.fetch("pairing_token"),
+        onboarding_token: request_payload.fetch("onboarding_token"),
         endpoint_metadata: request_payload.fetch("endpoint_metadata", {}),
         definition_package: request_payload.fetch("definition_package")
       )

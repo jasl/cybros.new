@@ -79,7 +79,7 @@ class DummyAgentRuntime
 
   def register_payload
     {
-      "pairing_token" => ENV.fetch("CORE_MATRIX_PAIRING_TOKEN"),
+      "onboarding_token" => ENV.fetch("CORE_MATRIX_ONBOARDING_TOKEN"),
       "endpoint_metadata" => {
         "transport" => "http",
         "base_url" => runtime_base_url,
@@ -174,7 +174,7 @@ class DummyAgentRuntime
       Environment:
         CORE_MATRIX_BASE_URL
         CORE_MATRIX_RUNTIME_BASE_URL
-        CORE_MATRIX_PAIRING_TOKEN        # required for register
+        CORE_MATRIX_ONBOARDING_TOKEN     # required for register
         CORE_MATRIX_RUNTIME_FINGERPRINT
         CORE_MATRIX_MACHINE_CREDENTIAL   # required for heartbeat/capabilities/health
         CORE_MATRIX_FINGERPRINT

@@ -5,13 +5,10 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     anchor_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Checkpoint anchor",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -40,8 +37,6 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     LineageStores::Set.call(
       conversation: root,
@@ -51,7 +46,6 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     anchor_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Checkpoint anchor",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -72,8 +66,6 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     automation_root = Conversations::CreateAutomationRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     automation_turn = Turns::StartAutomationTurn.call(
       conversation: automation_root,
@@ -83,7 +75,6 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
       source_ref_id: context[:agent_definition_version].public_id,
       idempotency_key: "automation-checkpoint-anchor",
       external_event_key: "automation-checkpoint-anchor",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -101,18 +92,13 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     other_root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     foreign_turn = Turns::StartUserTurn.call(
       conversation: other_root,
       content: "Foreign checkpoint anchor",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -135,13 +121,10 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root inherited checkpoint anchor",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -163,13 +146,10 @@ class Conversations::CreateCheckpointTest < ActiveSupport::TestCase
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     anchor_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Checkpoint anchor",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

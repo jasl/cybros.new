@@ -70,7 +70,7 @@ module Acceptance
           runtime_registrations = topology.runtime_slots.each_with_index.map do |slot, index|
             agent_registration = agent_registrations.fetch(index % agent_registrations.length)
             build_runtime_registration(
-              pairing_token: agent_registration.fetch(:pairing_token),
+              onboarding_token: agent_registration.fetch(:onboarding_token),
               agent_registration: agent_registration,
               slot: slot,
               register_bring_your_own_execution_runtime: register_bring_your_own_execution_runtime
@@ -97,21 +97,21 @@ module Acceptance
           )
 
           registration = register_bring_your_own_agent.call(
-            pairing_token: bring_your_own_agent.fetch(:pairing_token),
+            onboarding_token: bring_your_own_agent.fetch(:onboarding_token),
             agent_base_url: agent_base_url
           )
 
           registration.merge(
-            pairing_session: bring_your_own_agent.fetch(:pairing_session),
-            pairing_token: bring_your_own_agent.fetch(:pairing_token),
+            onboarding_session: bring_your_own_agent.fetch(:onboarding_session),
+            onboarding_token: bring_your_own_agent.fetch(:onboarding_token),
             label: format('fenix-%02d', index),
             agent: bring_your_own_agent.fetch(:agent)
           ).freeze
         end
 
-        def build_runtime_registration(pairing_token:, agent_registration:, slot:, register_bring_your_own_execution_runtime:)
+        def build_runtime_registration(onboarding_token:, agent_registration:, slot:, register_bring_your_own_execution_runtime:)
           runtime_registration = register_bring_your_own_execution_runtime.call(
-            pairing_token: pairing_token,
+            onboarding_token: onboarding_token,
             runtime_base_url: slot.runtime_base_url,
             execution_runtime_fingerprint: "#{slot.label}-execution-runtime"
           )

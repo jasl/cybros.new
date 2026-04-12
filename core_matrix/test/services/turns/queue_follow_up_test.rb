@@ -66,6 +66,29 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     refute_equal alternate_agent_definition_version, queued.agent_definition_version
   end
 
+  test "rejects unexpected keyword arguments" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace]
+    )
+    Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "First input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_raises(ArgumentError) do
+      Turns::QueueFollowUp.call(
+        conversation: conversation,
+        content: "Follow up input",
+        agent_definition_version: context[:agent_definition_version],
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+  end
+
   test "rejects queueing when no active work exists" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

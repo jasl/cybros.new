@@ -9,7 +9,7 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
 
     get app_api_conversation_turn_feeds_path(
       conversation_id: fixture.fetch(:conversation).public_id
-    ), headers: app_api_headers(registration[:agent_connection_credential])
+    ), headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 
@@ -26,7 +26,7 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
 
     get app_api_conversation_turn_feeds_path(
       conversation_id: fixture.fetch(:conversation).id
-    ), headers: app_api_headers(registration[:agent_connection_credential])
+    ), headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
   end
@@ -37,7 +37,7 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
 
     get app_api_conversation_turn_feeds_path(
       conversation_id: fixture.fetch(:conversation).public_id
-    ), headers: app_api_headers(registration[:agent_connection_credential])
+    ), headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 

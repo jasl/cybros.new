@@ -1,21 +1,31 @@
 require "test_helper"
 
 class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
-  test "registration exchanges a pairing token for an agent connection and reflects the active execution runtime" do
+  test "registration exchanges an onboarding token for an agent connection and reflects the active execution runtime" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent = create_agent!(installation: installation)
-    pairing_session = PairingSessions::Issue.call(
-      agent: agent,
-      actor: actor,
+    agent_onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "agent",
+      target: agent,
+      issued_by: actor,
+      expires_at: 2.hours.from_now
+    )
+    runtime_onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "execution_runtime",
+      target: nil,
+      issued_by: actor,
       expires_at: 2.hours.from_now
     )
 
-    runtime_registration = register_execution_runtime!(pairing_token: pairing_session.plaintext_token)
+    runtime_registration = register_execution_runtime!(onboarding_token: runtime_onboarding_session.plaintext_token)
+    agent.update!(default_execution_runtime: ExecutionRuntime.find_by_public_id!(runtime_registration.fetch("execution_runtime_id")))
 
     post "/agent_api/registrations",
       params: {
-        pairing_token: pairing_session.plaintext_token,
+        onboarding_token: agent_onboarding_session.plaintext_token,
         endpoint_metadata: {
           transport: "http",
           base_url: "https://agents.example.test",
@@ -59,15 +69,17 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent = create_agent!(installation: installation)
-    pairing_session = PairingSessions::Issue.call(
-      agent: agent,
-      actor: actor,
+    onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "agent",
+      target: agent,
+      issued_by: actor,
       expires_at: 2.hours.from_now
     )
 
     post "/agent_api/registrations",
       params: {
-        pairing_token: pairing_session.plaintext_token,
+        onboarding_token: onboarding_session.plaintext_token,
         endpoint_metadata: {
           transport: "http",
           base_url: "https://agents.example.test",
@@ -90,16 +102,18 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent = create_agent!(installation: installation)
-    pairing_session = PairingSessions::Issue.call(
-      agent: agent,
-      actor: actor,
+    onboarding_session = OnboardingSessions::Issue.call(
+      installation: installation,
+      target_kind: "agent",
+      target: agent,
+      issued_by: actor,
       expires_at: 2.hours.from_now
     )
 
     assert_no_difference("AgentDefinitionVersion.count") do
       post "/agent_api/registrations",
         params: {
-          pairing_token: pairing_session.plaintext_token,
+          onboarding_token: onboarding_session.plaintext_token,
           endpoint_metadata: {
             transport: "http",
             base_url: "https://agents.example.test",
@@ -130,10 +144,10 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
 
   private
 
-  def register_execution_runtime!(pairing_token:)
+  def register_execution_runtime!(onboarding_token:)
     post "/execution_runtime_api/registrations",
       params: {
-        pairing_token: pairing_token,
+        onboarding_token: onboarding_token,
         endpoint_metadata: {
           transport: "http",
           base_url: "https://runtime.example.test",

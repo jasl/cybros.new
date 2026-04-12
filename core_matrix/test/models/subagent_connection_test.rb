@@ -12,8 +12,6 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
@@ -59,13 +57,10 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     origin_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate work",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -167,8 +162,6 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     )
     foreign_owner = Conversations::CreateRoot.call(
       workspace: foreign_workspace,
-      execution_runtime: foreign_execution_runtime,
-      agent_definition_version: foreign_agent_definition_version
     )
 
     child_session.owner_conversation = foreign_owner
@@ -180,8 +173,6 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
@@ -230,8 +221,6 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     open_session = build_subagent_connection(context:, owner_conversation:)
@@ -313,8 +302,6 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
@@ -442,8 +429,6 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
 
     assert_includes SubagentConnection.column_names, "supervision_state"
@@ -488,8 +473,6 @@ class SubagentConnectionTest < ActiveSupport::TestCase
   def build_subagent_connection(context: create_workspace_context!, owner_conversation: nil, **overrides)
     owner_conversation ||= Conversations::CreateRoot.call(
       workspace: context[:workspace],
-      execution_runtime: context[:execution_runtime],
-      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],

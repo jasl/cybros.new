@@ -6,7 +6,6 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -33,7 +32,6 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -61,7 +59,6 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -90,7 +87,6 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -123,7 +119,6 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -144,7 +139,6 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -171,7 +165,6 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -198,7 +191,6 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -224,7 +216,6 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

@@ -5,6 +5,19 @@ module ApplicationCable
   class ConnectionTest < ActionCable::Connection::TestCase
     tests ApplicationCable::Connection
 
+    test "connects with a logged-in human session" do
+      context = create_workspace_context!
+      session = create_session!(user: context[:user])
+
+      connect params: { session_token: session.plaintext_token }
+
+      assert_equal session, connection.current_session
+      assert_equal context[:user], connection.current_user
+      assert_nil connection.current_agent_definition_version
+      assert_nil connection.current_execution_runtime
+      assert_nil connection.current_publication
+    end
+
     test "connects with an agent connection and exposes the default execution runtime" do
       context = create_workspace_context!
       agent_connection_credential = "cable-connection-credential-#{next_test_sequence}"
@@ -38,8 +51,6 @@ module ApplicationCable
       context = create_workspace_context!
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
-        execution_runtime: context[:execution_runtime],
-        agent_definition_version: context[:agent_definition_version]
       )
       publication = Publications::PublishLive.call(
         conversation: conversation,
@@ -54,7 +65,7 @@ module ApplicationCable
       assert_equal publication, connection.current_publication
     end
 
-    test "rejects connection without a verified agent definition version or publication token" do
+    test "rejects connection without a verified identity" do
       assert_reject_connection { connect }
     end
   end

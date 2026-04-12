@@ -7,7 +7,7 @@ module AppAPI
     def create
       conversation = find_conversation!(params.fetch(:conversation_id))
       session = EmbeddedAgents::ConversationSupervision::CreateSession.call(
-        actor: conversation.workspace.user,
+        actor: current_user,
         conversation: conversation,
         responder_strategy: params[:responder_strategy]
       )
@@ -40,7 +40,7 @@ module AppAPI
       authorize_conversation_usability!(target_conversation)
 
       session = EmbeddedAgents::ConversationSupervision::CloseSession.call(
-        actor: session.initiator,
+        actor: current_user,
         conversation_supervision_session: session
       )
 
@@ -56,7 +56,7 @@ module AppAPI
     def find_supervision_session!(session_id)
       ConversationSupervisionSession.find_by!(
         public_id: session_id,
-        installation_id: current_agent_definition_version.installation_id
+        installation_id: current_installation_id
       )
     end
 

@@ -1,5 +1,9 @@
 # Agent Definition Version And Pairing Session V2 Implementation Plan
 
+> **Status:** Historical implementation context only. The current codebase has
+> moved to `OnboardingSession` and no longer implements the `PairingSession`
+> model described below.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Replace the current `AgentSnapshot` and `AgentEnrollment` centered substrate with a cleaner platform model built around `AgentDefinitionVersion`, `AgentConfigState`, `PairingSession`, and `ExecutionRuntimeVersion`.

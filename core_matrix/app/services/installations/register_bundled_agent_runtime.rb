@@ -13,7 +13,7 @@ module Installations
       execution_runtime_kind: "local",
       execution_runtime_fingerprint: "bundled-fenix-environment",
       executor_display_name: "Bundled Fenix Runtime",
-      connection_metadata: {},
+      execution_runtime_connection_metadata: {},
       endpoint_metadata: {},
       execution_runtime_capability_payload: {},
       execution_runtime_tool_catalog: [],
@@ -121,8 +121,7 @@ module Installations
       execution_runtime = ExecutionRuntimes::Reconcile.call(
         installation: @installation,
         execution_runtime_fingerprint: @configuration[:execution_runtime_fingerprint],
-        kind: @configuration[:execution_runtime_kind],
-        connection_metadata: @configuration[:connection_metadata]
+        kind: @configuration[:execution_runtime_kind]
       )
       execution_runtime.update!(
         display_name: @configuration[:executor_display_name],
@@ -237,7 +236,7 @@ module Installations
 
       execution_runtime_connection.update!(
         execution_runtime_version: execution_runtime.published_execution_runtime_version,
-        endpoint_metadata: @configuration[:connection_metadata],
+        endpoint_metadata: @configuration[:execution_runtime_connection_metadata],
         lifecycle_state: "active",
         last_heartbeat_at: Time.current
       )
@@ -260,7 +259,7 @@ module Installations
         execution_runtime_version: execution_runtime.published_execution_runtime_version,
         connection_credential_digest: connection_credential_digest,
         connection_token_digest: connection_token_digest,
-        endpoint_metadata: @configuration[:connection_metadata],
+        endpoint_metadata: @configuration[:execution_runtime_connection_metadata],
         lifecycle_state: "active",
         last_heartbeat_at: Time.current
       )

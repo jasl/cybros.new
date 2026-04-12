@@ -20,11 +20,7 @@ module ExecutionRuntimes
       reconciled = ExecutionRuntimes::Reconcile.call(
         installation: installation,
         execution_runtime_fingerprint: "fenix-host-a",
-        kind: "container",
-        connection_metadata: {
-          "transport" => "http",
-          "base_url" => "https://fenix-v2.example.test",
-        }
+        kind: "container"
       )
 
       assert_equal existing, reconciled
@@ -40,11 +36,7 @@ module ExecutionRuntimes
         reconciled = ExecutionRuntimes::Reconcile.call(
           installation: installation,
           execution_runtime_fingerprint: "fresh-runtime-host",
-          kind: "remote",
-          connection_metadata: {
-            "transport" => "http",
-            "base_url" => "https://fresh-runtime.example.test",
-          }
+          kind: "remote"
         )
 
         assert_equal installation, reconciled.installation
@@ -58,8 +50,7 @@ module ExecutionRuntimes
         ExecutionRuntimes::Reconcile.call(
           installation: create_installation!,
           execution_runtime_fingerprint: "   ",
-          kind: "local",
-          connection_metadata: {}
+          kind: "local"
         )
       end
 

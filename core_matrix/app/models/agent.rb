@@ -10,7 +10,7 @@ class Agent < ApplicationRecord
   belongs_to :default_execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :published_agent_definition_version, class_name: "AgentDefinitionVersion", optional: true
 
-  has_many :pairing_sessions, dependent: :restrict_with_exception
+  has_many :onboarding_sessions, foreign_key: :target_agent_id, dependent: :restrict_with_exception
   has_many :agent_definition_versions, dependent: :restrict_with_exception
   has_one :agent_config_state, dependent: :restrict_with_exception
   has_many :user_agent_bindings, dependent: :restrict_with_exception
