@@ -67,6 +67,16 @@ Rails.application.routes.draw do
       resources :agents, only: :index
       resources :execution_runtimes, only: :index
       resources :onboarding_sessions, only: :index
+      resources :llm_providers, only: [:index, :show, :update], param: :provider do
+        member do
+          patch :credential, to: "llm_providers/credentials#update"
+          put :credential, to: "llm_providers/credentials#update"
+          patch :policy, to: "llm_providers/policies#update"
+          put :policy, to: "llm_providers/policies#update"
+          patch :entitlements, to: "llm_providers/entitlements#update"
+          put :entitlements, to: "llm_providers/entitlements#update"
+        end
+      end
 
       namespace :llm_providers do
         namespace :codex_subscription do
