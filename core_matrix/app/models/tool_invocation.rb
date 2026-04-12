@@ -3,6 +3,16 @@ class ToolInvocation < ApplicationRecord
 
   STRUCTURED_METADATA_KEYS = %w[provider_format stream_output fenix].freeze
 
+  def self.idempotency_lookup_scope(tool_binding:)
+    if tool_binding.workflow_node_id.present?
+      where(workflow_node_id: tool_binding.workflow_node_id)
+    elsif tool_binding.agent_task_run_id.present?
+      where(agent_task_run_id: tool_binding.agent_task_run_id)
+    else
+      where(tool_binding_id: tool_binding.id)
+    end
+  end
+
   enum :status,
     {
       running: "running",

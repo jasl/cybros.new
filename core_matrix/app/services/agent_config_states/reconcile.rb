@@ -34,7 +34,7 @@ module AgentConfigStates
           base_agent_definition_version: @agent_definition_version,
           effective_document: effective_document,
           content_fingerprint: content_fingerprint,
-          reconciliation_state: "ready"
+          reconciliation_state: "ready",
         }
 
         if state.base_agent_definition_version_id != @agent_definition_version.id ||

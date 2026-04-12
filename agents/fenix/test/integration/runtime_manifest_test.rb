@@ -56,7 +56,9 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
 
     assert_includes definition_package.fetch("profile_policy").keys, "main"
     assert_includes definition_package.fetch("profile_policy").keys, "researcher"
+    assert_equal true, definition_package.dig("profile_policy", "main", "allow_execution_runtime_tools")
     assert_equal true, definition_package.dig("profile_policy", "researcher", "default_subagent_profile")
+    assert_equal true, definition_package.dig("profile_policy", "researcher", "allow_execution_runtime_tools")
     assert_equal "main", definition_package.dig("default_canonical_config", "interactive", "default_profile_key")
     assert_equal "role:main", definition_package.dig("default_canonical_config", "role_slots", "main", "selector")
     assert_equal "main", definition_package.dig("default_canonical_config", "role_slots", "summary", "fallback_role_slot")

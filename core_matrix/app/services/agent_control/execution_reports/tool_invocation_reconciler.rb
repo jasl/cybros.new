@@ -139,7 +139,7 @@ module AgentControl
 
         binding = tool_binding_for!(output_payload.fetch("tool_name"))
 
-        binding.tool_invocations.find_by!(
+        ToolInvocation.idempotency_lookup_scope(tool_binding: binding).find_by!(
           idempotency_key: output_payload.fetch("call_id")
         )
       end

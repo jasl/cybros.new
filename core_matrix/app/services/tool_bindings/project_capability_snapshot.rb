@@ -27,7 +27,7 @@ module ToolBindings
 
     def projectable_catalog
       @projectable_catalog ||= begin
-        allowed_names = profile_allowed_tool_names
+        allowed_names = projectable_tool_names
         catalog = effective_tool_catalog
         if allowed_names.blank?
           catalog
@@ -45,10 +45,18 @@ module ToolBindings
       ).effective_tool_catalog
     end
 
-    def profile_allowed_tool_names
-      @profile_allowed_tool_names ||= @agent_definition_version.profile_policy.values.flat_map do |profile|
-        Array(profile["allowed_tool_names"])
-      end.uniq
+    def projectable_tool_names
+      @projectable_tool_names ||= begin
+        profiles = @agent_definition_version.profile_policy
+        return [] if profiles.blank?
+
+        profiles.values.flat_map do |profile|
+          RuntimeCapabilities::ProfileToolMask.tool_names(
+            tool_catalog: effective_tool_catalog,
+            profile: profile
+          )
+        end.uniq
+      end
     end
 
     def candidates_for(tool_name)

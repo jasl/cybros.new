@@ -276,8 +276,8 @@ module Installations
         "capability_payload" => @configuration[:execution_runtime_capability_payload],
         "tool_catalog" => @configuration[:execution_runtime_tool_catalog],
         "reflected_host_metadata" => {
-          "display_name" => @configuration[:executor_display_name]
-        }
+          "display_name" => @configuration[:executor_display_name],
+        },
       }
     end
 
@@ -296,8 +296,8 @@ module Installations
         "default_canonical_config" => @configuration[:default_canonical_config],
         "reflected_surface" => {
           "display_name" => @configuration[:display_name],
-          "agent_key" => @configuration[:agent_key]
-        }
+          "agent_key" => @configuration[:agent_key],
+        },
       }
     end
 

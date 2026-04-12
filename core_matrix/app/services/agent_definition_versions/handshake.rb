@@ -50,7 +50,7 @@ module AgentDefinitionVersions
         agent_config_state: agent_config_state,
         reconciliation_report: {
           "definition_changed" => current_definition_version.id != agent_definition_version.id,
-          "agent_config_version" => agent_config_state.version
+          "agent_config_version" => agent_config_state.version,
         },
         runtime_capability_contract: runtime_capability_contract
       )

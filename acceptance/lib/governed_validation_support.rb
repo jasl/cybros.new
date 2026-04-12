@@ -115,7 +115,6 @@ module GovernedValidationSupport
   def create_task_context!(
     workspace:,
     agent_definition_version:,
-    capability_snapshot:,
     content:,
     allowed_tool_names:,
     normalized_selector: "candidate:dev/mock-model",
@@ -133,7 +132,7 @@ module GovernedValidationSupport
       execution_runtime: agent_definition_version.agent.default_execution_runtime,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: resolved_model_selection_snapshot(
-        capability_snapshot: capability_snapshot,
+        agent_definition_version: agent_definition_version,
         normalized_selector: normalized_selector
       )
     )
@@ -218,13 +217,13 @@ module GovernedValidationSupport
     }
   end
 
-  def resolved_model_selection_snapshot(capability_snapshot:, normalized_selector:)
+  def resolved_model_selection_snapshot(agent_definition_version:, normalized_selector:)
     provider_handle, model_ref = normalized_selector.delete_prefix("candidate:").split("/", 2)
 
     {
       "normalized_selector" => normalized_selector,
       "selector_source" => "conversation",
-      "capability_snapshot_id" => capability_snapshot.id,
+      "agent_definition_version_id" => agent_definition_version.public_id,
       "resolved_provider_handle" => provider_handle.presence,
       "resolved_model_ref" => model_ref.presence,
     }.compact

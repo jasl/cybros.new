@@ -545,7 +545,7 @@ module ActiveSupport
           "capability_payload" => execution_runtime_capability_payload,
           "tool_catalog" => execution_runtime_tool_catalog,
           "reflected_host_metadata" => {
-            "display_name" => execution_runtime&.display_name || "Execution Runtime #{next_test_sequence}"
+            "display_name" => execution_runtime&.display_name || "Execution Runtime #{next_test_sequence}",
           },
         }
       )

@@ -71,7 +71,7 @@ module AgentDefinitionVersions
           metadata: {
             "agent_id" => pairing_session.agent_id,
             "agent_definition_version_id" => agent_definition_version.id,
-            "execution_runtime_id" => pairing_session.agent.default_execution_runtime_id
+            "execution_runtime_id" => pairing_session.agent.default_execution_runtime_id,
           }.compact
         )
 

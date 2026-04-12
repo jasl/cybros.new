@@ -26,7 +26,7 @@ module PairingSessions
           action: "pairing_session.issued",
           subject: pairing_session,
           metadata: {
-            "agent_id" => @agent.id
+            "agent_id" => @agent.id,
           }
         )
 

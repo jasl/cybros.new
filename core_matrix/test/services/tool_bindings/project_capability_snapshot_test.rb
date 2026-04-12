@@ -31,4 +31,39 @@ class ToolBindings::ProjectCapabilitySnapshotTest < ActiveSupport::TestCase
       subagent_definition.tool_implementations.find_by!(default_for_snapshot: true).implementation_ref
     assert_equal false, subagent_definition.policy_payload.dig("execution_policy", "parallel_safe")
   end
+
+  test "projects runtime-backed tools when the profile policy allows runtime tools dynamically" do
+    context = build_governed_tool_context!(
+      agent_tool_catalog: [
+        {
+          "tool_name" => "compact_context",
+          "tool_kind" => "agent_observation",
+          "implementation_source" => "agent",
+          "implementation_ref" => "agent/compact_context",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
+      ],
+      profile_policy: {
+        "main" => {
+          "allowed_tool_names" => %w[compact_context subagent_spawn],
+          "allow_execution_runtime_tools" => true,
+        },
+      }
+    )
+
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      agent_definition_version: context.fetch(:agent_definition_version),
+      execution_runtime: context.fetch(:execution_runtime)
+    )
+
+    definitions = ToolDefinition.where(
+      agent_definition_version: context.fetch(:agent_definition_version)
+    ).order(:tool_name)
+
+    assert_equal %w[compact_context exec_command subagent_spawn], definitions.pluck(:tool_name)
+    assert_equal "whitelist_only", definitions.find_by!(tool_name: "exec_command").governance_mode
+  end
 end

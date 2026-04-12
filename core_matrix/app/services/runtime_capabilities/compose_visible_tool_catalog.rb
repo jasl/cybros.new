@@ -41,10 +41,10 @@ module RuntimeCapabilities
     end
 
     def apply_profile_mask(tool_catalog)
-      return tool_catalog unless current_profile.key?("allowed_tool_names")
-
-      allowed_tool_names = Array(current_profile.fetch("allowed_tool_names"))
-      tool_catalog.select { |entry| allowed_tool_names.include?(entry.fetch("tool_name")) }
+      RuntimeCapabilities::ProfileToolMask.call(
+        tool_catalog: tool_catalog,
+        profile: current_profile
+      )
     end
 
     def effective_subagent_policy

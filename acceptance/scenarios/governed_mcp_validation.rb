@@ -15,7 +15,7 @@ begin
     display_name: "Acceptance Governed MCP Runtime",
     execution_runtime_fingerprint: "acceptance-governed-mcp-environment",
     fingerprint: "acceptance-governed-mcp-runtime",
-    tool_catalog: [
+    tool_contract: [
       {
         "tool_name" => "remote_echo",
         "tool_kind" => "agent_observation",
@@ -54,7 +54,6 @@ begin
   task_context = GovernedValidationSupport.create_task_context!(
     workspace: runtime_context.fetch(:workspace),
     agent_definition_version: runtime_context.fetch(:runtime).agent_definition_version,
-    capability_snapshot: runtime_context.fetch(:runtime).capability_snapshot,
     content: "Call the governed Streamable HTTP MCP echo tool.",
     allowed_tool_names: ["remote_echo"]
   )

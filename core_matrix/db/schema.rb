@@ -1503,6 +1503,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.bigint "trace_document_id"
     t.datetime "updated_at", null: false
     t.bigint "workflow_node_id"
+    t.index ["agent_task_run_id", "idempotency_key"], name: "idx_tool_invocations_agent_task_idempotency", unique: true, where: "((workflow_node_id IS NULL) AND (agent_task_run_id IS NOT NULL) AND (idempotency_key IS NOT NULL))"
     t.index ["agent_task_run_id"], name: "index_tool_invocations_on_agent_task_run_id"
     t.index ["error_document_id"], name: "index_tool_invocations_on_error_document_id"
     t.index ["installation_id"], name: "index_tool_invocations_on_installation_id"
@@ -1510,11 +1511,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["request_document_id"], name: "index_tool_invocations_on_request_document_id"
     t.index ["response_document_id"], name: "index_tool_invocations_on_response_document_id"
     t.index ["tool_binding_id", "attempt_no"], name: "idx_tool_invocations_binding_attempt", unique: true
-    t.index ["tool_binding_id", "idempotency_key"], name: "idx_tool_invocations_binding_idempotency", unique: true, where: "(idempotency_key IS NOT NULL)"
     t.index ["tool_binding_id"], name: "index_tool_invocations_on_tool_binding_id"
     t.index ["tool_definition_id"], name: "index_tool_invocations_on_tool_definition_id"
     t.index ["tool_implementation_id"], name: "index_tool_invocations_on_tool_implementation_id"
     t.index ["trace_document_id"], name: "index_tool_invocations_on_trace_document_id"
+    t.index ["workflow_node_id", "idempotency_key"], name: "idx_tool_invocations_workflow_node_idempotency", unique: true, where: "((workflow_node_id IS NOT NULL) AND (idempotency_key IS NOT NULL))"
     t.index ["workflow_node_id"], name: "index_tool_invocations_on_workflow_node_id"
   end
 

@@ -90,8 +90,8 @@ class ExecutionRuntimeApiRegistrationsTest < ActionDispatch::IntegrationTest
       "sdk_version" => "nexus-0.1.0",
       "capability_payload" => {
         "runtime_foundation" => {
-          "docker_base_project" => "images/nexus"
-        }
+          "docker_base_project" => "images/nexus",
+        },
       },
       "tool_catalog" => [
         {
@@ -102,13 +102,13 @@ class ExecutionRuntimeApiRegistrationsTest < ActionDispatch::IntegrationTest
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,
-          "idempotency_policy" => "best_effort"
-        }
+          "idempotency_policy" => "best_effort",
+        },
       ],
       "reflected_host_metadata" => {
         "display_name" => "Nexus",
-        "host_role" => "pairing-based execution runtime"
-      }
+        "host_role" => "pairing-based execution runtime",
+      },
     }
   end
 end

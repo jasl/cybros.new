@@ -11,7 +11,7 @@ runtime_context = GovernedValidationSupport.bootstrap_runtime!(
   display_name: "Acceptance Governed Tool Runtime",
   execution_runtime_fingerprint: "acceptance-governed-tool-environment",
   fingerprint: "acceptance-governed-tool-runtime",
-  tool_catalog: [],
+  tool_contract: [],
   profile_policy: {
     "main" => {
       "label" => "Main",
@@ -36,7 +36,6 @@ runtime_context = GovernedValidationSupport.bootstrap_runtime!(
 task_context = GovernedValidationSupport.create_task_context!(
   workspace: runtime_context.fetch(:workspace),
   agent_definition_version: runtime_context.fetch(:runtime).agent_definition_version,
-  capability_snapshot: runtime_context.fetch(:runtime).capability_snapshot,
   content: "Spawn one governed subagent and report the durable records.",
   allowed_tool_names: ["subagent_spawn"]
 )

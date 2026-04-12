@@ -17,6 +17,23 @@ cd /Users/jasl/Workspaces/Ruby/cybros
 bash acceptance/bin/run_active_suite.sh
 ```
 
+The `2048 capstone` is part of the formal acceptance surface but is disabled by
+default because it is a heavy, real provider-backed final proof. Enable it
+inside the active suite only when you explicitly want that proof to run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash acceptance/bin/run_active_suite.sh
+```
+
+Run the capstone directly when you want the strongest end-to-end proof without
+running the rest of the suite:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh
+```
+
 Run one active Ruby scenario through `Core Matrix`'s Rails environment:
 
 ```bash
@@ -33,6 +50,48 @@ Current deployment-flow coverage includes:
 - `acceptance/scenarios/bring_your_own_execution_runtime_validation.rb`
   - bring-your-own execution runtime deployment for the bundled/default Fenix
     agent, including external runtime pairing and first task execution
+
+Current acceptance matrix, organized by purpose:
+
+- Deployment flows
+  - `acceptance/scenarios/bring_your_own_agent_validation.rb`
+    - validates the `BYO agent + BYO runtime` onboarding path
+  - `acceptance/scenarios/bring_your_own_execution_runtime_validation.rb`
+    - validates the `bundled Fenix + BYO runtime` onboarding path
+- Conversation/workflow control
+  - `acceptance/scenarios/provider_backed_turn_validation.rb`
+    - proves a real provider-backed turn can complete end-to-end
+  - `acceptance/scenarios/during_generation_steering_validation.rb`
+    - validates reject / restart / queue behavior while active work exists
+  - `acceptance/scenarios/human_interaction_wait_resume_validation.rb`
+    - validates human wait-state creation and resume behavior
+  - `acceptance/scenarios/subagent_wait_all_validation.rb`
+    - validates subagent barrier coordination and successor release
+- Governance and capability shaping
+  - `acceptance/scenarios/governed_tool_validation.rb`
+    - validates reserved tool governance and governed tool invocation wiring
+  - `acceptance/scenarios/governed_mcp_validation.rb`
+    - validates governed MCP transport behavior and session recovery
+  - `acceptance/scenarios/fenix_skills_validation.rb`
+    - validates portable skill activation, sharing, and isolation boundaries
+- Performance and topology pressure
+  - `acceptance/scenarios/multi_fenix_core_matrix_load_validation.rb`
+    - canonical load scenario used by the `smoke`, `target`, and `stress`
+      shell wrappers; this is not an orphaned scenario even though it is
+      normally entered through `acceptance/bin/run_multi_fenix_core_matrix_load.sh`
+- Final proof
+  - `acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh`
+    - real provider-backed `2048 capstone` proof over the current `Fenix + Nexus`
+      split topology
+    - kept as the strongest final acceptance standard and disabled by default in
+      `run_active_suite.sh`
+
+Current final-proof coverage includes:
+
+- `acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh`
+  - real provider-backed `2048 capstone` proof over the current `Fenix + Nexus`
+    split topology
+  - disabled by default in `run_active_suite.sh`
 
 Run the Shared-Fenix / Multi-Nexus load harness locally with the smoke profile:
 

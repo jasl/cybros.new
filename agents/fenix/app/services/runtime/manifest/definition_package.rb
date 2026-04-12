@@ -27,19 +27,19 @@ module Runtime
             "type" => "object",
             "properties" => {
               "messages" => { "type" => "array" },
-              "budget_hints" => { "type" => "object" }
-            }
+              "budget_hints" => { "type" => "object" },
+            },
           },
           "result_schema" => {
             "type" => "object",
             "properties" => {
               "messages" => { "type" => "array" },
-              "compacted" => { "type" => "boolean" }
-            }
+              "compacted" => { "type" => "boolean" },
+            },
           },
           "streaming_support" => false,
-          "idempotency_policy" => "best_effort"
-        }
+          "idempotency_policy" => "best_effort",
+        },
       ].freeze
       PROTOCOL_METHOD_IDS = %w[
         agent_health
@@ -62,10 +62,10 @@ module Runtime
             "properties" => {
               "enabled" => { "type" => "boolean" },
               "allow_nested" => { "type" => "boolean" },
-              "max_depth" => { "type" => "integer" }
-            }
-          }
-        }
+              "max_depth" => { "type" => "integer" },
+            },
+          },
+        },
       }.freeze
 
       def self.call(...)
@@ -84,7 +84,7 @@ module Runtime
           "canonical_config_schema" => canonical_config_schema,
           "conversation_override_schema" => conversation_override_schema,
           "default_canonical_config" => default_canonical_config,
-          "reflected_surface" => reflected_surface
+          "reflected_surface" => reflected_surface,
         }
 
         package_body.merge(
@@ -108,13 +108,15 @@ module Runtime
         {
           "main" => {
             "role_slot" => "main",
-            "allowed_tool_names" => allowed_tool_names + RESERVED_SUBAGENT_TOOL_NAMES
+            "allowed_tool_names" => allowed_tool_names + RESERVED_SUBAGENT_TOOL_NAMES,
+            "allow_execution_runtime_tools" => true,
           },
           "researcher" => {
             "role_slot" => "main",
             "default_subagent_profile" => true,
-            "allowed_tool_names" => allowed_tool_names + (RESERVED_SUBAGENT_TOOL_NAMES - ["subagent_spawn"])
-          }
+            "allowed_tool_names" => allowed_tool_names + (RESERVED_SUBAGENT_TOOL_NAMES - ["subagent_spawn"]),
+            "allow_execution_runtime_tools" => true,
+          },
         }
       end
 

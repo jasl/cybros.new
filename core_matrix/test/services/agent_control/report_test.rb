@@ -391,6 +391,79 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal agent_task_run.workflow_run.public_id, runtime_projection.first.payload.fetch("workflow_run_id")
   end
 
+  test "execution progress output reconciles an existing invocation across sibling bindings when only call_id is reported" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      agent_definition_version: context.fetch(:agent_definition_version),
+      execution_runtime: context.fetch(:execution_runtime)
+    )
+
+    workflow_binding = ToolBindings::FreezeForWorkflowNode.call(
+      workflow_node: context.fetch(:workflow_node)
+    ).joins(:tool_definition).find_by!(tool_definitions: { tool_name: "compact_context" })
+
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+    task_binding = agent_task_run.reload.tool_bindings.find_by!(
+      tool_definition: workflow_binding.tool_definition
+    )
+    invocation = ToolInvocations::Start.call(
+      tool_binding: workflow_binding,
+      request_payload: {
+        "tool_name" => "compact_context",
+        "arguments" => { "query" => "current task" },
+      },
+      idempotency_key: "call-shared"
+    )
+
+    poll_execution_runtime!(context:)
+
+    report_execution_runtime!(
+      context: context,
+      method_id: "execution_started",
+      protocol_message_id: "agent-start-#{next_test_sequence}",
+      mailbox_item_id: mailbox_item.public_id,
+      agent_task_run_id: agent_task_run.public_id,
+      logical_work_id: agent_task_run.logical_work_id,
+      attempt_no: agent_task_run.attempt_no,
+      expected_duration_seconds: 15
+    )
+
+    broadcasts = capture_runtime_broadcasts do
+      report_execution_runtime!(
+        context: context,
+        method_id: "execution_progress",
+        protocol_message_id: "agent-progress-output-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        progress_payload: {
+          "stage" => "tool_output",
+          "tool_invocation_output" => {
+            "call_id" => "call-shared",
+            "tool_name" => "compact_context",
+            "output_chunks" => [
+              { "stream" => "stdout", "text" => "ok\n" },
+            ],
+          },
+        }
+      )
+    end
+
+    assert_equal workflow_binding.id, invocation.reload.tool_binding_id
+    assert_equal workflow_binding.workflow_node_id, invocation.workflow_node_id
+    assert_equal task_binding.workflow_node_id, invocation.workflow_node_id
+    output_event = broadcasts.find { |event| event.fetch("event_kind") == "runtime.tool_invocation.output" }
+
+    assert output_event.present?
+    assert_equal invocation.public_id, output_event.dig("payload", "tool_invocation_id")
+    assert_equal "compact_context", output_event.dig("payload", "tool_name")
+    assert_equal "call-shared", output_event.dig("payload", "call_id")
+    assert_equal "ok\n", output_event.dig("payload", "text")
+  end
+
   test "execution progress streams exec_command output into durable runtime state" do
     context = build_exec_command_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)

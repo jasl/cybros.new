@@ -70,7 +70,7 @@ module ExecutionRuntimeVersions
           metadata: {
             "agent_id" => pairing_session.agent_id,
             "execution_runtime_id" => execution_runtime.id,
-            "execution_runtime_version_id" => execution_runtime_version.id
+            "execution_runtime_version_id" => execution_runtime_version.id,
           }
         )
 

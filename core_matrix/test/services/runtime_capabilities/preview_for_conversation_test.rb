@@ -64,6 +64,39 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     assert_equal "execution_runtime", shell_entry.fetch("tool_kind")
   end
 
+  test "profile policy can admit runtime tools without naming them explicitly" do
+    registration = register_profile_aware_runtime!(
+      execution_runtime_tool_catalog: [
+        {
+          "tool_name" => "exec_command",
+          "tool_kind" => "execution_runtime",
+          "implementation_source" => "execution_runtime",
+          "implementation_ref" => "env/exec_command",
+          "input_schema" => { "type" => "object", "properties" => {} },
+          "result_schema" => { "type" => "object", "properties" => {} },
+          "streaming_support" => false,
+          "idempotency_policy" => "best_effort",
+        },
+      ],
+      profile_policy: {
+        "main" => {
+          "allowed_tool_names" => %w[compact_context subagent_spawn],
+          "allow_execution_runtime_tools" => true,
+        },
+      },
+      tool_contract: default_tool_catalog("compact_context")
+    )
+    conversation = create_root_conversation_for!(registration)
+
+    tool_names = RuntimeCapabilities::PreviewForConversation.call(
+      conversation: conversation
+    ).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+
+    assert_includes tool_names, "compact_context"
+    assert_includes tool_names, "subagent_spawn"
+    assert_includes tool_names, "exec_command"
+  end
+
   test "subagents.enabled false hides the whole subagent tool family" do
     registration = register_profile_aware_runtime!
     conversation = create_root_conversation_for!(registration)

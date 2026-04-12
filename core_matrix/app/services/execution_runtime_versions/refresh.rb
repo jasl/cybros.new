@@ -37,7 +37,7 @@ module ExecutionRuntimeVersions
         execution_runtime: @execution_runtime,
         execution_runtime_version: execution_runtime_version,
         reconciliation_report: {
-          "runtime_version_changed" => current_runtime_version.id != execution_runtime_version.id
+          "runtime_version_changed" => current_runtime_version.id != execution_runtime_version.id,
         }
       )
     end

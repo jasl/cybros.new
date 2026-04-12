@@ -185,6 +185,15 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes readme, "bring-your-own execution runtime"
   end
 
+  test "acceptance readme documents the optional 2048 capstone proof" do
+    readme = Rails.root.join("../acceptance/README.md").read
+
+    assert_includes readme, "fenix_capstone_app_api_roundtrip_validation.sh"
+    assert_includes readme, "ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1"
+    assert_includes readme, "2048 capstone"
+    assert_includes readme, "disabled by default"
+  end
+
   test "bring-your-own flows use agent definition version vocabulary instead of agent snapshot aliases" do
     byo_agent_scenario = Rails.root.join("../acceptance/scenarios/bring_your_own_agent_validation.rb").read
     byo_runtime_scenario = Rails.root.join("../acceptance/scenarios/bring_your_own_execution_runtime_validation.rb").read
@@ -202,7 +211,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
 
     legacy_runtime_constants = [
       "ExecutionRuntimes::" + "Register",
-      "ExecutionRuntimes::" + "RecordCapabilities"
+      "ExecutionRuntimes::" + "RecordCapabilities",
     ]
     runtime_sources = Dir.glob(Rails.root.join("**/*.rb")).sort.filter_map do |path|
       next if path.end_with?("/test/lib/fresh_start_stack_contract_test.rb")
@@ -238,7 +247,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
       "AgentSnapshots::" + "ReconcileConfig",
       "AgentSnapshots::" + "RecordHeartbeat",
       "AgentSnapshots::" + "RotateAgentConnectionCredential",
-      "AgentSnapshots::" + "RevokeAgentConnectionCredential"
+      "AgentSnapshots::" + "RevokeAgentConnectionCredential",
     ]
     lingering_sources = Dir.glob(Rails.root.join("**/*.rb")).sort.filter_map do |path|
       next if path.end_with?("/test/lib/fresh_start_stack_contract_test.rb")
@@ -260,7 +269,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     legacy_agent_enrollment_constants = [
       "AgentEnrollment",
       "AgentEnrollments::" + "Issue",
-      "agent_enrollment.issued"
+      "agent_enrollment.issued",
     ]
     lingering_sources = Dir.glob(Rails.root.join("**/*.rb")).sort.filter_map do |path|
       next if path.end_with?("/test/lib/fresh_start_stack_contract_test.rb")

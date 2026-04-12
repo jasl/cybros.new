@@ -19,8 +19,11 @@ class AddCommandRuns < ActiveRecord::Migration[8.2]
 
     add_index :command_runs, :public_id, unique: true
     add_index :command_runs, :tool_invocation_id, unique: true
-    add_index :tool_invocations, [:tool_binding_id, :idempotency_key], unique: true,
-              where: "idempotency_key IS NOT NULL",
-              name: "idx_tool_invocations_binding_idempotency"
+    add_index :tool_invocations, [:workflow_node_id, :idempotency_key], unique: true,
+              where: "workflow_node_id IS NOT NULL AND idempotency_key IS NOT NULL",
+              name: "idx_tool_invocations_workflow_node_idempotency"
+    add_index :tool_invocations, [:agent_task_run_id, :idempotency_key], unique: true,
+              where: "workflow_node_id IS NULL AND agent_task_run_id IS NOT NULL AND idempotency_key IS NOT NULL",
+              name: "idx_tool_invocations_agent_task_idempotency"
   end
 end

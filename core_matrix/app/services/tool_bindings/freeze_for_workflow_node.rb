@@ -66,16 +66,10 @@ module ToolBindings
     end
 
     def allowed_tool_names
-      @allowed_tool_names ||= begin
-        profile_allowed_names = Array(
-          agent_definition_version.profile_policy.fetch(current_profile_key, {}).fetch("allowed_tool_names", [])
-        ).uniq
-        if profile_allowed_names.present?
-          profile_allowed_names
-        else
-          Array(turn_record.execution_snapshot.capability_projection.fetch("tool_surface", [])).map { |entry| entry.fetch("tool_name") }.uniq
-        end
-      end
+      @allowed_tool_names ||= RuntimeCapabilities::ProfileToolMask.tool_names(
+        tool_catalog: effective_tool_catalog,
+        profile: current_profile
+      )
     end
 
     def turn_record
@@ -84,6 +78,25 @@ module ToolBindings
 
     def current_profile_key
       turn_record.execution_snapshot.capability_projection.fetch("profile_key", "main")
+    end
+
+    def current_profile
+      agent_definition_version.profile_policy.fetch(current_profile_key, {})
+    end
+
+    def effective_tool_catalog
+      @effective_tool_catalog ||= begin
+        frozen_surface = Array(turn_record.execution_snapshot.capability_projection.fetch("tool_surface", [])).map(&:deep_stringify_keys)
+        if frozen_surface.present?
+          frozen_surface
+        else
+          RuntimeCapabilityContract.build(
+            execution_runtime: execution_runtime,
+            agent_definition_version: agent_definition_version,
+            core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
+          ).effective_tool_catalog
+        end
+      end
     end
 
     def definitions_by_name

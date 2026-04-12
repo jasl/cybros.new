@@ -37,11 +37,15 @@ module ToolInvocations
     def existing_invocation
       return if @idempotency_key.blank?
 
-      @tool_binding.tool_invocations.find_by(idempotency_key: @idempotency_key)
+      existing_invocation_scope.find_by(idempotency_key: @idempotency_key)
     end
 
     def existing_invocation!
-      @tool_binding.tool_invocations.find_by!(idempotency_key: @idempotency_key)
+      existing_invocation_scope.find_by!(idempotency_key: @idempotency_key)
+    end
+
+    def existing_invocation_scope
+      ToolInvocation.idempotency_lookup_scope(tool_binding: @tool_binding)
     end
   end
 end

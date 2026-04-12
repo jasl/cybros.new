@@ -12,9 +12,29 @@ done < <(
   ruby -I "${REPO_ROOT}" -e 'require_relative "acceptance/lib/active_suite"; puts Acceptance::ActiveSuite.entrypoints'
 )
 
+SKIPPED_OPTIONAL_ENTRYPOINTS=()
+while IFS= read -r skipped_entrypoint; do
+  [[ -n "${skipped_entrypoint}" ]] && SKIPPED_OPTIONAL_ENTRYPOINTS+=("${skipped_entrypoint}")
+done < <(
+  ruby -I "${REPO_ROOT}" -e '
+    require_relative "acceptance/lib/active_suite"
+    Acceptance::ActiveSuite.skipped_optional_entrypoints.each do |entry|
+      puts "#{entry.fetch(:entrypoint)}|#{entry.fetch(:env_var)}|#{entry.fetch(:reason)}"
+    end
+  '
+)
+
 if [[ "${#ENTRYPOINTS[@]}" -eq 0 ]]; then
   echo "no active acceptance entrypoints configured" >&2
   exit 1
+fi
+
+if [[ "${#SKIPPED_OPTIONAL_ENTRYPOINTS[@]}" -gt 0 ]]; then
+  printf 'skipped optional acceptance entrypoints:\n'
+  for skipped_entrypoint in "${SKIPPED_OPTIONAL_ENTRYPOINTS[@]}"; do
+    IFS='|' read -r entrypoint env_var reason <<<"${skipped_entrypoint}"
+    printf '  %s (set %s=1 to enable; %s)\n' "${entrypoint}" "${env_var}" "${reason}"
+  done
 fi
 
 failures=()

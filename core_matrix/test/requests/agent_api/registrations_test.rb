@@ -157,7 +157,7 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
       "tool_contract" => default_tool_catalog("compact_context"),
       "profile_policy" => {
         "main" => { "role_slot" => "main" },
-        "researcher" => { "role_slot" => "main", "default_subagent_profile" => true }
+        "researcher" => { "role_slot" => "main", "default_subagent_profile" => true },
       },
       "canonical_config_schema" => profile_aware_canonical_config_schema,
       "conversation_override_schema" => subagent_policy_conversation_override_schema,
@@ -165,20 +165,20 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
         "interactive" => { "default_profile_key" => "main" },
         "role_slots" => {
           "main" => { "selector" => "role:main", "fallback_role_slot" => nil },
-          "summary" => { "selector" => "role:summary", "fallback_role_slot" => "main" }
+          "summary" => { "selector" => "role:summary", "fallback_role_slot" => "main" },
         },
         "profile_runtime_overrides" => {
           "main" => { "role_slot" => "main" },
-          "researcher" => { "role_slot" => "main" }
+          "researcher" => { "role_slot" => "main" },
         },
         "subagents" => { "enabled" => true, "allow_nested" => true, "max_depth" => 3 },
         "tool_policy_overlays" => [],
-        "behavior" => { "sandbox" => "workspace-write" }
+        "behavior" => { "sandbox" => "workspace-write" },
       },
       "reflected_surface" => {
         "display_name" => "Fenix",
-        "description" => "Default cowork agent"
-      }
+        "description" => "Default cowork agent",
+      },
     }
   end
 
@@ -190,8 +190,8 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
       "sdk_version" => "nexus-0.1.0",
       "capability_payload" => {
         "runtime_foundation" => {
-          "docker_base_project" => "images/nexus"
-        }
+          "docker_base_project" => "images/nexus",
+        },
       },
       "tool_catalog" => [
         {
@@ -202,13 +202,13 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
           "input_schema" => { "type" => "object", "properties" => {} },
           "result_schema" => { "type" => "object", "properties" => {} },
           "streaming_support" => false,
-          "idempotency_policy" => "best_effort"
-        }
+          "idempotency_policy" => "best_effort",
+        },
       ],
       "reflected_host_metadata" => {
         "display_name" => "Nexus",
-        "host_role" => "pairing-based execution runtime"
-      }
+        "host_role" => "pairing-based execution runtime",
+      },
     }
   end
 end

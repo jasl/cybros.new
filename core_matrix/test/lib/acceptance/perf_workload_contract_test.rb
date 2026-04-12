@@ -132,7 +132,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
       create_conversation: lambda do |agent_definition_version:|
         conversation = {
           "public_id" => "conversation-#{created_conversations.length + 1}",
-          "agent_definition_version" => agent_definition_version
+          "agent_definition_version" => agent_definition_version,
         }
         created_conversations << conversation
         { "conversation" => conversation }
