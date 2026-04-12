@@ -224,6 +224,33 @@ class AgentDefinitionVersions::AutoResumeWorkflowsTest < ActiveSupport::TestCase
     assert_equal context[:agent_definition_version].public_id, workflow_run.blocking_resource_id
   end
 
+  test "reuses one active agent connection lookup for resumable-state checks" do
+    context = build_waiting_recovery_context!
+
+    AgentConnections::RecordHeartbeat.call(
+      agent_definition_version: context[:agent_definition_version],
+      health_status: "healthy",
+      health_metadata: {},
+      auto_resume_eligible: true
+    )
+
+    service = AgentDefinitionVersions::AutoResumeWorkflows.new(
+      agent_definition_version: context[:agent_definition_version]
+    )
+
+    queries = capture_sql_queries do
+      2.times do
+        service.send(:resumable_agent_definition_version_state?)
+        service.send(:scheduling_ready?)
+      end
+    end
+
+    agent_connection_queries = queries.count { |sql| sql.include?("\"agent_connections\"") }
+
+    assert_operator agent_connection_queries, :<=, 1,
+      "Expected active agent connection lookup to be cached, got #{agent_connection_queries} agent_connection queries:\n#{queries.join("\n")}"
+  end
+
   private
 
   def build_waiting_recovery_context!

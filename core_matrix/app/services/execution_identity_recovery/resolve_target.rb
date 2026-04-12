@@ -66,13 +66,13 @@ module ExecutionIdentityRecovery
     end
 
     def validate_schedulable!
-      return if resolved_agent_definition_version.eligible_for_scheduling?
+      return if resolved_agent_connection&.scheduling_ready?
 
       raise_invalid!(:agent_definition_version, @scheduling_error_message, reason: "scheduling_ineligible")
     end
 
     def validate_auto_resume_eligible!
-      return if resolved_agent_definition_version.auto_resume_eligible?
+      return if resolved_agent_connection&.auto_resume_eligible?
 
       raise_invalid!(
         :agent_definition_version,
@@ -144,6 +144,10 @@ module ExecutionIdentityRecovery
 
     def resolved_agent_definition_version
       @resolved_agent_definition_version ||= AgentDefinitionVersion.find(@agent_definition_version.id)
+    end
+
+    def resolved_agent_connection
+      @resolved_agent_connection ||= resolved_agent_definition_version.active_agent_connection
     end
 
     def raise_invalid!(attribute, message, reason:)

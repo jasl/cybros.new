@@ -49,6 +49,35 @@ class ExecutionIdentityRecovery::ResolveTargetTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:agent_definition_version], "must belong to the same agent"
   end
 
+  test "reuses one active agent connection lookup across scheduling and auto resume checks" do
+    context = build_paused_recovery_context!
+    replacement = create_compatible_replacement_agent_definition_version!(
+      installation: context[:installation],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime]
+    )
+
+    service = ExecutionIdentityRecovery::ResolveTarget.new(
+      conversation: context[:conversation],
+      turn: context[:turn],
+      agent_definition_version: replacement,
+      selector_source: "conversation",
+      selector: context[:turn].recovery_selector,
+      require_auto_resume_eligible: true,
+      rebind_turn: true
+    )
+
+    queries = capture_sql_queries do
+      service.send(:validate_schedulable!)
+      service.send(:validate_auto_resume_eligible!)
+    end
+
+    agent_connection_queries = queries.count { |sql| sql.include?("\"agent_connections\"") }
+
+    assert_operator agent_connection_queries, :<=, 1,
+      "Expected active agent connection lookup to be cached, got #{agent_connection_queries} agent_connection queries:\n#{queries.join("\n")}"
+  end
+
   private
 
   def build_paused_recovery_context!

@@ -12,7 +12,7 @@ module AgentDefinitionVersions
       return [] unless resumable_agent_definition_version_state?
 
       workflow_runs_scope.filter_map do |workflow_run|
-        next unless @agent_definition_version.eligible_for_scheduling?
+        next unless scheduling_ready?
 
         recovery_plan = ExecutionIdentityRecovery::BuildPlan.call(
           agent_definition_version: @agent_definition_version,
@@ -42,7 +42,15 @@ module AgentDefinitionVersions
     end
 
     def resumable_agent_definition_version_state?
-      @agent_definition_version.healthy? && @agent_definition_version.auto_resume_eligible?
+      active_agent_connection&.healthy? && active_agent_connection&.auto_resume_eligible?
+    end
+
+    def scheduling_ready?
+      active_agent_connection&.scheduling_ready?
+    end
+
+    def active_agent_connection
+      @active_agent_connection ||= @agent_definition_version.active_agent_connection
     end
 
     def resume_workflow!(workflow_run, recovery_plan)

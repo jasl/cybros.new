@@ -11,7 +11,7 @@ module ExecutionIdentityRecovery
     end
 
     def call
-      return resume_plan if execution_identity_matches? && @agent_definition_version.auto_resume_eligible?
+      return resume_plan if execution_identity_matches? && auto_resume_eligible?
       return manual_plan("auto_resume_not_permitted") if execution_identity_matches?
       return rotated_replacement_plan if rotated_replacement?
 
@@ -66,13 +66,17 @@ module ExecutionIdentityRecovery
     def drift_reason_for_current_binding
       return "fingerprint_drift" if @agent_definition_version.definition_fingerprint != @turn.pinned_agent_definition_fingerprint
       return "capability_contract_drift" unless @agent_definition_version.preserves_capability_contract?(@turn)
-      return "auto_resume_not_permitted" unless @agent_definition_version.auto_resume_eligible?
+      return "auto_resume_not_permitted" unless auto_resume_eligible?
 
       "runtime_drift"
     end
 
     def recovery_selector_source
       @turn.resolved_model_selection_snapshot["selector_source"] || "conversation"
+    end
+
+    def auto_resume_eligible?
+      @auto_resume_eligible ||= @agent_definition_version.active_agent_connection&.auto_resume_eligible? == true
     end
   end
 end
