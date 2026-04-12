@@ -1,12 +1,8 @@
-require_relative "../api_error_rendering"
-require_relative "../installation_scoped_lookup"
-require_relative "../machine_api_support"
-
 module ExecutionRuntimeAPI
   class BaseController < ActionController::API
-    include ApiErrorRendering
+    include APIErrorRendering
     include InstallationScopedLookup
-    include MachineApiSupport
+    include MachineAPISupport
     include ActionController::HttpAuthentication::Token::ControllerMethods
 
     before_action :authenticate_execution_runtime_connection!

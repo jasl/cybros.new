@@ -8,15 +8,14 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_definition_version: nil, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
-      raw_payload = payload.presence || kwargs
+    def initialize(agent_definition_version: nil, agent_connection: nil, execution_runtime_connection: nil, resource: nil, payload:, occurred_at: Time.current)
       @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @execution_runtime_connection = execution_runtime_connection
       @resource = resource
-      @payload = raw_payload.deep_stringify_keys
-      @method_id = method_id || @payload.fetch("method_id")
-      @protocol_message_id = protocol_message_id || @payload.fetch("protocol_message_id")
+      @payload = payload.deep_stringify_keys
+      @method_id = @payload.fetch("method_id")
+      @protocol_message_id = @payload.fetch("protocol_message_id")
       @occurred_at = occurred_at
     end
 

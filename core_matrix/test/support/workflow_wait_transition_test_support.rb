@@ -138,28 +138,32 @@ module WorkflowWaitTransitionTestSupport
       AgentControl::Report.call(
         agent_definition_version: agent_definition_version,
         execution_runtime_connection: execution_runtime_connection,
-        method_id: method_id,
-        protocol_message_id: protocol_message_id,
-        mailbox_item_id: mailbox_item.public_id,
-        agent_task_run_id: agent_task_run.public_id,
-        logical_work_id: agent_task_run.logical_work_id,
-        attempt_no: agent_task_run.attempt_no,
         occurred_at: occurred_at,
-        **payload
+        payload: {
+          method_id: method_id,
+          protocol_message_id: protocol_message_id,
+          mailbox_item_id: mailbox_item.public_id,
+          agent_task_run_id: agent_task_run.public_id,
+          logical_work_id: agent_task_run.logical_work_id,
+          attempt_no: agent_task_run.attempt_no,
+          **payload,
+        },
       )
     else
       AgentControl::Poll.call(agent_definition_version: agent_definition_version, limit: 10, occurred_at: occurred_at) if method_id == "execution_started"
 
       AgentControl::Report.call(
         agent_definition_version: agent_definition_version,
-        method_id: method_id,
-        protocol_message_id: protocol_message_id,
-        mailbox_item_id: mailbox_item.public_id,
-        agent_task_run_id: agent_task_run.public_id,
-        logical_work_id: agent_task_run.logical_work_id,
-        attempt_no: agent_task_run.attempt_no,
         occurred_at: occurred_at,
-        **payload
+        payload: {
+          method_id: method_id,
+          protocol_message_id: protocol_message_id,
+          mailbox_item_id: mailbox_item.public_id,
+          agent_task_run_id: agent_task_run.public_id,
+          logical_work_id: agent_task_run.logical_work_id,
+          attempt_no: agent_task_run.attempt_no,
+          **payload,
+        },
       )
     end
   end

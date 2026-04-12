@@ -948,10 +948,7 @@ module Acceptance
 
     def execute_provider_workflow!(workflow_run:, timeout_seconds: 3600, catalog: nil, inline_if_queued: true)
       dispatched_node = Workflows::ExecuteRun.call(
-        workflow_run: workflow_run,
-        messages: workflow_run.execution_snapshot.conversation_projection.fetch('messages').map do |entry|
-          entry.slice('role', 'content')
-        end
+        workflow_run: workflow_run
       )
       if inline_if_queued && dispatched_node.present?
         execute_inline_if_queued!(workflow_node: dispatched_node,
@@ -1038,14 +1035,16 @@ module Acceptance
       AgentControl::Report.call(
         agent_definition_version: agent_definition_version,
         execution_runtime_connection: execution_runtime_connection,
-        method_id: method_id,
-        protocol_message_id: protocol_message_id,
-        mailbox_item_id: mailbox_item.public_id,
-        agent_task_run_id: agent_task_run.public_id,
-        logical_work_id: agent_task_run.logical_work_id,
-        attempt_no: agent_task_run.attempt_no,
         occurred_at: occurred_at,
-        **payload
+        payload: {
+          method_id: method_id,
+          protocol_message_id: protocol_message_id,
+          mailbox_item_id: mailbox_item.public_id,
+          agent_task_run_id: agent_task_run.public_id,
+          logical_work_id: agent_task_run.logical_work_id,
+          attempt_no: agent_task_run.attempt_no,
+          **payload
+        }
       )
     end
 

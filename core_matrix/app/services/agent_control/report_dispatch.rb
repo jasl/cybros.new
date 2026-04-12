@@ -38,18 +38,50 @@ module AgentControl
     end
 
     def call
-      handler_class.new(
-        agent_definition_version: @agent_definition_version,
-        agent_connection: @agent_connection,
-        execution_runtime_connection: @execution_runtime_connection,
-        resource: @resource,
-        method_id: @method_id,
-        payload: @payload,
-        occurred_at: @occurred_at
-      )
+      build_handler
     end
 
     private
+
+    def build_handler
+      case handler_class.name.demodulize
+      when "HandleExecutionReport"
+        handler_class.new(
+          agent_definition_version: @agent_definition_version,
+          agent_connection: @agent_connection,
+          execution_runtime_connection: @execution_runtime_connection,
+          method_id: @method_id,
+          payload: @payload,
+          occurred_at: @occurred_at
+        )
+      when "HandleRuntimeResourceReport", "HandleCloseReport"
+        handler_class.new(
+          agent_definition_version: @agent_definition_version,
+          agent_connection: @agent_connection,
+          execution_runtime_connection: @execution_runtime_connection,
+          resource: @resource,
+          method_id: @method_id,
+          payload: @payload,
+          occurred_at: @occurred_at
+        )
+      when "HandleAgentReport"
+        handler_class.new(
+          agent_definition_version: @agent_definition_version,
+          method_id: @method_id,
+          payload: @payload,
+          occurred_at: @occurred_at
+        )
+      when "HandleHealthReport"
+        handler_class.new(
+          agent_definition_version: @agent_definition_version,
+          agent_connection: @agent_connection,
+          payload: @payload,
+          occurred_at: @occurred_at
+        )
+      else
+        raise ArgumentError, "unsupported report handler #{handler_class.name}"
+      end
+    end
 
     def handler_class
       return HandleExecutionReport if EXECUTION_METHODS.include?(@method_id)

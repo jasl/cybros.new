@@ -31,7 +31,7 @@ module ProviderCatalog
         merged_catalog = deep_merge_catalog(merged_catalog, load_catalog_file(override_path))
       end
 
-      validated_catalog = ProviderCatalog::Validate.call(merged_catalog)
+      validated_catalog = ProviderCatalog::Validate.call(catalog: merged_catalog)
 
       Catalog.new(
         providers: validated_catalog.fetch(:providers),

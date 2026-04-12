@@ -1,4 +1,4 @@
-module ApiErrorRendering
+module APIErrorRendering
   extend ActiveSupport::Concern
 
   included do

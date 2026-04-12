@@ -1,4 +1,4 @@
-module MachineApiSupport
+module MachineAPISupport
   private
 
   def request_payload

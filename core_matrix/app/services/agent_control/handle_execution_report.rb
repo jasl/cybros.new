@@ -6,7 +6,7 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_definition_version:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current, **)
+    def initialize(agent_definition_version:, agent_connection: nil, execution_runtime_connection: nil, method_id:, payload:, occurred_at: Time.current)
       @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @execution_runtime_connection = execution_runtime_connection

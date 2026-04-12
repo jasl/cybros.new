@@ -138,6 +138,8 @@ orchestration are still defined in:
   - receipt creation
   - stale-to-HTTP translation
   - piggyback poll assembly
+  - explicit `payload:` envelope ingestion; report body fields are no longer
+    accepted as top-level Ruby keywords
 - `execution_started` is the durable acceptance point for
   `execution_assignment`
 - `execution_progress`, `execution_complete`, `execution_fail`, and

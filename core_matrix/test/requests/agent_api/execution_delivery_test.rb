@@ -132,13 +132,15 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
-      method_id: "execution_started",
-      protocol_message_id: "agent-start-#{next_test_sequence}",
-      mailbox_item_id: mailbox_item.public_id,
-      agent_task_run_id: agent_task_run.public_id,
-      logical_work_id: agent_task_run.logical_work_id,
-      attempt_no: agent_task_run.attempt_no,
-      expected_duration_seconds: 30
+      payload: {
+        method_id: "execution_started",
+        protocol_message_id: "agent-start-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        expected_duration_seconds: 30,
+      },
     )
 
     params = {
@@ -415,13 +417,15 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
-      method_id: "execution_started",
-      protocol_message_id: "agent-start-#{next_test_sequence}",
-      mailbox_item_id: mailbox_item.public_id,
-      agent_task_run_id: agent_task_run.public_id,
-      logical_work_id: agent_task_run.logical_work_id,
-      attempt_no: agent_task_run.attempt_no,
-      expected_duration_seconds: 30
+      payload: {
+        method_id: "execution_started",
+        protocol_message_id: "agent-start-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        expected_duration_seconds: 30,
+      },
     )
 
     execution_runtime_report(
@@ -465,13 +469,15 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
-      method_id: "execution_started",
-      protocol_message_id: "agent-start-#{next_test_sequence}",
-      mailbox_item_id: mailbox_item.public_id,
-      agent_task_run_id: agent_task_run.public_id,
-      logical_work_id: agent_task_run.logical_work_id,
-      attempt_no: agent_task_run.attempt_no,
-      expected_duration_seconds: 30
+      payload: {
+        method_id: "execution_started",
+        protocol_message_id: "agent-start-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        expected_duration_seconds: 30,
+      },
     )
 
     Conversations::RequestTurnInterrupt.call(turn: context[:turn], occurred_at: Time.current)

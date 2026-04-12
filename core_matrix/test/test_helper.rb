@@ -69,7 +69,7 @@ module ActiveSupport
     end
 
     def build_test_provider_catalog_from(definition)
-      validated = ProviderCatalog::Validate.call(definition)
+      validated = ProviderCatalog::Validate.call(catalog: definition)
 
       ProviderCatalog::Load::Catalog.new(
         providers: validated.fetch(:providers),

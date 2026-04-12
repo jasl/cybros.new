@@ -1,12 +1,8 @@
-require_relative "../api_error_rendering"
-require_relative "../installation_scoped_lookup"
-require_relative "../session_authentication"
-
 module AppAPI
   class BaseController < ActionController::API
     include ActionController::Cookies
     include ActionController::RequestForgeryProtection
-    include ApiErrorRendering
+    include APIErrorRendering
     include InstallationScopedLookup
     include SessionAuthentication
 

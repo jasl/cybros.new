@@ -3,6 +3,19 @@ require "test_helper"
 class Workflows::ExecuteRunTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
+  test "rejects unknown keywords instead of silently ignoring legacy execute-run inputs" do
+    workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+
+    error = assert_raises(ArgumentError) do
+      Workflows::ExecuteRun.call(
+        workflow_run: workflow_run,
+        messages: [{ "role" => "user", "content" => "legacy" }]
+      )
+    end
+
+    assert_match(/unknown keyword: :messages/, error.message)
+  end
+
   class FakeChatCompletionsAdapter < SimpleInference::HTTPAdapter
     attr_reader :last_request
 

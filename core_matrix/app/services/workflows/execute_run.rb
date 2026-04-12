@@ -4,7 +4,7 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_run:, workflow_node_key: nil, **_)
+    def initialize(workflow_run:, workflow_node_key: nil)
       @workflow_run = workflow_run
       @workflow_node_key = workflow_node_key&.to_s
     end

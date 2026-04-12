@@ -13,9 +13,8 @@ module ProviderCatalog
       new(...).call
     end
 
-    def initialize(catalog = nil, **kwargs)
-      source = kwargs.any? ? kwargs : catalog
-      @catalog = normalize_hash(source, label: "catalog")
+    def initialize(catalog:)
+      @catalog = normalize_hash(catalog, label: "catalog")
     end
 
     def call

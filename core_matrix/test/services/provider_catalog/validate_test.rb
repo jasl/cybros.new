@@ -3,9 +3,17 @@ require "test_helper"
 class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
   self.uses_real_provider_catalog = true
 
+  test "rejects top-level catalog keywords instead of implicitly treating them as the catalog hash" do
+    error = assert_raises(ArgumentError) do
+      ProviderCatalog::Validate.call(catalog: {}, version: 1, providers: {}, model_roles: {})
+    end
+
+    assert_match(/unknown keywords?: :version, :providers, :model_roles/, error.message)
+  end
+
   test "rejects catalogs without a version" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         providers: {
           "openai" => valid_provider_definition,
         },
@@ -20,7 +28,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   test "rejects provider handles outside the allowed format" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         version: 1,
         providers: {
           "OpenAI" => {
@@ -39,7 +47,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   test "rejects models with invalid multimodal capability flags or metadata shape" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         version: 1,
         providers: {
           "openai" => {
@@ -74,7 +82,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   test "rejects role catalogs that point at unknown provider model references" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         version: 1,
         providers: {
           "openai" => valid_provider_definition,
@@ -92,7 +100,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   test "rejects providers missing required runtime fields" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         version: 1,
         providers: {
           "openrouter" => {
@@ -114,7 +122,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   test "rejects models missing api_model or tokenizer_hint" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         version: 1,
         providers: {
           "openrouter" => valid_provider_definition(
@@ -134,7 +142,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
   end
 
   test "accepts model enabled false and supported request defaults" do
-    catalog = ProviderCatalog::Validate.call(
+    catalog = validate_catalog(
       version: 1,
       providers: {
         "openai" => valid_provider_definition(
@@ -182,7 +190,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
   end
 
   test "accepts disabled models that remain referenced from model roles" do
-    catalog = ProviderCatalog::Validate.call(
+    catalog = validate_catalog(
       version: 1,
       providers: {
         "openai" => valid_provider_definition(
@@ -201,7 +209,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
   end
 
   test "defaults missing model enabled to true" do
-    catalog = ProviderCatalog::Validate.call(
+    catalog = validate_catalog(
       version: 1,
       providers: {
         "openai" => valid_provider_definition(
@@ -220,7 +228,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   test "rejects models with non boolean enabled" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         version: 1,
         providers: {
           "openai" => valid_provider_definition(
@@ -240,7 +248,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   test "rejects request defaults with unsupported keys" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         version: 1,
         providers: {
           "openai" => valid_provider_definition(
@@ -265,7 +273,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   test "rejects request defaults not supported by the provider wire api" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         version: 1,
         providers: {
           "openai" => valid_provider_definition(
@@ -291,7 +299,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   test "rejects blank reasoning effort in request defaults" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         version: 1,
         providers: {
           "openai" => valid_provider_definition(
@@ -328,7 +336,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
       value = entry.is_a?(Hash) ? entry.fetch(:value) : entry
 
       error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-        ProviderCatalog::Validate.call(
+        validate_catalog(
           version: 1,
           providers: {
             "openai" => valid_provider_definition(
@@ -353,7 +361,7 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
 
   test "rejects invalid provider admission control values" do
     error = assert_raises(ProviderCatalog::Validate::InvalidCatalog) do
-      ProviderCatalog::Validate.call(
+      validate_catalog(
         version: 1,
         providers: {
           "openai" => valid_provider_definition(
@@ -374,6 +382,10 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
   end
 
   private
+
+  def validate_catalog(**catalog)
+    ProviderCatalog::Validate.call(catalog: catalog)
+  end
 
   def valid_provider_definition(display_name: "OpenAI", **attrs)
     {

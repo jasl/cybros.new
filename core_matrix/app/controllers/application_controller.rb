@@ -1,5 +1,3 @@
-require_relative "session_authentication"
-
 class ApplicationController < ActionController::Base
   include SessionAuthentication
 

@@ -4,6 +4,26 @@ require "action_cable/test_helper"
 class AgentControlReportTest < ActiveSupport::TestCase
   include ActionCable::TestHelper
 
+  test "rejects top-level report body keywords instead of merging them implicitly" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    agent_task_run = scenario.fetch(:agent_task_run)
+
+    error = assert_raises(ArgumentError) do
+      AgentControl::Report.call(
+        agent_definition_version: context[:agent_definition_version],
+        payload: {},
+        method_id: "execution_progress",
+        protocol_message_id: "legacy-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id
+      )
+    end
+
+    assert_match(/unknown keywords?: :method_id, :protocol_message_id, :mailbox_item_id, :agent_task_run_id/, error.message)
+  end
+
   test "report rolls back the receipt and mailbox mutations when handler processing blows up" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -32,13 +52,15 @@ class AgentControlReportTest < ActiveSupport::TestCase
     error = assert_raises(RuntimeError) do
       AgentControl::Report.call(
         agent_definition_version: context[:agent_definition_version],
-        method_id: "execution_progress",
-        protocol_message_id: protocol_message_id,
-        mailbox_item_id: mailbox_item.public_id,
-        agent_task_run_id: agent_task_run.public_id,
-        logical_work_id: agent_task_run.logical_work_id,
-        attempt_no: agent_task_run.attempt_no,
-        progress_payload: { "state" => "boom" }
+        payload: {
+          method_id: "execution_progress",
+          protocol_message_id: protocol_message_id,
+          mailbox_item_id: mailbox_item.public_id,
+          agent_task_run_id: agent_task_run.public_id,
+          logical_work_id: agent_task_run.logical_work_id,
+          attempt_no: agent_task_run.attempt_no,
+          progress_payload: { "state" => "boom" },
+        },
       )
     end
 
@@ -84,20 +106,22 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
-      method_id: "execution_progress",
-      protocol_message_id: protocol_message_id,
-      mailbox_item_id: mailbox_item.public_id,
-      agent_task_run_id: agent_task_run.public_id,
-      logical_work_id: agent_task_run.logical_work_id,
-      attempt_no: agent_task_run.attempt_no,
-      control: {
-        "mailbox_item_id" => mailbox_item.public_id,
-        "control_plane" => mailbox_item.control_plane,
-        "request_kind" => mailbox_item.payload.fetch("request_kind"),
+      payload: {
+        method_id: "execution_progress",
+        protocol_message_id: protocol_message_id,
+        mailbox_item_id: mailbox_item.public_id,
+        agent_task_run_id: agent_task_run.public_id,
+        logical_work_id: agent_task_run.logical_work_id,
+        attempt_no: agent_task_run.attempt_no,
+        control: {
+          "mailbox_item_id" => mailbox_item.public_id,
+          "control_plane" => mailbox_item.control_plane,
+          "request_kind" => mailbox_item.payload.fetch("request_kind"),
+        },
+        progress_payload: {
+          "state" => "running",
+        },
       },
-      progress_payload: {
-        "state" => "running",
-      }
     )
 
     receipt = AgentControlReportReceipt.find_by!(
@@ -225,17 +249,19 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
-      method_id: "agent_completed",
-      protocol_message_id: protocol_message_id,
-      mailbox_item_id: mailbox_item.public_id,
-      logical_work_id: mailbox_item.logical_work_id,
-      attempt_no: mailbox_item.attempt_no,
-      conversation_id: context.fetch(:conversation).public_id,
-      turn_id: context.fetch(:turn).public_id,
-      workflow_node_id: context.fetch(:workflow_node).public_id,
-      response_payload: {
-        "status" => "ok",
-      }
+      payload: {
+        method_id: "agent_completed",
+        protocol_message_id: protocol_message_id,
+        mailbox_item_id: mailbox_item.public_id,
+        logical_work_id: mailbox_item.logical_work_id,
+        attempt_no: mailbox_item.attempt_no,
+        conversation_id: context.fetch(:conversation).public_id,
+        turn_id: context.fetch(:turn).public_id,
+        workflow_node_id: context.fetch(:workflow_node).public_id,
+        response_payload: {
+          "status" => "ok",
+        },
+      },
     )
 
     receipt = AgentControlReportReceipt.find_by!(
@@ -279,20 +305,22 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
-      method_id: "agent_failed",
-      protocol_message_id: protocol_message_id,
-      mailbox_item_id: mailbox_item.public_id,
-      logical_work_id: mailbox_item.logical_work_id,
-      attempt_no: mailbox_item.attempt_no,
-      conversation_id: context.fetch(:conversation).public_id,
-      turn_id: context.fetch(:turn).public_id,
-      workflow_node_id: context.fetch(:workflow_node).public_id,
-      error_payload: {
-        "classification" => "runtime",
-        "code" => "agent_request_failed",
-        "message" => "prepare_round failed",
-        "retryable" => false,
-      }
+      payload: {
+        method_id: "agent_failed",
+        protocol_message_id: protocol_message_id,
+        mailbox_item_id: mailbox_item.public_id,
+        logical_work_id: mailbox_item.logical_work_id,
+        attempt_no: mailbox_item.attempt_no,
+        conversation_id: context.fetch(:conversation).public_id,
+        turn_id: context.fetch(:turn).public_id,
+        workflow_node_id: context.fetch(:workflow_node).public_id,
+        error_payload: {
+          "classification" => "runtime",
+          "code" => "agent_request_failed",
+          "message" => "prepare_round failed",
+          "retryable" => false,
+        },
+      },
     )
 
     receipt = AgentControlReportReceipt.find_by!(
@@ -700,13 +728,15 @@ class AgentControlReportTest < ActiveSupport::TestCase
       result = AgentControl::Report.call(
         agent_definition_version: context[:previous_agent_definition_version],
         execution_runtime_connection: context[:execution_runtime_connection],
-        method_id: "process_output",
-        protocol_message_id: "process-output-no-lease-#{next_test_sequence}",
-        resource_type: "ProcessRun",
-        resource_id: process_run.public_id,
-        output_chunks: [
-          { "stream" => "stdout", "text" => "orphaned\n" },
-        ]
+        payload: {
+          method_id: "process_output",
+          protocol_message_id: "process-output-no-lease-#{next_test_sequence}",
+          resource_type: "ProcessRun",
+          resource_id: process_run.public_id,
+          output_chunks: [
+            { "stream" => "stdout", "text" => "orphaned\n" },
+          ],
+        },
       )
 
       assert_equal "stale", result.code
@@ -826,12 +856,14 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     ack_result = AgentControl::Report.call(
       agent_definition_version: context[:replacement_agent_definition_version],
-      method_id: "resource_close_acknowledged",
-      protocol_message_id: "close-ack-#{next_test_sequence}",
-      mailbox_item_id: mailbox_item.public_id,
-      close_request_id: mailbox_item.public_id,
-      resource_type: "SubagentConnection",
-      resource_id: subagent_connection.public_id
+      payload: {
+        method_id: "resource_close_acknowledged",
+        protocol_message_id: "close-ack-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        close_request_id: mailbox_item.public_id,
+        resource_type: "SubagentConnection",
+        resource_id: subagent_connection.public_id,
+      },
     )
 
     assert_equal "accepted", ack_result.code
@@ -840,14 +872,16 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     terminal_result = AgentControl::Report.call(
       agent_definition_version: context[:previous_agent_definition_version],
-      method_id: "resource_closed",
-      protocol_message_id: "close-terminal-#{next_test_sequence}",
-      mailbox_item_id: mailbox_item.public_id,
-      close_request_id: mailbox_item.public_id,
-      resource_type: "SubagentConnection",
-      resource_id: subagent_connection.public_id,
-      close_outcome_kind: "graceful",
-      close_outcome_payload: {}
+      payload: {
+        method_id: "resource_closed",
+        protocol_message_id: "close-terminal-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        close_request_id: mailbox_item.public_id,
+        resource_type: "SubagentConnection",
+        resource_id: subagent_connection.public_id,
+        close_outcome_kind: "graceful",
+        close_outcome_payload: {},
+      },
     )
 
     assert_equal "stale", terminal_result.code
@@ -888,14 +922,16 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     result = AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
-      method_id: "resource_closed",
-      protocol_message_id: "close-terminal-#{next_test_sequence}",
-      mailbox_item_id: close_request.public_id,
-      close_request_id: close_request.public_id,
-      resource_type: "SubagentConnection",
-      resource_id: subagent_connection.public_id,
-      close_outcome_kind: "graceful",
-      close_outcome_payload: {}
+      payload: {
+        method_id: "resource_closed",
+        protocol_message_id: "close-terminal-#{next_test_sequence}",
+        mailbox_item_id: close_request.public_id,
+        close_request_id: close_request.public_id,
+        resource_type: "SubagentConnection",
+        resource_id: subagent_connection.public_id,
+        close_outcome_kind: "graceful",
+        close_outcome_payload: {},
+      },
     )
 
     assert_equal "accepted", result.code
@@ -931,12 +967,14 @@ class AgentControlReportTest < ActiveSupport::TestCase
     ack_result = AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
-      method_id: "resource_close_acknowledged",
-      protocol_message_id: "close-ack-#{next_test_sequence}",
-      mailbox_item_id: close_request.public_id,
-      close_request_id: close_request.public_id,
-      resource_type: "ProcessRun",
-      resource_id: process_run.public_id,
+      payload: {
+        method_id: "resource_close_acknowledged",
+        protocol_message_id: "close-ack-#{next_test_sequence}",
+        mailbox_item_id: close_request.public_id,
+        close_request_id: close_request.public_id,
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+      },
       occurred_at: occurred_at
     )
 
@@ -956,14 +994,16 @@ class AgentControlReportTest < ActiveSupport::TestCase
     terminal_result = AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
-      method_id: "resource_closed",
-      protocol_message_id: "close-terminal-#{next_test_sequence}",
-      mailbox_item_id: close_request.public_id,
-      close_request_id: close_request.public_id,
-      resource_type: "ProcessRun",
-      resource_id: process_run.public_id,
-      close_outcome_kind: "graceful",
-      close_outcome_payload: {},
+      payload: {
+        method_id: "resource_closed",
+        protocol_message_id: "close-terminal-#{next_test_sequence}",
+        mailbox_item_id: close_request.public_id,
+        close_request_id: close_request.public_id,
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        close_outcome_kind: "graceful",
+        close_outcome_payload: {},
+      },
       occurred_at: occurred_at + 31.seconds
     )
 
@@ -999,12 +1039,14 @@ class AgentControlReportTest < ActiveSupport::TestCase
     ack_result = AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
-      method_id: "resource_close_acknowledged",
-      protocol_message_id: "close-ack-#{next_test_sequence}",
-      mailbox_item_id: close_request.public_id,
-      close_request_id: close_request.public_id,
-      resource_type: "ProcessRun",
-      resource_id: process_run.public_id,
+      payload: {
+        method_id: "resource_close_acknowledged",
+        protocol_message_id: "close-ack-#{next_test_sequence}",
+        mailbox_item_id: close_request.public_id,
+        close_request_id: close_request.public_id,
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+      },
       occurred_at: occurred_at
     )
 
@@ -1026,14 +1068,16 @@ class AgentControlReportTest < ActiveSupport::TestCase
     terminal_result = AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
-      method_id: "resource_closed",
-      protocol_message_id: "close-terminal-#{next_test_sequence}",
-      mailbox_item_id: close_request.public_id,
-      close_request_id: close_request.public_id,
-      resource_type: "ProcessRun",
-      resource_id: process_run.public_id,
-      close_outcome_kind: "graceful",
-      close_outcome_payload: {},
+      payload: {
+        method_id: "resource_closed",
+        protocol_message_id: "close-terminal-#{next_test_sequence}",
+        mailbox_item_id: close_request.public_id,
+        close_request_id: close_request.public_id,
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        close_outcome_kind: "graceful",
+        close_outcome_payload: {},
+      },
       occurred_at: occurred_at + 61.seconds
     )
 
@@ -1066,18 +1110,20 @@ class AgentControlReportTest < ActiveSupport::TestCase
       AgentControl::Report.call(
         agent_definition_version: context[:agent_definition_version],
         execution_runtime_connection: context[:execution_runtime_connection],
-        method_id: "resource_closed",
-        protocol_message_id: "close-output-#{next_test_sequence}",
-        mailbox_item_id: close_request.public_id,
-        close_request_id: close_request.public_id,
-        resource_type: "ProcessRun",
-        resource_id: process_run.public_id,
-        close_outcome_kind: "graceful",
-        close_outcome_payload: {},
-        output_chunks: [
-          { "stream" => "stdout", "text" => "hello\n" },
-          { "stream" => "stderr", "text" => "warning\n" },
-        ]
+        payload: {
+          method_id: "resource_closed",
+          protocol_message_id: "close-output-#{next_test_sequence}",
+          mailbox_item_id: close_request.public_id,
+          close_request_id: close_request.public_id,
+          resource_type: "ProcessRun",
+          resource_id: process_run.public_id,
+          close_outcome_kind: "graceful",
+          close_outcome_payload: {},
+          output_chunks: [
+            { "stream" => "stdout", "text" => "hello\n" },
+            { "stream" => "stderr", "text" => "warning\n" },
+          ],
+        },
       )
     end
 
@@ -1121,14 +1167,16 @@ class AgentControlReportTest < ActiveSupport::TestCase
       AgentControl::Report.call(
         agent_definition_version: context[:agent_definition_version],
         execution_runtime_connection: context[:execution_runtime_connection],
-        method_id: "resource_close_failed",
-        protocol_message_id: "close-lost-#{next_test_sequence}",
-        mailbox_item_id: close_request.public_id,
-        close_request_id: close_request.public_id,
-        resource_type: "ProcessRun",
-        resource_id: process_run.public_id,
-        close_outcome_kind: "timed_out_forced",
-        close_outcome_payload: { "reason" => "force_deadline_elapsed" }
+        payload: {
+          method_id: "resource_close_failed",
+          protocol_message_id: "close-lost-#{next_test_sequence}",
+          mailbox_item_id: close_request.public_id,
+          close_request_id: close_request.public_id,
+          resource_type: "ProcessRun",
+          resource_id: process_run.public_id,
+          close_outcome_kind: "timed_out_forced",
+          close_outcome_payload: { "reason" => "force_deadline_elapsed" },
+        },
       )
     end
 
@@ -1174,14 +1222,16 @@ class AgentControlReportTest < ActiveSupport::TestCase
     params = {
       agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
-      method_id: "resource_closed",
-      protocol_message_id: "close-terminal-#{next_test_sequence}",
-      mailbox_item_id: mailbox_item.public_id,
-      close_request_id: mailbox_item.public_id,
-      resource_type: "ProcessRun",
-      resource_id: process_run.public_id,
-      close_outcome_kind: "graceful",
-      close_outcome_payload: {},
+      payload: {
+        method_id: "resource_closed",
+        protocol_message_id: "close-terminal-#{next_test_sequence}",
+        mailbox_item_id: mailbox_item.public_id,
+        close_request_id: mailbox_item.public_id,
+        resource_type: "ProcessRun",
+        resource_id: process_run.public_id,
+        close_outcome_kind: "graceful",
+        close_outcome_payload: {},
+      },
     }
 
     first_result = AgentControl::Report.call(**params)
@@ -1209,7 +1259,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
-      **params
+      payload: params
     )
   end
 
