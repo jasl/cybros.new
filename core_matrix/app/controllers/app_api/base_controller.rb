@@ -35,6 +35,13 @@ module AppAPI
       authorize_workspace_usability!(workspace)
     end
 
+    def find_agent!(agent_id)
+      agent = super
+      raise ActiveRecord::RecordNotFound, "Couldn't find Agent" unless resource_visibility_user_can_access_agent?(agent)
+
+      agent
+    end
+
     def find_conversation!(conversation_id, workspace: nil)
       conversation = super
       authorize_conversation_usability!(conversation)
@@ -53,11 +60,23 @@ module AppAPI
     end
 
     def resource_visibility_user_can_access_workspace?(workspace)
-      ResourceVisibility::Usability.workspace_accessible_by_user?(user: current_user, workspace: workspace)
+      AppSurface::Policies::WorkspaceAccess.call(user: current_user, workspace: workspace)
+    end
+
+    def resource_visibility_user_can_access_agent?(agent)
+      AppSurface::Policies::AgentAccess.call(user: current_user, agent: agent)
     end
 
     def resource_visibility_user_can_access_conversation?(conversation)
-      ResourceVisibility::Usability.conversation_accessible_by_user?(user: current_user, conversation: conversation)
+      AppSurface::Policies::ConversationAccess.call(user: current_user, conversation: conversation)
+    end
+
+    def method_response(method_id:, **payload)
+      AppSurface::MethodResponse.call(method_id: method_id, **payload)
+    end
+
+    def render_method_response(method_id:, status: :ok, **payload)
+      render json: method_response(method_id: method_id, **payload), status: status
     end
 
     def serialize_message(message)

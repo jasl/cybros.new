@@ -8,12 +8,12 @@ module AppAPI
         limit: params[:limit]
       )
 
-      render json: {
+      render_method_response(
         method_id: "conversation_transcript_list",
         conversation_id: conversation.public_id,
         items: result.messages.map { |message| serialize_message(message) },
         next_cursor: result.next_cursor,
-      }.compact
+      )
     end
   end
 end

@@ -12,11 +12,12 @@ module AppAPI
         responder_strategy: params[:responder_strategy]
       )
 
-      render json: {
+      render_method_response(
         method_id: "conversation_supervision_session_create",
         conversation_id: conversation.public_id,
         conversation_supervision_session: serialize_supervision_session(session),
-      }, status: :created
+        status: :created
+      )
     end
 
     def show
@@ -26,11 +27,11 @@ module AppAPI
       authorize_conversation_usability!(target_conversation)
       return head :gone if session.closed?
 
-      render json: {
+      render_method_response(
         method_id: "conversation_supervision_session_show",
         conversation_id: target_conversation.public_id,
         conversation_supervision_session: serialize_supervision_session(session),
-      }
+      )
     end
 
     def close
@@ -44,11 +45,11 @@ module AppAPI
         conversation_supervision_session: session
       )
 
-      render json: {
+      render_method_response(
         method_id: "conversation_supervision_session_close",
         conversation_id: target_conversation.public_id,
         conversation_supervision_session: serialize_supervision_session(session),
-      }
+      )
     end
 
     private

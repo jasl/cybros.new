@@ -7,12 +7,12 @@ module AppAPI
       conversation = find_conversation!(params.fetch(:conversation_id))
       ::Conversations::UpdateSupervisionState.call(conversation: conversation, occurred_at: Time.current)
 
-      render json: {
+      render_method_response(
         method_id: "conversation_turn_todo_plan_list",
         conversation_id: conversation.public_id,
         primary_turn_todo_plan: primary_turn_todo_plan_view(conversation),
         active_subagent_turn_todo_plans: active_subagent_turn_todo_plan_views(conversation),
-      }.compact
+      )
     end
 
     private

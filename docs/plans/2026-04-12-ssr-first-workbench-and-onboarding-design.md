@@ -222,6 +222,48 @@ reaching into machine control endpoints.
 - Preserve separate machine/runtime streams and app-facing streams; browser
   clients should subscribe only to app-facing realtime channels.
 
+## App-Surface Authorization Model
+
+Authorization for the product surface should be single-sourced.
+
+### Layer Responsibilities
+
+- controllers and channels
+  - authenticate the caller
+  - parse request params
+  - resolve `public_id` references into records
+- app-surface policies
+  - make the actual product authorization decision for end-user and operator
+    actions
+  - decide whether a user may view, mutate, or subscribe to a given product
+    resource
+- services and domain objects
+  - enforce business invariants such as lifecycle, idempotency, stale report
+    rejection, and machine-resource ownership
+  - record audit attribution where an `actor` is required
+
+### Hard Rule
+
+Do not implement the same end-user/operator authorization twice in both the
+app surface and downstream services.
+
+That means:
+
+- app-facing controllers and channels should not hand-roll authorization
+  against `current_user`
+- app-facing controllers and channels should not directly call
+  `ResourceVisibility::Usability` once app-surface policies exist
+- domain/application services may still accept `actor` for audit or provenance,
+  but should not re-evaluate app-surface user access unless the service itself
+  is the app-surface action object
+
+### Migration Guidance
+
+Existing authorization helpers such as `ResourceVisibility::Usability` and the
+conversation-supervision authority objects may remain implementation details,
+but they should be wrapped by explicit app-surface policies so the product
+surface has one place to reason about access.
+
 ## Product Resource Model
 
 ### Core Relationship Model
@@ -439,6 +481,44 @@ Recommended shape:
 
 Do not use internal workflow node names, `provider_round_*`, `poll/report`, or
 machine-control labels as browser event types.
+
+## Acceptance Strategy
+
+`acceptance` should be treated as product-facing end-to-end verification where
+that makes sense, not merely as a service-driver harness.
+
+### Product Acceptance Scope
+
+After Phase 2 is complete:
+
+- end-user workbench acceptance should drive `app_api` and app-facing realtime
+  contracts
+- admin/operator acceptance should drive `app_api/admin/*` and
+  `onboarding_session` flows
+- machine-protocol acceptance should continue to hit `agent_api` and
+  `execution_runtime_api` directly
+
+### Helper Boundary
+
+Acceptance helpers should be split by boundary:
+
+- app-surface helpers
+  - authenticate with human session tokens
+  - call `app_api`
+  - subscribe to app-facing realtime channels/events
+- machine helpers
+  - authenticate with machine credentials
+  - call `agent_api` / `execution_runtime_api`
+
+The current pattern of session-like product checks using machine credentials is
+only transitional and should be removed as the app surface stabilizes.
+
+### Observation Rule
+
+Direct database reads, logs, console output, and runtime transcripts remain
+valid observation tools for acceptance, diagnosis, and proof collection.
+They should not remain the primary action driver for end-user or operator flows
+once the corresponding app-surface endpoints exist.
 
 ## Workbench Information Architecture
 
@@ -664,6 +744,10 @@ This design should be considered correctly implemented only when:
 - the default workspace is lazy-materialized rather than eagerly created
 - browsers use `app_api` and realtime events rather than machine control APIs
 - admin onboarding is centered on `onboarding_session`
+- app-surface authorization is decided in one policy layer rather than being
+  reimplemented in controllers and service objects
+- end-user/operator acceptance runs through app-surface contracts, while
+  machine protocol acceptance stays on machine APIs
 - `guides` document the onboarding flows and are used for manual acceptance
 - the Web UI remains SSR-first without coupling the product contract to HTML
   rendering details

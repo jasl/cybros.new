@@ -62,10 +62,20 @@ Rails.application.routes.draw do
   end
 
   namespace :app_api do
+    resources :agents, only: :index do
+      member do
+        get "home", to: "agent_homes#show"
+      end
+
+      resources :conversations, only: :create, controller: :agent_conversations
+      resources :workspaces, only: :index
+    end
+
     resources :conversations, only: [] do
       get "metadata", to: "conversations/metadata#show"
       patch "metadata", to: "conversations/metadata#update"
       post "metadata/regenerate", to: "conversations/metadata#regenerate"
+      post "messages", to: "conversation_messages#create"
     end
 
     resources :conversation_transcripts, only: :index

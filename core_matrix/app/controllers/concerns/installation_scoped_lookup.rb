@@ -14,6 +14,13 @@ module InstallationScopedLookup
     )
   end
 
+  def find_agent!(agent_id)
+    Agent.find_by!(
+      public_id: agent_id,
+      installation_id: current_installation_id
+    )
+  end
+
   def find_conversation!(conversation_id, workspace: nil)
     scope = {
       public_id: conversation_id,

@@ -54,19 +54,19 @@ module AppAPI
     end
 
     def render_supervision_message_list!(session, target_conversation_id:)
-      render json: {
+      render_method_response(
         method_id: "conversation_supervision_message_list",
         conversation_id: target_conversation_id,
         supervision_session_id: session.public_id,
         items: session.conversation_supervision_messages.order(:created_at).map { |message| serialize_supervision_message(message, target_conversation_id:) },
-      }
+      )
     end
 
     def render_supervision_message_create!(session, result)
       target_conversation_id = session.target_conversation&.public_id
       raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if target_conversation_id.blank?
 
-      render json: {
+      render_method_response(
         method_id: "conversation_supervision_message_create",
         conversation_id: target_conversation_id,
         supervision_session_id: session.public_id,
@@ -74,7 +74,8 @@ module AppAPI
         human_sidechat: result.fetch("human_sidechat"),
         user_message: serialize_supervision_message(result.fetch("user_message"), target_conversation_id: target_conversation_id),
         supervisor_message: serialize_supervision_message(result.fetch("supervisor_message"), target_conversation_id: target_conversation_id),
-      }, status: :created
+        status: :created
+      )
     end
 
     def render_gone(_error)

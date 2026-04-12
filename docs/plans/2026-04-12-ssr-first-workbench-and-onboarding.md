@@ -357,18 +357,23 @@ git commit -m "feat: add user-authenticated realtime foundations"
 
 ## Phase 2: App Surface And `app_api`
 
-### Task 5: Extract App-Surface Policies, Queries, And Presenters
+### Task 5: Establish App-Surface Authorization, Method Responses, And Presenters
 
 **Files:**
 - Modify: `core_matrix/app/controllers/app_api/base_controller.rb`
+- Modify: `core_matrix/app/channels/workbench_channel.rb`
 - Create: `core_matrix/app/services/app_surface/method_response.rb`
 - Create: `core_matrix/app/services/app_surface/policies/workspace_access.rb`
 - Create: `core_matrix/app/services/app_surface/policies/conversation_access.rb`
+- Create: `core_matrix/app/services/app_surface/policies/admin_access.rb`
+- Create: `core_matrix/app/services/app_surface/policies/onboarding_session_access.rb`
 - Create: `core_matrix/app/services/app_surface/presenters/workspace_presenter.rb`
 - Create: `core_matrix/app/services/app_surface/presenters/conversation_presenter.rb`
 - Create: `core_matrix/app/services/app_surface/presenters/onboarding_session_presenter.rb`
 - Create: `core_matrix/app/services/app_surface/queries/visible_agents.rb`
 - Create: `core_matrix/test/services/app_surface/policies/workspace_access_test.rb`
+- Create: `core_matrix/test/services/app_surface/policies/conversation_access_test.rb`
+- Create: `core_matrix/test/services/app_surface/policies/admin_access_test.rb`
 - Create: `core_matrix/test/services/app_surface/presenters/workspace_presenter_test.rb`
 - Create: `core_matrix/test/services/app_surface/queries/visible_agents_test.rb`
 
@@ -376,7 +381,9 @@ git commit -m "feat: add user-authenticated realtime foundations"
 
 Add coverage that proves:
 
+- app-surface policies are the only end-user/operator authorization source for controllers and app-facing channels
 - app-surface policies authorize by `current_user`, not by resource owner lookup shortcuts
+- downstream services may still accept `actor` for audit/provenance, but do not duplicate app-surface access checks
 - presenters emit `public_id` only
 - method responses wrap payloads consistently
 
@@ -395,7 +402,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/services/app_surface/policies/workspace_access_test.rb test/services/app_surface/presenters/workspace_presenter_test.rb test/services/app_surface/queries/visible_agents_test.rb
+bin/rails test test/services/app_surface/policies/workspace_access_test.rb test/services/app_surface/policies/conversation_access_test.rb test/services/app_surface/policies/admin_access_test.rb test/services/app_surface/presenters/workspace_presenter_test.rb test/services/app_surface/queries/visible_agents_test.rb
 ```
 
 Expected: FAIL because the app-surface layer does not exist.
@@ -416,13 +423,19 @@ end
 
 Do not let controllers hand-roll JSON after this task.
 
+Keep the responsibility split explicit:
+
+- controllers and app-facing channels authenticate, load resources, and delegate to app-surface policies
+- app-surface policies are the single source of truth for end-user/operator authorization
+- application/domain services keep workflow invariants, idempotency, staleness checks, and audit attribution, but not duplicate product authorization
+
 **Step 4: Run the tests to verify they pass**
 
 Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/services/app_surface/policies/workspace_access_test.rb test/services/app_surface/presenters/workspace_presenter_test.rb test/services/app_surface/queries/visible_agents_test.rb
+bin/rails test test/services/app_surface/policies/workspace_access_test.rb test/services/app_surface/policies/conversation_access_test.rb test/services/app_surface/policies/admin_access_test.rb test/services/app_surface/presenters/workspace_presenter_test.rb test/services/app_surface/queries/visible_agents_test.rb
 ```
 
 Expected: PASS.
@@ -431,8 +444,8 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/app/controllers/app_api/base_controller.rb core_matrix/app/services/app_surface/method_response.rb core_matrix/app/services/app_surface/policies/workspace_access.rb core_matrix/app/services/app_surface/policies/conversation_access.rb core_matrix/app/services/app_surface/presenters/workspace_presenter.rb core_matrix/app/services/app_surface/presenters/conversation_presenter.rb core_matrix/app/services/app_surface/presenters/onboarding_session_presenter.rb core_matrix/app/services/app_surface/queries/visible_agents.rb core_matrix/test/services/app_surface/policies/workspace_access_test.rb core_matrix/test/services/app_surface/presenters/workspace_presenter_test.rb core_matrix/test/services/app_surface/queries/visible_agents_test.rb
-git commit -m "refactor: add app surface query and presenter layer"
+git add core_matrix/app/controllers/app_api/base_controller.rb core_matrix/app/channels/workbench_channel.rb core_matrix/app/services/app_surface/method_response.rb core_matrix/app/services/app_surface/policies/workspace_access.rb core_matrix/app/services/app_surface/policies/conversation_access.rb core_matrix/app/services/app_surface/policies/admin_access.rb core_matrix/app/services/app_surface/policies/onboarding_session_access.rb core_matrix/app/services/app_surface/presenters/workspace_presenter.rb core_matrix/app/services/app_surface/presenters/conversation_presenter.rb core_matrix/app/services/app_surface/presenters/onboarding_session_presenter.rb core_matrix/app/services/app_surface/queries/visible_agents.rb core_matrix/test/services/app_surface/policies/workspace_access_test.rb core_matrix/test/services/app_surface/policies/conversation_access_test.rb core_matrix/test/services/app_surface/policies/admin_access_test.rb core_matrix/test/services/app_surface/presenters/workspace_presenter_test.rb core_matrix/test/services/app_surface/queries/visible_agents_test.rb
+git commit -m "refactor: add app surface authorization and presenter layer"
 ```
 
 ### Task 6: Build Workspace-First Agent And Workspace Read APIs
@@ -492,6 +505,8 @@ render json: AppSurface::MethodResponse.call(
 ```
 
 Do not materialize a workspace in the read path.
+
+Every controller in this task should authorize through the app-surface policy layer from Task 5 rather than calling visibility helpers directly.
 
 **Step 4: Run the tests to verify they pass**
 
@@ -579,6 +594,7 @@ conversation = Workbench::CreateConversationFromAgent.call(
 ```
 
 Use the same app-surface presenters for read endpoints so UI work later consumes already-stable payloads.
+Write controllers should work on already-authorized resources and actors; keep product authorization in the app-surface layer, not duplicated inside downstream services.
 
 **Step 4: Run the tests to verify they pass**
 
@@ -660,6 +676,7 @@ render json: AppSurface::MethodResponse.call(
 ```
 
 Do not leak raw registration or heartbeat endpoints into admin JSON.
+Use the same app-surface policy layer from Task 5 so admin authorization stays consistent between controllers, queries, and app-facing channels.
 
 **Step 4: Run the tests to verify they pass**
 
@@ -751,9 +768,80 @@ git add core_matrix/app/channels/workbench_channel.rb core_matrix/app/services/c
 git commit -m "feat: finalize app event contracts"
 ```
 
+### Task 10: Repoint End-User And Operator Acceptance Flows To App Surface
+
+**Files:**
+- Modify: `acceptance/lib/manual_support.rb`
+- Create: `acceptance/lib/app_surface_support.rb`
+- Modify: `acceptance/lib/active_suite.rb`
+- Modify: `acceptance/lib/capstone_app_api_roundtrip.rb`
+- Modify: `acceptance/lib/conversation_runtime_validation.rb`
+- Modify: `acceptance/scenarios/*` for workbench and admin operator flows
+- Modify: `core_matrix/test/lib/acceptance/manual_support_test.rb`
+- Create: `core_matrix/test/lib/acceptance/app_surface_support_test.rb`
+
+**Step 1: Write the failing acceptance helper tests**
+
+Add coverage that proves:
+
+- end-user and operator acceptance helpers drive `app_api` with human session authentication rather than machine credentials
+- app-surface acceptance subscribers consume the app-facing event contract from Task 9
+- machine protocol validation helpers remain direct to `agent_api` and `execution_runtime_api`
+
+```ruby
+test "app surface helper uses human session auth" do
+  helper = Acceptance::AppSurfaceSupport.new(session: user_session)
+
+  response = helper.get_json("/app_api/agents")
+
+  assert_equal "agents_index", response.fetch("method_id")
+end
+```
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/lib/acceptance/manual_support_test.rb test/lib/acceptance/app_surface_support_test.rb
+```
+
+Expected: FAIL because the acceptance helpers still assume a transitional, machine-authenticated `app_api` shape.
+
+**Step 3: Repoint acceptance to the product surface**
+
+Split the helper boundary explicitly:
+
+- end-user and operator flows use `app_api` plus app-facing realtime and human session auth
+- machine protocol flows keep exercising `agent_api` and `execution_runtime_api`
+- database reads, console commands, and log inspection remain allowed as observation and proof tools, not the primary action driver for product flows
+
+Do not leave any end-user/operator acceptance scenario using machine credentials as the primary way to drive an equivalent `app_api` flow after this task.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:test:prepare
+bin/rails test test/lib/acceptance/manual_support_test.rb test/lib/acceptance/app_surface_support_test.rb
+```
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+git add acceptance/lib/manual_support.rb acceptance/lib/app_surface_support.rb acceptance/lib/active_suite.rb acceptance/lib/capstone_app_api_roundtrip.rb acceptance/lib/conversation_runtime_validation.rb acceptance/scenarios core_matrix/test/lib/acceptance/manual_support_test.rb core_matrix/test/lib/acceptance/app_surface_support_test.rb
+git commit -m "refactor: point product acceptance flows at app surface"
+```
+
 ## Phase 3: SSR UI And Guides
 
-### Task 10: Add Web Sessions, Setup Flows, And Authenticated HTML Shell
+### Task 11: Add Web Sessions, Setup Flows, And Authenticated HTML Shell
 
 **Files:**
 - Modify: `core_matrix/config/routes.rb`
@@ -826,7 +914,7 @@ git add core_matrix/config/routes.rb core_matrix/app/controllers/application_con
 git commit -m "feat: add authenticated web shell"
 ```
 
-### Task 11: Build The Workbench SSR UI
+### Task 12: Build The Workbench SSR UI
 
 **Files:**
 - Create: `core_matrix/app/controllers/workbench/agents_controller.rb`
@@ -903,7 +991,7 @@ git add core_matrix/app/controllers/workbench/agents_controller.rb core_matrix/a
 git commit -m "feat: add workbench ssr ui"
 ```
 
-### Task 12: Build The Admin Console SSR UI
+### Task 13: Build The Admin Console SSR UI
 
 **Files:**
 - Create: `core_matrix/app/controllers/admin/dashboard_controller.rb`
@@ -980,7 +1068,7 @@ git add core_matrix/app/controllers/admin/dashboard_controller.rb core_matrix/ap
 git commit -m "feat: add admin onboarding console"
 ```
 
-### Task 13: Publish Guides And Run Manual Acceptance
+### Task 14: Publish Guides And Run Manual Acceptance
 
 **Files:**
 - Create: `guides/docs/first-installation.md`

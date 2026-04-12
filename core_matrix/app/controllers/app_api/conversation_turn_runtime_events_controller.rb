@@ -5,7 +5,7 @@ module AppAPI
       turn = find_turn_for_conversation!(conversation, params.fetch(:turn_id))
       stream = ConversationRuntime::BuildTurnEventStreamForTurn.call(conversation: conversation, turn: turn)
 
-      render json: {
+      render_method_response(
         method_id: "conversation_turn_runtime_event_list",
         conversation_id: conversation.public_id,
         turn_id: turn.public_id,
@@ -13,7 +13,7 @@ module AppAPI
         lanes: stream.fetch("lanes"),
         segments: stream.fetch("segments"),
         items: stream.fetch("timeline"),
-      }
+      )
     end
 
     private
