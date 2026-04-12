@@ -1,12 +1,12 @@
 module AppAPI
   module Admin
     module LLMProviders
-      class EntitlementsController < AppAPI::Admin::BaseController
+      class EntitlementsController < BaseController
         def update
           ProviderEntitlements::Replace.call(
             installation: current_installation,
             actor: current_user,
-            provider_handle: params.fetch(:provider),
+            provider_handle: provider_handle,
             entitlements: entitlement_params.fetch("entitlements", [])
           )
 
@@ -14,7 +14,7 @@ module AppAPI
             method_id: "admin_llm_provider_entitlements_update",
             llm_provider: AppSurface::Queries::Admin::ShowLLMProvider.call(
               installation: current_installation,
-              provider_handle: params.fetch(:provider)
+              provider_handle: provider_handle
             )
           )
         end

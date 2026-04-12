@@ -3,7 +3,6 @@ module AppAPI
     module LLMProviders
       class ConnectionTestsController < BaseController
         def create
-          provider_handle = params.fetch(:provider)
           connection_check = ProviderConnectionChecks::UpsertLatest.call(
             installation: current_installation,
             actor: current_user,

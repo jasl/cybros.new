@@ -1,17 +1,14 @@
 module AppAPI
   module Admin
     module LLMProviders
-      class PoliciesController < AppAPI::Admin::BaseController
+      class PoliciesController < BaseController
         def update
-          provider = AppSurface::Queries::Admin::ShowLLMProvider.call(
-            installation: current_installation,
-            provider_handle: params.fetch(:provider)
-          )
+          provider = provider_resource
 
           ProviderPolicies::Upsert.call(
             installation: current_installation,
             actor: current_user,
-            provider_handle: params.fetch(:provider),
+            provider_handle: provider_handle,
             enabled: provider.fetch("policy").fetch("enabled"),
             selection_defaults: policy_params.fetch("selection_defaults", {})
           )
@@ -20,7 +17,7 @@ module AppAPI
             method_id: "admin_llm_provider_policy_update",
             llm_provider: AppSurface::Queries::Admin::ShowLLMProvider.call(
               installation: current_installation,
-              provider_handle: params.fetch(:provider)
+              provider_handle: provider_handle
             )
           )
         end

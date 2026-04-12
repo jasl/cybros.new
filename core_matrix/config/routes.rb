@@ -69,13 +69,11 @@ Rails.application.routes.draw do
       resources :onboarding_sessions, only: [:index, :create]
       resources :audit_entries, only: :index
       resources :llm_providers, only: [:index, :show, :update], param: :provider do
+        resource :credential, only: :update, controller: "llm_providers/credentials"
+        resource :policy, only: :update, controller: "llm_providers/policies"
+        resource :entitlements, only: :update, controller: "llm_providers/entitlements"
+
         member do
-          patch :credential, to: "llm_providers/credentials#update"
-          put :credential, to: "llm_providers/credentials#update"
-          patch :policy, to: "llm_providers/policies#update"
-          put :policy, to: "llm_providers/policies#update"
-          patch :entitlements, to: "llm_providers/entitlements#update"
-          put :entitlements, to: "llm_providers/entitlements#update"
           post :test_connection, to: "llm_providers/connection_tests#create"
         end
       end
@@ -95,10 +93,9 @@ Rails.application.routes.draw do
     end
 
     resources :conversations, only: :create do
-      resource :metadata, only: :show, controller: "conversations/metadata" do
+      resource :metadata, only: [:show, :update], controller: "conversations/metadata" do
         post :regenerate
       end
-      patch :metadata, to: "conversations/metadata#update"
       resources :messages, only: :create, controller: "conversations/messages"
       resource :transcript, only: :show, controller: "conversations/transcript"
       resource :diagnostics, only: :show, controller: "conversations/diagnostics" do
