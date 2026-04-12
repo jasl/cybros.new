@@ -67,6 +67,14 @@ Rails.application.routes.draw do
       resources :agents, only: :index
       resources :execution_runtimes, only: :index
       resources :onboarding_sessions, only: :index
+
+      namespace :llm_providers do
+        namespace :codex_subscription do
+          resource :authorization, only: [:show, :create, :destroy], controller: :authorizations do
+            get :callback
+          end
+        end
+      end
     end
 
     resources :agents, only: :index do

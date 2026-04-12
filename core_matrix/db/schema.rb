@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_06_113000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -1250,14 +1250,41 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["workflow_node_id"], name: "index_process_runs_on_workflow_node_id"
   end
 
+  create_table "provider_authorization_sessions", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.bigint "installation_id", null: false
+    t.datetime "issued_at", null: false
+    t.bigint "issued_by_user_id"
+    t.text "pkce_verifier", null: false
+    t.string "provider_handle", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.datetime "revoked_at"
+    t.string "state_digest", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["installation_id", "provider_handle", "status", "issued_at"], name: "idx_provider_auth_sessions_installation_provider_status_issued"
+    t.index ["installation_id"], name: "index_provider_authorization_sessions_on_installation_id"
+    t.index ["issued_by_user_id"], name: "index_provider_authorization_sessions_on_issued_by_user_id"
+    t.index ["public_id"], name: "index_provider_authorization_sessions_on_public_id", unique: true
+    t.index ["state_digest"], name: "index_provider_authorization_sessions_on_state_digest", unique: true
+  end
+
   create_table "provider_credentials", force: :cascade do |t|
+    t.text "access_token"
     t.datetime "created_at", null: false
     t.string "credential_kind", null: false
+    t.datetime "expires_at"
     t.bigint "installation_id", null: false
+    t.datetime "last_refreshed_at"
     t.datetime "last_rotated_at", null: false
     t.jsonb "metadata", default: {}, null: false
     t.string "provider_handle", null: false
-    t.text "secret", null: false
+    t.datetime "refresh_failed_at"
+    t.string "refresh_failure_reason"
+    t.text "refresh_token"
+    t.text "secret"
     t.datetime "updated_at", null: false
     t.index ["installation_id", "provider_handle", "credential_kind"], name: "idx_provider_credentials_installation_provider_kind", unique: true
     t.index ["installation_id"], name: "index_provider_credentials_on_installation_id"
@@ -2140,6 +2167,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "process_runs", "messages", column: "origin_message_id"
   add_foreign_key "process_runs", "turns"
   add_foreign_key "process_runs", "workflow_nodes"
+  add_foreign_key "provider_authorization_sessions", "installations"
+  add_foreign_key "provider_authorization_sessions", "users", column: "issued_by_user_id"
   add_foreign_key "provider_credentials", "installations"
   add_foreign_key "provider_entitlements", "installations"
   add_foreign_key "provider_policies", "installations"

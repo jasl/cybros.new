@@ -733,7 +733,9 @@ module ActiveSupport
           installation: context[:installation],
           provider_handle: "codex_subscription",
           credential_kind: "oauth_codex",
-          secret: "oauth-codex-#{next_test_sequence}",
+          access_token: "oauth-codex-access-#{next_test_sequence}",
+          refresh_token: "oauth-codex-refresh-#{next_test_sequence}",
+          expires_at: 2.hours.from_now,
           last_rotated_at: Time.current,
           metadata: {}
         )

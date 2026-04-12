@@ -23,7 +23,7 @@ module AgentControl
 
     def call
       supervision_update = @payload.fetch("supervision_update").deep_stringify_keys
-      reject_legacy_plan_items!(supervision_update)
+      reject_unsupported_plan_items!(supervision_update)
       supervision_update = supervision_update.slice(*ALLOWED_FIELDS)
       validate_supervision_update!(supervision_update)
 
@@ -43,7 +43,7 @@ module AgentControl
 
     private
 
-    def reject_legacy_plan_items!(supervision_update)
+    def reject_unsupported_plan_items!(supervision_update)
       return unless supervision_update.key?("plan_items")
 
       raise ArgumentError, "supervision_update.plan_items is no longer supported"

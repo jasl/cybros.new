@@ -28,4 +28,24 @@ class ProviderCredentialTest < ActiveSupport::TestCase
 
     assert credential.valid?
   end
+
+  test "oauth codex credentials encrypt oauth token material without requiring secret" do
+    credential = ProviderCredential.create!(
+      installation: create_installation!,
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex",
+      access_token: "access-token-123",
+      refresh_token: "refresh-token-456",
+      expires_at: 2.hours.from_now,
+      metadata: {},
+      last_rotated_at: Time.current
+    )
+
+    assert_equal "access-token-123", credential.access_token
+    assert_equal "refresh-token-456", credential.refresh_token
+    assert credential.encrypted_attribute?(:access_token)
+    assert credential.encrypted_attribute?(:refresh_token)
+    assert_not_equal "access-token-123", credential.ciphertext_for(:access_token)
+    assert_not_equal "refresh-token-456", credential.ciphertext_for(:refresh_token)
+  end
 end

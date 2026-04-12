@@ -644,7 +644,7 @@ otherwise distort later decisions.
 ### Priority Cleanup Areas
 
 - remove duplicate end-user authorization from app-facing supervision flows
-- unify remaining legacy `app_api` endpoints on `MethodResponse`
+- unify remaining `app_api` endpoints on `MethodResponse`
 - finish the already-approved `llm_providers`, `workspace_policies`, and
   `audit_entries` surfaces on top of their resolved contracts
 

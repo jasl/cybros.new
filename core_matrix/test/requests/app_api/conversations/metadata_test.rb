@@ -20,13 +20,15 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
-    assert_equal conversation.public_id, response_body["conversation_id"]
-    assert_equal "Conversation title", response_body["title"]
-    assert_equal "Conversation summary", response_body["summary"]
-    assert_equal "agent", response_body["title_source"]
-    assert_equal "generated", response_body["summary_source"]
-    assert_equal true, response_body["title_locked"]
-    assert_equal false, response_body["summary_locked"]
+    assert_equal "conversation_metadata_show", response_body["method_id"]
+    metadata = response_body.fetch("metadata")
+    assert_equal conversation.public_id, metadata["conversation_id"]
+    assert_equal "Conversation title", metadata["title"]
+    assert_equal "Conversation summary", metadata["summary"]
+    assert_equal "agent", metadata["title_source"]
+    assert_equal "generated", metadata["summary_source"]
+    assert_equal true, metadata["title_locked"]
+    assert_equal false, metadata["summary_locked"]
     refute_includes response.body, %("#{conversation.id}")
   end
 
@@ -47,13 +49,15 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
-    assert_equal conversation.public_id, response_body["conversation_id"]
-    assert_equal "Pinned by user", response_body["title"]
-    assert_equal "user", response_body["title_source"]
-    assert_equal true, response_body["title_locked"]
-    assert_equal "Existing summary", response_body["summary"]
-    assert_equal "generated", response_body["summary_source"]
-    assert_equal false, response_body["summary_locked"]
+    assert_equal "conversation_metadata_update", response_body["method_id"]
+    metadata = response_body.fetch("metadata")
+    assert_equal conversation.public_id, metadata["conversation_id"]
+    assert_equal "Pinned by user", metadata["title"]
+    assert_equal "user", metadata["title_source"]
+    assert_equal true, metadata["title_locked"]
+    assert_equal "Existing summary", metadata["summary"]
+    assert_equal "generated", metadata["summary_source"]
+    assert_equal false, metadata["summary_locked"]
   end
 
   test "regenerate clears only the targeted metadata lock" do
@@ -84,10 +88,12 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
-    assert_equal conversation.public_id, response_body["conversation_id"]
-    assert_equal "Generated title", response_body["title"]
-    assert_equal false, response_body["title_locked"]
-    assert_equal true, response_body["summary_locked"]
+    assert_equal "conversation_metadata_regenerate", response_body["method_id"]
+    metadata = response_body.fetch("metadata")
+    assert_equal conversation.public_id, metadata["conversation_id"]
+    assert_equal "Generated title", metadata["title"]
+    assert_equal false, metadata["title_locked"]
+    assert_equal true, metadata["summary_locked"]
   end
 
   test "returns unprocessable entity when metadata regeneration is unavailable" do

@@ -30,6 +30,29 @@ class ProviderCatalog::EffectiveCatalogTest < ActiveSupport::TestCase
     assert_equal "missing_credential", result.reason_key
   end
 
+  test "treats oauth credentials requiring reauthorization as unavailable" do
+    installation = create_installation!
+    create_provider_entitlement!(installation:, provider_handle: "codex_subscription")
+    ProviderCredential.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex",
+      access_token: "expired-access-token",
+      refresh_token: "refresh-token-1",
+      expires_at: 10.minutes.ago,
+      refresh_failed_at: 1.minute.ago,
+      refresh_failure_reason: "refresh_token_expired",
+      last_rotated_at: 1.hour.ago,
+      metadata: {}
+    )
+
+    effective_catalog = ProviderCatalog::EffectiveCatalog.new(installation: installation, env: "test")
+    result = effective_catalog.availability(provider_handle: "codex_subscription", model_ref: "gpt-5.4")
+
+    assert_equal false, result.usable?
+    assert_equal "credential_unusable", result.reason_key
+  end
+
   test "resolves role selectors with fallback semantics" do
     installation = create_installation!
     create_provider_entitlement!(
@@ -160,13 +183,24 @@ class ProviderCatalog::EffectiveCatalogTest < ActiveSupport::TestCase
   end
 
   def create_provider_credential!(installation:, provider_handle:, credential_kind:)
-    ProviderCredential.create!(
+    attributes = {
       installation: installation,
       provider_handle: provider_handle,
       credential_kind: credential_kind,
-      secret: "secret-#{provider_handle}",
       last_rotated_at: Time.current,
-      metadata: {}
-    )
+      metadata: {},
+    }
+
+    if credential_kind == "oauth_codex"
+      attributes.merge!(
+        access_token: "access-#{provider_handle}",
+        refresh_token: "refresh-#{provider_handle}",
+        expires_at: 2.hours.from_now,
+      )
+    else
+      attributes[:secret] = "secret-#{provider_handle}"
+    end
+
+    ProviderCredential.create!(attributes)
   end
 end

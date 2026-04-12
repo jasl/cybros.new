@@ -102,11 +102,19 @@ module ProviderExecution
     def credential_secret_for(provider_definition)
       return nil unless provider_definition.fetch(:requires_credential)
 
-      ProviderCredential.find_by!(
+      credential = ProviderCredential.find_by!(
         installation: @workflow_run.installation,
         provider_handle: @request_context.provider_handle,
         credential_kind: provider_definition.fetch(:credential_kind)
-      ).secret
+      )
+      return credential.secret unless credential.oauth_codex?
+
+      credential = ProviderCredentials::RefreshOAuthCredential.call(
+        installation: @workflow_run.installation,
+        provider_handle: @request_context.provider_handle,
+        credential: credential
+      )
+      credential.access_token
     end
 
     def normalize_messages(messages)

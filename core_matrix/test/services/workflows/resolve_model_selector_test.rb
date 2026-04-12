@@ -298,13 +298,24 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
   end
 
   def create_provider_credential!(installation:, provider_handle:, credential_kind:)
-    ProviderCredential.create!(
+    attributes = {
       installation: installation,
       provider_handle: provider_handle,
       credential_kind: credential_kind,
-      secret: "secret-#{provider_handle}",
       last_rotated_at: Time.current,
-      metadata: {}
-    )
+      metadata: {},
+    }
+
+    if credential_kind == "oauth_codex"
+      attributes.merge!(
+        access_token: "access-#{provider_handle}",
+        refresh_token: "refresh-#{provider_handle}",
+        expires_at: 2.hours.from_now,
+      )
+    else
+      attributes[:secret] = "secret-#{provider_handle}"
+    end
+
+    ProviderCredential.create!(attributes)
   end
 end

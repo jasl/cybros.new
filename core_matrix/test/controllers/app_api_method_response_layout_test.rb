@@ -12,7 +12,7 @@ class AppApiMethodResponseLayoutTest < ActiveSupport::TestCase
       next if allowlist.include?(path)
 
       contents = File.read(path)
-      path if contents.include?("render json: {")
+      path if contents.include?("render json:")
     end
 
     assert_equal [], offenders

@@ -246,6 +246,80 @@ class ProviderGateway::DispatchTextTest < ActiveSupport::TestCase
     )
   end
 
+  test "refreshes expired oauth codex credentials before dispatch" do
+    installation = fresh_installation!
+    ProviderEntitlement.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      entitlement_key: "shared_window",
+      window_kind: "rolling_five_hours",
+      window_seconds: 5.hours.to_i,
+      quota_limit: 200_000,
+      active: true,
+      metadata: {}
+    )
+    ProviderCredential.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex",
+      access_token: "expired-access-token",
+      refresh_token: "refresh-token-1",
+      expires_at: 5.minutes.ago,
+      last_rotated_at: 1.hour.ago,
+      metadata: {}
+    )
+
+    adapter = FlakyChatAdapter.new(
+      response_body: {
+        id: "chatcmpl-gateway-oauth-1",
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              content: "Draft release notes",
+            },
+            finish_reason: "stop",
+          },
+        ],
+        usage: {
+          prompt_tokens: 5,
+          completion_tokens: 2,
+          total_tokens: 7,
+        },
+      }
+    )
+
+    original_refresh = ProviderCredentials::RefreshOAuthCredential.method(:call)
+    ProviderCredentials::RefreshOAuthCredential.singleton_class.define_method(:call) do |**kwargs|
+      credential = kwargs.fetch(:credential)
+      credential.update!(
+        access_token: "fresh-access-token",
+        refresh_token: "refresh-token-2",
+        expires_at: 2.hours.from_now,
+        last_refreshed_at: Time.current,
+        refresh_failed_at: nil,
+        refresh_failure_reason: nil
+      )
+      credential
+    end
+
+    ProviderGateway::DispatchText.call(
+      installation: installation,
+      selector: "candidate:codex_subscription/gpt-5.4",
+      messages: [
+        { "role" => "user", "content" => "Draft release notes for the new retry flow." },
+      ],
+      max_output_tokens: 24,
+      adapter: adapter,
+      governor: FakeGovernor,
+      lease_renew_interval_seconds: 0.01
+    )
+
+    assert_equal "Bearer fresh-access-token", adapter.requests.last.dig(:headers, "Authorization")
+  ensure
+    ProviderCredentials::RefreshOAuthCredential.singleton_class.define_method(:call, original_refresh) if original_refresh
+  end
+
   private
 
   def fresh_installation!

@@ -142,8 +142,10 @@ module ProviderCatalog
       entitlement = active_entitlement(provider_key)
       return unavailable_availability(provider_handle: provider_key, model_ref: model_key, reason_key: "missing_entitlement") if entitlement.blank?
 
-      if provider_definition.fetch(:requires_credential) && matching_credential(provider_key, provider_definition.fetch(:credential_kind)).blank?
-        return unavailable_availability(provider_handle: provider_key, model_ref: model_key, reason_key: "missing_credential")
+      if provider_definition.fetch(:requires_credential)
+        credential = matching_credential(provider_key, provider_definition.fetch(:credential_kind))
+        return unavailable_availability(provider_handle: provider_key, model_ref: model_key, reason_key: "missing_credential") if credential.blank?
+        return unavailable_availability(provider_handle: provider_key, model_ref: model_key, reason_key: "credential_unusable") unless credential.usable_for_provider_requests?
       end
 
       AvailabilityResult.new(

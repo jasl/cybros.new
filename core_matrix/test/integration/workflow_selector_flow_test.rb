@@ -33,7 +33,9 @@ class WorkflowSelectorFlowTest < ActionDispatch::IntegrationTest
       installation: context[:installation],
       provider_handle: "codex_subscription",
       credential_kind: "oauth_codex",
-      secret: "secret-codex",
+      access_token: "secret-codex-access",
+      refresh_token: "secret-codex-refresh",
+      expires_at: 2.hours.from_now,
       last_rotated_at: Time.current,
       metadata: {}
     )

@@ -594,4 +594,96 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
   ensure
     adapter_class.define_method(:call, original_call)
   end
+
+  test "refreshes expired oauth codex credentials before provider execution dispatch" do
+    context = create_workspace_context!
+    ProviderEntitlement.create!(
+      installation: context[:installation],
+      provider_handle: "codex_subscription",
+      entitlement_key: "shared_window",
+      window_kind: "rolling_five_hours",
+      window_seconds: 5.hours.to_i,
+      quota_limit: 200_000,
+      active: true,
+      metadata: {}
+    )
+    ProviderCredential.create!(
+      installation: context[:installation],
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex",
+      access_token: "expired-access-token",
+      refresh_token: "refresh-token-1",
+      expires_at: 5.minutes.ago,
+      last_rotated_at: 1.hour.ago,
+      metadata: {}
+    )
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "run",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = Workflows::CreateForTurn.call(
+      turn: turn,
+      selector: "candidate:codex_subscription/gpt-5.4",
+      root_node_key: "root",
+      root_node_type: "turn_root",
+      decision_source: "system",
+      metadata: {}
+    )
+    request_context = ProviderExecution::BuildRequestContext.call(
+      turn: workflow_run.turn,
+      execution_snapshot: workflow_run.execution_snapshot
+    )
+    adapter = ProviderExecutionTestSupport::FakeResponsesAdapter.new(
+      response_body: {
+        "output" => [
+          {
+            "type" => "message",
+            "role" => "assistant",
+            "content" => [
+              { "type" => "output_text", "text" => "ok" },
+            ],
+          },
+        ],
+        "usage" => {
+          "input_tokens" => 12,
+          "output_tokens" => 8,
+          "total_tokens" => 20,
+        },
+      }
+    )
+
+    original_refresh = ProviderCredentials::RefreshOAuthCredential.method(:call)
+    ProviderCredentials::RefreshOAuthCredential.singleton_class.define_method(:call) do |**kwargs|
+      credential = kwargs.fetch(:credential)
+      credential.update!(
+        access_token: "fresh-access-token",
+        refresh_token: "refresh-token-2",
+        expires_at: 2.hours.from_now,
+        last_refreshed_at: Time.current,
+        refresh_failed_at: nil,
+        refresh_failure_reason: nil
+      )
+      credential
+    end
+
+    ProviderExecution::DispatchRequest.call(
+      workflow_run: workflow_run,
+      request_context: request_context,
+      messages: [
+        { "role" => "user", "content" => "run" },
+      ],
+      adapter: adapter,
+      provider_request_id: "provider-request-codex-oauth-1"
+    )
+
+    assert_equal "Bearer fresh-access-token", adapter.last_request.dig(:headers, "Authorization")
+  ensure
+    ProviderCredentials::RefreshOAuthCredential.singleton_class.define_method(:call, original_refresh) if original_refresh
+  end
 end
