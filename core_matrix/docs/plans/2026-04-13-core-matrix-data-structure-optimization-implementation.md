@@ -18,6 +18,7 @@
 - Modify: `test/services/app_surface/policies/workspace_access_test.rb`
 - Modify: `test/services/app_surface/policies/conversation_access_test.rb`
 - Modify: `test/requests/app_api/agents_test.rb`
+- Modify: `test/requests/app_api/agent_homes_test.rb`
 - Modify: `test/requests/app_api/workspaces_test.rb`
 - Modify: `test/requests/app_api/conversations_test.rb`
 - Create: `test/services/conversation_control/resolve_target_runtime_test.rb`
@@ -53,6 +54,7 @@ bin/rails test \
   test/services/app_surface/policies/workspace_access_test.rb \
   test/services/app_surface/policies/conversation_access_test.rb \
   test/requests/app_api/agents_test.rb \
+  test/requests/app_api/agent_homes_test.rb \
   test/requests/app_api/workspaces_test.rb \
   test/requests/app_api/conversations_test.rb \
   test/services/conversation_control/resolve_target_runtime_test.rb \
@@ -69,6 +71,7 @@ git add test/queries/workspaces/for_user_query_test.rb \
   test/services/app_surface/policies/workspace_access_test.rb \
   test/services/app_surface/policies/conversation_access_test.rb \
   test/requests/app_api/agents_test.rb \
+  test/requests/app_api/agent_homes_test.rb \
   test/requests/app_api/workspaces_test.rb \
   test/requests/app_api/conversations_test.rb \
   test/services/conversation_control/resolve_target_runtime_test.rb \

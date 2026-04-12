@@ -24,6 +24,24 @@ class ConversationSupervision::BuildActivityFeedTest < ActiveSupport::TestCase
     assert_equal ["turn_completed"], feed.map { |entry| entry.fetch("event_kind") }
   end
 
+  test "returns the newest active turn feed when multiple active turns exist" do
+    context = build_agent_control_context!
+    newer_turn = Turns::StartUserTurn.call(
+      conversation: context[:conversation],
+      content: "A newer active turn",
+      execution_runtime: context[:execution_runtime],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    create_feed_entry!(context:, turn: context[:turn], sequence: 1, event_kind: "turn_started", summary: "Older active turn.")
+    create_feed_entry!(context:, turn: newer_turn, sequence: 2, event_kind: "turn_started", summary: "Newer active turn.")
+
+    feed = ConversationSupervision::BuildActivityFeed.call(conversation: context[:conversation])
+
+    assert_equal [newer_turn.public_id], feed.map { |entry| entry.fetch("turn_id") }.uniq
+    assert_equal ["Newer active turn."], feed.map { |entry| entry.fetch("summary") }
+  end
+
   test "keeps the supervision feed surface while avoiding synthetic turn todo fallback for provider-backed work" do
     fixture = prepare_provider_backed_conversation_supervision_context!
 

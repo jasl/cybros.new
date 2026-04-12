@@ -25,7 +25,13 @@ class AppApiAgentHomesTest < ActionDispatch::IntegrationTest
     response_body = response.parsed_body
     assert_equal "agent_home_show", response_body.fetch("method_id")
     assert_equal agent.public_id, response_body.fetch("agent").fetch("agent_id")
-    assert_equal "virtual", response_body.fetch("default_workspace_ref").fetch("state")
+    default_workspace_ref = response_body.fetch("default_workspace_ref")
+    assert_equal "virtual", default_workspace_ref.fetch("state")
+    assert_equal agent.public_id, default_workspace_ref.fetch("agent_id")
+    assert_equal user.public_id, default_workspace_ref.fetch("user_id")
+    assert_equal "Default Workspace", default_workspace_ref.fetch("name")
+    assert_equal "private", default_workspace_ref.fetch("privacy")
+    assert_equal runtime.public_id, default_workspace_ref.fetch("default_execution_runtime_id")
     assert_equal [], response_body.fetch("workspaces")
     refute_includes response.body, %("#{agent.id}")
   end

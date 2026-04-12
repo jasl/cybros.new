@@ -222,4 +222,41 @@ class AppApiConversationsTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  test "rejects conversation creation when the agent is no longer accessible to the signed-in user" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    session = create_session!(user: user)
+    replacement_owner = create_user!(
+      installation: installation,
+      identity: create_identity!,
+      display_name: "Replacement Owner"
+    )
+    execution_runtime = create_execution_runtime!(installation: installation)
+    create_execution_runtime_connection!(installation: installation, execution_runtime: execution_runtime)
+    agent = create_agent!(
+      installation: installation,
+      visibility: "public",
+      default_execution_runtime: execution_runtime
+    )
+    create_agent_connection!(installation: installation, agent: agent)
+
+    agent.update!(
+      visibility: "private",
+      provisioning_origin: "user_created",
+      owner_user: replacement_owner
+    )
+
+    assert_no_difference(["Conversation.count", "Turn.count", "Message.count", "WorkflowRun.count"]) do
+      post "/app_api/conversations",
+        params: {
+          agent_id: agent.public_id,
+          content: "Start a hidden conversation",
+        },
+        headers: app_api_headers(session.plaintext_token),
+        as: :json
+    end
+
+    assert_response :not_found
+  end
 end

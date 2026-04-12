@@ -23,8 +23,14 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
     assert_equal context[:agent].public_id, response_body.fetch("agent_id")
     assert_equal [context[:workspace].public_id, secondary_workspace.public_id].sort,
       response_body.fetch("workspaces").map { |item| item.fetch("workspace_id") }.sort
-    assert_equal context[:workspace].public_id, response_body.fetch("default_workspace_ref").fetch("workspace_id")
-    assert_equal "materialized", response_body.fetch("default_workspace_ref").fetch("state")
+    default_workspace_ref = response_body.fetch("default_workspace_ref")
+    assert_equal context[:workspace].public_id, default_workspace_ref.fetch("workspace_id")
+    assert_equal "materialized", default_workspace_ref.fetch("state")
+    assert_equal context[:agent].public_id, default_workspace_ref.fetch("agent_id")
+    assert_equal context[:user].public_id, default_workspace_ref.fetch("user_id")
+    assert_equal context[:workspace].name, default_workspace_ref.fetch("name")
+    assert_equal context[:workspace].privacy, default_workspace_ref.fetch("privacy")
+    assert_equal context[:execution_runtime].public_id, default_workspace_ref.fetch("default_execution_runtime_id")
     refute_includes response.body, %("#{context[:workspace].id}")
   end
 
