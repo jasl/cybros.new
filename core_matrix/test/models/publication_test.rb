@@ -6,7 +6,7 @@ class PublicationTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     publication = Publication.create!(
       installation: context[:installation],
@@ -27,7 +27,7 @@ class PublicationTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     publication = Publication.new(
       installation: context[:installation],

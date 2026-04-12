@@ -23,7 +23,7 @@ class AgentControlPollPerfTest < ActiveSupport::TestCase
 
     ActiveSupport::Notifications.subscribed(->(*args) { poll_events << args.last }, "perf.agent_control.poll") do
       ActiveSupport::Notifications.subscribed(->(*args) { lease_events << args.last }, "perf.agent_control.mailbox_item_leased") do
-        deliveries = AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+        deliveries = AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
         assert_equal [scenario.fetch(:mailbox_item).id], deliveries.map(&:id)
       end

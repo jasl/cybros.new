@@ -1,9 +1,9 @@
 module WorkflowWaitTransitionTestSupport
   private
 
-  def report_execution_started!(agent_snapshot:, mailbox_item:, agent_task_run:, occurred_at: Time.current)
+  def report_execution_started!(agent_definition_version:, mailbox_item:, agent_task_run:, occurred_at: Time.current)
     dispatch_execution_report!(
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run,
       method_id: "execution_started",
@@ -13,9 +13,9 @@ module WorkflowWaitTransitionTestSupport
     )
   end
 
-  def report_execution_complete!(agent_snapshot:, mailbox_item:, agent_task_run:, terminal_payload:, occurred_at: Time.current)
+  def report_execution_complete!(agent_definition_version:, mailbox_item:, agent_task_run:, terminal_payload:, occurred_at: Time.current)
     dispatch_execution_report!(
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run,
       method_id: "execution_complete",
@@ -26,8 +26,8 @@ module WorkflowWaitTransitionTestSupport
   end
 
   def promote_subagent_runtime_context!(context, profile_catalog: default_profile_catalog)
-    capability_snapshot = create_capability_snapshot!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+    capability_snapshot = create_compatible_agent_definition_version!(
+      agent_definition_version: context.fetch(:agent_definition_version),
       version: 2,
       tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
       profile_catalog: profile_catalog,
@@ -36,7 +36,7 @@ module WorkflowWaitTransitionTestSupport
       default_config_snapshot: profile_aware_default_config_snapshot
     )
 
-    adopt_agent_snapshot!(context, capability_snapshot)
+    adopt_agent_definition_version!(context, capability_snapshot)
   end
 
   def human_task_wait_transition_payload(batch_id:, successor_node_key:, instructions:, node_key: "human_gate")
@@ -122,7 +122,7 @@ module WorkflowWaitTransitionTestSupport
     }
   end
 
-  def dispatch_execution_report!(agent_snapshot:, mailbox_item:, agent_task_run:, method_id:, protocol_message_id:, occurred_at:, **payload)
+  def dispatch_execution_report!(agent_definition_version:, mailbox_item:, agent_task_run:, method_id:, protocol_message_id:, occurred_at:, **payload)
     if mailbox_item.execution_runtime_plane?
       execution_runtime_connection = mailbox_item.target_execution_runtime&.active_execution_runtime_connection ||
         mailbox_item.target_execution_runtime&.execution_runtime_connections&.order(created_at: :desc)&.first
@@ -136,7 +136,7 @@ module WorkflowWaitTransitionTestSupport
       ) if method_id == "execution_started"
 
       AgentControl::Report.call(
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         execution_runtime_connection: execution_runtime_connection,
         method_id: method_id,
         protocol_message_id: protocol_message_id,
@@ -148,10 +148,10 @@ module WorkflowWaitTransitionTestSupport
         **payload
       )
     else
-      AgentControl::Poll.call(agent_snapshot: agent_snapshot, limit: 10, occurred_at: occurred_at) if method_id == "execution_started"
+      AgentControl::Poll.call(agent_definition_version: agent_definition_version, limit: 10, occurred_at: occurred_at) if method_id == "execution_started"
 
       AgentControl::Report.call(
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         method_id: method_id,
         protocol_message_id: protocol_message_id,
         mailbox_item_id: mailbox_item.public_id,

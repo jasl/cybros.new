@@ -14,7 +14,7 @@ module ApplicationCable
 
       connect params: { token: agent_connection_credential }
 
-      assert_equal context[:agent_snapshot], connection.current_agent_snapshot
+      assert_equal context[:agent_definition_version], connection.current_agent_definition_version
       assert_equal context[:execution_runtime], connection.current_execution_runtime
       assert_nil connection.current_publication
     end
@@ -28,7 +28,7 @@ module ApplicationCable
 
       connect params: { token: execution_runtime_credential }
 
-      assert_nil connection.current_agent_snapshot
+      assert_nil connection.current_agent_definition_version
       assert_equal context[:execution_runtime_connection], connection.current_execution_runtime_connection
       assert_equal context[:execution_runtime], connection.current_execution_runtime
       assert_nil connection.current_publication
@@ -39,7 +39,7 @@ module ApplicationCable
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],
         execution_runtime: context[:execution_runtime],
-        agent_snapshot: context[:agent_snapshot]
+        agent_definition_version: context[:agent_definition_version]
       )
       publication = Publications::PublishLive.call(
         conversation: conversation,
@@ -49,7 +49,7 @@ module ApplicationCable
 
       connect params: { publication_token: publication.plaintext_access_token }
 
-      assert_nil connection.current_agent_snapshot
+      assert_nil connection.current_agent_definition_version
       assert_nil connection.current_execution_runtime
       assert_equal publication, connection.current_publication
     end

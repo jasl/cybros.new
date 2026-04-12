@@ -27,7 +27,7 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       owner_conversation: root,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     snapshot = Conversations::BlockerSnapshotQuery.call(conversation: root)
@@ -80,14 +80,14 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
 
   private
 
-  def create_open_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_snapshot:)
+  def create_open_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_definition_version:)
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
       execution_runtime: execution_runtime,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       addressability: "agent_addressable"
     )
 

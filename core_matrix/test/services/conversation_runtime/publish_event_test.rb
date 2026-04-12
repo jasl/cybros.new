@@ -86,12 +86,12 @@ class ConversationRuntime::PublishEventTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context.fetch(:workspace),
       execution_runtime: context.fetch(:execution_runtime),
-      agent_snapshot: context.fetch(:agent_snapshot)
+      agent_definition_version: context.fetch(:agent_definition_version)
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Runtime event input",
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

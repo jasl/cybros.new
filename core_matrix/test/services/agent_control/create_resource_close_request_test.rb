@@ -23,7 +23,7 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
     assert_equal "resource_close_request", mailbox_item.item_type
     assert mailbox_item.execution_runtime_plane?
     assert_equal context[:execution_runtime], mailbox_item.target_execution_runtime
-    assert_nil mailbox_item.target_agent_snapshot
+    assert_nil mailbox_item.target_agent_definition_version
     refute_respond_to mailbox_item, :target_ref
     assert_equal mailbox_item.public_id, mailbox_item.payload["close_request_id"]
     assert_equal "ProcessRun", mailbox_item.payload["resource_type"]
@@ -53,7 +53,7 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
     assert_includes error.message, "unsupported close resource Conversation"
   end
 
-  test "materializes the active agent_snapshot for agent-plane close requests without a direct lease holder" do
+  test "materializes the active agent definition for agent-plane close requests without a direct lease holder" do
     context = build_agent_control_context!
     child_conversation = create_conversation_record!(
       installation: context[:installation],
@@ -83,7 +83,7 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
     )
 
     assert_equal "agent", mailbox_item.control_plane
-    assert_equal context[:agent_snapshot], mailbox_item.target_agent_snapshot
+    assert_equal context[:agent_definition_version], mailbox_item.target_agent_definition_version
     assert_equal context[:agent], mailbox_item.target_agent
   end
 end

@@ -7,7 +7,7 @@ class ExecutionLeaseTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )

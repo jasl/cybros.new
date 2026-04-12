@@ -22,8 +22,9 @@ module Workflows
       execution_contract = ExecutionContract.find_or_initialize_by(turn: @turn)
 
       execution_contract.installation = @turn.installation
-      execution_contract.agent_snapshot = @turn.agent_snapshot
+      execution_contract.agent_definition_version = @turn.agent_definition_version
       execution_contract.execution_runtime = @turn.execution_runtime
+      execution_contract.execution_runtime_version = @turn.execution_runtime_version
       execution_contract.selected_input_message = @turn.selected_input_message
       execution_contract.selected_output_message = @turn.selected_output_message
       execution_contract.execution_capability_snapshot = capability_snapshot
@@ -51,7 +52,7 @@ module Workflows
 
       snapshot_payload = {
         "tool_surface_sha" => tool_surface_document.content_sha256,
-        "agent_snapshot_fingerprint" => @turn.agent_snapshot.fingerprint,
+        "agent_definition_fingerprint" => @turn.agent_definition_version.fingerprint,
         "profile_key" => current_profile_key,
         "subagent" => subagent_connection.present?,
         "subagent_connection_id" => subagent_connection&.public_id,
@@ -67,7 +68,7 @@ module Workflows
         fingerprint: fingerprint
       ) do |snapshot|
         snapshot.tool_surface_document = tool_surface_document
-        snapshot.agent_snapshot_fingerprint = @turn.agent_snapshot.fingerprint
+        snapshot.agent_definition_version = @turn.agent_definition_version
         snapshot.profile_key = current_profile_key
         snapshot.subagent = subagent_connection.present?
         snapshot.subagent_connection = subagent_connection

@@ -3,8 +3,7 @@ module Installations
     Result = Struct.new(
       :agent,
       :execution_runtime,
-      :agent_snapshot,
-      :capability_snapshot,
+      :agent_definition_version,
       :agent_connection,
       :execution_runtime_connection,
       :binding,
@@ -37,8 +36,7 @@ module Installations
       Result.new(
         agent: registry.agent,
         execution_runtime: registry.execution_runtime,
-        agent_snapshot: registry.agent_snapshot,
-        capability_snapshot: registry.capability_snapshot,
+        agent_definition_version: registry.agent_definition_version,
         agent_connection: registry.agent_connection,
         execution_runtime_connection: registry.execution_runtime_connection,
         binding: binding_result.binding,

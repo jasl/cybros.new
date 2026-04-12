@@ -48,7 +48,7 @@ class AgentControlPollTest < ActiveSupport::TestCase
     )
     close_request = scenario_builder.close_request!(context: context, resource: process_run).fetch(:mailbox_item)
 
-    deliveries = AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    deliveries = AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     assert_equal [request.id], deliveries.map(&:id)
     assert_nil close_request.reload.leased_to_agent_connection
@@ -72,7 +72,7 @@ class AgentControlPollTest < ActiveSupport::TestCase
       }
     )
 
-    deliveries = AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    deliveries = AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     assert_empty deliveries
     assert_nil mailbox_item.reload.leased_to_agent_connection
@@ -109,7 +109,7 @@ class AgentControlPollTest < ActiveSupport::TestCase
             "logical_work_id" => "prepare-round-#{index}",
             "attempt_no" => 1,
             "control_plane" => "agent",
-            "agent_snapshot_id" => context[:agent_snapshot].public_id,
+            "agent_definition_version_id" => context[:agent_definition_version].public_id,
           },
         }
       )
@@ -117,7 +117,7 @@ class AgentControlPollTest < ActiveSupport::TestCase
 
     queries = capture_sql_queries do
       AgentControl::Poll.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         agent_connection: context[:agent_connection],
         limit: 10
       )
@@ -151,7 +151,7 @@ class AgentControlPollTest < ActiveSupport::TestCase
     end
 
     deliveries = AgentControl::Poll.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       agent_connection: context[:agent_connection],
       limit: 10
     )

@@ -91,14 +91,14 @@ class Conversations::ProgressCloseRequestsTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       owner_conversation: context[:conversation],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     subagent_connection_b = create_open_owned_subagent_connection!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: context[:conversation],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     [process_run_a, process_run_b, task_run_a, task_run_b, subagent_connection_a, subagent_connection_b].each do |resource|
@@ -124,14 +124,14 @@ class Conversations::ProgressCloseRequestsTest < ActiveSupport::TestCase
 
   private
 
-  def create_open_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_snapshot:)
+  def create_open_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_definition_version:)
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
       execution_runtime: execution_runtime,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       addressability: "agent_addressable"
     )
 

@@ -6,7 +6,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     archived = Conversations::Archive.call(conversation: root)
@@ -23,12 +23,12 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     Turns::StartUserTurn.call(
       conversation: root,
       content: "Still running",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -46,14 +46,14 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     open_session = create_open_owned_subagent_connection!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: root,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       observed_status: "idle"
     ).fetch(:session)
 
@@ -90,7 +90,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     root.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
@@ -106,7 +106,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     root.update!(lifecycle_state: "archived")
 
@@ -122,7 +122,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     root.update!(lifecycle_state: "archived")
 
@@ -149,7 +149,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     )
     Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     background_service = create_process_run!(
@@ -163,12 +163,12 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       owner_conversation: context[:conversation],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     [background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: context[:agent_snapshot].public_id,
+        holder_key: context[:agent_definition_version].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -207,7 +207,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
 
     assert_includes send_error.record.errors[:base], "must not accept subagent delivery while session close is in progress"
 
-    close_requests = AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    close_requests = AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
     task_close = close_requests.find { |item| item.payload["resource_id"] == agent_task_run.public_id }
     subagent_close = close_requests.find { |item| item.payload["resource_id"] == child_session.fetch(:session).public_id }
 
@@ -219,7 +219,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
       [subagent_close, "SubagentConnection", child_session.fetch(:session).public_id],
     ].each do |mailbox_item, resource_type, resource_id|
       result = AgentControl::Report.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         payload: {
           method_id: "resource_closed",
           protocol_message_id: "#{resource_type.underscore}-close-#{next_test_sequence}",
@@ -245,7 +245,7 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     archived = Conversations::Archive.call(
@@ -267,8 +267,8 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
 
   def build_profile_aware_agent_control_context!
     context = build_agent_control_context!
-    capability_snapshot = create_capability_snapshot!(
-      agent_snapshot: context[:agent_snapshot],
+    capability_snapshot = create_compatible_agent_definition_version!(
+      agent_definition_version: context[:agent_definition_version],
       version: 2,
       tool_catalog: default_tool_catalog("exec_command"),
       profile_catalog: default_profile_catalog,
@@ -276,18 +276,18 @@ class Conversations::ArchiveTest < ActiveSupport::TestCase
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
       default_config_snapshot: profile_aware_default_config_snapshot
     )
-    adopt_agent_snapshot!(context, capability_snapshot, turn: context[:turn])
+    adopt_agent_definition_version!(context, capability_snapshot, turn: context[:turn])
     context
   end
 
-  def create_open_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_snapshot:, observed_status: "running")
+  def create_open_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_definition_version:, observed_status: "running")
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
       execution_runtime: execution_runtime,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       addressability: "agent_addressable"
     )
     session = SubagentConnection.create!(

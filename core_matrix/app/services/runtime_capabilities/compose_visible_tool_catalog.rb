@@ -3,9 +3,9 @@ module RuntimeCapabilities
     SUBAGENT_TOOL_NAMES = RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES
     DEFAULT_SUBAGENT_PROFILE_ALIAS = RuntimeCapabilityContract::DEFAULT_SUBAGENT_PROFILE_ALIAS
 
-    def initialize(conversation:, agent_snapshot:, execution_runtime:)
+    def initialize(conversation:, agent_definition_version: nil, execution_runtime:)
       @conversation = conversation
-      @agent_snapshot = agent_snapshot
+      @agent_definition_version = agent_definition_version
       @execution_runtime = execution_runtime
     end
 
@@ -18,7 +18,7 @@ module RuntimeCapabilities
     def contract
       @contract ||= RuntimeCapabilityContract.build(
         execution_runtime: @execution_runtime,
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
       )
     end

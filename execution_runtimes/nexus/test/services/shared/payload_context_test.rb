@@ -30,7 +30,7 @@ class Shared::PayloadContextTest < ActiveSupport::TestCase
           },
           "provider_context" => {},
           "runtime_context" => {
-            "agent_version_id" => "agent-snapshot-1",
+            "agent_version_id" => "agent-definition-version-1",
           },
           "workspace_context" => {
             "workspace_root" => workspace_root,

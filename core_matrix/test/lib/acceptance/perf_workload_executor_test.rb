@@ -5,7 +5,7 @@ require Rails.root.join("../acceptance/lib/perf/workload_executor")
 
 class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
   AgentDouble = Struct.new(:public_id)
-  AgentSnapshotDouble = Struct.new(:agent)
+  AgentDefinitionVersionDouble = Struct.new(:agent)
   ConversationDouble = Struct.new(:public_id)
   RuntimeRegistrationDouble = Struct.new(:agent_connection_credential, keyword_init: true)
 
@@ -159,7 +159,7 @@ class Acceptance::PerfWorkloadExecutorTest < ActiveSupport::TestCase
       event_output_path: "/tmp/#{slot_label}.ndjson",
       runtime_registration: RuntimeRegistrationDouble.new(agent_connection_credential: "machine-#{slot_label}"),
       runtime_task_env: {},
-      agent_snapshot: AgentSnapshotDouble.new(AgentDouble.new(agent_public_id)),
+      agent_definition_version: AgentDefinitionVersionDouble.new(AgentDouble.new(agent_public_id)),
       agent_connection_credential: "machine-#{slot_label}",
       execution_runtime_connection_credential: "executor-#{slot_label}",
       execution_runtime: "runtime-#{slot_label}"

@@ -5,7 +5,7 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     agent = create_agent!(installation: installation)
-    enrollment = AgentEnrollments::Issue.call(
+    pairing_session = PairingSessions::Issue.call(
       agent: agent,
       actor: actor,
       expires_at: 2.hours.from_now
@@ -13,28 +13,35 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
 
     post "/execution_runtime_api/registrations",
       params: {
-        enrollment_token: enrollment.plaintext_token,
-        execution_runtime_fingerprint: "fenix-host-a",
-        execution_runtime_kind: "local",
-        execution_runtime_connection_metadata: {
+        pairing_token: pairing_session.plaintext_token,
+        endpoint_metadata: {
           transport: "http",
           base_url: "https://fenix.example.test",
         },
-        execution_runtime_capability_payload: {
-          attachment_access: { request_attachment: true },
-        },
-        execution_runtime_tool_catalog: [
-          {
-            tool_name: "exec_command",
-            tool_kind: "execution_runtime",
-            implementation_source: "execution_runtime",
-            implementation_ref: "env/exec_command",
-            input_schema: { type: "object", properties: {} },
-            result_schema: { type: "object", properties: {} },
-            streaming_support: false,
-            idempotency_policy: "best_effort",
+        version_package: {
+          execution_runtime_fingerprint: "fenix-host-a",
+          kind: "local",
+          protocol_version: "agent-runtime/2026-04-01",
+          sdk_version: "nexus-0.1.0",
+          capability_payload: {
+            attachment_access: { request_attachment: true },
           },
-        ],
+          tool_catalog: [
+            {
+              tool_name: "exec_command",
+              tool_kind: "execution_runtime",
+              implementation_source: "execution_runtime",
+              implementation_ref: "env/exec_command",
+              input_schema: { type: "object", properties: {} },
+              result_schema: { type: "object", properties: {} },
+              streaming_support: false,
+              idempotency_policy: "best_effort",
+            },
+          ],
+          reflected_host_metadata: {
+            display_name: "Nexus",
+          },
+        },
       },
       as: :json
 
@@ -43,20 +50,27 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
 
     post "/agent_api/registrations",
       params: {
-        enrollment_token: enrollment.plaintext_token,
-        fingerprint: "fenix-release-0.1.0",
+        pairing_token: pairing_session.plaintext_token,
         endpoint_metadata: {
           transport: "http",
           base_url: "https://agents.example.test",
         },
-        protocol_version: "2026-03-24",
-        sdk_version: "fenix-0.1.0",
-        protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
-        profile_catalog: default_profile_catalog,
-        tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
-        config_schema_snapshot: profile_aware_config_schema_snapshot,
-        conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-        default_config_snapshot: profile_aware_default_config_snapshot,
+        definition_package: {
+          program_manifest_fingerprint: "fenix-release-0.1.0",
+          prompt_pack_ref: "fenix/default",
+          prompt_pack_fingerprint: "prompt-pack-a",
+          protocol_version: "2026-03-24",
+          sdk_version: "fenix-0.1.0",
+          protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
+          profile_policy: default_profile_catalog,
+          tool_contract: default_tool_catalog("exec_command", "subagent_spawn"),
+          canonical_config_schema: profile_aware_config_schema_snapshot,
+          conversation_override_schema: subagent_policy_override_schema_snapshot,
+          default_canonical_config: profile_aware_default_config_snapshot,
+          reflected_surface: {
+            display_name: "Fenix",
+          },
+        },
       },
       as: :json
 
@@ -71,7 +85,7 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     assert_equal agent.public_id, registration_body["agent_id"]
     assert_equal "fenix-host-a", runtime_registration_body["execution_runtime_fingerprint"]
     assert_equal "fenix-host-a", registration_body["execution_runtime_fingerprint"]
-    assert_equal AgentSnapshot.find_by_public_id!(registration_body.fetch("agent_snapshot_id")).public_id, registration_body["agent_snapshot_id"]
+    assert_equal AgentDefinitionVersion.find_by_public_id!(registration_body.fetch("agent_definition_version_id")).public_id, registration_body["agent_definition_version_id"]
     assert_equal registration_body["execution_runtime_id"], capability_body["execution_runtime_id"]
     assert_equal default_profile_catalog, registration_body.dig("agent_plane", "profile_catalog")
     assert_equal default_profile_catalog, capability_body.fetch("profile_catalog")

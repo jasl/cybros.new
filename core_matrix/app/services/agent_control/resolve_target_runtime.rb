@@ -8,17 +8,17 @@ module AgentControl
         @agent_connection = agent_connection
         @execution_runtime_connection = execution_runtime_connection
         @agent_connections_by_agent_id = {}
-        @agent_connections_by_agent_snapshot_id = {}
+        @agent_connections_by_agent_definition_version_id = {}
         @execution_runtime_connections_by_runtime_id = {}
       end
 
       def agent_delivery_endpoint_for(mailbox_item)
-        if mailbox_item.target_agent_snapshot_id.present?
-          agent_snapshot_id = mailbox_item.target_agent_snapshot_id
-          return @agent_connection if @agent_connection&.agent_snapshot_id == agent_snapshot_id
+        if mailbox_item.target_agent_definition_version_id.present?
+          agent_definition_version_id = mailbox_item.target_agent_definition_version_id
+          return @agent_connection if @agent_connection&.agent_definition_version_id == agent_definition_version_id
 
-          @agent_connections_by_agent_snapshot_id[agent_snapshot_id] ||= AgentConnection.find_by(
-            agent_snapshot_id: agent_snapshot_id,
+          @agent_connections_by_agent_definition_version_id[agent_definition_version_id] ||= AgentConnection.find_by(
+            agent_definition_version_id: agent_definition_version_id,
             lifecycle_state: "active"
           )
         else
@@ -49,23 +49,23 @@ module AgentControl
       :delivery_endpoint,
       keyword_init: true
     ) do
-      def matches?(agent_snapshot)
-        return false if agent_snapshot.blank? || delivery_endpoint.blank?
+      def matches?(agent_definition_version)
+        return false if agent_definition_version.blank? || delivery_endpoint.blank?
 
         case delivery_endpoint
         when AgentConnection
-          case agent_snapshot
+          case agent_definition_version
           when AgentConnection
-            delivery_endpoint.id == agent_snapshot.id
-          when AgentSnapshot
-            delivery_endpoint.agent_snapshot_id == agent_snapshot.id
+            delivery_endpoint.id == agent_definition_version.id
+          when AgentDefinitionVersion
+            delivery_endpoint.agent_definition_version_id == agent_definition_version.id
           else
             false
           end
         when ExecutionRuntimeConnection
-          case agent_snapshot
+          case agent_definition_version
           when ExecutionRuntimeConnection
-            delivery_endpoint.id == agent_snapshot.id
+            delivery_endpoint.id == agent_definition_version.id
           else
             false
           end
@@ -79,18 +79,18 @@ module AgentControl
       new(...).call
     end
 
-    def self.candidate_scope_for(agent_snapshot:, relation: AgentControlMailboxItem.all)
+    def self.candidate_scope_for(agent_definition_version:, relation: AgentControlMailboxItem.all)
       relation.where(
         <<~SQL.squish,
-          target_agent_snapshot_id = :agent_snapshot_id
+          target_agent_definition_version_id = :agent_definition_version_id
           OR (
             control_plane = :agent_plane
             AND target_agent_id = :agent_id
           )
         SQL
-        agent_snapshot_id: agent_snapshot.id,
+        agent_definition_version_id: agent_definition_version.id,
         agent_plane: AGENT_PLANE,
-        agent_id: agent_snapshot.agent_id
+        agent_id: agent_definition_version.agent_id
       )
     end
 
@@ -137,8 +137,8 @@ module AgentControl
     def resolve_agent_delivery_endpoint
       return @session_cache.agent_delivery_endpoint_for(@mailbox_item) if @session_cache.present?
 
-      if @mailbox_item.target_agent_snapshot?
-        AgentConnection.find_by(agent_snapshot: @mailbox_item.target_agent_snapshot, lifecycle_state: "active")
+      if @mailbox_item.target_agent_definition_version?
+        AgentConnection.find_by(agent_definition_version: @mailbox_item.target_agent_definition_version, lifecycle_state: "active")
       else
         AgentConnection.find_by(agent: @mailbox_item.target_agent, lifecycle_state: "active")
       end

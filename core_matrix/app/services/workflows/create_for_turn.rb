@@ -65,7 +65,7 @@ module Workflows
 
       agent_task_run = AgentTaskRun.create!(
         installation: @turn.installation,
-        agent: @turn.agent_snapshot.agent,
+        agent: @turn.agent_definition_version.agent,
         workflow_run: workflow_run,
         workflow_node: workflow_node,
         conversation: @turn.conversation,

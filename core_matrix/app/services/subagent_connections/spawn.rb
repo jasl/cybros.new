@@ -142,10 +142,14 @@ module SubagentConnections
 
     def runtime_contract(conversation:)
       @runtime_contract ||= RuntimeCapabilityContract.build(
-        execution_runtime: Turns::SelectExecutionRuntime.call(conversation: conversation),
-        agent_snapshot: Turns::FreezeAgentSnapshot.call(conversation: conversation),
+        execution_runtime: execution_identity(conversation: conversation).execution_runtime,
+        agent_definition_version: execution_identity(conversation: conversation).agent_definition_version,
         core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
       )
+    end
+
+    def execution_identity(conversation:)
+      @execution_identity ||= Turns::FreezeExecutionIdentity.call(conversation: conversation)
     end
 
     def scope_turn?

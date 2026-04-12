@@ -4,9 +4,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(conversation_control_request:, agent_snapshot:, request_kind:, payload:, dispatch_deadline_at:, execution_hard_deadline_at: nil)
+    def initialize(conversation_control_request:, agent_definition_version:, request_kind:, payload:, dispatch_deadline_at:, execution_hard_deadline_at: nil)
       @conversation_control_request = conversation_control_request
-      @agent_snapshot = agent_snapshot
+      @agent_definition_version = agent_definition_version
       @request_kind = request_kind.to_s
       @payload = payload.deep_stringify_keys
       @dispatch_deadline_at = dispatch_deadline_at
@@ -15,7 +15,7 @@ module AgentControl
 
     def call
       mailbox_item = AgentControl::CreateAgentRequest.call(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         request_kind: @request_kind,
         payload: @payload.merge(
           "conversation_control" => conversation_control_payload,
@@ -34,7 +34,7 @@ module AgentControl
           "mailbox_item_id" => mailbox_item.public_id,
           "mailbox_request_kind" => mailbox_item.payload.fetch("request_kind"),
           "mailbox_status" => mailbox_item.status,
-          "target_agent_snapshot_id" => mailbox_item.target_agent_snapshot&.public_id
+          "target_agent_definition_version_id" => mailbox_item.target_agent_definition_version&.public_id
         ).compact
       )
 
@@ -55,7 +55,7 @@ module AgentControl
 
     def runtime_context_payload
       {
-        "agent_id" => @agent_snapshot.agent.public_id,
+        "agent_id" => @agent_definition_version.agent.public_id,
         "user_id" => @conversation_control_request.target_conversation.workspace.user.public_id,
       }.compact
     end

@@ -68,11 +68,11 @@ module ConversationControl
       when "resume_waiting_workflow"
         workflow_run = resolved_target.workflow_run
         return reject!("workflow is not paused for manual recovery") unless workflow_run&.paused_agent_unavailable?
-        return reject!("conversation has no active agent runtime for control dispatch") if resolved_target.agent_snapshot.blank?
+        return reject!("conversation has no active agent runtime for control dispatch") if resolved_target.agent_definition_version.blank?
 
         Workflows::ManualResume.call(
           workflow_run: workflow_run,
-          agent_snapshot: resolved_target.agent_snapshot,
+          agent_definition_version: resolved_target.agent_definition_version,
           actor: request_actor,
           conversation_control_request: @conversation_control_request
         )
@@ -108,11 +108,11 @@ module ConversationControl
     end
 
     def dispatch_mailbox_request!(mailbox_request_kind:, payload:)
-      return reject!("conversation has no active agent runtime for control dispatch") if resolved_target.agent_snapshot.blank?
+      return reject!("conversation has no active agent runtime for control dispatch") if resolved_target.agent_definition_version.blank?
 
       AgentControl::CreateConversationControlRequest.call(
         conversation_control_request: @conversation_control_request,
-        agent_snapshot: resolved_target.agent_snapshot,
+        agent_definition_version: resolved_target.agent_definition_version,
         request_kind: mailbox_request_kind,
         payload: payload,
         dispatch_deadline_at: @occurred_at + 5.minutes

@@ -5,8 +5,7 @@ class ProcessRunTest < ActiveSupport::TestCase
     process_context = build_process_context!
     other_runtime = create_execution_runtime!(
       installation: process_context[:installation],
-      execution_runtime_fingerprint: "other-host",
-      capability_payload: {}
+      display_name: "Other Runtime"
     )
 
     process_run = ProcessRun.new(
@@ -42,8 +41,17 @@ class ProcessRunTest < ActiveSupport::TestCase
       user: user,
       user_agent_binding: user_agent_binding
     )
-    agent_snapshot = create_agent_snapshot!(installation: installation, agent: agent)
+    agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
     execution_runtime = create_execution_runtime!(installation: installation)
+    execution_runtime_version = create_execution_runtime_version!(
+      installation: installation,
+      execution_runtime: execution_runtime
+    )
+    create_execution_runtime_connection!(
+      installation: installation,
+      execution_runtime: execution_runtime,
+      execution_runtime_version: execution_runtime_version
+    )
     conversation = Conversation.create!(
       installation: installation,
       workspace: workspace,
@@ -52,16 +60,23 @@ class ProcessRunTest < ActiveSupport::TestCase
       purpose: "interactive",
       lifecycle_state: "active"
     )
+    agent_config_state = AgentConfigStates::Reconcile.call(
+      agent: agent,
+      agent_definition_version: agent_definition_version
+    )
     turn = Turn.create!(
       installation: installation,
       conversation: conversation,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       execution_runtime: execution_runtime,
+      execution_runtime_version: execution_runtime_version,
       sequence: 1,
       lifecycle_state: "active",
       origin_kind: "manual_user",
       origin_payload: {},
-      pinned_agent_snapshot_fingerprint: agent_snapshot.fingerprint,
+      pinned_agent_definition_fingerprint: agent_definition_version.definition_fingerprint,
+      agent_config_version: agent_config_state.version,
+      agent_config_content_fingerprint: agent_config_state.content_fingerprint,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}

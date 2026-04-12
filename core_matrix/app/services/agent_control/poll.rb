@@ -6,8 +6,8 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_snapshot: nil, agent_connection: nil, execution_runtime_connection: nil, limit: DEFAULT_LIMIT, occurred_at: Time.current)
-      @agent_snapshot = agent_snapshot
+    def initialize(agent_definition_version: nil, agent_connection: nil, execution_runtime_connection: nil, limit: DEFAULT_LIMIT, occurred_at: Time.current)
+      @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @execution_runtime_connection = execution_runtime_connection
       @limit = [limit.to_i, 1].max
@@ -34,7 +34,7 @@ module AgentControl
 
           leased_item = LeaseMailboxItem.call(
             mailbox_item: mailbox_item,
-            agent_snapshot: lease_owner,
+            agent_definition_version: lease_owner,
             resolved_delivery_endpoint: resolved_delivery_endpoint_for(mailbox_item),
             occurred_at: @occurred_at
           )
@@ -56,7 +56,7 @@ module AgentControl
       return if @execution_runtime_connection.present?
 
       TouchAgentConnectionActivity.call(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         agent_connection: @agent_connection,
         occurred_at: @occurred_at
       )
@@ -102,14 +102,14 @@ module AgentControl
           control_plane: "agent"
         ).where(
           <<~SQL.squish,
-            target_agent_snapshot_id = :agent_snapshot_id
+            target_agent_definition_version_id = :agent_definition_version_id
             OR (
-              target_agent_snapshot_id IS NULL
+              target_agent_definition_version_id IS NULL
               AND target_agent_id = :agent_id
             )
           SQL
-          agent_snapshot_id: @agent_snapshot.id,
-          agent_id: @agent_snapshot.agent_id
+          agent_definition_version_id: @agent_definition_version.id,
+          agent_id: @agent_definition_version.agent_id
         )
       end
     end
@@ -122,10 +122,10 @@ module AgentControl
         return true
       end
 
-      mailbox_item.target_agent_snapshot_id == @agent_snapshot.id ||
+      mailbox_item.target_agent_definition_version_id == @agent_definition_version.id ||
         (
-          mailbox_item.target_agent_snapshot_id.blank? &&
-          mailbox_item.target_agent_id == @agent_snapshot.agent_id
+          mailbox_item.target_agent_definition_version_id.blank? &&
+          mailbox_item.target_agent_id == @agent_definition_version.agent_id
         )
     end
 
@@ -143,20 +143,20 @@ module AgentControl
 
     def resolved_delivery_endpoint_for(mailbox_item)
       return @execution_runtime_connection if execution_poll?
-      return @agent_connection if @agent_connection&.agent_snapshot_id == mailbox_item.target_agent_snapshot_id
+      return @agent_connection if @agent_connection&.agent_definition_version_id == mailbox_item.target_agent_definition_version_id
 
-      target_agent_snapshot = mailbox_item.target_agent_snapshot
-      return target_agent_snapshot.active_agent_connection || target_agent_snapshot.most_recent_agent_connection if target_agent_snapshot.present?
+      target_agent_definition_version = mailbox_item.target_agent_definition_version
+      return target_agent_definition_version.active_agent_connection || target_agent_definition_version.most_recent_agent_connection if target_agent_definition_version.present?
 
-      @agent_connection || @agent_snapshot&.active_agent_connection || @agent_snapshot&.most_recent_agent_connection
+      @agent_connection || @agent_definition_version&.active_agent_connection || @agent_definition_version&.most_recent_agent_connection
     end
 
     def lease_owner
-      execution_poll? ? @execution_runtime_connection : @agent_snapshot
+      execution_poll? ? @execution_runtime_connection : @agent_definition_version
     end
 
     def installation_id
-      execution_poll? ? @execution_runtime_connection.execution_runtime.installation_id : @agent_snapshot.installation_id
+      execution_poll? ? @execution_runtime_connection.execution_runtime.installation_id : @agent_definition_version.installation_id
     end
 
     def poll_event_payload
@@ -169,7 +169,7 @@ module AgentControl
       if execution_poll?
         payload["execution_runtime_connection_public_id"] = @execution_runtime_connection.public_id
       else
-        payload["agent_public_id"] = @agent_snapshot.agent.public_id
+        payload["agent_public_id"] = @agent_definition_version.agent.public_id
         payload["agent_connection_public_id"] = resolved_agent_connection&.public_id
       end
 
@@ -188,13 +188,13 @@ module AgentControl
     def agent_public_id
       return nil if execution_poll?
 
-      @agent_public_id ||= @agent_snapshot.agent.public_id
+      @agent_public_id ||= @agent_definition_version.agent.public_id
     end
 
     def resolved_agent_connection
       return @resolved_agent_connection if defined?(@resolved_agent_connection)
 
-      @resolved_agent_connection = @agent_connection || @agent_snapshot&.active_agent_connection || @agent_snapshot&.most_recent_agent_connection
+      @resolved_agent_connection = @agent_connection || @agent_definition_version&.active_agent_connection || @agent_definition_version&.most_recent_agent_connection
     end
   end
 end

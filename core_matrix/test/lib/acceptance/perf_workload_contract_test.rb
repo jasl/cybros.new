@@ -119,8 +119,8 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
       core_matrix_events_path: "/tmp/core-matrix.ndjson",
       agent_registrations: [],
       runtime_registrations: [
-        perf_registration("fenix-01", "agent_snapshot-1", "/tmp/fenix-01.ndjson"),
-        perf_registration("fenix-02", "agent_snapshot-2", "/tmp/fenix-02.ndjson"),
+        perf_registration("fenix-01", "agent-definition-version-1", "/tmp/fenix-01.ndjson"),
+        perf_registration("fenix-02", "agent-definition-version-2", "/tmp/fenix-02.ndjson"),
       ]
     )
     created_conversations = []
@@ -129,20 +129,23 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     Acceptance::Perf::WorkloadDriver.call(
       manifest: manifest,
       registration_matrix: registration_matrix,
-          create_conversation: lambda do |agent_snapshot:|
-            conversation = { "public_id" => "conversation-#{created_conversations.length + 1}", "agent_snapshot" => agent_snapshot }
-            created_conversations << conversation
-            { "conversation" => conversation }
-          end,
-          execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
-            execution_calls << {
-              conversation_id: conversation.fetch("public_id"),
-              slot_label: registration.slot_label,
-              task_content: task.fetch("content"),
-              slot_index: slot_index,
-            }
-            {
-              "status" => "completed",
+      create_conversation: lambda do |agent_definition_version:|
+        conversation = {
+          "public_id" => "conversation-#{created_conversations.length + 1}",
+          "agent_definition_version" => agent_definition_version
+        }
+        created_conversations << conversation
+        { "conversation" => conversation }
+      end,
+      execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
+        execution_calls << {
+          conversation_id: conversation.fetch("public_id"),
+          slot_label: registration.slot_label,
+          task_content: task.fetch("content"),
+          slot_index: slot_index,
+        }
+        {
+          "status" => "completed",
           "conversation_public_id" => conversation.fetch("public_id"),
         }
       end
@@ -169,7 +172,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
         { "content" => "task-b", "workload_kind" => "execution_assignment" },
       ]
     )
-    registration = perf_registration("fenix-01", "agent_snapshot-1", "/tmp/fenix-01.ndjson")
+    registration = perf_registration("fenix-01", "agent-definition-version-1", "/tmp/fenix-01.ndjson")
     connection_calls = 0
     clear_calls = 0
     driver = Acceptance::Perf::WorkloadDriver.new(
@@ -181,8 +184,8 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
         agent_registrations: [],
         runtime_registrations: [registration]
       ),
-      create_conversation: lambda do |agent_snapshot:|
-        { "conversation" => { "public_id" => "conversation-1", "agent_snapshot" => agent_snapshot } }
+      create_conversation: lambda do |agent_definition_version:|
+        { "conversation" => { "public_id" => "conversation-1", "agent_definition_version" => agent_definition_version } }
       end,
       execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
         { "status" => "completed", "conversation_public_id" => conversation.fetch("public_id") }
@@ -219,7 +222,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
 
   private
 
-  def perf_registration(slot_label, agent_snapshot, event_output_path)
+  def perf_registration(slot_label, agent_definition_version, event_output_path)
     Acceptance::Perf::RuntimeRegistrationMatrix::Registration.new(
       slot_label: slot_label,
       agent_label: "fenix-01",
@@ -227,7 +230,7 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
       event_output_path: event_output_path,
       runtime_registration: RuntimeRegistrationDouble.new(agent_connection_credential: "machine-#{slot_label}"),
       runtime_task_env: {},
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       agent_connection_credential: "machine-#{slot_label}",
       execution_runtime_connection_credential: "executor-#{slot_label}",
       execution_runtime: "runtime-#{slot_label}"

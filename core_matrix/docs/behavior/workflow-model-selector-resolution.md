@@ -111,11 +111,11 @@ error instead of silently trying unrelated models.
   - `resolved_model_ref`
   - `resolution_reason`
   - `fallback_count`
-  - `agent_snapshot_id`
+  - `agent_definition_version_id`
   - `entitlement_key` when one active entitlement was used
-- Resolution requires a frozen `agent_snapshot_id` and pinned agent snapshot
-  fingerprint so the workflow turn cannot proceed without a stable capability
-  surface reference.
+- Resolution requires a frozen `agent_definition_version_id` and pinned agent
+  definition fingerprint so the workflow turn cannot proceed without a stable
+  capability surface reference.
 
 ## Turn And Workflow Helpers
 
@@ -130,7 +130,7 @@ error instead of silently trying unrelated models.
 
 ## Failure Modes
 
-- missing frozen agent agent snapshot rejects resolution
+- missing frozen agent definition version rejects resolution
 - unknown model roles reject resolution
 - empty or exhausted role candidate lists reject resolution
 - explicit candidates fail immediately on availability rejection or reservation

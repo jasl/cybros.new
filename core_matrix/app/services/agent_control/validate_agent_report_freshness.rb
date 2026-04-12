@@ -6,8 +6,8 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_snapshot:, method_id:, payload:, mailbox_item:, occurred_at: Time.current)
-      @agent_snapshot = agent_snapshot
+    def initialize(agent_definition_version:, method_id:, payload:, mailbox_item:, occurred_at: Time.current)
+      @agent_definition_version = agent_definition_version
       @method_id = method_id
       @payload = payload
       @mailbox_item = mailbox_item
@@ -18,7 +18,7 @@ module AgentControl
       raise ArgumentError, "unsupported agent freshness check #{@method_id}" unless TERMINAL_METHODS.include?(@method_id)
 
       stale! unless @mailbox_item.agent_request?
-      stale! unless @mailbox_item.leased_to?(@agent_snapshot)
+      stale! unless @mailbox_item.leased_to?(@agent_definition_version)
       stale! if @mailbox_item.lease_stale?(at: @occurred_at)
       stale! unless @mailbox_item.logical_work_id == @payload["logical_work_id"]
       stale! unless @mailbox_item.attempt_no == @payload["attempt_no"].to_i

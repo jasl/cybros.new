@@ -14,14 +14,14 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     )
     foreign_installation.save!(validate: false)
     foreign_agent = create_agent!(installation: foreign_installation)
-    foreign_agent_snapshot = create_agent_snapshot!(
+    foreign_agent_definition_version = create_agent_definition_version!(
       installation: foreign_installation,
       agent: foreign_agent
     )
     foreign_agent_connection = create_agent_connection!(
       installation: foreign_installation,
       agent: foreign_agent,
-      agent_snapshot: foreign_agent_snapshot
+      agent_definition_version: foreign_agent_definition_version
     )
 
     agent_task_run.holder_agent_connection = foreign_agent_connection
@@ -71,7 +71,7 @@ class AgentTaskRunTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )

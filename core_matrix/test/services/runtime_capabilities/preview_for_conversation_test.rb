@@ -24,6 +24,8 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     contract = RuntimeCapabilities::PreviewForConversation.call(conversation: conversation)
 
     assert_equal registration[:execution_runtime].public_id, contract.fetch("execution_runtime_id")
+    assert_equal registration[:execution_runtime].current_execution_runtime_version.public_id, contract.fetch("execution_runtime_version_id")
+    assert_equal registration[:agent_definition_version].public_id, contract.fetch("agent_definition_version_id")
     assert_includes contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "subagent_spawn"
   end
 
@@ -243,6 +245,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     workspace = create_workspace!(
       installation: registration[:installation],
       user: registration[:actor],
+      default_execution_runtime: registration[:execution_runtime],
       user_agent_binding: create_user_agent_binding!(
         installation: registration[:installation],
         user: registration[:actor],
@@ -253,7 +256,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     Conversations::CreateRoot.call(
       workspace: workspace,
       execution_runtime: registration[:execution_runtime],
-      agent_snapshot: registration[:agent_snapshot]
+      agent_definition_version: registration[:agent_definition_version]
     )
   end
 
@@ -268,7 +271,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
         parent_conversation: previous_conversation,
         kind: "fork",
         execution_runtime: registration[:execution_runtime],
-        agent_snapshot: registration[:agent_snapshot],
+        agent_definition_version: registration[:agent_definition_version],
         addressability: "agent_addressable"
       )
       session = SubagentConnection.create!(

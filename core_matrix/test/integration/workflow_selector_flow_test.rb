@@ -3,8 +3,8 @@ require "test_helper"
 class WorkflowSelectorFlowTest < ActionDispatch::IntegrationTest
   test "create for turn freezes the resolved model snapshot after role-local fallback" do
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_snapshot: context[:agent_snapshot])
-    adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
+    capability_snapshot = create_compatible_agent_definition_version!(agent_definition_version: context[:agent_definition_version])
+    adopt_agent_definition_version!(context, capability_snapshot, turn: nil)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       agent: context[:agent]

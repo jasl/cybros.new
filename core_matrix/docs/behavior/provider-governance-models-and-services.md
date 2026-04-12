@@ -143,7 +143,7 @@ governance stay separate concerns:
 #### `ToolDefinition`
 
 - `ToolDefinition` records one logical governed tool for one
-  `AgentSnapshot`
+  `AgentDefinitionVersion`
 - each definition keeps:
   - logical `tool_name`
   - effective `tool_kind`
@@ -170,7 +170,7 @@ governance stay separate concerns:
 - `ToolBinding` freezes one `ToolDefinition -> ToolImplementation` decision on
   one `AgentTaskRun`
 - bindings are created automatically when `AgentTaskRun` is created
-- the binding stores the freeze reason plus the agent-snapshot metadata
+- the binding stores the freeze reason plus the agent-definition-version metadata
   used to make the decision
 - retries inside the same task attempt reuse the same binding
 - new attempts receive a fresh binding set instead of mutating the previous
@@ -189,7 +189,7 @@ governance stay separate concerns:
 
 #### `ToolBindings::ProjectCapabilitySnapshot`
 
-- projects durable governed rows from one `AgentSnapshot` plus the bound
+- projects durable governed rows from one `AgentDefinitionVersion` plus the bound
   `ExecutionRuntime`
 - resolves the effective tool winner through the existing
   `RuntimeCapabilityContract`

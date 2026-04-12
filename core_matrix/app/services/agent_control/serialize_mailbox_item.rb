@@ -50,7 +50,7 @@ module AgentControl
           "control_plane" => mailbox_item.control_plane,
           "logical_work_id" => mailbox_item.logical_work_id,
           "attempt_no" => mailbox_item.attempt_no,
-          "agent_snapshot_id" => mailbox_item.execution_contract.agent_snapshot.public_id
+          "agent_definition_version_id" => mailbox_item.execution_contract.agent_definition_version.public_id
         ),
         "task_payload" => payload["task_payload"] || mailbox_item.agent_task_run&.task_payload || {},
       }.merge(payload.except("task_payload", "prior_tool_results"))

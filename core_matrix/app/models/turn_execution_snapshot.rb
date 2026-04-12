@@ -94,10 +94,11 @@ class TurnExecutionSnapshot
           "control_plane" => "agent",
           "logical_work_id" => nil,
           "attempt_no" => nil,
-          "agent_snapshot_id" => turn.agent_snapshot.public_id,
-          "agent_id" => turn.agent_snapshot.agent.public_id,
+          "agent_definition_version_id" => turn.agent_definition_version.public_id,
+          "agent_id" => turn.agent_definition_version.agent.public_id,
           "user_id" => turn.conversation.workspace.user.public_id,
           "execution_runtime_id" => turn.execution_runtime&.public_id,
+          "execution_runtime_version_id" => turn.execution_runtime_version&.public_id,
         }.compact
       end
     end

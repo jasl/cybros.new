@@ -5,8 +5,8 @@ module AgentControl
         new(...).call
       end
 
-      def initialize(agent_snapshot: nil, agent_connection: nil, execution_runtime_connection: nil, occurred_at: Time.current)
-        @agent_snapshot = agent_snapshot
+      def initialize(agent_definition_version: nil, agent_connection: nil, execution_runtime_connection: nil, occurred_at: Time.current)
+        @agent_definition_version = agent_definition_version
         @agent_connection = agent_connection
         @execution_runtime_connection = execution_runtime_connection
         @occurred_at = occurred_at
@@ -23,14 +23,14 @@ module AgentControl
           control_activity_state: "active",
           last_control_activity_at: @occurred_at
         )
-        PublishPending.call(agent_snapshot: @agent_snapshot, agent_connection: session, occurred_at: @occurred_at)
-        @agent_snapshot
+        PublishPending.call(agent_definition_version: @agent_definition_version, agent_connection: session, occurred_at: @occurred_at)
+        @agent_definition_version
       end
 
       private
 
       def resolved_agent_connection
-        @agent_connection || @agent_snapshot&.active_agent_connection || @agent_snapshot&.most_recent_agent_connection
+        @agent_connection || @agent_definition_version&.active_agent_connection || @agent_definition_version&.most_recent_agent_connection
       end
 
       def open_execution_runtime_connection!

@@ -116,10 +116,12 @@ class Conversations::Metadata::BootstrapTitleTest < ActiveSupport::TestCase
   private
 
   def create_user_input_message!(context:, conversation:, content:)
+    agent_config_state = context[:agent].agent_config_state
+
     turn = Turn.create!(
       installation: conversation.installation,
       conversation: conversation,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime: context[:execution_runtime],
       sequence: conversation.turns.maximum(:sequence).to_i + 1,
       lifecycle_state: "active",
@@ -127,7 +129,9 @@ class Conversations::Metadata::BootstrapTitleTest < ActiveSupport::TestCase
       origin_payload: {},
       source_ref_type: "User",
       source_ref_id: context[:user].public_id,
-      pinned_agent_snapshot_fingerprint: context[:agent_snapshot].fingerprint,
+      pinned_agent_definition_fingerprint: context[:agent_definition_version].definition_fingerprint,
+      agent_config_version: agent_config_state&.version || 1,
+      agent_config_content_fingerprint: agent_config_state&.content_fingerprint || context[:agent_definition_version].definition_fingerprint,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

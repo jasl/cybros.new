@@ -35,7 +35,7 @@ runtime_context = GovernedValidationSupport.bootstrap_runtime!(
 
 task_context = GovernedValidationSupport.create_task_context!(
   workspace: runtime_context.fetch(:workspace),
-  agent_snapshot: runtime_context.fetch(:runtime).agent_snapshot,
+  agent_definition_version: runtime_context.fetch(:runtime).agent_definition_version,
   capability_snapshot: runtime_context.fetch(:runtime).capability_snapshot,
   content: "Spawn one governed subagent and report the durable records.",
   allowed_tool_names: ["subagent_spawn"]

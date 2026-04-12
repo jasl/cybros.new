@@ -14,7 +14,7 @@ module ToolBindings
 
     def call
       ToolBindings::ProjectCapabilitySnapshot.call(
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         execution_runtime: execution_runtime
       )
 
@@ -47,8 +47,8 @@ module ToolBindings
       @workflow_node.tool_bindings.where(agent_task_run_id: nil)
     end
 
-    def agent_snapshot
-      @agent_snapshot ||= turn_record.agent_snapshot || raise_invalid!("missing agent snapshot")
+    def agent_definition_version
+      @agent_definition_version ||= turn_record.agent_definition_version || raise_invalid!("missing agent definition version")
     end
 
     def execution_runtime
@@ -68,7 +68,7 @@ module ToolBindings
     def allowed_tool_names
       @allowed_tool_names ||= begin
         profile_allowed_names = Array(
-          agent_snapshot.profile_catalog.fetch(current_profile_key, {}).fetch("allowed_tool_names", [])
+          agent_definition_version.profile_catalog.fetch(current_profile_key, {}).fetch("allowed_tool_names", [])
         ).uniq
         if profile_allowed_names.present?
           profile_allowed_names
@@ -88,14 +88,14 @@ module ToolBindings
 
     def definitions_by_name
       @definitions_by_name ||= ToolDefinition.where(
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         tool_name: allowed_tool_names
       ).includes(:tool_implementations).index_by(&:tool_name)
     end
 
     def upsert_definition_for_entry!(tool_entry)
       definition = ToolDefinition.find_or_initialize_by(
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         tool_name: tool_entry.fetch("tool_name")
       )
       definition.installation = @workflow_node.installation
@@ -165,7 +165,7 @@ module ToolBindings
     end
 
     def reserved_tool_name?(tool_name)
-      tool_name.start_with?(AgentSnapshot::RESERVED_CORE_MATRIX_PREFIX) || RESERVED_TOOL_NAMES.include?(tool_name)
+      tool_name.start_with?(AgentDefinitionVersion::RESERVED_CORE_MATRIX_PREFIX) || RESERVED_TOOL_NAMES.include?(tool_name)
     end
 
     def find_or_create_source!(tool_entry)
@@ -174,7 +174,7 @@ module ToolBindings
       when "execution_runtime"
         execution_runtime.public_id
       when "agent", "kernel"
-        "agent_snapshot:#{agent_snapshot.public_id}"
+        "agent_definition_version:#{agent_definition_version.public_id}"
       when "core_matrix"
         "built_in"
       else

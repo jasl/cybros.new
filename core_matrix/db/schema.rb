@@ -42,9 +42,30 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
-  create_table "agent_connections", force: :cascade do |t|
+  create_table "agent_config_states", force: :cascade do |t|
     t.bigint "agent_id", null: false
-    t.bigint "agent_snapshot_id", null: false
+    t.bigint "base_agent_definition_version_id", null: false
+    t.string "content_fingerprint", null: false
+    t.datetime "created_at", null: false
+    t.bigint "effective_document_id", null: false
+    t.bigint "installation_id", null: false
+    t.bigint "override_document_id"
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.string "reconciliation_state", default: "ready", null: false
+    t.datetime "updated_at", null: false
+    t.integer "version", default: 1, null: false
+    t.index ["agent_id"], name: "index_agent_config_states_on_agent_id", unique: true
+    t.index ["base_agent_definition_version_id"], name: "index_agent_config_states_on_base_agent_definition_version_id"
+    t.index ["effective_document_id"], name: "index_agent_config_states_on_effective_document_id"
+    t.index ["installation_id", "content_fingerprint"], name: "idx_agent_config_states_installation_fingerprint"
+    t.index ["installation_id"], name: "index_agent_config_states_on_installation_id"
+    t.index ["override_document_id"], name: "index_agent_config_states_on_override_document_id"
+    t.index ["public_id"], name: "index_agent_config_states_on_public_id", unique: true
+  end
+
+  create_table "agent_connections", force: :cascade do |t|
+    t.bigint "agent_definition_version_id", null: false
+    t.bigint "agent_id", null: false
     t.boolean "auto_resume_eligible", default: false, null: false
     t.string "connection_credential_digest", null: false
     t.string "connection_token_digest", null: false
@@ -61,9 +82,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "unavailability_reason"
     t.datetime "updated_at", null: false
+    t.index ["agent_definition_version_id"], name: "index_agent_connections_on_agent_definition_version_id"
     t.index ["agent_id"], name: "idx_agent_connections_agent_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
     t.index ["agent_id"], name: "index_agent_connections_on_agent_id"
-    t.index ["agent_snapshot_id"], name: "index_agent_connections_on_agent_snapshot_id"
     t.index ["connection_credential_digest"], name: "index_agent_connections_on_connection_credential_digest", unique: true
     t.index ["connection_token_digest"], name: "index_agent_connections_on_connection_token_digest", unique: true
     t.index ["installation_id"], name: "index_agent_connections_on_installation_id"
@@ -98,8 +119,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.string "protocol_message_id", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "status", default: "queued", null: false
+    t.bigint "target_agent_definition_version_id"
     t.bigint "target_agent_id", null: false
-    t.bigint "target_agent_snapshot_id"
     t.bigint "target_execution_runtime_id"
     t.datetime "updated_at", null: false
     t.bigint "workflow_node_id"
@@ -111,10 +132,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["leased_to_execution_runtime_connection_id"], name: "idx_on_leased_to_execution_runtime_connection_id_0a933e2fd1"
     t.index ["payload_document_id"], name: "index_agent_control_mailbox_items_on_payload_document_id"
     t.index ["public_id"], name: "index_agent_control_mailbox_items_on_public_id", unique: true
+    t.index ["target_agent_definition_version_id", "control_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_agent_definition_delivery"
+    t.index ["target_agent_definition_version_id"], name: "idx_on_target_agent_definition_version_id_4f14cb9712"
     t.index ["target_agent_id", "control_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_agent_delivery"
     t.index ["target_agent_id"], name: "index_agent_control_mailbox_items_on_target_agent_id"
-    t.index ["target_agent_snapshot_id", "control_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_agent_snapshot_delivery"
-    t.index ["target_agent_snapshot_id"], name: "index_agent_control_mailbox_items_on_target_agent_snapshot_id"
     t.index ["target_execution_runtime_id", "control_plane", "status", "priority", "available_at"], name: "idx_agent_control_mailbox_execution_delivery"
     t.index ["target_execution_runtime_id"], name: "idx_on_target_execution_runtime_id_d79214996d"
     t.index ["workflow_node_id"], name: "index_agent_control_mailbox_items_on_workflow_node_id"
@@ -143,39 +164,38 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["report_document_id"], name: "index_agent_control_report_receipts_on_report_document_id"
   end
 
-  create_table "agent_enrollments", force: :cascade do |t|
+  create_table "agent_definition_versions", force: :cascade do |t|
     t.bigint "agent_id", null: false
-    t.datetime "consumed_at"
+    t.bigint "canonical_config_schema_document_id", null: false
+    t.bigint "conversation_override_schema_document_id", null: false
     t.datetime "created_at", null: false
-    t.datetime "expires_at", null: false
+    t.bigint "default_canonical_config_document_id", null: false
+    t.string "definition_fingerprint", null: false
     t.bigint "installation_id", null: false
-    t.string "token_digest", null: false
-    t.datetime "updated_at", null: false
-    t.index ["agent_id"], name: "index_agent_enrollments_on_agent_id"
-    t.index ["installation_id", "agent_id", "expires_at"], name: "index_agent_enrollments_on_installation_agent_and_expiry"
-    t.index ["installation_id"], name: "index_agent_enrollments_on_installation_id"
-    t.index ["token_digest"], name: "index_agent_enrollments_on_token_digest", unique: true
-  end
-
-  create_table "agent_snapshots", force: :cascade do |t|
-    t.bigint "agent_id", null: false
-    t.jsonb "config_schema_snapshot", default: {}, null: false
-    t.jsonb "conversation_override_schema_snapshot", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.jsonb "default_config_snapshot", default: {}, null: false
-    t.string "fingerprint", null: false
-    t.bigint "installation_id", null: false
-    t.jsonb "profile_catalog", default: {}, null: false
-    t.jsonb "protocol_methods", default: [], null: false
+    t.bigint "profile_policy_document_id", null: false
+    t.string "program_manifest_fingerprint", null: false
+    t.string "prompt_pack_fingerprint", null: false
+    t.string "prompt_pack_ref", null: false
+    t.bigint "protocol_methods_document_id", null: false
     t.string "protocol_version", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.bigint "reflected_surface_document_id", null: false
     t.string "sdk_version", null: false
-    t.jsonb "tool_catalog", default: [], null: false
+    t.bigint "tool_contract_document_id", null: false
     t.datetime "updated_at", null: false
-    t.index ["agent_id"], name: "index_agent_snapshots_on_agent_id"
-    t.index ["installation_id", "fingerprint"], name: "index_agent_snapshots_on_installation_id_and_fingerprint", unique: true
-    t.index ["installation_id"], name: "index_agent_snapshots_on_installation_id"
-    t.index ["public_id"], name: "index_agent_snapshots_on_public_id", unique: true
+    t.integer "version", null: false
+    t.index ["agent_id", "definition_fingerprint"], name: "idx_agent_definition_versions_agent_fingerprint", unique: true
+    t.index ["agent_id", "version"], name: "idx_agent_definition_versions_agent_version", unique: true
+    t.index ["agent_id"], name: "index_agent_definition_versions_on_agent_id"
+    t.index ["canonical_config_schema_document_id"], name: "idx_on_canonical_config_schema_document_id_be02eea8de"
+    t.index ["conversation_override_schema_document_id"], name: "idx_on_conversation_override_schema_document_id_2b5847b4eb"
+    t.index ["default_canonical_config_document_id"], name: "idx_on_default_canonical_config_document_id_81a3b00796"
+    t.index ["installation_id"], name: "index_agent_definition_versions_on_installation_id"
+    t.index ["profile_policy_document_id"], name: "index_agent_definition_versions_on_profile_policy_document_id"
+    t.index ["protocol_methods_document_id"], name: "idx_on_protocol_methods_document_id_6c0cdfb44d"
+    t.index ["public_id"], name: "index_agent_definition_versions_on_public_id", unique: true
+    t.index ["reflected_surface_document_id"], name: "idx_on_reflected_surface_document_id_86042215e8"
+    t.index ["tool_contract_document_id"], name: "index_agent_definition_versions_on_tool_contract_document_id"
   end
 
   create_table "agent_task_progress_entries", force: :cascade do |t|
@@ -253,6 +273,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   end
 
   create_table "agents", force: :cascade do |t|
+    t.bigint "active_agent_definition_version_id"
     t.datetime "created_at", null: false
     t.bigint "default_execution_runtime_id"
     t.string "display_name", null: false
@@ -264,6 +285,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "updated_at", null: false
     t.string "visibility", default: "public", null: false
+    t.index ["active_agent_definition_version_id"], name: "index_agents_on_active_agent_definition_version_id"
     t.index ["default_execution_runtime_id"], name: "index_agents_on_default_execution_runtime_id"
     t.index ["installation_id", "key"], name: "index_agents_on_installation_id_and_key", unique: true
     t.index ["installation_id", "provisioning_origin"], name: "index_agents_on_installation_id_and_provisioning_origin"
@@ -775,7 +797,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   end
 
   create_table "execution_capability_snapshots", force: :cascade do |t|
-    t.string "agent_snapshot_fingerprint", null: false
+    t.bigint "agent_definition_version_id", null: false
     t.datetime "created_at", null: false
     t.string "fingerprint", null: false
     t.bigint "installation_id", null: false
@@ -789,6 +811,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.jsonb "subagent_policy_snapshot", default: {}, null: false
     t.bigint "tool_surface_document_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["agent_definition_version_id"], name: "idx_on_agent_definition_version_id_445401aa82"
     t.index ["installation_id", "fingerprint"], name: "idx_execution_capability_snapshots_fingerprint", unique: true
     t.index ["installation_id"], name: "index_execution_capability_snapshots_on_installation_id"
     t.index ["owner_conversation_id"], name: "index_execution_capability_snapshots_on_owner_conversation_id"
@@ -814,13 +837,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   end
 
   create_table "execution_contracts", force: :cascade do |t|
-    t.bigint "agent_snapshot_id", null: false
+    t.bigint "agent_definition_version_id", null: false
     t.jsonb "attachment_diagnostics", default: [], null: false
     t.jsonb "attachment_manifest", default: [], null: false
     t.datetime "created_at", null: false
     t.bigint "execution_capability_snapshot_id", null: false
     t.bigint "execution_context_snapshot_id", null: false
     t.bigint "execution_runtime_id"
+    t.bigint "execution_runtime_version_id"
     t.bigint "installation_id", null: false
     t.jsonb "model_input_attachments", default: [], null: false
     t.jsonb "provider_context", default: {}, null: false
@@ -830,10 +854,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.bigint "turn_id", null: false
     t.jsonb "turn_origin", default: {}, null: false
     t.datetime "updated_at", null: false
-    t.index ["agent_snapshot_id"], name: "index_execution_contracts_on_agent_snapshot_id"
+    t.index ["agent_definition_version_id"], name: "index_execution_contracts_on_agent_definition_version_id"
     t.index ["execution_capability_snapshot_id"], name: "index_execution_contracts_on_execution_capability_snapshot_id"
     t.index ["execution_context_snapshot_id"], name: "index_execution_contracts_on_execution_context_snapshot_id"
     t.index ["execution_runtime_id"], name: "index_execution_contracts_on_execution_runtime_id"
+    t.index ["execution_runtime_version_id"], name: "index_execution_contracts_on_execution_runtime_version_id"
     t.index ["installation_id"], name: "index_execution_contracts_on_installation_id"
     t.index ["public_id"], name: "index_execution_contracts_on_public_id", unique: true
     t.index ["selected_input_message_id"], name: "index_execution_contracts_on_selected_input_message_id"
@@ -907,6 +932,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.datetime "created_at", null: false
     t.jsonb "endpoint_metadata", default: {}, null: false
     t.bigint "execution_runtime_id", null: false
+    t.bigint "execution_runtime_version_id", null: false
     t.bigint "installation_id", null: false
     t.datetime "last_heartbeat_at"
     t.string "lifecycle_state", default: "active", null: false
@@ -916,26 +942,49 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["connection_token_digest"], name: "index_execution_runtime_connections_on_connection_token_digest", unique: true
     t.index ["execution_runtime_id"], name: "idx_execution_runtime_connections_runtime_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
     t.index ["execution_runtime_id"], name: "index_execution_runtime_connections_on_execution_runtime_id"
+    t.index ["execution_runtime_version_id"], name: "idx_on_execution_runtime_version_id_b80affb52f"
     t.index ["installation_id"], name: "index_execution_runtime_connections_on_installation_id"
     t.index ["public_id"], name: "index_execution_runtime_connections_on_public_id", unique: true
   end
 
+  create_table "execution_runtime_versions", force: :cascade do |t|
+    t.bigint "capability_payload_document_id", null: false
+    t.string "content_fingerprint", null: false
+    t.datetime "created_at", null: false
+    t.string "execution_runtime_fingerprint", null: false
+    t.bigint "execution_runtime_id", null: false
+    t.bigint "installation_id", null: false
+    t.string "kind", null: false
+    t.string "protocol_version", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.bigint "reflected_host_metadata_document_id"
+    t.string "sdk_version", null: false
+    t.bigint "tool_catalog_document_id", null: false
+    t.datetime "updated_at", null: false
+    t.integer "version", null: false
+    t.index ["capability_payload_document_id"], name: "idx_on_capability_payload_document_id_b0761bd979"
+    t.index ["execution_runtime_id", "content_fingerprint"], name: "idx_execution_runtime_versions_runtime_fingerprint", unique: true
+    t.index ["execution_runtime_id", "version"], name: "idx_execution_runtime_versions_runtime_version", unique: true
+    t.index ["execution_runtime_id"], name: "index_execution_runtime_versions_on_execution_runtime_id"
+    t.index ["installation_id"], name: "index_execution_runtime_versions_on_installation_id"
+    t.index ["public_id"], name: "index_execution_runtime_versions_on_public_id", unique: true
+    t.index ["reflected_host_metadata_document_id"], name: "idx_on_reflected_host_metadata_document_id_80ef5d7d5c"
+    t.index ["tool_catalog_document_id"], name: "index_execution_runtime_versions_on_tool_catalog_document_id"
+  end
+
   create_table "execution_runtimes", force: :cascade do |t|
-    t.jsonb "capability_payload", default: {}, null: false
-    t.jsonb "connection_metadata", default: {}, null: false
+    t.bigint "active_execution_runtime_version_id"
     t.datetime "created_at", null: false
     t.string "display_name", null: false
-    t.string "execution_runtime_fingerprint", null: false
     t.bigint "installation_id", null: false
     t.string "kind", default: "local", null: false
     t.string "lifecycle_state", default: "active", null: false
     t.bigint "owner_user_id"
     t.string "provisioning_origin", default: "system", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.jsonb "tool_catalog", default: [], null: false
     t.datetime "updated_at", null: false
     t.string "visibility", default: "public", null: false
-    t.index ["installation_id", "execution_runtime_fingerprint"], name: "idx_execution_runtimes_installation_fingerprint", unique: true
+    t.index ["active_execution_runtime_version_id"], name: "idx_on_active_execution_runtime_version_id_469be0999f"
     t.index ["installation_id", "kind"], name: "index_execution_runtimes_on_installation_id_and_kind"
     t.index ["installation_id", "provisioning_origin"], name: "idx_on_installation_id_provisioning_origin_3ec0756f3e"
     t.index ["installation_id", "visibility"], name: "index_execution_runtimes_on_installation_id_and_visibility"
@@ -1132,6 +1181,27 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.index ["source_input_message_id"], name: "index_messages_on_source_input_message_id"
     t.index ["turn_id", "slot", "variant_index"], name: "index_messages_on_turn_id_and_slot_and_variant_index", unique: true
     t.index ["turn_id"], name: "index_messages_on_turn_id"
+  end
+
+  create_table "pairing_sessions", force: :cascade do |t|
+    t.bigint "agent_id", null: false
+    t.datetime "agent_registered_at"
+    t.datetime "closed_at"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.bigint "installation_id", null: false
+    t.datetime "issued_at", null: false
+    t.datetime "last_used_at"
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.datetime "revoked_at"
+    t.datetime "runtime_registered_at"
+    t.string "token_digest", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_id"], name: "index_pairing_sessions_on_agent_id"
+    t.index ["installation_id", "agent_id", "expires_at"], name: "idx_pairing_sessions_installation_agent_expiry"
+    t.index ["installation_id"], name: "index_pairing_sessions_on_installation_id"
+    t.index ["public_id"], name: "index_pairing_sessions_on_public_id", unique: true
+    t.index ["token_digest"], name: "index_pairing_sessions_on_token_digest", unique: true
   end
 
   create_table "process_runs", force: :cascade do |t|
@@ -1372,7 +1442,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   end
 
   create_table "tool_definitions", force: :cascade do |t|
-    t.bigint "agent_snapshot_id", null: false
+    t.bigint "agent_definition_version_id", null: false
     t.datetime "created_at", null: false
     t.string "governance_mode", null: false
     t.bigint "installation_id", null: false
@@ -1381,8 +1451,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.string "tool_kind", null: false
     t.string "tool_name", null: false
     t.datetime "updated_at", null: false
-    t.index ["agent_snapshot_id", "tool_name"], name: "idx_tool_definitions_snapshot_tool", unique: true
-    t.index ["agent_snapshot_id"], name: "index_tool_definitions_on_agent_snapshot_id"
+    t.index ["agent_definition_version_id", "tool_name"], name: "idx_tool_definitions_definition_tool", unique: true
+    t.index ["agent_definition_version_id"], name: "index_tool_definitions_on_agent_definition_version_id"
     t.index ["installation_id"], name: "index_tool_definitions_on_installation_id"
     t.index ["public_id"], name: "index_tool_definitions_on_public_id", unique: true
   end
@@ -1536,13 +1606,16 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   end
 
   create_table "turns", force: :cascade do |t|
-    t.bigint "agent_snapshot_id", null: false
+    t.string "agent_config_content_fingerprint", null: false
+    t.integer "agent_config_version", default: 1, null: false
+    t.bigint "agent_definition_version_id", null: false
     t.string "cancellation_reason_kind"
     t.datetime "cancellation_requested_at"
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.bigint "execution_contract_id"
     t.bigint "execution_runtime_id"
+    t.bigint "execution_runtime_version_id"
     t.string "external_event_key"
     t.jsonb "feature_policy_snapshot", default: {}, null: false
     t.string "idempotency_key"
@@ -1550,7 +1623,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.string "lifecycle_state", null: false
     t.string "origin_kind", null: false
     t.jsonb "origin_payload", default: {}, null: false
-    t.string "pinned_agent_snapshot_fingerprint", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.jsonb "resolved_config_snapshot", default: {}, null: false
     t.jsonb "resolved_model_selection_snapshot", default: {}, null: false
@@ -1560,11 +1632,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.string "source_ref_id"
     t.string "source_ref_type"
     t.datetime "updated_at", null: false
-    t.index ["agent_snapshot_id"], name: "index_turns_on_agent_snapshot_id"
+    t.index ["agent_definition_version_id"], name: "index_turns_on_agent_definition_version_id"
     t.index ["conversation_id", "sequence"], name: "index_turns_on_conversation_id_and_sequence", unique: true
     t.index ["conversation_id"], name: "index_turns_on_conversation_id"
     t.index ["execution_contract_id"], name: "index_turns_on_execution_contract_id"
     t.index ["execution_runtime_id"], name: "index_turns_on_execution_runtime_id"
+    t.index ["execution_runtime_version_id"], name: "index_turns_on_execution_runtime_version_id"
     t.index ["installation_id"], name: "index_turns_on_installation_id"
     t.index ["public_id"], name: "index_turns_on_public_id", unique: true
     t.index ["selected_input_message_id"], name: "index_turns_on_selected_input_message_id"
@@ -1574,8 +1647,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   end
 
   create_table "usage_events", force: :cascade do |t|
+    t.bigint "agent_definition_version_id"
     t.bigint "agent_id"
-    t.bigint "agent_snapshot_id"
     t.integer "cached_input_tokens"
     t.bigint "conversation_id"
     t.datetime "created_at", null: false
@@ -1597,8 +1670,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.bigint "user_id"
     t.string "workflow_node_key"
     t.bigint "workspace_id"
+    t.index ["agent_definition_version_id"], name: "index_usage_events_on_agent_definition_version_id"
     t.index ["agent_id"], name: "index_usage_events_on_agent_id"
-    t.index ["agent_snapshot_id"], name: "index_usage_events_on_agent_snapshot_id"
     t.index ["conversation_id"], name: "index_usage_events_on_conversation_id"
     t.index ["installation_id", "occurred_at"], name: "index_usage_events_on_installation_id_and_occurred_at"
     t.index ["installation_id"], name: "index_usage_events_on_installation_id"
@@ -1609,8 +1682,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   end
 
   create_table "usage_rollups", force: :cascade do |t|
+    t.bigint "agent_definition_version_id"
     t.bigint "agent_id"
-    t.bigint "agent_snapshot_id"
     t.string "bucket_key", null: false
     t.string "bucket_kind", null: false
     t.integer "cached_input_tokens_total", default: 0, null: false
@@ -1637,8 +1710,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
     t.bigint "user_id"
     t.string "workflow_node_key"
     t.bigint "workspace_id"
+    t.index ["agent_definition_version_id"], name: "index_usage_rollups_on_agent_definition_version_id"
     t.index ["agent_id"], name: "index_usage_rollups_on_agent_id"
-    t.index ["agent_snapshot_id"], name: "index_usage_rollups_on_agent_snapshot_id"
     t.index ["installation_id", "bucket_kind", "bucket_key", "dimension_digest"], name: "idx_usage_rollups_installation_bucket_dimension", unique: true
     t.index ["installation_id"], name: "index_usage_rollups_on_installation_id"
     t.index ["user_id"], name: "index_usage_rollups_on_user_id"
@@ -1869,11 +1942,16 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
-  add_foreign_key "agent_connections", "agent_snapshots"
+  add_foreign_key "agent_config_states", "agent_definition_versions", column: "base_agent_definition_version_id"
+  add_foreign_key "agent_config_states", "agents"
+  add_foreign_key "agent_config_states", "installations"
+  add_foreign_key "agent_config_states", "json_documents", column: "effective_document_id"
+  add_foreign_key "agent_config_states", "json_documents", column: "override_document_id"
+  add_foreign_key "agent_connections", "agent_definition_versions"
   add_foreign_key "agent_connections", "agents"
   add_foreign_key "agent_connections", "installations"
   add_foreign_key "agent_control_mailbox_items", "agent_connections", column: "leased_to_agent_connection_id"
-  add_foreign_key "agent_control_mailbox_items", "agent_snapshots", column: "target_agent_snapshot_id"
+  add_foreign_key "agent_control_mailbox_items", "agent_definition_versions", column: "target_agent_definition_version_id"
   add_foreign_key "agent_control_mailbox_items", "agent_task_runs"
   add_foreign_key "agent_control_mailbox_items", "agents", column: "target_agent_id"
   add_foreign_key "agent_control_mailbox_items", "execution_contracts"
@@ -1888,10 +1966,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "agent_control_report_receipts", "execution_runtime_connections"
   add_foreign_key "agent_control_report_receipts", "installations"
   add_foreign_key "agent_control_report_receipts", "json_documents", column: "report_document_id"
-  add_foreign_key "agent_enrollments", "agents"
-  add_foreign_key "agent_enrollments", "installations"
-  add_foreign_key "agent_snapshots", "agents"
-  add_foreign_key "agent_snapshots", "installations"
+  add_foreign_key "agent_definition_versions", "agents"
+  add_foreign_key "agent_definition_versions", "installations"
+  add_foreign_key "agent_definition_versions", "json_documents", column: "canonical_config_schema_document_id"
+  add_foreign_key "agent_definition_versions", "json_documents", column: "conversation_override_schema_document_id"
+  add_foreign_key "agent_definition_versions", "json_documents", column: "default_canonical_config_document_id"
+  add_foreign_key "agent_definition_versions", "json_documents", column: "profile_policy_document_id"
+  add_foreign_key "agent_definition_versions", "json_documents", column: "protocol_methods_document_id"
+  add_foreign_key "agent_definition_versions", "json_documents", column: "reflected_surface_document_id"
+  add_foreign_key "agent_definition_versions", "json_documents", column: "tool_contract_document_id"
   add_foreign_key "agent_task_progress_entries", "agent_task_runs", on_delete: :cascade
   add_foreign_key "agent_task_progress_entries", "installations"
   add_foreign_key "agent_task_progress_entries", "subagent_connections"
@@ -1904,6 +1987,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "agent_task_runs", "turns", column: "origin_turn_id"
   add_foreign_key "agent_task_runs", "workflow_nodes"
   add_foreign_key "agent_task_runs", "workflow_runs"
+  add_foreign_key "agents", "agent_definition_versions", column: "active_agent_definition_version_id"
   add_foreign_key "agents", "execution_runtimes", column: "default_execution_runtime_id"
   add_foreign_key "agents", "installations"
   add_foreign_key "agents", "users", column: "owner_user_id"
@@ -1980,15 +2064,17 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "conversations", "conversations", column: "parent_conversation_id"
   add_foreign_key "conversations", "installations"
   add_foreign_key "conversations", "workspaces"
+  add_foreign_key "execution_capability_snapshots", "agent_definition_versions"
   add_foreign_key "execution_capability_snapshots", "conversations", column: "owner_conversation_id"
   add_foreign_key "execution_capability_snapshots", "installations"
   add_foreign_key "execution_capability_snapshots", "json_documents", column: "tool_surface_document_id"
   add_foreign_key "execution_capability_snapshots", "subagent_connections"
   add_foreign_key "execution_capability_snapshots", "subagent_connections", column: "parent_subagent_connection_id"
   add_foreign_key "execution_context_snapshots", "installations"
-  add_foreign_key "execution_contracts", "agent_snapshots"
+  add_foreign_key "execution_contracts", "agent_definition_versions"
   add_foreign_key "execution_contracts", "execution_capability_snapshots"
   add_foreign_key "execution_contracts", "execution_context_snapshots"
+  add_foreign_key "execution_contracts", "execution_runtime_versions"
   add_foreign_key "execution_contracts", "execution_runtimes"
   add_foreign_key "execution_contracts", "installations"
   add_foreign_key "execution_contracts", "messages", column: "selected_input_message_id"
@@ -2000,8 +2086,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "execution_profile_facts", "installations"
   add_foreign_key "execution_profile_facts", "users"
   add_foreign_key "execution_profile_facts", "workspaces"
+  add_foreign_key "execution_runtime_connections", "execution_runtime_versions"
   add_foreign_key "execution_runtime_connections", "execution_runtimes"
   add_foreign_key "execution_runtime_connections", "installations"
+  add_foreign_key "execution_runtime_versions", "execution_runtimes"
+  add_foreign_key "execution_runtime_versions", "installations"
+  add_foreign_key "execution_runtime_versions", "json_documents", column: "capability_payload_document_id"
+  add_foreign_key "execution_runtime_versions", "json_documents", column: "reflected_host_metadata_document_id"
+  add_foreign_key "execution_runtime_versions", "json_documents", column: "tool_catalog_document_id"
+  add_foreign_key "execution_runtimes", "execution_runtime_versions", column: "active_execution_runtime_version_id"
   add_foreign_key "execution_runtimes", "installations"
   add_foreign_key "execution_runtimes", "users", column: "owner_user_id"
   add_foreign_key "human_interaction_requests", "conversations"
@@ -2030,6 +2123,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "messages", "installations"
   add_foreign_key "messages", "messages", column: "source_input_message_id"
   add_foreign_key "messages", "turns"
+  add_foreign_key "pairing_sessions", "agents"
+  add_foreign_key "pairing_sessions", "installations"
   add_foreign_key "process_runs", "conversations"
   add_foreign_key "process_runs", "execution_runtimes"
   add_foreign_key "process_runs", "installations"
@@ -2063,7 +2158,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "tool_bindings", "tool_implementations"
   add_foreign_key "tool_bindings", "workflow_nodes"
   add_foreign_key "tool_bindings", "workflow_nodes", column: "source_workflow_node_id"
-  add_foreign_key "tool_definitions", "agent_snapshots"
+  add_foreign_key "tool_definitions", "agent_definition_versions"
   add_foreign_key "tool_definitions", "installations"
   add_foreign_key "tool_implementations", "implementation_sources"
   add_foreign_key "tool_implementations", "installations"
@@ -2089,19 +2184,20 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_110000) do
   add_foreign_key "turn_todo_plans", "conversations"
   add_foreign_key "turn_todo_plans", "installations"
   add_foreign_key "turn_todo_plans", "turns"
-  add_foreign_key "turns", "agent_snapshots"
+  add_foreign_key "turns", "agent_definition_versions"
   add_foreign_key "turns", "conversations"
   add_foreign_key "turns", "execution_contracts"
+  add_foreign_key "turns", "execution_runtime_versions"
   add_foreign_key "turns", "execution_runtimes"
   add_foreign_key "turns", "installations"
   add_foreign_key "turns", "messages", column: "selected_input_message_id"
   add_foreign_key "turns", "messages", column: "selected_output_message_id"
-  add_foreign_key "usage_events", "agent_snapshots"
+  add_foreign_key "usage_events", "agent_definition_versions"
   add_foreign_key "usage_events", "agents"
   add_foreign_key "usage_events", "installations"
   add_foreign_key "usage_events", "users"
   add_foreign_key "usage_events", "workspaces"
-  add_foreign_key "usage_rollups", "agent_snapshots"
+  add_foreign_key "usage_rollups", "agent_definition_versions"
   add_foreign_key "usage_rollups", "agents"
   add_foreign_key "usage_rollups", "installations"
   add_foreign_key "usage_rollups", "users"

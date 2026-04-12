@@ -8,12 +8,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Anchor",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -36,12 +36,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Parent fork anchor",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -52,7 +52,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     parent_turn = Turns::StartUserTurn.call(
       conversation: parent_fork,
       content: "Child fork anchor",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -85,12 +85,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     source_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Source fork anchor",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -101,7 +101,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     imported_message = Turns::StartUserTurn.call(
       conversation: source_fork,
       content: "Quoted source",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     ).selected_input_message
@@ -259,12 +259,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Attachment input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -315,12 +315,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Derived purge anchor",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -396,12 +396,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Purge deleted query budget input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -443,12 +443,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Fail closed",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -490,14 +490,14 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     stale_conversation = Conversation.find(conversation.id)
 
     Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Purge me",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -518,12 +518,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Anchor",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -546,12 +546,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Need more work",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -575,13 +575,13 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     branch = Conversations::CreateFork.call(parent: root)
     turn = Turns::StartUserTurn.call(
       conversation: branch,
       content: "Done already",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -620,7 +620,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     branch = Conversations::CreateFork.call(parent: root)
     branch.update!(deletion_state: "deleted", deleted_at: Time.current)
@@ -642,7 +642,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     branch = Conversations::CreateFork.call(parent: root)
     create_nested_subagent_connection_tree!(
@@ -650,7 +650,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       owner_conversation: branch,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     Conversations::RequestDeletion.call(conversation: branch)
@@ -672,7 +672,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       owner_conversation: branch,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     branch.lineage_store_reference.destroy!
     branch.update!(deletion_state: "deleted", deleted_at: Time.current)
@@ -691,7 +691,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       )
     end
 
-    mailbox_items = AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    mailbox_items = AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
     direct_session_close = mailbox_items.find do |item|
       item.payload["resource_type"] == "SubagentConnection" &&
         item.payload["resource_id"] == session_tree.fetch(:direct_session).public_id
@@ -708,7 +708,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert branch.reload.unfinished_close_operation.present?
 
     AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       payload: {
         method_id: "resource_closed",
         protocol_message_id: "direct-session-close-#{next_test_sequence}",
@@ -721,7 +721,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       }
     )
     AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       payload: {
         method_id: "resource_closed",
         protocol_message_id: "nested-session-close-#{next_test_sequence}",
@@ -876,14 +876,14 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     }
   end
 
-  def create_nested_subagent_connection_tree!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_snapshot:)
+  def create_nested_subagent_connection_tree!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_definition_version:)
     direct_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
       execution_runtime: execution_runtime,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       addressability: "agent_addressable"
     )
     direct_session = SubagentConnection.create!(
@@ -901,7 +901,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       parent_conversation: direct_conversation,
       kind: "fork",
       execution_runtime: execution_runtime,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       addressability: "agent_addressable"
     )
     nested_session = SubagentConnection.create!(

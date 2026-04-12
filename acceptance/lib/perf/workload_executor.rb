@@ -106,10 +106,10 @@ module Acceptance
       end
 
       def extract_agent_public_id(registration)
-        agent_snapshot = registration.agent_snapshot
-        return agent_snapshot.agent.public_id if agent_snapshot.respond_to?(:agent)
+        agent_definition_version = registration.agent_definition_version
+        return agent_definition_version.agent.public_id if agent_definition_version.respond_to?(:agent)
 
-        agent_snapshot.fetch('agent_public_id')
+        agent_definition_version.fetch('agent_public_id')
       end
 
       def conversation_public_id_for(conversation)

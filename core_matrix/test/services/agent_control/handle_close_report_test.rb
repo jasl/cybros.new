@@ -24,7 +24,7 @@ class AgentControl::HandleCloseReportTest < ActiveSupport::TestCase
 
     assert_raises(AgentControl::Report::StaleReportError) do
       AgentControl::HandleCloseReport.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         execution_runtime_connection: context[:execution_runtime_connection],
         method_id: "resource_close_acknowledged",
         payload: {

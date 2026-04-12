@@ -166,7 +166,7 @@ of carrying separate counter families and close-summary logic in parallel.
   - the provider catalog baseline
   - optional real-provider credentials and governance rows
   - bundled runtime reconciliation when the scenario needs a bundled `Fenix`
-    agent snapshot
+    agent definition version
 - The acceptance support layer silences seed stdout during those script runs so
   the operator scripts can write pure JSON to stdout and be redirected
   directly into `/tmp/*.json`.

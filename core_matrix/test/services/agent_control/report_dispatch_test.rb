@@ -5,34 +5,34 @@ class AgentControl::ReportDispatchTest < ActiveSupport::TestCase
     context = build_agent_control_context!
 
     assert_instance_of AgentControl::HandleExecutionReport, AgentControl::ReportDispatch.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "execution_progress",
       payload: {}
     )
     assert_instance_of AgentControl::HandleRuntimeResourceReport, AgentControl::ReportDispatch.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "process_output",
       payload: {}
     )
     assert_instance_of AgentControl::HandleCloseReport, AgentControl::ReportDispatch.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "resource_closed",
       payload: {}
     )
     assert_instance_of AgentControl::HandleAgentReport, AgentControl::ReportDispatch.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "agent_completed",
       payload: {}
     )
     assert_instance_of AgentControl::HandleHealthReport, AgentControl::ReportDispatch.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "agent_health_report",
       payload: {}
     )
 
     error = assert_raises(ArgumentError) do
       AgentControl::ReportDispatch.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         method_id: "unknown_report",
         payload: {}
       )

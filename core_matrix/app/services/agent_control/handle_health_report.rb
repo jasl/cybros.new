@@ -4,8 +4,8 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_snapshot:, agent_connection: nil, payload:, occurred_at: Time.current, **)
-      @agent_snapshot = agent_snapshot
+    def initialize(agent_definition_version:, agent_connection: nil, payload:, occurred_at: Time.current, **)
+      @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @payload = payload
       @occurred_at = occurred_at
@@ -29,7 +29,7 @@ module AgentControl
     private
 
     def resolved_agent_connection
-      @resolved_agent_connection ||= @agent_connection || @agent_snapshot.active_agent_connection || @agent_snapshot.most_recent_agent_connection ||
+      @resolved_agent_connection ||= @agent_connection || @agent_definition_version.active_agent_connection || @agent_definition_version.most_recent_agent_connection ||
         raise(ActiveRecord::RecordNotFound, "Couldn't find AgentConnection")
     end
   end

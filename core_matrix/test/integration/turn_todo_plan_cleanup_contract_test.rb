@@ -8,14 +8,14 @@ class TurnTodoPlanCleanupContractTest < ActionDispatch::IntegrationTest
     agent_task_run = scenario.fetch(:agent_task_run)
 
     report_execution_started!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
 
     assert_raises(ArgumentError) do
       AgentControl::HandleExecutionReport.call(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         method_id: "execution_progress",
         payload: {
           "mailbox_item_id" => mailbox_item.public_id,
@@ -40,7 +40,7 @@ class TurnTodoPlanCleanupContractTest < ActionDispatch::IntegrationTest
     end
 
     AgentControl::HandleExecutionReport.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       method_id: "execution_progress",
       payload: {
         "mailbox_item_id" => mailbox_item.public_id,

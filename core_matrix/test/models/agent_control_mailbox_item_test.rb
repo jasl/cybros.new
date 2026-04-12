@@ -8,14 +8,14 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     envelope = AgentControl::SerializeMailboxItem.call(mailbox_item)
 
     assert_equal "execution_runtime", mailbox_item.attributes["control_plane"]
-    assert_equal context[:agent_snapshot].id, mailbox_item.attributes["target_agent_snapshot_id"]
+    assert_equal context[:agent_definition_version].id, mailbox_item.attributes["target_agent_definition_version_id"]
     assert_equal context[:execution_runtime].id, mailbox_item.attributes["target_execution_runtime_id"]
     assert_equal "execution_runtime", envelope.fetch("control_plane")
     assert_equal "execution_runtime", envelope.fetch("payload").dig("runtime_context", "control_plane")
     refute envelope.fetch("payload").key?("control_plane")
   end
 
-  test "matches the authenticated agent_snapshot target and detects stale leases" do
+  test "matches the authenticated agent definition target and detects stale leases" do
     context = build_agent_control_context!
     agent_task_run = create_agent_task_run!(workflow_node: context[:workflow_node])
     mailbox_item = create_agent_control_mailbox_item!(
@@ -26,7 +26,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert mailbox_item.valid?
-    assert mailbox_item.targets?(context[:agent_snapshot])
+    assert mailbox_item.targets?(context[:agent_definition_version])
 
     mailbox_item.update!(
       status: "leased",
@@ -36,7 +36,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       delivery_no: 1
     )
 
-    assert mailbox_item.leased_to?(context[:agent_snapshot])
+    assert mailbox_item.leased_to?(context[:agent_definition_version])
 
     travel 31.seconds do
       assert mailbox_item.reload.lease_stale?(at: Time.current)
@@ -58,7 +58,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
       target_agent: context[:agent],
-      target_agent_snapshot: context[:agent_snapshot],
+      target_agent_definition_version: context[:agent_definition_version],
       workflow_node: context[:workflow_node],
       execution_contract: context[:turn].execution_contract,
       item_type: "agent_request",
@@ -74,15 +74,15 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal mailbox_item.logical_work_id, mailbox_item.payload.dig("runtime_context", "logical_work_id")
     assert_equal mailbox_item.attempt_no, mailbox_item.payload.dig("runtime_context", "attempt_no")
     assert_equal mailbox_item.control_plane, mailbox_item.payload.dig("runtime_context", "control_plane")
-    assert_equal context[:agent_snapshot].public_id, mailbox_item.payload.dig("runtime_context", "agent_snapshot_id")
+    assert_equal context[:agent_definition_version].public_id, mailbox_item.payload.dig("runtime_context", "agent_definition_version_id")
     assert_equal context[:agent].public_id, mailbox_item.payload.dig("runtime_context", "agent_id")
     assert_equal context[:user].public_id, mailbox_item.payload.dig("runtime_context", "user_id")
   end
 
-  test "requires agent_snapshot targeting to remain inside the targeted agent" do
+  test "requires agent definition targeting to remain inside the targeted agent" do
     context = build_agent_control_context!
     other_agent = create_agent!(installation: context[:installation])
-    other_agent_snapshot = create_agent_snapshot!(
+    other_agent_definition_version = create_agent_definition_version!(
       installation: context[:installation],
       agent: other_agent
     )
@@ -90,7 +90,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     mailbox_item = AgentControlMailboxItem.new(
       installation: context[:installation],
       target_agent: context[:agent],
-      target_agent_snapshot: other_agent_snapshot,
+      target_agent_definition_version: other_agent_definition_version,
       item_type: "resource_close_request",
       control_plane: "agent",
       logical_work_id: "close-test",
@@ -106,7 +106,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_not mailbox_item.valid?
-    assert_includes mailbox_item.errors[:target_agent_snapshot], "must belong to the targeted agent"
+    assert_includes mailbox_item.errors[:target_agent_definition_version], "must belong to the targeted agent"
   end
 
   test "execution-runtime-plane close work keeps the execution runtime as the durable target reference" do

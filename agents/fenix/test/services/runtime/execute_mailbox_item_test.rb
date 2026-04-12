@@ -265,7 +265,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
           "model_context" => { "model_slug" => "gpt-5.4" },
         },
         "runtime_context" => {
-          "agent_snapshot_id" => "agent-snapshot-1",
+          "agent_definition_version_id" => "agent-definition-version-1",
         },
         "workspace_context" => {
           "workspace_root" => workspace_root,
@@ -299,7 +299,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
           "model_context" => { "model_slug" => "gpt-5.4" },
         },
         "runtime_context" => {
-          "agent_snapshot_id" => "agent-snapshot-1",
+          "agent_definition_version_id" => "agent-definition-version-1",
         },
         "tool_call" => {
           "call_id" => "tool-call-1",
@@ -331,7 +331,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
           "target_public_id" => "conversation-1",
         },
         "runtime_context" => {
-          "agent_snapshot_id" => "agent-snapshot-1",
+          "agent_definition_version_id" => "agent-definition-version-1",
         },
       },
     }

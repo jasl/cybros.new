@@ -78,7 +78,7 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
   test "poll returns full agent request envelopes when the mailbox row stores a payload document" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -133,7 +133,7 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       request_kind: "supervision_status_refresh",
       payload: {},
       dispatch_deadline_at: 5.minutes.from_now
@@ -162,7 +162,7 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
   test "poll returns execute_tool request envelopes without leaking internal ids" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "execute_tool",
       payload: {
         "task" => {

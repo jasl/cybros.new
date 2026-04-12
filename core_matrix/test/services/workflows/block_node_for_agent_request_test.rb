@@ -10,7 +10,7 @@ class Workflows::BlockNodeForAgentRequestTest < ActiveSupport::TestCase
     workflow_node.update!(lifecycle_state: "running", started_at: Time.current)
 
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "execute_tool",
       payload: {
         "task" => {
@@ -68,7 +68,7 @@ class Workflows::BlockNodeForAgentRequestTest < ActiveSupport::TestCase
     workflow_node.update!(lifecycle_state: "running", started_at: Time.current)
 
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "execute_tool",
       payload: {
         "task" => {

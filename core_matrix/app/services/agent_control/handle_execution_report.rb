@@ -6,8 +6,8 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_snapshot:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current, **)
-      @agent_snapshot = agent_snapshot
+    def initialize(agent_definition_version:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current, **)
+      @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @execution_runtime_connection = execution_runtime_connection
       @method_id = method_id
@@ -24,7 +24,7 @@ module AgentControl
 
     def call
       ValidateExecutionReportFreshness.call(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         agent_connection: resolved_agent_connection,
         execution_runtime_connection: @execution_runtime_connection,
         method_id: @method_id,
@@ -71,7 +71,7 @@ module AgentControl
       unless agent_task_run.execution_lease&.active?
         Leases::Acquire.call(
           leased_resource: agent_task_run,
-          holder_key: @agent_snapshot.public_id,
+          holder_key: @agent_definition_version.public_id,
           heartbeat_timeout_seconds: mailbox_item.lease_timeout_seconds
         )
       end
@@ -134,7 +134,7 @@ module AgentControl
       if agent_task_run.execution_lease&.active?
         Leases::Release.call(
           execution_lease: agent_task_run.execution_lease,
-          holder_key: @agent_snapshot.public_id,
+          holder_key: @agent_definition_version.public_id,
           reason: lifecycle_state,
           released_at: @occurred_at
         )
@@ -290,13 +290,13 @@ module AgentControl
     end
 
     def resolved_agent_connection
-      @resolved_agent_connection ||= @agent_connection || @agent_snapshot.active_agent_connection || @agent_snapshot.most_recent_agent_connection
+      @resolved_agent_connection ||= @agent_connection || @agent_definition_version.active_agent_connection || @agent_definition_version.most_recent_agent_connection
     end
 
     def heartbeat_task_lease!
       Leases::Heartbeat.call(
         execution_lease: agent_task_run.execution_lease,
-        holder_key: @agent_snapshot.public_id,
+        holder_key: @agent_definition_version.public_id,
         occurred_at: @occurred_at
       )
     rescue ArgumentError, Leases::Heartbeat::StaleLeaseError
@@ -326,14 +326,14 @@ module AgentControl
 
     def mailbox_item
       @mailbox_item ||= AgentControlMailboxItem.find_by!(
-        installation_id: @agent_snapshot.installation_id,
+        installation_id: @agent_definition_version.installation_id,
         public_id: @payload.fetch("mailbox_item_id")
       )
     end
 
     def agent_task_run
       @agent_task_run ||= AgentTaskRun.find_by!(
-        installation_id: @agent_snapshot.installation_id,
+        installation_id: @agent_definition_version.installation_id,
         public_id: @payload.fetch("agent_task_run_id")
       )
     end

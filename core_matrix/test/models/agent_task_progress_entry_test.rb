@@ -54,14 +54,14 @@ class AgentTaskProgressEntryTest < ActiveSupport::TestCase
     unrelated_owner = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     unrelated_child = create_conversation_record!(
       workspace: context[:workspace],
       installation: context[:installation],
       parent_conversation: unrelated_owner,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )

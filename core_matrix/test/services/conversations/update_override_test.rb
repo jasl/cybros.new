@@ -152,7 +152,7 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
     Conversations::CreateRoot.call(
       workspace: workspace,
       execution_runtime: registration[:execution_runtime],
-      agent_snapshot: registration[:agent_snapshot]
+      agent_definition_version: registration[:agent_definition_version]
     )
   end
 end

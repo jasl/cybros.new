@@ -25,6 +25,10 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     assert_equal "queued", response_body.dig("import_request", "lifecycle_state")
     assert_equal context[:workspace].public_id, response_body.dig("import_request", "workspace_id")
     refute_includes response.body, %("#{context[:workspace].id}")
+    assert_equal(
+      registration[:agent_definition_version].public_id,
+      ConversationBundleImportRequest.find_by_public_id!(request_id).request_payload.fetch("target_agent_definition_version_id")
+    )
 
     get "/app_api/conversation_bundle_import_requests/#{request_id}",
       headers: app_api_headers(registration[:agent_connection_credential])
@@ -48,7 +52,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
       workspace: context[:workspace],
       user: context[:user],
       lifecycle_state: "queued",
-      request_payload: { "target_agent_snapshot_id" => context[:agent_snapshot].public_id }
+      request_payload: { "target_agent_definition_version_id" => context[:agent_definition_version].public_id }
     )
     request.upload_file.attach(
       io: StringIO.new(File.binread(bundle.fetch("io").path)),
@@ -81,7 +85,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
       installation: context[:installation],
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     request = ConversationBundleImportRequest.new(
       installation: context[:installation],

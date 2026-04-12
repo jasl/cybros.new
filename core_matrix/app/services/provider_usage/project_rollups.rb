@@ -55,7 +55,7 @@ module ProviderUsage
         turn_id: @event.turn_id,
         workflow_node_key: @event.workflow_node_key,
         agent: @event.agent,
-        agent_snapshot: @event.agent_snapshot,
+        agent_definition_version: @event.agent_definition_version,
         provider_handle: @event.provider_handle,
         model_ref: @event.model_ref,
         operation_kind: @event.operation_kind,
@@ -70,7 +70,7 @@ module ProviderUsage
         turn_id: @event.turn_id,
         workflow_node_key: @event.workflow_node_key,
         agent_id: @event.agent_id,
-        agent_snapshot_id: @event.agent_snapshot_id,
+        agent_definition_version_id: @event.agent_definition_version_id,
         provider_handle: @event.provider_handle,
         model_ref: @event.model_ref,
         operation_kind: @event.operation_kind

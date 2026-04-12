@@ -13,7 +13,7 @@ class AddToolGovernance < ActiveRecord::Migration[8.2]
 
     create_table :tool_definitions do |t|
       t.references :installation, null: false, foreign_key: true
-      t.references :agent_snapshot, null: false, foreign_key: true
+      t.references :agent_definition_version, null: false, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :tool_name, null: false
       t.string :tool_kind, null: false
@@ -22,7 +22,7 @@ class AddToolGovernance < ActiveRecord::Migration[8.2]
       t.timestamps
     end
     add_index :tool_definitions, :public_id, unique: true
-    add_index :tool_definitions, [:agent_snapshot_id, :tool_name], unique: true, name: "idx_tool_definitions_snapshot_tool"
+    add_index :tool_definitions, [:agent_definition_version_id, :tool_name], unique: true, name: "idx_tool_definitions_definition_tool"
 
     create_table :tool_implementations do |t|
       t.references :installation, null: false, foreign_key: true

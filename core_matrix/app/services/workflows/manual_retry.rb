@@ -4,9 +4,9 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_run:, agent_snapshot:, actor:, selector: nil)
+    def initialize(workflow_run:, agent_definition_version:, actor:, selector: nil)
       @workflow_run = workflow_run
-      @agent_snapshot = agent_snapshot
+      @agent_definition_version = agent_definition_version
       @actor = actor
       @selector = selector
     end
@@ -53,7 +53,7 @@ module Workflows
             metadata: {
               "paused_workflow_run_id" => workflow_run.id,
               "paused_turn_id" => turn.id,
-              "agent_snapshot_id" => @agent_snapshot.id,
+              "agent_definition_version_id" => recovery_target.agent_definition_version.id,
               "temporary_selector_override" => @selector,
             }.compact
           )
@@ -74,10 +74,10 @@ module Workflows
     def validate_retry_target!(workflow_run, turn)
       raise_invalid!(turn, :selected_input_message, "must exist to retry paused work") if turn.selected_input_message.blank?
 
-      AgentSnapshots::ResolveRecoveryTarget.call(
+      ExecutionIdentityRecovery::ResolveTarget.call(
         conversation: workflow_run.conversation,
         turn: turn,
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         record: turn,
         selector_source: "manual_recovery",
         selector: @selector.presence || turn.recovery_selector,

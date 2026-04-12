@@ -9,7 +9,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
@@ -65,7 +65,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
@@ -100,7 +100,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
@@ -147,7 +147,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = travel_to(occurred_at) do
@@ -205,7 +205,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
@@ -251,14 +251,14 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     invocation = command_run.tool_invocation
     lease = Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
       context: context,
       resource: agent_task_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     post "/agent_api/control/report",
       params: {
@@ -298,14 +298,14 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     invocation = command_run.tool_invocation
     lease = Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
       context: context,
       resource: agent_task_run
     ).fetch(:mailbox_item)
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     post "/agent_api/control/report",
       params: {
@@ -421,7 +421,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(

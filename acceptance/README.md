@@ -25,6 +25,15 @@ cd core_matrix
 bin/rails runner ../acceptance/scenarios/<scenario>.rb
 ```
 
+Current deployment-flow coverage includes:
+
+- `acceptance/scenarios/bring_your_own_agent_validation.rb`
+  - bring-your-own agent deployment using an externally registered Fenix agent
+    plus external runtime
+- `acceptance/scenarios/bring_your_own_execution_runtime_validation.rb`
+  - bring-your-own execution runtime deployment for the bundled/default Fenix
+    agent, including external runtime pairing and first task execution
+
 Run the Shared-Fenix / Multi-Nexus load harness locally with the smoke profile:
 
 ```bash

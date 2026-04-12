@@ -6,7 +6,7 @@ class Conversations::WithRetainedLifecycleLockTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     ConversationCloseOperation.create!(
       installation: conversation.installation,
@@ -35,7 +35,7 @@ class Conversations::WithRetainedLifecycleLockTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     yielded = Conversations::WithRetainedLifecycleLock.call(
@@ -57,7 +57,7 @@ class Conversations::WithRetainedLifecycleLockTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     conversation.update!(deletion_state: "pending_delete", deleted_at: Time.current)
 
@@ -79,7 +79,7 @@ class Conversations::WithRetainedLifecycleLockTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     conversation.update!(lifecycle_state: "archived")
 

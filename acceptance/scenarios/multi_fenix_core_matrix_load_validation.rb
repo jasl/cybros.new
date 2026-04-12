@@ -87,7 +87,7 @@ def execute_mailbox_task_on_conversation!(conversation:, task:)
   }
 end
 
-def execute_agent_request_exchange_task_on_conversation!(conversation:, _agent_snapshot: nil, task:, catalog: nil)
+def execute_agent_request_exchange_task_on_conversation!(conversation:, task:, catalog: nil)
   run = Acceptance::ManualSupport.execute_provider_turn_on_conversation!(
     conversation: conversation,
     execution_runtime: task.fetch('execution_runtime'),
@@ -193,7 +193,6 @@ workload_executor = Acceptance::Perf::WorkloadExecutor.new(
   run_agent_request_exchange: lambda do |conversation:, registration:, task:, slot_index:|
     execute_agent_request_exchange_task_on_conversation!(
       conversation: conversation,
-      _agent_snapshot: registration.agent_snapshot,
       task: task.merge('execution_runtime' => registration.execution_runtime),
       catalog: provider_catalog_override&.catalog
     ).merge('slot_index' => slot_index)
@@ -215,9 +214,9 @@ registration_matrix = Acceptance::Perf::RuntimeRegistrationMatrix.call(
   topology: topology,
   agent_count: profile.agent_count,
   agent_base_url: agent_base_url,
-  create_external_agent: Acceptance::ManualSupport.method(:create_external_agent!),
-  register_external_agent: Acceptance::ManualSupport.method(:register_external_agent_from_manifest!),
-  register_external_execution_runtime: Acceptance::ManualSupport.method(:register_external_execution_runtime!)
+  create_bring_your_own_agent: Acceptance::ManualSupport.method(:create_bring_your_own_agent!),
+  register_bring_your_own_agent: Acceptance::ManualSupport.method(:register_bring_your_own_agent_from_manifest!),
+  register_bring_your_own_execution_runtime: Acceptance::ManualSupport.method(:register_bring_your_own_execution_runtime!)
 )
 registration_matrix = decorate_boot_states(registration_matrix, topology)
 
@@ -234,8 +233,8 @@ driver_report =
         Acceptance::Perf::WorkloadDriver.call(
           manifest: manifest,
           registration_matrix: registration_matrix,
-          create_conversation: lambda do |agent_snapshot:|
-            Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot)
+          create_conversation: lambda do |agent_definition_version:|
+            Acceptance::ManualSupport.create_conversation!(agent_definition_version: agent_definition_version)
           end,
           execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
             workload_executor.call(
@@ -253,8 +252,8 @@ driver_report =
     Acceptance::Perf::WorkloadDriver.call(
       manifest: manifest,
       registration_matrix: registration_matrix,
-      create_conversation: lambda do |agent_snapshot:|
-        Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot)
+      create_conversation: lambda do |agent_definition_version:|
+        Acceptance::ManualSupport.create_conversation!(agent_definition_version: agent_definition_version)
       end,
       execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
         workload_executor.call(

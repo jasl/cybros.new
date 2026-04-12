@@ -10,7 +10,7 @@ module ProviderExecution
       @workflow_node = workflow_node
       @tool_call = tool_call.deep_stringify_keys
       @round_bindings = Array(round_bindings)
-      @agent_request_exchange = agent_request_exchange || ProviderExecution::AgentRequestExchange.new(agent_snapshot: workflow_node.turn.agent_snapshot)
+      @agent_request_exchange = agent_request_exchange || ProviderExecution::AgentRequestExchange.new(agent_definition_version: workflow_node.turn.agent_definition_version)
       @execution_runtime_exchange = execution_runtime_exchange || ProviderExecution::ExecutionRuntimeExchange.new(execution_runtime: workflow_node.turn.execution_runtime)
     end
 

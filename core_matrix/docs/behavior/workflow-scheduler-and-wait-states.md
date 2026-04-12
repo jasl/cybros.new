@@ -31,7 +31,7 @@ job. No automatic retention policy is implemented here yet.
   - `blocking_resource_type`
   - `blocking_resource_id`
 - `blocking_resource_id` stores durable external-style identifiers only:
-  - `AgentSnapshot.public_id` for `agent_unavailable`
+  - `AgentDefinitionVersion.public_id` for `agent_unavailable`
   - barrier artifact keys for `subagent_barrier`
   - blocker `public_id` values for `human_interaction`, `retryable_failure`,
     `external_dependency_blocked`, and `policy_gate`
@@ -151,30 +151,30 @@ job. No automatic retention policy is implemented here yet.
 
 ## Recovery Behavior
 
-- `AgentSnapshots::MarkUnavailable` moves active workflows into a waiting
-  state when the pinned agent snapshot becomes unavailable
+- `AgentDefinitionVersions::MarkUnavailable` moves active workflows into a
+  waiting state when the pinned agent definition version becomes unavailable
 - `agent_unavailable` stores:
-  - `blocking_resource_type = "AgentSnapshot"`
-  - `blocking_resource_id = <agent snapshot public_id>`
+  - `blocking_resource_type = "AgentDefinitionVersion"`
+  - `blocking_resource_id = <agent definition version public_id>`
 - if a workflow was already waiting on another blocker, outage pause snapshots
   that original blocker and restores it after recovery instead of erasing it
 - `WorkflowWaitSnapshot` is the explicit parser and restore contract for those
   nested pause payloads
 - wait snapshots are runtime-owned state, not disposable observability rows
-- `AgentSnapshots::AutoResumeWorkflows` only resumes waiting
+- `AgentDefinitionVersions::AutoResumeWorkflows` only resumes waiting
   `agent_unavailable` workflows while the owning conversation remains retained
 - compatible rotated replacements may auto resume only when they preserve the
   paused turn's frozen execution-runtime choice and capability contract
-- `AgentSnapshots::ResolveRecoveryTarget` is the one paused-work
+- `ExecutionIdentityRecovery::ResolveTarget` is the one paused-work
   target-resolution contract used by:
-  - `AgentSnapshots::BuildRecoveryPlan`
+  - `ExecutionIdentityRecovery::BuildPlan`
   - `Workflows::ManualResume`
   - `Workflows::ManualRetry`
-- `AgentSnapshots::RebindTurn` is the one paused-turn rebinding mutation
+- `ExecutionIdentityRecovery::RebindTurn` is the one paused-turn rebinding mutation
   owner used by both auto-resume recovery-plan application and manual resume
-- `Conversations::ValidateAgentSnapshotTarget` stays generic to live
-  conversation agent snapshot switching and only enforces the installation and
-  execution-environment boundary
+- live conversation agent-definition-version switching keeps its own
+  installation and execution-environment validation path and does not share
+  paused-work logical-agent or capability-contract checks
 - `Workflows::ManualResume` and `Workflows::ManualRetry` are explicit recovery
   boundaries for paused workflows and are rejected unless the owning
   conversation is still:

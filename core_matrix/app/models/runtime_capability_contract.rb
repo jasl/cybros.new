@@ -15,8 +15,7 @@ class RuntimeCapabilityContract
 
   def initialize(
     execution_runtime: nil,
-    agent_snapshot: nil,
-    capability_snapshot: nil,
+    agent_definition_version: nil,
     execution_runtime_capability_payload: nil,
     execution_runtime_tool_catalog: nil,
     protocol_methods: nil,
@@ -28,30 +27,31 @@ class RuntimeCapabilityContract
     core_matrix_tool_catalog: []
   )
     @execution_runtime = execution_runtime
-    @agent_snapshot = agent_snapshot || capability_snapshot
+    @agent_definition_version = agent_definition_version
+    runtime_version = @execution_runtime&.current_execution_runtime_version
     @execution_runtime_capability_payload = normalize_hash(
-      execution_runtime_capability_payload.nil? ? @execution_runtime&.capability_payload : execution_runtime_capability_payload
+      execution_runtime_capability_payload.nil? ? runtime_version&.capability_payload : execution_runtime_capability_payload
     )
     @execution_runtime_tool_catalog = normalize_array(
-      execution_runtime_tool_catalog.nil? ? @execution_runtime&.tool_catalog : execution_runtime_tool_catalog
+      execution_runtime_tool_catalog.nil? ? runtime_version&.tool_catalog : execution_runtime_tool_catalog
     )
     @protocol_methods = normalize_array(
-      protocol_methods.nil? ? agent_snapshot&.protocol_methods : protocol_methods
+      protocol_methods.nil? ? @agent_definition_version&.protocol_methods : protocol_methods
     )
     @agent_tool_catalog = normalize_array(
-      tool_catalog.nil? ? agent_snapshot&.tool_catalog : tool_catalog
+      tool_catalog.nil? ? @agent_definition_version&.tool_contract : tool_catalog
     )
     @profile_catalog = normalize_hash(
-      profile_catalog.nil? ? agent_snapshot&.profile_catalog : profile_catalog
+      profile_catalog.nil? ? @agent_definition_version&.profile_policy : profile_catalog
     )
     @config_schema_snapshot = normalize_hash(
-      config_schema_snapshot.nil? ? agent_snapshot&.config_schema_snapshot : config_schema_snapshot
+      config_schema_snapshot.nil? ? @agent_definition_version&.canonical_config_schema : config_schema_snapshot
     )
     @conversation_override_schema_snapshot = normalize_hash(
-      conversation_override_schema_snapshot.nil? ? agent_snapshot&.conversation_override_schema_snapshot : conversation_override_schema_snapshot
+      conversation_override_schema_snapshot.nil? ? @agent_definition_version&.conversation_override_schema : conversation_override_schema_snapshot
     )
     @default_config_snapshot = normalize_hash(
-      default_config_snapshot.nil? ? agent_snapshot&.default_config_snapshot : default_config_snapshot
+      default_config_snapshot.nil? ? @agent_definition_version&.default_canonical_config : default_config_snapshot
     )
     @core_matrix_tool_catalog = normalize_array(core_matrix_tool_catalog)
   end
@@ -88,8 +88,8 @@ class RuntimeCapabilityContract
     @default_config_snapshot.deep_dup
   end
 
-  def agent_snapshot_fingerprint
-    @agent_snapshot&.fingerprint
+  def agent_definition_fingerprint
+    @agent_definition_version&.definition_fingerprint
   end
 
   def execution_runtime_plane
@@ -103,7 +103,7 @@ class RuntimeCapabilityContract
   def agent_plane
     {
       "control_plane" => "agent",
-      "agent_snapshot_fingerprint" => agent_snapshot_fingerprint,
+      "agent_definition_fingerprint" => agent_definition_fingerprint,
       "protocol_methods" => protocol_methods,
       "tool_catalog" => agent_tool_catalog,
       "profile_catalog" => profile_catalog,
@@ -156,7 +156,7 @@ class RuntimeCapabilityContract
   def contract_payload(method_id: nil, reconciliation_report: nil)
     {
       "method_id" => method_id,
-      "agent_snapshot_fingerprint" => agent_snapshot_fingerprint,
+      "agent_definition_fingerprint" => agent_definition_fingerprint,
       "protocol_methods" => protocol_methods,
       "tool_catalog" => agent_tool_catalog,
       "profile_catalog" => profile_catalog,

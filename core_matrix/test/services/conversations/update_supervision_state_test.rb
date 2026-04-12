@@ -219,7 +219,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       installation: context[:installation],
       parent_conversation: context[:conversation],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -744,7 +744,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       installation: parent_context[:installation],
       parent_conversation: parent_context[:conversation],
       execution_runtime: parent_context[:execution_runtime],
-      agent_snapshot: parent_context[:agent_snapshot],
+      agent_definition_version: parent_context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -825,7 +825,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       installation: context[:installation],
       parent_conversation: context[:conversation],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -834,7 +834,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       installation: context[:installation],
       parent_conversation: context[:conversation],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -974,7 +974,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       installation: context[:installation],
       parent_conversation: context[:conversation],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )

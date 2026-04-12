@@ -4,7 +4,7 @@ class ToolInvocationTest < ActiveSupport::TestCase
   test "can stay aligned with a workflow-node-owned binding" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
@@ -32,12 +32,12 @@ class ToolInvocationTest < ActiveSupport::TestCase
   test "requires invocation records to stay aligned with the frozen binding" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "compact_context"
     )
     implementation = definition.tool_implementations.find_by!(

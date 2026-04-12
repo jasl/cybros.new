@@ -8,9 +8,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_snapshot:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
+    def initialize(agent_definition_version: nil, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id: nil, protocol_message_id: nil, payload: nil, occurred_at: Time.current, **kwargs)
       raw_payload = payload.presence || kwargs
-      @agent_snapshot = agent_snapshot
+      @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @execution_runtime_connection = execution_runtime_connection
       @resource = resource
@@ -22,7 +22,7 @@ module AgentControl
 
     def call
       @resolved_agent_connection = TouchAgentConnectionActivity.call(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         agent_connection: @agent_connection,
         occurred_at: @occurred_at
       )
@@ -64,7 +64,7 @@ module AgentControl
 
     def create_receipt!
       receipt = AgentControlReportReceipt.new(
-        installation_id: @agent_snapshot.installation_id,
+        installation_id: @agent_definition_version.installation_id,
         agent_connection: resolved_agent_connection,
         execution_runtime_connection: @execution_runtime_connection,
         protocol_message_id: @protocol_message_id,
@@ -80,7 +80,7 @@ module AgentControl
     end
 
     def find_existing_receipt
-      AgentControlReportReceipt.find_by(installation_id: @agent_snapshot.installation_id, protocol_message_id: @protocol_message_id)
+      AgentControlReportReceipt.find_by(installation_id: @agent_definition_version.installation_id, protocol_message_id: @protocol_message_id)
     end
 
     def process_report!(receipt)
@@ -91,7 +91,7 @@ module AgentControl
 
     def report_handler
       @report_handler ||= ReportDispatch.call(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         agent_connection: resolved_agent_connection,
         execution_runtime_connection: @execution_runtime_connection,
         resource: @resource,
@@ -102,7 +102,7 @@ module AgentControl
     end
 
     def resolved_agent_connection
-      @resolved_agent_connection ||= @agent_connection || @agent_snapshot.active_agent_connection || @agent_snapshot.most_recent_agent_connection
+      @resolved_agent_connection ||= @agent_connection || @agent_definition_version.active_agent_connection || @agent_definition_version.most_recent_agent_connection
     end
 
     def persist_receipt_attributes!(receipt, attrs)
@@ -132,7 +132,7 @@ module AgentControl
       if @execution_runtime_connection.present?
         Poll.call(execution_runtime_connection: @execution_runtime_connection, **poll_arguments)
       else
-        Poll.call(agent_snapshot: @agent_snapshot, agent_connection: resolved_agent_connection, **poll_arguments)
+        Poll.call(agent_definition_version: @agent_definition_version, agent_connection: resolved_agent_connection, **poll_arguments)
       end
     end
   end

@@ -61,7 +61,7 @@ module ProviderExecution
       @transcript = Array(transcript).map { |entry| entry.deep_stringify_keys }
       @adapter = adapter
       @effective_catalog = effective_catalog || ProviderCatalog::EffectiveCatalog.new(installation: @workflow_run.installation, catalog: catalog)
-      @agent_request_exchange = agent_request_exchange || ProviderExecution::AgentRequestExchange.new(agent_snapshot: workflow_node.turn.agent_snapshot)
+      @agent_request_exchange = agent_request_exchange || ProviderExecution::AgentRequestExchange.new(agent_definition_version: workflow_node.turn.agent_definition_version)
       @max_rounds = max_rounds || configured_max_rounds
     end
 
@@ -294,7 +294,7 @@ module ProviderExecution
       implementation_source = entry.fetch("implementation_source", nil)
 
       return false if implementation_source == "core_matrix"
-      return false if tool_name.start_with?(AgentSnapshot::RESERVED_CORE_MATRIX_PREFIX)
+      return false if tool_name.start_with?(AgentDefinitionVersion::RESERVED_CORE_MATRIX_PREFIX)
       return false if RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES.include?(tool_name)
 
       true

@@ -39,7 +39,7 @@ class Conversations::WithMutableStateLockTest < ActiveSupport::TestCase
     Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
   end
 

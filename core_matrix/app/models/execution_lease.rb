@@ -29,17 +29,17 @@ class ExecutionLease < ApplicationRecord
     last_heartbeat_at < at - heartbeat_timeout_seconds.seconds
   end
 
-  def holder_agent_snapshot
+  def holder_agent_definition_version
     return if holder_key.blank?
 
-    @holder_agent_snapshot ||= AgentSnapshot.find_by(
+    @holder_agent_definition_version ||= AgentDefinitionVersion.find_by(
       installation_id: installation_id,
       public_id: holder_key
     )
   end
 
   def holder_execution_runtime
-    holder_agent_snapshot&.execution_runtime
+    holder_agent_definition_version&.agent&.default_execution_runtime
   end
 
   private

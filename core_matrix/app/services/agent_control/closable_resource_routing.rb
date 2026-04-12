@@ -28,7 +28,7 @@ module AgentControl
     def owning_agent_for(resource)
       return resource.agent if resource.respond_to?(:agent)
 
-      turn_for(resource)&.agent_snapshot&.agent ||
+      turn_for(resource)&.agent_definition_version&.agent ||
         conversation_for(resource)&.agent
     end
   end

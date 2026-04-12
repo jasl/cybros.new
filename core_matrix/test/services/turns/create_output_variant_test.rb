@@ -7,10 +7,10 @@ class Turns::CreateOutputVariantTest < ActiveSupport::TestCase
       conversation: Conversations::CreateRoot.call(
         workspace: context[:workspace],
         execution_runtime: context[:execution_runtime],
-        agent_snapshot: context[:agent_snapshot]
+        agent_definition_version: context[:agent_definition_version]
       ),
       content: "Input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -29,19 +29,19 @@ class Turns::CreateOutputVariantTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
     foreign_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Foreign input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

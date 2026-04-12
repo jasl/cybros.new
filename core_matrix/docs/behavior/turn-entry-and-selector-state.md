@@ -45,7 +45,7 @@ execution-snapshot persistence on the turn row.
 ## Turn Behavior
 
 - `Turn` belongs to a conversation, installation, pinned
-  `AgentSnapshot`, and optional `ExecutionRuntime`
+  `AgentDefinitionVersion`, and optional `ExecutionRuntime`
 - turn state is explicit and supports:
   - `queued`
   - `active`
@@ -64,7 +64,7 @@ execution-snapshot persistence on the turn row.
   - `system_internal`
 - turn rows freeze:
   - feature policy snapshot row
-  - pinned agent-snapshot fingerprint
+  - pinned agent-definition fingerprint
   - resolved config snapshot row
   - execution contract row
   - resolved model-selection snapshot row
@@ -104,11 +104,12 @@ execution-snapshot persistence on the turn row.
 - ordinary user-turn entry rejects automation-purpose conversations
 - `Turns::StartAutomationTurn` creates an active automation-origin turn without
   requiring a transcript-bearing `UserMessage`
-- agent snapshot bootstrap reuses `Turns::StartAutomationTurn` with
+- agent definition version bootstrap reuses `Turns::StartAutomationTurn` with
   `origin_kind = "system_internal"` so system-owned recovery and bootstrap work
   still uses the same durable turn substrate as other automation flows
-- agent snapshot bootstrap persists `source_ref_type = "AgentSnapshot"` with the
-  agent snapshot `public_id` in `source_ref_id`
+- agent definition version bootstrap persists
+  `source_ref_type = "AgentDefinitionVersion"` with the agent definition
+  version `public_id` in `source_ref_id`
 - `Turns::QueueFollowUp` creates a queued manual-user turn only when the
   conversation already has active or queued work
 - queued follow-up turns freeze a fresh turn-level feature-policy snapshot at

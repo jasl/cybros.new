@@ -74,7 +74,7 @@ conversation = Conversations::CreateRoot.call(
 turn = Turns::StartUserTurn.call(
   conversation: conversation,
   content: "Need operator confirmation before continuing.",
-  agent_snapshot: registry.agent_snapshot,
+  agent_definition_version: registry.agent_definition_version,
   resolved_config_snapshot: {},
   resolved_model_selection_snapshot: {}
 )
@@ -124,7 +124,7 @@ mailbox_item = AgentControl::CreateExecutionAssignment.call(
 )
 
 Acceptance::ManualSupport.dispatch_execution_report!(
-  agent_snapshot: registry.agent_snapshot,
+  agent_definition_version: registry.agent_definition_version,
   execution_runtime_connection: execution_runtime_connection,
   mailbox_item: mailbox_item,
   agent_task_run: agent_task_run,
@@ -133,7 +133,7 @@ Acceptance::ManualSupport.dispatch_execution_report!(
   expected_duration_seconds: 30
 )
 Acceptance::ManualSupport.dispatch_execution_report!(
-  agent_snapshot: registry.agent_snapshot,
+  agent_definition_version: registry.agent_definition_version,
   execution_runtime_connection: execution_runtime_connection,
   mailbox_item: mailbox_item,
   agent_task_run: agent_task_run,

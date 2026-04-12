@@ -6,7 +6,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_agent_addressable_child_conversation!(
       context: context,
@@ -15,7 +15,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     outsider_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     invalid_sender = assert_raises(ActiveRecord::RecordInvalid) do
@@ -52,7 +52,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_agent_addressable_child_conversation!(
       context: context,
@@ -96,7 +96,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
       parent_conversation: owner_conversation,
       kind: "fork",
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       addressability: "agent_addressable"
     )
     SubagentConnection.create!(

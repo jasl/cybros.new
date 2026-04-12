@@ -36,7 +36,7 @@ and safe deletion support.
   - `deleted`
 - agent binding and turn execution snapshots:
   - one fixed `Agent`
-  - each turn freezes one `AgentSnapshot`
+  - each turn freezes one `AgentDefinitionVersion`
   - each turn may optionally freeze one `ExecutionRuntime`
 - feature policy:
   - `enabled_feature_ids`
@@ -50,7 +50,7 @@ running.
 Program binding is a separate independent concern. A conversation stays bound
 to one logical `Agent` for its whole lifetime. Concrete execution
 identity is frozen per turn: each turn captures the active
-`AgentSnapshot` and may also capture an optional `ExecutionRuntime`.
+`AgentDefinitionVersion` and may also capture an optional `ExecutionRuntime`.
 
 Feature policy is conversation-owned durable execution state. It is not a UI
 hint and it is not recomputed from controller parameters when live work is

@@ -46,8 +46,9 @@ acceptance operator path.
   reusable harness in `../acceptance/lib/manual_support.rb` plus
   concrete operator scripts under `../../acceptance/scenarios/*`, run through
   `bin/rails runner ../../acceptance/scenarios/...`, to cover:
+  - bring-your-own agent deployment
+  - bring-your-own execution runtime deployment
   - during-generation steering
-  - independent external `Fenix`
   - built-in system skill and third-party skill activation flows
   - governed tool invocation
   - governed Streamable HTTP MCP invocation
@@ -71,7 +72,8 @@ acceptance operator path.
   structure and rewrite flows, human forms and tasks, open-request projection,
   and publication access logging through Rails runner scripts.
 - Current acceptance runs exercise external `Fenix`, provider-backed or mock
-  execution through `Nexus`, wait/resume and subagent orchestration, governed
-  tool and MCP paths, skill activation, and shared-agent / multi-runtime load
-  profiles. Generated evidence stays under `../../acceptance/artifacts/`
-  instead of being committed.
+  bring-your-own agent deployment, bring-your-own execution runtime pairing,
+  provider-backed or mock execution through `Nexus`, wait/resume and subagent
+  orchestration, governed tool and MCP paths, skill activation, and
+  shared-agent / multi-runtime load profiles. Generated evidence stays under
+  `../../acceptance/artifacts/` instead of being committed.

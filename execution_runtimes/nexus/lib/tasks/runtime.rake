@@ -110,12 +110,9 @@ namespace :runtime do
     manifest = pairing_manifest_payload
 
     registration = runtime_client(execution_runtime_connection_credential: nil).register!(
-      enrollment_token: ENV.fetch("CORE_MATRIX_ENROLLMENT_TOKEN"),
-      execution_runtime_fingerprint: manifest.fetch("execution_runtime_fingerprint"),
-      execution_runtime_kind: manifest.fetch("execution_runtime_kind"),
-      execution_runtime_connection_metadata: manifest.fetch("execution_runtime_connection_metadata"),
-      execution_runtime_capability_payload: manifest.fetch("execution_runtime_capability_payload"),
-      execution_runtime_tool_catalog: manifest.fetch("execution_runtime_tool_catalog")
+      pairing_token: ENV.fetch("CORE_MATRIX_PAIRING_TOKEN"),
+      endpoint_metadata: manifest.fetch("execution_runtime_connection_metadata"),
+      version_package: manifest.fetch("version_package")
     )
 
     client = runtime_client(
@@ -126,8 +123,7 @@ namespace :runtime do
       {
         "registration" => registration,
         "capabilities_handshake" => client.capabilities_handshake!(
-          execution_runtime_capability_payload: manifest.fetch("execution_runtime_capability_payload"),
-          execution_runtime_tool_catalog: manifest.fetch("execution_runtime_tool_catalog")
+          version_package: manifest.fetch("version_package")
         ),
         "health" => client.health,
         "capabilities_refresh" => client.capabilities_refresh,

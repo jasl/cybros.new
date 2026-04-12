@@ -94,7 +94,7 @@ class AgentApiWorkspaceVariablesTest < ActionDispatch::IntegrationTest
     refute response_body.fetch("variable").key?("id")
 
     variable = CanonicalVariable.find_by!(scope: "workspace", key: "region", current: true)
-    assert_equal registration[:agent_snapshot], variable.writer
+    assert_equal registration[:agent_definition_version], variable.writer
     assert_equal context[:turn], variable.source_turn
     assert_equal context[:workflow_run], variable.source_workflow_run
     refute_includes response.body, %("#{variable.id}")

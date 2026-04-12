@@ -27,25 +27,25 @@ module AgentControl
         associations: [
           :payload_document,
           :target_agent,
-          :target_agent_snapshot,
+          :target_agent_definition_version,
           {
             agent_task_run: [
               :workflow_run,
               :workflow_node,
               :conversation,
-              { turn: [{ conversation: { workspace: :user } }, { agent_snapshot: :agent }] },
+              { turn: [{ conversation: { workspace: :user } }, { agent_definition_version: :agent }] },
             ],
           },
           { workflow_node: [:workflow_run, :conversation, :turn] },
           {
             execution_contract: [
-              :agent_snapshot,
+              :agent_definition_version,
               :execution_context_snapshot,
               :execution_capability_snapshot,
               {
                 turn: [
                   { conversation: { workspace: :user } },
-                  { agent_snapshot: :agent },
+                  { agent_definition_version: :agent },
                   :execution_runtime,
                   :selected_input_message,
                   :selected_output_message,
@@ -76,7 +76,7 @@ module AgentControl
         records: turns_by_id.values,
         associations: [
           { conversation: { workspace: :user } },
-          { agent_snapshot: :agent },
+          { agent_definition_version: :agent },
         ]
       ).call
 

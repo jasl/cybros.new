@@ -10,7 +10,7 @@ class UsageRollup < ApplicationRecord
     turn_id
     workflow_node_key
     agent_id
-    agent_snapshot_id
+    agent_definition_version_id
     provider_handle
     model_ref
     operation_kind
@@ -28,7 +28,7 @@ class UsageRollup < ApplicationRecord
   belongs_to :user, optional: true
   belongs_to :workspace, optional: true
   belongs_to :agent, optional: true
-  belongs_to :agent_snapshot, optional: true
+  belongs_to :agent_definition_version, optional: true
 
   validates :provider_handle, :model_ref, :bucket_key, :dimension_digest, presence: true
   validates :dimension_digest, uniqueness: { scope: [:installation_id, :bucket_kind, :bucket_key] }
@@ -42,7 +42,7 @@ class UsageRollup < ApplicationRecord
   validate :user_installation_match
   validate :workspace_installation_match
   validate :agent_installation_match
-  validate :agent_snapshot_installation_match
+  validate :agent_definition_version_installation_match
 
   data_lifecycle_kind! :retained_aggregate
 
@@ -77,10 +77,10 @@ class UsageRollup < ApplicationRecord
     errors.add(:agent, "must belong to the same installation")
   end
 
-  def agent_snapshot_installation_match
-    return if agent_snapshot.blank?
-    return if agent_snapshot.installation_id == installation_id
+  def agent_definition_version_installation_match
+    return if agent_definition_version.blank?
+    return if agent_definition_version.installation_id == installation_id
 
-    errors.add(:agent_snapshot, "must belong to the same installation")
+    errors.add(:agent_definition_version, "must belong to the same installation")
   end
 end

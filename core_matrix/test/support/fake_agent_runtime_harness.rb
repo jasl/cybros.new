@@ -15,32 +15,32 @@ class FakeAgentRuntimeHarness
     resource_close_failed
   ].freeze
 
-  def initialize(test_case:, agent_snapshot:, agent_connection_credential:, execution_runtime_connection_credential: nil, execution_runtime_connection: nil)
+  def initialize(test_case:, agent_definition_version:, agent_connection_credential:, execution_runtime_connection_credential: nil, execution_runtime_connection: nil)
     @test_case = test_case
-    @agent_snapshot = agent_snapshot
+    @agent_definition_version = agent_definition_version
     @agent_connection_credential = agent_connection_credential
     @execution_runtime_connection_credential = execution_runtime_connection_credential
     @execution_runtime_connection = execution_runtime_connection
   end
 
-  attr_reader :agent_snapshot
+  attr_reader :agent_definition_version
 
   def connect_websocket!
-    AgentControl::RealtimeLinks::Open.call(agent_snapshot: agent_snapshot)
+    AgentControl::RealtimeLinks::Open.call(agent_definition_version: agent_definition_version)
     return if resolved_execution_runtime_connection.blank?
 
     AgentControl::RealtimeLinks::Open.call(execution_runtime_connection: resolved_execution_runtime_connection)
   end
 
   def disconnect_websocket!
-    AgentControl::RealtimeLinks::Close.call(agent_snapshot: agent_snapshot)
+    AgentControl::RealtimeLinks::Close.call(agent_definition_version: agent_definition_version)
     return if resolved_execution_runtime_connection.blank?
 
     AgentControl::RealtimeLinks::Close.call(execution_runtime_connection: resolved_execution_runtime_connection)
   end
 
   def stream_names
-    names = [AgentControl::StreamName.for_delivery_endpoint(agent_snapshot)]
+    names = [AgentControl::StreamName.for_delivery_endpoint(agent_definition_version)]
     if resolved_execution_runtime_connection.present?
       names << AgentControl::StreamName.for_execution_runtime_connection(resolved_execution_runtime_connection)
     end
@@ -101,7 +101,7 @@ class FakeAgentRuntimeHarness
       raise ArgumentError, "execution_runtime_connection_credential is required for #{method_id}" if resolved_execution_runtime_connection.blank?
 
       result = AgentControl::Report.call(
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         execution_runtime_connection: resolved_execution_runtime_connection,
         resource: resolved_execution_resource_for(params),
         payload: params.merge(method_id: method_id)
@@ -126,7 +126,7 @@ class FakeAgentRuntimeHarness
   attr_reader :execution_runtime_connection_credential
 
   def resolved_execution_runtime_connection
-    @execution_runtime_connection || agent_snapshot.agent.default_execution_runtime&.active_execution_runtime_connection
+    @execution_runtime_connection || agent_definition_version.agent.default_execution_runtime&.active_execution_runtime_connection
   end
 
   def poll_execution!(limit:)
@@ -174,7 +174,7 @@ class FakeAgentRuntimeHarness
     return nil if resource_type.blank? || resource_id.blank?
 
     AgentControl::ClosableResourceRegistry.find!(
-      installation_id: agent_snapshot.installation_id,
+      installation_id: agent_definition_version.installation_id,
       resource_type: resource_type,
       public_id: resource_id
     )

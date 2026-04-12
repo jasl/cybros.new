@@ -43,11 +43,11 @@ module AgentControl
         else
           ClosableResourceRouting.owning_agent_for(@resource)
         end
-      target_agent_snapshot =
+      target_agent_definition_version =
         if execution_runtime_plane?
           nil
         else
-          resolved_target_agent_snapshot(target_connection:, target_agent:)
+          resolved_target_agent_definition_version(target_connection:, target_agent:)
         end
 
       resource_updates = {
@@ -63,7 +63,7 @@ module AgentControl
       mailbox_item = AgentControlMailboxItem.create!(
         installation: @resource.installation,
         target_agent: target_agent,
-        target_agent_snapshot: target_agent_snapshot,
+        target_agent_definition_version: target_agent_definition_version,
         target_execution_runtime: execution_runtime_plane? ? ClosableResourceRouting.execution_runtime_for(@resource) : nil,
         agent_task_run: agent_task_run,
         item_type: "resource_close_request",
@@ -93,13 +93,13 @@ module AgentControl
       mailbox_item
     end
 
-    def resolved_target_agent_snapshot(target_connection:, target_agent:)
-      return target_connection.agent_snapshot if target_connection.is_a?(AgentConnection)
+    def resolved_target_agent_definition_version(target_connection:, target_agent:)
+      return target_connection.agent_definition_version if target_connection.is_a?(AgentConnection)
       return if target_agent.blank?
 
-      target_agent.current_agent_snapshot ||
-        AgentConnection.where(agent: target_agent).order(created_at: :desc, id: :desc).limit(1).pick(:agent_snapshot_id)&.yield_self do |agent_snapshot_id|
-          AgentSnapshot.find_by(id: agent_snapshot_id)
+      target_agent.current_agent_definition_version ||
+        AgentConnection.where(agent: target_agent).order(created_at: :desc, id: :desc).limit(1).pick(:agent_definition_version_id)&.yield_self do |agent_definition_version_id|
+          AgentDefinitionVersion.find_by(id: agent_definition_version_id)
         end
     end
 

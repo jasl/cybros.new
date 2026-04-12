@@ -10,7 +10,7 @@ module ConversationSupervisionFixtureBuilder
     current_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Has this turn already committed to the 2048 acceptance flow work?",
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -25,8 +25,8 @@ module ConversationSupervisionFixtureBuilder
         active: true,
         metadata: {}
       )
-      capability_snapshot = create_capability_snapshot!(
-        agent_snapshot: context.fetch(:agent_snapshot),
+      capability_snapshot = create_compatible_agent_definition_version!(
+        agent_definition_version: context.fetch(:agent_definition_version),
         config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
         default_config_snapshot: default_default_config_snapshot(include_selector_slots: true).deep_merge(
           "model_slots" => {
@@ -34,7 +34,7 @@ module ConversationSupervisionFixtureBuilder
           }
         )
       )
-      adopt_agent_snapshot!(context, capability_snapshot, turn: current_turn)
+      adopt_agent_definition_version!(context, capability_snapshot, turn: current_turn)
       current_turn = current_turn.reload
     end
     current_output = attach_selected_output!(current_turn, content: "The 2048 acceptance flow is already wired.")
@@ -102,7 +102,7 @@ module ConversationSupervisionFixtureBuilder
       parent_conversation: conversation,
       kind: "fork",
       execution_runtime: context.fetch(:execution_runtime),
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       addressability: "agent_addressable"
     )
     subagent_connection = SubagentConnection.create!(
@@ -382,7 +382,7 @@ module ConversationSupervisionFixtureBuilder
   def create_exec_command_execution!(context:, workflow_node:, command_line:, tool_status:, command_state:, started_at:, finished_at: nil)
     tool_definition = ToolDefinition.find_or_create_by!(
       installation: context.fetch(:installation),
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "exec_command"
     ) do |definition|
       definition.tool_kind = "function"

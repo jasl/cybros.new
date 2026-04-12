@@ -12,7 +12,7 @@ class AgentControl::ValidateExecutionReportFreshnessTest < ActiveSupport::TestCa
     )
 
     result = AgentControl::ValidateExecutionReportFreshness.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "execution_started",
       payload: {
@@ -42,13 +42,13 @@ class AgentControl::ValidateExecutionReportFreshnessTest < ActiveSupport::TestCa
     )
     Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
 
     assert_raises(AgentControl::Report::StaleReportError) do
       AgentControl::ValidateExecutionReportFreshness.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         execution_runtime_connection: context[:execution_runtime_connection],
         method_id: "execution_progress",
         payload: {

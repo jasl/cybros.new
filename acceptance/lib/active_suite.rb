@@ -5,8 +5,9 @@ module Acceptance
     module_function
 
     ACTIVE_SCENARIOS = [
+      "acceptance/scenarios/bring_your_own_agent_validation.rb",
+      "acceptance/scenarios/bring_your_own_execution_runtime_validation.rb",
       "acceptance/scenarios/during_generation_steering_validation.rb",
-      "acceptance/scenarios/external_fenix_validation.rb",
       "acceptance/scenarios/fenix_skills_validation.rb",
       "acceptance/scenarios/governed_mcp_validation.rb",
       "acceptance/scenarios/governed_tool_validation.rb",

@@ -81,7 +81,7 @@ class SkillsFlowTest < ActiveSupport::TestCase
         "runtime_context" => {
           "agent_id" => "agent-1",
           "user_id" => "user-1",
-          "agent_version_id" => "agent-snapshot-1",
+          "agent_version_id" => "agent-definition-version-1",
         },
         "task_payload" => {
           "mode" => mode,

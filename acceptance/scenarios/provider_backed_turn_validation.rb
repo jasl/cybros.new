@@ -22,7 +22,7 @@ conversation_context = nil
 run = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: bundled) do
-  conversation_context = Acceptance::ManualSupport.create_conversation!(agent_snapshot: bundled.agent_snapshot)
+  conversation_context = Acceptance::ManualSupport.create_conversation!(agent_definition_version: bundled.agent_definition_version)
   run = Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
     conversation: conversation_context.fetch(:conversation),
     content: content,
@@ -65,7 +65,7 @@ Acceptance::ManualSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      "agent_snapshot_id" => bundled.agent_snapshot.public_id,
+      "agent_definition_version_id" => bundled.agent_definition_version.public_id,
       "execution_runtime_id" => bundled.execution_runtime.public_id,
       "conversation_id" => conversation_context.fetch(:conversation).public_id,
       "turn_id" => turn.public_id,

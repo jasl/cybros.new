@@ -1,0 +1,32 @@
+{
+  "interactive": {
+    "default_profile_key": "main"
+  },
+  "role_slots": {
+    "main": {
+      "selector": "role:main",
+      "fallback_role_slot": null
+    },
+    "summary": {
+      "selector": "role:summary",
+      "fallback_role_slot": "main"
+    }
+  },
+  "profile_runtime_overrides": {
+    "main": {
+      "role_slot": "main"
+    },
+    "researcher": {
+      "role_slot": "main"
+    }
+  },
+  "subagents": {
+    "enabled": true,
+    "allow_nested": true,
+    "max_depth": 3
+  },
+  "tool_policy_overlays": [],
+  "behavior": {
+    "sandbox": "workspace-write"
+  }
+}

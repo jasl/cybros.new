@@ -69,8 +69,8 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal "call-calculator-1", agent_request_exchange.execute_tool_requests.first.fetch("tool_call").fetch("call_id")
     assert_equal workflow_node.public_id, agent_request_exchange.execute_tool_requests.first.fetch("task").fetch("workflow_node_id")
     assert_equal(
-      { "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id },
-      agent_request_exchange.execute_tool_requests.first.fetch("runtime_context").slice("agent_snapshot_id")
+      { "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id },
+      agent_request_exchange.execute_tool_requests.first.fetch("runtime_context").slice("agent_definition_version_id")
     )
   end
 

@@ -51,7 +51,7 @@ module ProviderExecution
     end
 
     def initialize(
-      agent_snapshot:,
+      agent_definition_version:,
       timeout: nil,
       prepare_round_timeout: DEFAULT_PREPARE_ROUND_TIMEOUT,
       execute_tool_timeout: DEFAULT_EXECUTE_TOOL_TIMEOUT,
@@ -60,7 +60,7 @@ module ProviderExecution
       poll_interval: DEFAULT_POLL_INTERVAL,
       sleeper: nil
     )
-      @agent_snapshot = agent_snapshot
+      @agent_definition_version = agent_definition_version
       @prepare_round_timeout = timeout || prepare_round_timeout
       @execute_tool_timeout = timeout || execute_tool_timeout
       @tool_timeout_buffer = tool_timeout_buffer
@@ -114,7 +114,7 @@ module ProviderExecution
 
       request_started_at = Time.current
       mailbox_item = AgentControl::CreateAgentRequest.call(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         request_kind: request_kind,
         payload: payload,
         logical_work_id: logical_work_id,
@@ -214,7 +214,7 @@ module ProviderExecution
       return if workflow_node_public_id.blank?
 
       WorkflowNode.find_by!(
-        installation_id: @agent_snapshot.installation_id,
+        installation_id: @agent_definition_version.installation_id,
         public_id: workflow_node_public_id
       )
     end
@@ -269,7 +269,8 @@ module ProviderExecution
         finished_at,
         SecureRandom.uuid,
         {
-          "agent_public_id" => @agent_snapshot.agent.public_id,
+          "agent_public_id" => @agent_definition_version.agent.public_id,
+          "agent_definition_version_id" => @agent_definition_version.public_id,
           "mailbox_item_public_id" => mailbox_item.public_id,
           "request_kind" => request_kind,
           "success" => success,

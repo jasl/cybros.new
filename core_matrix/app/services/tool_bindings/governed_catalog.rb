@@ -4,15 +4,15 @@ module ToolBindings
       new(...).call
     end
 
-    def initialize(agent_snapshot: nil, capability_snapshot: nil, execution_runtime:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
-      @agent_snapshot = agent_snapshot || capability_snapshot
+    def initialize(agent_definition_version:, execution_runtime:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
+      @agent_definition_version = agent_definition_version
       @execution_runtime = execution_runtime
       @core_matrix_tool_catalog = core_matrix_tool_catalog
     end
 
     def call
       ToolBindings::ProjectCapabilitySnapshot.call(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         execution_runtime: @execution_runtime,
         core_matrix_tool_catalog: @core_matrix_tool_catalog
       )
@@ -33,11 +33,11 @@ module ToolBindings
       @projected_entries ||= begin
         entries = RuntimeCapabilityContract.build(
           execution_runtime: @execution_runtime,
-          agent_snapshot: @agent_snapshot,
+          agent_definition_version: @agent_definition_version,
           core_matrix_tool_catalog: @core_matrix_tool_catalog
         ).effective_tool_catalog
 
-        allowed_names = @agent_snapshot.profile_catalog.values.flat_map { |profile| Array(profile["allowed_tool_names"]) }.uniq
+        allowed_names = @agent_definition_version.profile_catalog.values.flat_map { |profile| Array(profile["allowed_tool_names"]) }.uniq
         if allowed_names.blank?
           entries
         else
@@ -48,7 +48,7 @@ module ToolBindings
 
     def definitions_by_name
       @definitions_by_name ||= ToolDefinition.where(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         tool_name: projected_entries.map { |entry| entry.fetch("tool_name") }
       ).includes(:tool_implementations).index_by(&:tool_name)
     end

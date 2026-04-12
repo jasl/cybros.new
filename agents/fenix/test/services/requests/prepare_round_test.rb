@@ -44,7 +44,7 @@ class Requests::PrepareRoundTest < ActiveSupport::TestCase
             "model_context" => { "model_slug" => "gpt-5.4" },
           },
           "runtime_context" => {
-            "agent_snapshot_id" => "agent-snapshot-1",
+            "agent_definition_version_id" => "agent-definition-version-1",
             "logical_work_id" => "prepare-round:workflow-node-1",
           },
           "workspace_context" => {
@@ -89,7 +89,7 @@ class Requests::PrepareRoundTest < ActiveSupport::TestCase
             "context_imports" => [],
           },
           "runtime_context" => {
-            "agent_snapshot_id" => "agent-snapshot-1",
+            "agent_definition_version_id" => "agent-definition-version-1",
           },
           "workspace_context" => {
             "workspace_root" => workspace_root,

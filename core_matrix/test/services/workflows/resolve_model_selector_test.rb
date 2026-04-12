@@ -6,7 +6,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -22,7 +22,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     assert_equal "codex_subscription", snapshot["resolved_provider_handle"]
     assert_equal "gpt-5.4", snapshot["resolved_model_ref"]
     assert_equal 0, snapshot["fallback_count"]
-    assert_equal context[:agent_snapshot].public_id, snapshot["agent_snapshot_id"]
+    assert_equal context[:agent_definition_version].public_id, snapshot["agent_definition_version_id"]
     assert_equal "shared_window", snapshot["entitlement_key"]
   end
 
@@ -33,7 +33,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -61,7 +61,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -90,7 +90,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -123,7 +123,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -144,7 +144,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -171,7 +171,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -198,7 +198,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -224,7 +224,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
       content: "Selector input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -252,8 +252,8 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     openrouter_credential_present: true
   )
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_snapshot: context[:agent_snapshot])
-    adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
+    capability_snapshot = create_compatible_agent_definition_version!(agent_definition_version: context[:agent_definition_version])
+    adopt_agent_definition_version!(context, capability_snapshot, turn: nil)
 
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -289,7 +289,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
 
     {
       conversation: conversation,
-      capability_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
     }.merge(context)
   end
 

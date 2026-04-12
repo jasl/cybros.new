@@ -6,8 +6,8 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_snapshot:, method_id:, payload:, occurred_at: Time.current, **)
-      @agent_snapshot = agent_snapshot
+    def initialize(agent_definition_version:, method_id:, payload:, occurred_at: Time.current, **)
+      @agent_definition_version = agent_definition_version
       @method_id = method_id
       @payload = payload
       @occurred_at = occurred_at
@@ -21,7 +21,7 @@ module AgentControl
 
     def call
       ValidateAgentReportFreshness.call(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         method_id: @method_id,
         payload: @payload,
         mailbox_item: mailbox_item,
@@ -54,7 +54,7 @@ module AgentControl
 
     def mailbox_item
       @mailbox_item ||= AgentControlMailboxItem.find_by!(
-        installation_id: @agent_snapshot.installation_id,
+        installation_id: @agent_definition_version.installation_id,
         public_id: @payload.fetch("mailbox_item_id")
       )
     end

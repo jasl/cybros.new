@@ -31,7 +31,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     error = assert_raises(RuntimeError) do
       AgentControl::Report.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         method_id: "execution_progress",
         protocol_message_id: protocol_message_id,
         mailbox_item_id: mailbox_item.public_id,
@@ -72,7 +72,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "acked", mailbox_item.reload.status
     assert_equal "running", agent_task_run.reload.lifecycle_state
     assert_equal context[:agent_connection], agent_task_run.holder_agent_connection
-    assert_equal context[:agent_snapshot].public_id, agent_task_run.execution_lease.holder_key
+    assert_equal context[:agent_definition_version].public_id, agent_task_run.execution_lease.holder_key
   end
 
   test "report stores only the report body in the receipt document and reconstructs structured control fields on read" do
@@ -83,7 +83,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     protocol_message_id = "agent-progress-#{next_test_sequence}"
 
     AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "execution_progress",
       protocol_message_id: protocol_message_id,
       mailbox_item_id: mailbox_item.public_id,
@@ -206,7 +206,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
   test "agent terminal reports store only the response body and reconstruct workflow refs on read" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -224,7 +224,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     protocol_message_id = "agent-complete-#{next_test_sequence}"
 
     AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "agent_completed",
       protocol_message_id: protocol_message_id,
       mailbox_item_id: mailbox_item.public_id,
@@ -260,7 +260,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
   test "agent failure reports store only the error body and reconstruct workflow refs on read" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -278,7 +278,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     protocol_message_id = "agent-failed-#{next_test_sequence}"
 
     AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "agent_failed",
       protocol_message_id: protocol_message_id,
       mailbox_item_id: mailbox_item.public_id,
@@ -625,7 +625,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     broadcasts = capture_broadcasts(stream_name) do
       result = AgentControl::Report.call(
-        agent_snapshot: context[:previous_agent_snapshot],
+        agent_definition_version: context[:previous_agent_definition_version],
         execution_runtime_connection: context[:execution_runtime_connection],
         method_id: "process_output",
         protocol_message_id: "process-output-no-lease-#{next_test_sequence}",
@@ -721,7 +721,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal({}, agent_task_run.reload.progress_payload)
   end
 
-  test "rejects terminal close reports from a sibling agent_snapshot after another agent_snapshot acknowledged the request" do
+  test "rejects terminal close reports from a sibling agent definition version after another one acknowledged the request" do
     context = build_rotated_runtime_context!
     owner_conversation = context[:conversation]
     child_conversation = create_conversation_record!(
@@ -730,7 +730,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       parent_conversation: owner_conversation,
       kind: "fork",
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       addressability: "agent_addressable"
     )
     subagent_connection = SubagentConnection.create!(
@@ -749,10 +749,10 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     refute_respond_to mailbox_item, :target_kind
 
-    AgentControl::Poll.call(agent_snapshot: context[:replacement_agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:replacement_agent_definition_version], limit: 10)
 
     ack_result = AgentControl::Report.call(
-      agent_snapshot: context[:replacement_agent_snapshot],
+      agent_definition_version: context[:replacement_agent_definition_version],
       method_id: "resource_close_acknowledged",
       protocol_message_id: "close-ack-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
@@ -766,7 +766,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "acknowledged", subagent_connection.reload.close_state
 
     terminal_result = AgentControl::Report.call(
-      agent_snapshot: context[:previous_agent_snapshot],
+      agent_definition_version: context[:previous_agent_definition_version],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: mailbox_item.public_id,
@@ -793,7 +793,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
       parent_conversation: owner_conversation,
       kind: "fork",
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       addressability: "agent_addressable"
     )
     subagent_connection = SubagentConnection.create!(
@@ -811,10 +811,10 @@ class AgentControlReportTest < ActiveSupport::TestCase
       resource: subagent_connection
     ).fetch(:mailbox_item)
 
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     result = AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
       mailbox_item_id: close_request.public_id,
@@ -832,7 +832,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert subagent_connection.observed_status_interrupted?
   end
 
-  test "forced requeue keeps the last acknowledged agent_snapshot valid until a new lease takes over" do
+  test "forced requeue keeps the last acknowledged agent definition version valid until a new lease takes over" do
     context = build_agent_control_context!
     occurred_at = Time.zone.parse("2026-03-28 12:00:00 UTC")
     process_run = create_process_run!(
@@ -856,7 +856,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10, occurred_at: occurred_at)
 
     ack_result = AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "resource_close_acknowledged",
       protocol_message_id: "close-ack-#{next_test_sequence}",
@@ -881,7 +881,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal context[:execution_runtime_connection], close_request.leased_to_execution_runtime_connection
 
     terminal_result = AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
@@ -924,7 +924,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10, occurred_at: occurred_at)
 
     ack_result = AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "resource_close_acknowledged",
       protocol_message_id: "close-ack-#{next_test_sequence}",
@@ -951,7 +951,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "timed_out_forced", process_run.close_outcome_kind
 
     terminal_result = AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
@@ -991,7 +991,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     broadcasts = capture_broadcasts(stream_name) do
       AgentControl::Report.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         execution_runtime_connection: context[:execution_runtime_connection],
         method_id: "resource_closed",
         protocol_message_id: "close-output-#{next_test_sequence}",
@@ -1046,7 +1046,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     broadcasts = capture_broadcasts(stream_name) do
       AgentControl::Report.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         execution_runtime_connection: context[:execution_runtime_connection],
         method_id: "resource_close_failed",
         protocol_message_id: "close-lost-#{next_test_sequence}",
@@ -1099,7 +1099,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     end
 
     params = {
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "resource_closed",
       protocol_message_id: "close-terminal-#{next_test_sequence}",
@@ -1134,7 +1134,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
   def report_execution_runtime!(context:, **params)
     AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       **params
     )
@@ -1162,7 +1162,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
   def build_calculator_agent_control_context!
     context = build_agent_control_context!
-    activate_agent_snapshot!(
+    activate_agent_definition_version!(
       context,
       tool_catalog: [
         {
@@ -1187,8 +1187,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     context[:turn].update!(
-      agent_snapshot: context[:agent_snapshot],
-      pinned_agent_snapshot_fingerprint: context[:agent_snapshot].fingerprint
+      agent_definition_version: context[:agent_definition_version],
+      pinned_agent_definition_fingerprint: context[:agent_definition_version].fingerprint
     )
 
     turn = context[:turn].reload
@@ -1203,7 +1203,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
   def build_exec_command_agent_control_context!
     context = build_agent_control_context!
-    activate_agent_snapshot!(
+    activate_agent_definition_version!(
       context,
       tool_catalog: [
         {
@@ -1228,8 +1228,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
     context[:turn].update!(
-      agent_snapshot: context[:agent_snapshot],
-      pinned_agent_snapshot_fingerprint: context[:agent_snapshot].fingerprint
+      agent_definition_version: context[:agent_definition_version],
+      pinned_agent_definition_fingerprint: context[:agent_definition_version].fingerprint
     )
 
     turn = context[:turn].reload

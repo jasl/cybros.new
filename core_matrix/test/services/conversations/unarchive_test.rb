@@ -6,7 +6,7 @@ class Conversations::UnarchiveTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     archived = Conversations::Archive.call(conversation: root)
 
@@ -21,7 +21,7 @@ class Conversations::UnarchiveTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -36,7 +36,7 @@ class Conversations::UnarchiveTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     root.update!(lifecycle_state: "archived", deletion_state: "pending_delete", deleted_at: Time.current)
 

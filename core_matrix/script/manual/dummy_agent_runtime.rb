@@ -79,36 +79,43 @@ class DummyAgentRuntime
 
   def register_payload
     {
-      "enrollment_token" => ENV.fetch("CORE_MATRIX_ENROLLMENT_TOKEN"),
-      "execution_runtime_fingerprint" => ENV.fetch("CORE_MATRIX_RUNTIME_FINGERPRINT", "dummy-runtime-environment"),
-      "fingerprint" => ENV.fetch("CORE_MATRIX_FINGERPRINT", "dummy-runtime"),
+      "pairing_token" => ENV.fetch("CORE_MATRIX_PAIRING_TOKEN"),
       "endpoint_metadata" => {
         "transport" => "http",
         "base_url" => runtime_base_url,
       },
-      "protocol_version" => ENV.fetch("CORE_MATRIX_PROTOCOL_VERSION", "2026-03-24"),
-      "sdk_version" => ENV.fetch("CORE_MATRIX_SDK_VERSION", "dummy-runtime-0.1.0"),
-      "protocol_methods" => DEFAULT_PROTOCOL_METHODS,
-      "tool_catalog" => DEFAULT_TOOL_CATALOG,
-      "config_schema_snapshot" => {
-        "type" => "object",
-        "properties" => {
-          "interactive" => {
-            "type" => "object",
-            "properties" => {
-              "selector" => { "type" => "string" },
+      "definition_package" => {
+        "program_manifest_fingerprint" => ENV.fetch("CORE_MATRIX_FINGERPRINT", "dummy-runtime"),
+        "prompt_pack_ref" => ENV.fetch("CORE_MATRIX_PROMPT_PACK_REF", "dummy/default"),
+        "prompt_pack_fingerprint" => ENV.fetch("CORE_MATRIX_PROMPT_PACK_FINGERPRINT", "dummy-prompt-pack"),
+        "protocol_version" => ENV.fetch("CORE_MATRIX_PROTOCOL_VERSION", "2026-03-24"),
+        "sdk_version" => ENV.fetch("CORE_MATRIX_SDK_VERSION", "dummy-runtime-0.1.0"),
+        "protocol_methods" => DEFAULT_PROTOCOL_METHODS,
+        "tool_contract" => DEFAULT_TOOL_CATALOG,
+        "profile_policy" => {},
+        "canonical_config_schema" => {
+          "type" => "object",
+          "properties" => {
+            "interactive" => {
+              "type" => "object",
+              "properties" => {
+                "selector" => { "type" => "string" },
+              },
             },
           },
         },
-      },
-      "conversation_override_schema_snapshot" => {
-        "type" => "object",
-        "properties" => {},
-      },
-      "default_config_snapshot" => {
-        "sandbox" => "workspace-write",
-        "interactive" => {
-          "selector" => "role:main",
+        "conversation_override_schema" => {
+          "type" => "object",
+          "properties" => {},
+        },
+        "default_canonical_config" => {
+          "sandbox" => "workspace-write",
+          "interactive" => {
+            "selector" => "role:main",
+          },
+        },
+        "reflected_surface" => {
+          "display_name" => "Dummy Agent Runtime",
         },
       },
     }
@@ -127,14 +134,7 @@ class DummyAgentRuntime
 
   def capabilities_payload
     {
-      "fingerprint" => ENV.fetch("CORE_MATRIX_FINGERPRINT", "dummy-runtime"),
-      "protocol_version" => ENV.fetch("CORE_MATRIX_PROTOCOL_VERSION", "2026-03-24"),
-      "sdk_version" => ENV.fetch("CORE_MATRIX_SDK_VERSION", "dummy-runtime-0.1.0"),
-      "protocol_methods" => DEFAULT_PROTOCOL_METHODS,
-      "tool_catalog" => DEFAULT_TOOL_CATALOG,
-      "config_schema_snapshot" => register_payload.fetch("config_schema_snapshot"),
-      "conversation_override_schema_snapshot" => register_payload.fetch("conversation_override_schema_snapshot"),
-      "default_config_snapshot" => register_payload.fetch("default_config_snapshot"),
+      "definition_package" => register_payload.fetch("definition_package"),
     }
   end
 
@@ -174,12 +174,14 @@ class DummyAgentRuntime
       Environment:
         CORE_MATRIX_BASE_URL
         CORE_MATRIX_RUNTIME_BASE_URL
-        CORE_MATRIX_ENROLLMENT_TOKEN     # required for register
+        CORE_MATRIX_PAIRING_TOKEN        # required for register
         CORE_MATRIX_RUNTIME_FINGERPRINT
         CORE_MATRIX_MACHINE_CREDENTIAL   # required for heartbeat/capabilities/health
         CORE_MATRIX_FINGERPRINT
         CORE_MATRIX_PROTOCOL_VERSION
         CORE_MATRIX_SDK_VERSION
+        CORE_MATRIX_PROMPT_PACK_REF
+        CORE_MATRIX_PROMPT_PACK_FINGERPRINT
         CORE_MATRIX_HEALTH_STATUS
         CORE_MATRIX_AUTO_RESUME_ELIGIBLE
         CORE_MATRIX_UNAVAILABILITY_REASON

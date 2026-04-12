@@ -22,7 +22,7 @@ class AgentControl::ValidateCloseReportFreshnessTest < ActiveSupport::TestCase
     AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10, occurred_at: occurred_at)
 
     result = AgentControl::ValidateCloseReportFreshness.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       payload: { "close_request_id" => mailbox_item.public_id },
       mailbox_item: mailbox_item.reload,
@@ -57,7 +57,7 @@ class AgentControl::ValidateCloseReportFreshnessTest < ActiveSupport::TestCase
 
     assert_raises(AgentControl::Report::StaleReportError) do
       AgentControl::ValidateCloseReportFreshness.call(
-        agent_snapshot: context[:previous_agent_snapshot],
+        agent_definition_version: context[:previous_agent_definition_version],
         execution_runtime_connection: previous_execution_runtime_connection,
         payload: { "close_request_id" => mailbox_item.public_id },
         mailbox_item: mailbox_item.reload,

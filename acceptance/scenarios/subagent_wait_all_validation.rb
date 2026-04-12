@@ -124,7 +124,7 @@ conversation = Conversations::CreateRoot.call(
 turn = Turns::StartUserTurn.call(
   conversation: conversation,
   content: "Delegate both research tasks and wait for them to finish.",
-  agent_snapshot: registry.agent_snapshot,
+  agent_definition_version: registry.agent_definition_version,
   resolved_config_snapshot: {},
   resolved_model_selection_snapshot: {}
 )
@@ -174,7 +174,7 @@ mailbox_item = AgentControl::CreateExecutionAssignment.call(
 )
 
 Acceptance::ManualSupport.dispatch_execution_report!(
-  agent_snapshot: registry.agent_snapshot,
+  agent_definition_version: registry.agent_definition_version,
   execution_runtime_connection: execution_runtime_connection,
   mailbox_item: mailbox_item,
   agent_task_run: agent_task_run,
@@ -183,7 +183,7 @@ Acceptance::ManualSupport.dispatch_execution_report!(
   expected_duration_seconds: 30
 )
 Acceptance::ManualSupport.dispatch_execution_report!(
-  agent_snapshot: registry.agent_snapshot,
+  agent_definition_version: registry.agent_definition_version,
   execution_runtime_connection: execution_runtime_connection,
   mailbox_item: mailbox_item,
   agent_task_run: agent_task_run,
@@ -267,7 +267,7 @@ first_mailbox_item = first_child.agent_control_mailbox_items.order(:created_at, 
 raise "expected first child mailbox item" if first_mailbox_item.blank?
 
 Acceptance::ManualSupport.dispatch_execution_report!(
-  agent_snapshot: registry.agent_snapshot,
+  agent_definition_version: registry.agent_definition_version,
   execution_runtime_connection: execution_runtime_connection,
   mailbox_item: first_mailbox_item,
   agent_task_run: first_child,
@@ -276,7 +276,7 @@ Acceptance::ManualSupport.dispatch_execution_report!(
   expected_duration_seconds: 30
 )
 Acceptance::ManualSupport.dispatch_execution_report!(
-  agent_snapshot: registry.agent_snapshot,
+  agent_definition_version: registry.agent_definition_version,
   execution_runtime_connection: execution_runtime_connection,
   mailbox_item: first_mailbox_item,
   agent_task_run: first_child,
@@ -294,7 +294,7 @@ second_mailbox_item = second_child.agent_control_mailbox_items.order(:created_at
 raise "expected second child mailbox item" if second_mailbox_item.blank?
 
 Acceptance::ManualSupport.dispatch_execution_report!(
-  agent_snapshot: registry.agent_snapshot,
+  agent_definition_version: registry.agent_definition_version,
   execution_runtime_connection: execution_runtime_connection,
   mailbox_item: second_mailbox_item,
   agent_task_run: second_child,
@@ -303,7 +303,7 @@ Acceptance::ManualSupport.dispatch_execution_report!(
   expected_duration_seconds: 30
 )
 Acceptance::ManualSupport.dispatch_execution_report!(
-  agent_snapshot: registry.agent_snapshot,
+  agent_definition_version: registry.agent_definition_version,
   execution_runtime_connection: execution_runtime_connection,
   mailbox_item: second_mailbox_item,
   agent_task_run: second_child,

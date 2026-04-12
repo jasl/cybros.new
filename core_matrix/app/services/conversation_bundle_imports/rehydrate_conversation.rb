@@ -13,7 +13,7 @@ module ConversationBundleImports
       ApplicationRecord.transaction do
         conversation = Conversations::CreateRoot.call(
           workspace: @request.workspace,
-          agent: target_agent_snapshot.agent
+          agent: target_agent_definition_version.agent
         )
         restore_conversation_timestamps!(conversation)
         rehydrate_turns!(conversation)
@@ -23,10 +23,10 @@ module ConversationBundleImports
 
     private
 
-    def target_agent_snapshot
-      @target_agent_snapshot ||= AgentSnapshot.find_by!(
+    def target_agent_definition_version
+      @target_agent_definition_version ||= AgentDefinitionVersion.find_by!(
         installation_id: @request.installation_id,
-        public_id: @request.request_payload.fetch("target_agent_snapshot_id")
+        public_id: @request.request_payload.fetch("target_agent_definition_version_id")
       )
     end
 
@@ -39,7 +39,7 @@ module ConversationBundleImports
     end
 
     def target_execution_runtime
-      @target_execution_runtime ||= target_agent_snapshot.agent.default_execution_runtime
+      @target_execution_runtime ||= target_agent_definition_version.agent.default_execution_runtime
     end
 
     def restore_conversation_timestamps!(conversation)
@@ -65,12 +65,18 @@ module ConversationBundleImports
         output_payload = message_group.find { |message| message.fetch("slot") == "output" }
         created_at = parse_time(input_payload&.fetch("created_at", nil) || output_payload&.fetch("created_at", nil), fallback: Time.current)
         updated_at = parse_time(output_payload&.fetch("updated_at", nil) || input_payload&.fetch("updated_at", nil), fallback: created_at)
+        execution_identity = Turns::FreezeExecutionIdentity.call(
+          conversation: conversation,
+          execution_runtime: target_execution_runtime,
+          allow_unavailable_execution_runtime: true
+        )
 
         turn = Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
-          agent_snapshot: target_agent_snapshot,
-          execution_runtime: target_execution_runtime,
+          agent_definition_version: execution_identity.agent_definition_version,
+          execution_runtime: execution_identity.execution_runtime,
+          execution_runtime_version: execution_identity.execution_runtime_version,
           sequence: index + 1,
           lifecycle_state: "completed",
           origin_kind: "system_internal",
@@ -80,7 +86,9 @@ module ConversationBundleImports
           },
           source_ref_type: "ConversationBundleImportRequest",
           source_ref_id: @request.public_id,
-          pinned_agent_snapshot_fingerprint: target_agent_snapshot.fingerprint,
+          pinned_agent_definition_fingerprint: execution_identity.pinned_agent_definition_fingerprint,
+          agent_config_version: execution_identity.agent_config_version,
+          agent_config_content_fingerprint: execution_identity.agent_config_content_fingerprint,
           resolved_config_snapshot: {},
           resolved_model_selection_snapshot: {},
           created_at: created_at,

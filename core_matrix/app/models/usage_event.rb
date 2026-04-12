@@ -24,7 +24,7 @@ class UsageEvent < ApplicationRecord
   belongs_to :user, optional: true
   belongs_to :workspace, optional: true
   belongs_to :agent, optional: true
-  belongs_to :agent_snapshot, optional: true
+  belongs_to :agent_definition_version, optional: true
 
   validates :provider_handle, presence: true
   validates :model_ref, presence: true
@@ -39,7 +39,7 @@ class UsageEvent < ApplicationRecord
   validate :user_installation_match
   validate :workspace_installation_match
   validate :agent_installation_match
-  validate :agent_snapshot_installation_match
+  validate :agent_definition_version_installation_match
 
   data_lifecycle_kind! :bounded_audit
 
@@ -85,10 +85,10 @@ class UsageEvent < ApplicationRecord
     errors.add(:agent, "must belong to the same installation")
   end
 
-  def agent_snapshot_installation_match
-    return if agent_snapshot.blank?
-    return if agent_snapshot.installation_id == installation_id
+  def agent_definition_version_installation_match
+    return if agent_definition_version.blank?
+    return if agent_definition_version.installation_id == installation_id
 
-    errors.add(:agent_snapshot, "must belong to the same installation")
+    errors.add(:agent_definition_version, "must belong to the same installation")
   end
 end

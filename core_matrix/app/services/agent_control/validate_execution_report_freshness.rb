@@ -12,7 +12,7 @@ module AgentControl
     end
 
     def initialize(
-      agent_snapshot:,
+      agent_definition_version:,
       agent_connection: nil,
       execution_runtime_connection: nil,
       method_id:,
@@ -21,7 +21,7 @@ module AgentControl
       agent_task_run:,
       occurred_at: Time.current
     )
-      @agent_snapshot = agent_snapshot
+      @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @execution_runtime_connection = execution_runtime_connection
       @method_id = method_id
@@ -80,11 +80,11 @@ module AgentControl
     def lease_owner
       return @execution_runtime_connection if @mailbox_item.execution_runtime_plane?
 
-      @agent_snapshot
+      @agent_definition_version
     end
 
     def resolved_agent_connection
-      @resolved_agent_connection ||= @agent_connection || @agent_snapshot.active_agent_connection || @agent_snapshot.most_recent_agent_connection
+      @resolved_agent_connection ||= @agent_connection || @agent_definition_version.active_agent_connection || @agent_definition_version.most_recent_agent_connection
     end
 
     def stale!

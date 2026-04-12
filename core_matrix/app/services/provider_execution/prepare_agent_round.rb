@@ -7,7 +7,7 @@ module ProviderExecution
     def initialize(workflow_node:, transcript:, agent_request_exchange: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
-      @agent_request_exchange = agent_request_exchange || ProviderExecution::AgentRequestExchange.new(agent_snapshot: workflow_node.turn.agent_snapshot)
+      @agent_request_exchange = agent_request_exchange || ProviderExecution::AgentRequestExchange.new(agent_definition_version: workflow_node.turn.agent_definition_version)
       @transcript = Array(transcript).map { |entry| entry.deep_stringify_keys }
     end
 
@@ -37,8 +37,8 @@ module ProviderExecution
           "control_plane" => "agent",
           "logical_work_id" => "prepare-round:#{@workflow_node.public_id}",
           "attempt_no" => 1,
-          "agent_snapshot_id" => @workflow_run.turn.agent_snapshot.public_id,
-          "agent_id" => @workflow_run.turn.agent_snapshot.agent.public_id,
+          "agent_definition_version_id" => @workflow_run.turn.agent_definition_version.public_id,
+          "agent_id" => @workflow_run.turn.agent_definition_version.agent.public_id,
           "user_id" => @workflow_run.conversation.workspace.user.public_id,
         },
       }

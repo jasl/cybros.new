@@ -2,19 +2,7 @@ require "test_helper"
 
 class ExecutionRuntimeTest < ActiveSupport::TestCase
   test "generates and resolves a public id" do
-    installation = create_installation!
-    execution_runtime = ExecutionRuntime.create!(
-      installation: installation,
-      visibility: "public",
-      provisioning_origin: "system",
-      kind: "local",
-      display_name: "Executor #{next_test_sequence}",
-      execution_runtime_fingerprint: "executor-#{next_test_sequence}",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
-      lifecycle_state: "active"
-    )
+    execution_runtime = create_execution_runtime!
 
     assert execution_runtime.public_id.present?
     assert_equal execution_runtime, ExecutionRuntime.find_by_public_id!(execution_runtime.public_id)
@@ -24,50 +12,31 @@ class ExecutionRuntimeTest < ActiveSupport::TestCase
     installation = create_installation!
     owner_user = create_user!(installation: installation)
 
-    system_public_runtime = ExecutionRuntime.create!(
+    system_public_runtime = create_execution_runtime!(
       installation: installation,
       visibility: "public",
       provisioning_origin: "system",
       kind: "container",
-      display_name: "System Public Runtime",
-      execution_runtime_fingerprint: "system-public-runtime",
-      connection_metadata: {
-        "transport" => "http",
-        "base_url" => "https://runtime.example.test",
-      },
-      capability_payload: {},
-      tool_catalog: [],
-      lifecycle_state: "active"
+      display_name: "System Public Runtime"
     )
-    user_public_runtime = ExecutionRuntime.create!(
+    user_public_runtime = create_execution_runtime!(
       installation: installation,
       visibility: "public",
       provisioning_origin: "user_created",
       owner_user: owner_user,
       kind: "local",
-      display_name: "User Public Runtime",
-      execution_runtime_fingerprint: "user-public-runtime",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
-      lifecycle_state: "active"
+      display_name: "User Public Runtime"
     )
-    user_private_runtime = ExecutionRuntime.create!(
+    user_private_runtime = create_execution_runtime!(
       installation: installation,
       visibility: "private",
       provisioning_origin: "user_created",
       owner_user: owner_user,
       kind: "remote",
-      display_name: "User Private Runtime",
-      execution_runtime_fingerprint: "user-private-runtime",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
-      lifecycle_state: "active"
+      display_name: "User Private Runtime"
     )
 
     assert system_public_runtime.container?
-    assert_equal "https://runtime.example.test", system_public_runtime.connection_metadata["base_url"]
     assert_equal owner_user, user_public_runtime.owner_user
     assert_equal owner_user, user_private_runtime.owner_user
 
@@ -77,10 +46,6 @@ class ExecutionRuntimeTest < ActiveSupport::TestCase
       provisioning_origin: "user_created",
       kind: "local",
       display_name: "Invalid Private Ownerless Runtime",
-      execution_runtime_fingerprint: "invalid-private-ownerless-runtime",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
       lifecycle_state: "active"
     )
     invalid_user_created_ownerless_public = ExecutionRuntime.new(
@@ -89,10 +54,6 @@ class ExecutionRuntimeTest < ActiveSupport::TestCase
       provisioning_origin: "user_created",
       kind: "local",
       display_name: "Invalid User Public Runtime",
-      execution_runtime_fingerprint: "invalid-user-created-ownerless-public-runtime",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
       lifecycle_state: "active"
     )
     invalid_system_private = ExecutionRuntime.new(
@@ -101,10 +62,6 @@ class ExecutionRuntimeTest < ActiveSupport::TestCase
       provisioning_origin: "system",
       kind: "local",
       display_name: "Invalid System Private Runtime",
-      execution_runtime_fingerprint: "invalid-system-private-runtime",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
       lifecycle_state: "active"
     )
 
@@ -118,62 +75,17 @@ class ExecutionRuntimeTest < ActiveSupport::TestCase
     assert_includes invalid_system_private.errors[:visibility], "must be public for system provisioning"
   end
 
-  test "requires installation-local ownership, unique fingerprints, and valid payload hashes" do
+  test "owner must belong to the same installation" do
     installation = create_installation!
     owner_user = create_user!(installation: installation)
-    ExecutionRuntime.create!(
+    execution_runtime = create_execution_runtime!(
       installation: installation,
       visibility: "public",
       provisioning_origin: "user_created",
-      owner_user: owner_user,
-      kind: "local",
-      display_name: "Runtime A",
-      execution_runtime_fingerprint: "runtime-a",
-      connection_metadata: {},
-      capability_payload: { "supports_process_runs" => true },
-      tool_catalog: [],
-      lifecycle_state: "active"
+      owner_user: owner_user
     )
 
-    duplicate = ExecutionRuntime.new(
-      installation: installation,
-      visibility: "public",
-      provisioning_origin: "user_created",
-      owner_user: owner_user,
-      kind: "local",
-      display_name: "Duplicate Runtime",
-      execution_runtime_fingerprint: "runtime-a",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
-      lifecycle_state: "active"
-    )
-    invalid_connection_metadata = ExecutionRuntime.new(
-      installation: installation,
-      visibility: "public",
-      provisioning_origin: "user_created",
-      owner_user: owner_user,
-      kind: "local",
-      display_name: "Invalid Connection Metadata Runtime",
-      execution_runtime_fingerprint: "runtime-b",
-      connection_metadata: [],
-      capability_payload: {},
-      tool_catalog: [],
-      lifecycle_state: "active"
-    )
-    invalid_payload = ExecutionRuntime.new(
-      installation: installation,
-      visibility: "public",
-      provisioning_origin: "user_created",
-      owner_user: owner_user,
-      kind: "local",
-      display_name: "Invalid Payload Runtime",
-      execution_runtime_fingerprint: "runtime-c",
-      connection_metadata: {},
-      capability_payload: [],
-      tool_catalog: [],
-      lifecycle_state: "active"
-    )
+    assert_equal owner_user, execution_runtime.owner_user
 
     foreign_installation = Installation.new(
       id: installation.id.to_i + 1,
@@ -195,23 +107,19 @@ class ExecutionRuntimeTest < ActiveSupport::TestCase
       owner_user: foreign_owner,
       kind: "local",
       display_name: "Invalid Owner Runtime",
-      execution_runtime_fingerprint: "runtime-d",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
       lifecycle_state: "active"
     )
 
-    assert_not duplicate.valid?
-    assert_includes duplicate.errors[:execution_runtime_fingerprint], "has already been taken"
-
-    assert_not invalid_connection_metadata.valid?
-    assert_includes invalid_connection_metadata.errors[:connection_metadata], "must be a Hash"
-
-    assert_not invalid_payload.valid?
-    assert_includes invalid_payload.errors[:capability_payload], "must be a Hash"
-
     assert_not invalid_owner.valid?
     assert_includes invalid_owner.errors[:owner_user], "must belong to the same installation"
+  end
+
+  test "tracks the active runtime version" do
+    execution_runtime = create_execution_runtime!
+    runtime_version = create_execution_runtime_version!(execution_runtime: execution_runtime, installation: execution_runtime.installation)
+
+    execution_runtime.update!(active_execution_runtime_version: runtime_version)
+
+    assert_equal runtime_version, execution_runtime.active_execution_runtime_version
   end
 end

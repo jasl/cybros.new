@@ -29,7 +29,7 @@ module ExecutionRuntimeAPI
       payload = request_payload
       target = resolve_target!(payload)
       result = AgentControl::Report.call(
-        agent_snapshot: target.fetch(:agent_snapshot),
+        agent_definition_version: target.fetch(:agent_definition_version),
         execution_runtime_connection: current_execution_runtime_connection,
         resource: target[:resource],
         payload: payload
@@ -52,7 +52,7 @@ module ExecutionRuntimeAPI
         authorize_agent_task_run!(agent_task_run)
 
         return {
-          agent_snapshot: current_agent_snapshot_for_turn(agent_task_run.turn),
+          agent_definition_version: current_agent_definition_version_for_turn(agent_task_run.turn),
           resource: nil,
         }
       end
@@ -67,7 +67,7 @@ module ExecutionRuntimeAPI
         raise ActiveRecord::RecordNotFound, "Couldn't find ProcessRun" unless process_run.execution_runtime_id == current_execution_runtime.id
 
         return {
-          agent_snapshot: current_agent_snapshot_for_turn(process_run.turn),
+          agent_definition_version: current_agent_definition_version_for_turn(process_run.turn),
           resource: process_run,
         }
       end
@@ -82,7 +82,7 @@ module ExecutionRuntimeAPI
       raise ActiveRecord::RecordNotFound, "Couldn't find ProcessRun" unless process_run.execution_runtime_id == current_execution_runtime.id
 
       {
-        agent_snapshot: current_agent_snapshot_for_turn(process_run.turn),
+        agent_definition_version: current_agent_definition_version_for_turn(process_run.turn),
         resource: process_run,
       }
     end

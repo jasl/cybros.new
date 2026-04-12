@@ -1,21 +1,18 @@
 require "test_helper"
 
 class RuntimeManifestTest < ActionDispatch::IntegrationTest
-  test "runtime manifest exposes bundled cowork registration metadata" do
+  test "runtime manifest exposes a normalized runtime version package" do
     get "/runtime/manifest"
 
     assert_response :success
 
     body = JSON.parse(response.body)
+    version_package = body.fetch("version_package")
     protocol_method_ids = body.fetch("protocol_methods").map { |entry| entry.fetch("method_id") }
-    runtime_tool_names = body.fetch("execution_runtime_tool_catalog").map { |entry| entry.fetch("tool_name") }
+    runtime_tool_names = version_package.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
 
     assert_equal "nexus", body.fetch("execution_runtime_key")
     assert_equal "Nexus", body.fetch("display_name")
-    assert_equal "local", body.fetch("execution_runtime_kind")
-    assert_equal "bundled-nexus-environment", body.fetch("execution_runtime_fingerprint")
-    assert_equal "agent-runtime/2026-04-01", body.fetch("protocol_version")
-    assert_equal "nexus-0.1.0", body.fetch("sdk_version")
     assert_equal "/runtime/manifest", body.dig("endpoint_metadata", "runtime_manifest_path")
     assert_equal body.fetch("endpoint_metadata"), body.fetch("execution_runtime_connection_metadata")
     assert_equal "mailbox-first", body.dig("execution_runtime_contract", "transport")
@@ -24,6 +21,16 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
       execution_assignment
       resource_close_request
     ], body.dig("execution_runtime_contract", "methods")
+
+    assert_equal body.fetch("execution_runtime_fingerprint"), version_package.fetch("execution_runtime_fingerprint")
+    assert_equal body.fetch("execution_runtime_kind"), version_package.fetch("kind")
+    assert_equal body.fetch("protocol_version"), version_package.fetch("protocol_version")
+    assert_equal body.fetch("sdk_version"), version_package.fetch("sdk_version")
+    assert_equal body.fetch("execution_runtime_capability_payload"), version_package.fetch("capability_payload")
+    assert_equal body.fetch("execution_runtime_tool_catalog"), version_package.fetch("tool_catalog")
+    assert_equal "Nexus", version_package.dig("reflected_host_metadata", "display_name")
+    assert_equal "pairing-based execution runtime", version_package.dig("reflected_host_metadata", "host_role")
+
     assert_includes protocol_method_ids, "capabilities_handshake"
     assert_includes protocol_method_ids, "execution_started"
     refute_includes protocol_method_ids, "agent_completed"
@@ -52,7 +59,7 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert body.fetch("execution_runtime_tool_catalog").any? { |entry| entry.fetch("tool_name") == "process_exec" && entry.fetch("operator_group") == "process_run" }
     assert body.fetch("execution_runtime_tool_catalog").any? { |entry| entry.fetch("tool_name") == "process_read_output" && entry.fetch("resource_identity_kind") == "process_run" }
 
-    foundation = body.dig("execution_runtime_capability_payload", "runtime_foundation")
+    foundation = version_package.dig("capability_payload", "runtime_foundation")
     assert_equal "images/nexus", foundation.fetch("docker_base_project")
     assert_equal "ubuntu-24.04", foundation.fetch("canonical_host_os")
     assert_equal "bin/check-runtime-host", foundation.fetch("bare_metal_validator")
@@ -66,7 +73,7 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
 
     body = JSON.parse(response.body)
 
-    body.fetch("execution_runtime_tool_catalog").each do |entry|
+    body.fetch("version_package").fetch("tool_catalog").each do |entry|
       assert_equal "best_effort", entry.fetch("idempotency_policy"),
         "expected executor tool #{entry.fetch("tool_name")} to declare idempotency_policy"
     end

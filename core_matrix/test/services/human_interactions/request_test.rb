@@ -10,13 +10,13 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     agent_task_run = scenario.fetch(:agent_task_run)
 
     report_execution_started!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
 
     report_execution_complete!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run,
       terminal_payload: {
@@ -74,13 +74,13 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     conversation.update!(enabled_feature_ids: Conversation::FEATURE_IDS - ["human_interaction"])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Human interaction input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

@@ -41,7 +41,7 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
     installation = create_installation!
     previous_turn_runtime = create_execution_runtime!(installation: installation, display_name: "Previous Turn")
     workspace_default_runtime = create_execution_runtime!(installation: installation, display_name: "Workspace Default")
-    create_execution_runtime_connection!(installation: installation, execution_runtime: previous_turn_runtime)
+    previous_turn_runtime_connection = create_execution_runtime_connection!(installation: installation, execution_runtime: previous_turn_runtime)
     create_execution_runtime_connection!(installation: installation, execution_runtime: workspace_default_runtime)
     agent = create_agent!(installation: installation, default_execution_runtime: nil)
     user = create_user!(installation: installation)
@@ -53,20 +53,27 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
       default_execution_runtime: workspace_default_runtime
     )
     conversation = Conversations::CreateRoot.call(workspace: workspace)
-    agent_snapshot = create_agent_snapshot!(installation: installation, agent: agent)
+    agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
+    agent_config_state = AgentConfigStates::Reconcile.call(
+      agent: agent,
+      agent_definition_version: agent_definition_version
+    )
 
     Turn.create!(
       installation: installation,
       conversation: conversation,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       execution_runtime: previous_turn_runtime,
+      execution_runtime_version: previous_turn_runtime_connection.execution_runtime_version,
       sequence: 1,
       lifecycle_state: "completed",
       origin_kind: "manual_user",
       origin_payload: {},
       source_ref_type: "User",
       source_ref_id: user.public_id,
-      pinned_agent_snapshot_fingerprint: agent_snapshot.fingerprint,
+      pinned_agent_definition_fingerprint: agent_definition_version.definition_fingerprint,
+      agent_config_version: agent_config_state.version,
+      agent_config_content_fingerprint: agent_config_state.content_fingerprint,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

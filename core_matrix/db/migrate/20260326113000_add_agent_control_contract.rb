@@ -6,9 +6,9 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.references :subagent_connection, foreign_key: true
       t.references :parent_subagent_connection, foreign_key: { to_table: :subagent_connections }
       t.references :owner_conversation, foreign_key: { to_table: :conversations }
+      t.references :agent_definition_version, null: false, foreign_key: true
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :fingerprint, null: false
-      t.string :agent_snapshot_fingerprint, null: false
       t.string :profile_key, null: false
       t.boolean :subagent, null: false, default: false
       t.integer :subagent_depth
@@ -40,8 +40,9 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
     create_table :execution_contracts do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :turn, null: false, foreign_key: true, index: { unique: true }
-      t.references :agent_snapshot, null: false, foreign_key: true
+      t.references :agent_definition_version, null: false, foreign_key: true
       t.references :execution_runtime, foreign_key: true
+      t.references :execution_runtime_version, foreign_key: true
       t.references :selected_input_message, foreign_key: { to_table: :messages }
       t.references :selected_output_message, foreign_key: { to_table: :messages }
       t.references :execution_capability_snapshot, null: false, foreign_key: true
@@ -61,7 +62,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
     create_table :agent_connections do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :agent, null: false, foreign_key: true
-      t.references :agent_snapshot, null: false, foreign_key: true
+      t.references :agent_definition_version, null: false, foreign_key: true
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :connection_credential_digest, null: false
       t.string :connection_token_digest, null: false
@@ -88,6 +89,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
     create_table :execution_runtime_connections do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :execution_runtime, null: false, foreign_key: true
+      t.references :execution_runtime_version, null: false, foreign_key: true
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :connection_credential_digest, null: false
       t.string :connection_token_digest, null: false
@@ -152,7 +154,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
     create_table :agent_control_mailbox_items do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :target_agent, null: false, foreign_key: { to_table: :agents }
-      t.references :target_agent_snapshot, foreign_key: { to_table: :agent_snapshots }
+      t.references :target_agent_definition_version, foreign_key: { to_table: :agent_definition_versions }
       t.references :target_execution_runtime, foreign_key: { to_table: :execution_runtimes }
       t.references :agent_task_run, foreign_key: true
       t.references :workflow_node, foreign_key: true
@@ -185,7 +187,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
     add_index :agent_control_mailbox_items, :public_id, unique: true
     add_index :agent_control_mailbox_items, [:installation_id, :protocol_message_id], unique: true, name: "idx_agent_control_mailbox_items_protocol_message"
     add_index :agent_control_mailbox_items, [:target_agent_id, :control_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_agent_delivery"
-    add_index :agent_control_mailbox_items, [:target_agent_snapshot_id, :control_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_agent_snapshot_delivery"
+    add_index :agent_control_mailbox_items, [:target_agent_definition_version_id, :control_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_agent_definition_delivery"
     add_index :agent_control_mailbox_items, [:target_execution_runtime_id, :control_plane, :status, :priority, :available_at], name: "idx_agent_control_mailbox_execution_delivery"
 
     create_table :agent_control_report_receipts do |t|

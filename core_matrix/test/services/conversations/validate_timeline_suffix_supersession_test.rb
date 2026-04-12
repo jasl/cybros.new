@@ -96,7 +96,7 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
             parent_conversation: context[:conversation],
             kind: "fork",
             execution_runtime: context[:execution_runtime],
-            agent_snapshot: context[:agent_snapshot],
+            agent_definition_version: context[:agent_definition_version],
             addressability: "agent_addressable"
           )
 
@@ -126,7 +126,7 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
           )
           Leases::Acquire.call(
             leased_resource: process_run,
-            holder_key: context[:agent_snapshot].public_id,
+            holder_key: context[:agent_definition_version].public_id,
             heartbeat_timeout_seconds: 30
           )
         end,
@@ -154,12 +154,12 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     target_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Earlier input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -169,7 +169,7 @@ class Conversations::ValidateTimelineSuffixSupersessionTest < ActiveSupport::Tes
     later_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Later input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

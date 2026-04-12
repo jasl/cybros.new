@@ -4,9 +4,9 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(mailbox_item:, agent_snapshot:, resolved_delivery_endpoint: nil, occurred_at: Time.current)
+    def initialize(mailbox_item:, agent_definition_version:, resolved_delivery_endpoint: nil, occurred_at: Time.current)
       @mailbox_item = mailbox_item
-      @agent_snapshot = agent_snapshot
+      @agent_definition_version = agent_definition_version
       @resolved_delivery_endpoint = resolved_delivery_endpoint
       @occurred_at = occurred_at
     end
@@ -18,7 +18,7 @@ module AgentControl
         return if @mailbox_item.available_at > @occurred_at
 
         if @mailbox_item.leased?
-          return @mailbox_item if @mailbox_item.leased_to?(@agent_snapshot) && !@mailbox_item.lease_stale?(at: @occurred_at)
+          return @mailbox_item if @mailbox_item.leased_to?(@agent_definition_version) && !@mailbox_item.lease_stale?(at: @occurred_at)
           return if !@mailbox_item.lease_stale?(at: @occurred_at)
         end
 
@@ -56,9 +56,9 @@ module AgentControl
       return @leased_agent_connection = @resolved_delivery_endpoint if @resolved_delivery_endpoint.is_a?(AgentConnection)
 
       @leased_agent_connection =
-        case @agent_snapshot
-        when AgentSnapshot
-          AgentConnection.find_by(agent_snapshot: @agent_snapshot, lifecycle_state: "active")
+        case @agent_definition_version
+        when AgentDefinitionVersion
+          AgentConnection.find_by(agent_definition_version: @agent_definition_version, lifecycle_state: "active")
         else
           nil
         end
@@ -69,10 +69,10 @@ module AgentControl
       return @leased_execution_runtime_connection = @resolved_delivery_endpoint if @resolved_delivery_endpoint.is_a?(ExecutionRuntimeConnection)
 
       @leased_execution_runtime_connection =
-        case @agent_snapshot
+        case @agent_definition_version
         when ExecutionRuntimeConnection
-          @agent_snapshot
-        when AgentSnapshot
+          @agent_definition_version
+        when AgentDefinitionVersion
           ExecutionRuntimeConnection.find_by(execution_runtime: @mailbox_item.target_execution_runtime, lifecycle_state: "active") if @mailbox_item.execution_runtime_plane?
         else
           nil

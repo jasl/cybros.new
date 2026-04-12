@@ -47,7 +47,7 @@
       "control_plane": "agent",
       "logical_work_id": "tool-call:workflow-node-public-id:tool-call-public-id",
       "attempt_no": 1,
-      "agent_snapshot_id": "agent-snapshot-public-id"
+      "agent_definition_version_id": "agent-definition-version-public-id"
     },
     "tool_call": {
       "call_id": "tool-call-public-id",

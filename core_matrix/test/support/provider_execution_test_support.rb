@@ -236,12 +236,12 @@ module ProviderExecutionTestSupport
 
     with_stubbed_provider_catalog(catalog) do
       context = create_workspace_context!
-      capability_snapshot = create_capability_snapshot!(
-        agent_snapshot: context[:agent_snapshot],
+      capability_snapshot = create_compatible_agent_definition_version!(
+        agent_definition_version: context[:agent_definition_version],
         tool_catalog: tool_catalog || default_tool_catalog("exec_command") + [default_agent_observation_tool_entry("calculator")],
         profile_catalog: profile_catalog || {}
       )
-      adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
+      adopt_agent_definition_version!(context, capability_snapshot, turn: nil)
       ProviderEntitlement.create!(
         installation: context[:installation],
         provider_handle: "dev",

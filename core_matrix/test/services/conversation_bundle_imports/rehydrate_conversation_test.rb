@@ -6,12 +6,12 @@ class ConversationBundleImportsRehydrateConversationTest < ActiveSupport::TestCa
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "First importable question",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -24,7 +24,7 @@ class ConversationBundleImportsRehydrateConversationTest < ActiveSupport::TestCa
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Second importable question",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -36,7 +36,7 @@ class ConversationBundleImportsRehydrateConversationTest < ActiveSupport::TestCa
       user: context[:user],
       lifecycle_state: "queued",
       request_payload: {
-        "target_agent_snapshot_id" => context[:agent_snapshot].public_id,
+        "target_agent_definition_version_id" => context[:agent_definition_version].public_id,
       }
     )
     request.upload_file.attach(

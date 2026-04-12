@@ -53,7 +53,7 @@ begin
 
   task_context = GovernedValidationSupport.create_task_context!(
     workspace: runtime_context.fetch(:workspace),
-    agent_snapshot: runtime_context.fetch(:runtime).agent_snapshot,
+    agent_definition_version: runtime_context.fetch(:runtime).agent_definition_version,
     capability_snapshot: runtime_context.fetch(:runtime).capability_snapshot,
     content: "Call the governed Streamable HTTP MCP echo tool.",
     allowed_tool_names: ["remote_echo"]

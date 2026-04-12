@@ -57,11 +57,17 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
       )
 
       client.register!(
-        enrollment_token: "enrollment-token",
-        execution_runtime_fingerprint: "bundled-nexus-environment",
-        execution_runtime_connection_metadata: { "transport" => "http", "base_url" => "http://nexus.example.test:3101" },
-        execution_runtime_capability_payload: { "runtime_foundation" => { "docker_base_project" => "images/nexus" } },
-        execution_runtime_tool_catalog: [{ "tool_name" => "exec_command" }]
+        pairing_token: "pairing-token",
+        endpoint_metadata: { "transport" => "http", "base_url" => "http://nexus.example.test:3101" },
+        version_package: {
+          "execution_runtime_fingerprint" => "bundled-nexus-environment",
+          "kind" => "local",
+          "protocol_version" => "agent-runtime/2026-04-01",
+          "sdk_version" => "nexus-0.1.0",
+          "capability_payload" => { "runtime_foundation" => { "docker_base_project" => "images/nexus" } },
+          "tool_catalog" => [{ "tool_name" => "exec_command" }],
+          "reflected_host_metadata" => {},
+        }
       )
       client.health
     end
@@ -71,7 +77,8 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
 
     assert_equal "/execution_runtime_api/registrations", register_request.fetch(:path)
     assert_nil register_request.fetch(:authorization)
-    assert_equal "enrollment-token", register_request.fetch(:json_body).fetch("enrollment_token")
+    assert_equal "pairing-token", register_request.fetch(:json_body).fetch("pairing_token")
+    assert_equal "bundled-nexus-environment", register_request.dig(:json_body, "version_package", "execution_runtime_fingerprint")
 
     assert_equal "/execution_runtime_api/health", health_request.fetch(:path)
     assert_equal %(Token token="execution-secret"), health_request.fetch(:authorization)
@@ -89,8 +96,15 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
       client.health
       client.capabilities_refresh
       client.capabilities_handshake!(
-        execution_runtime_capability_payload: { "runtime_foundation" => { "docker_base_project" => "images/nexus" } },
-        execution_runtime_tool_catalog: [{ "tool_name" => "exec_command" }]
+        version_package: {
+          "execution_runtime_fingerprint" => "bundled-nexus-environment",
+          "kind" => "local",
+          "protocol_version" => "agent-runtime/2026-04-01",
+          "sdk_version" => "nexus-0.1.0",
+          "capability_payload" => { "runtime_foundation" => { "docker_base_project" => "images/nexus" } },
+          "tool_catalog" => [{ "tool_name" => "exec_command" }],
+          "reflected_host_metadata" => {},
+        }
       )
     end
 
@@ -104,7 +118,7 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
       %(Token token="execution-secret"),
       %(Token token="execution-secret"),
     ], requests.map { |entry| entry.fetch(:authorization) }
-    assert_equal "images/nexus", requests.fetch(2).dig(:json_body, "execution_runtime_capability_payload", "runtime_foundation", "docker_base_project")
+    assert_equal "images/nexus", requests.fetch(2).dig(:json_body, "version_package", "capability_payload", "runtime_foundation", "docker_base_project")
   end
 
   test "report treats stale 409 responses as idempotent replays" do

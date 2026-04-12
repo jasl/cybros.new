@@ -3,19 +3,17 @@ module ExecutionRuntimeAPI
     skip_before_action :authenticate_execution_runtime_connection!, only: :create
 
     def create
-      registration = ExecutionRuntimes::Register.call(
-        enrollment_token: request_payload.fetch("enrollment_token"),
-        execution_runtime_fingerprint: request_payload.fetch("execution_runtime_fingerprint"),
-        execution_runtime_kind: request_payload.fetch("execution_runtime_kind", "local"),
-        execution_runtime_connection_metadata: request_payload.fetch("execution_runtime_connection_metadata", {}),
-        execution_runtime_capability_payload: request_payload.fetch("execution_runtime_capability_payload", {}),
-        execution_runtime_tool_catalog: request_payload.fetch("execution_runtime_tool_catalog", [])
+      registration = ExecutionRuntimeVersions::Register.call(
+        pairing_token: request_payload.fetch("pairing_token"),
+        endpoint_metadata: request_payload.fetch("endpoint_metadata", {}),
+        version_package: request_payload.fetch("version_package")
       )
 
       render json: capability_payload(
         method_id: "execution_runtime_registration",
         execution_runtime: registration.execution_runtime
       ).merge(
+        execution_runtime_version_id: registration.execution_runtime_version.public_id,
         execution_runtime_connection_id: registration.execution_runtime_connection.public_id,
         execution_runtime_connection_credential: registration.execution_runtime_connection_credential
       ), status: :created

@@ -1,9 +1,9 @@
 module AgentAPI
   class HeartbeatsController < BaseController
     def create
-      agent_connection = AgentSnapshots::RecordHeartbeat.call(
+      agent_connection = AgentConnections::RecordHeartbeat.call(
         agent_connection: current_agent_connection,
-        agent_snapshot: current_agent_snapshot,
+        agent_definition_version: current_agent_definition_version,
         health_status: request_payload.fetch("health_status"),
         health_metadata: request_payload.fetch("health_metadata", {}),
         auto_resume_eligible: request_payload.fetch("auto_resume_eligible"),
@@ -12,7 +12,7 @@ module AgentAPI
 
       render json: {
         method_id: "agent_health",
-        agent_snapshot_id: current_agent_snapshot.public_id,
+        agent_definition_version_id: current_agent_definition_version.public_id,
         agent_connection_id: agent_connection.public_id,
         health_status: agent_connection.health_status,
         health_metadata: agent_connection.health_metadata,

@@ -4,12 +4,12 @@ class ToolBindings::SelectImplementationTest < ActiveSupport::TestCase
   test "reserved definitions keep the core matrix implementation even when a runtime alternative exists" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "subagent_spawn"
     )
     runtime_override = definition.tool_implementations.find_by!(
@@ -29,12 +29,12 @@ class ToolBindings::SelectImplementationTest < ActiveSupport::TestCase
   test "whitelist only definitions reject non-default implementation overrides" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "exec_command"
     )
     runtime_override = definition.tool_implementations.find_by!(
@@ -54,12 +54,12 @@ class ToolBindings::SelectImplementationTest < ActiveSupport::TestCase
   test "replaceable definitions accept alternate implementations under the same logical tool" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "compact_context"
     )
     alternate = definition.tool_implementations.create!(

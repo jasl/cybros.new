@@ -700,7 +700,7 @@ module Acceptance
       summary['kind'] == 'mailbox_result' ? summary.fetch('result') : summary
     end
 
-    def create_external_agent!(installation:, actor:, key:, display_name:)
+    def create_bring_your_own_agent!(installation:, actor:, key:, display_name:)
       agent = Agent.create!(
         installation: installation,
         key: key,
@@ -709,7 +709,7 @@ module Acceptance
         provisioning_origin: "system",
         lifecycle_state: "active"
       )
-      enrollment = AgentEnrollments::Issue.call(
+      pairing_session = PairingSessions::Issue.call(
         agent: agent,
         actor: actor,
         expires_at: 2.hours.from_now
@@ -717,59 +717,56 @@ module Acceptance
 
       {
         agent: agent,
-        enrollment_token: enrollment.plaintext_token
+        pairing_session: pairing_session,
+        pairing_token: pairing_session.plaintext_token
       }
     end
 
-    def register_external_runtime!(
-      enrollment_token:,
+    def register_bring_your_own_runtime!(
+      pairing_token:,
       runtime_base_url:,
       execution_runtime_fingerprint:,
-      fingerprint:,
       agent_base_url: runtime_base_url
     )
-      execution_runtime_registration = register_external_execution_runtime!(
-        enrollment_token:,
+      pairing_session = PairingSession.find_by_plaintext_token(pairing_token)
+      execution_runtime_registration = register_bring_your_own_execution_runtime!(
+        pairing_token:,
         runtime_base_url: runtime_base_url,
         execution_runtime_fingerprint: execution_runtime_fingerprint
       )
-      agent_registration = register_external_agent_from_manifest!(
-        enrollment_token:,
-        agent_base_url: agent_base_url,
-        fingerprint: fingerprint
+      agent_registration = register_bring_your_own_agent_from_manifest!(
+        pairing_token:,
+        agent_base_url: agent_base_url
       )
 
       RuntimeRegistration.new(
+        pairing_session: pairing_session,
+        pairing_token: pairing_token,
         manifest: agent_registration.fetch(:manifest),
+        agent: agent_registration.fetch(:agent),
         registration: agent_registration.fetch(:registration).merge(
           'execution_runtime_id' => execution_runtime_registration.fetch(:execution_runtime).public_id,
+          'execution_runtime_version_id' => execution_runtime_registration.fetch(:execution_runtime_version)&.public_id,
           'execution_runtime_connection_id' => execution_runtime_registration.fetch(:execution_runtime_connection_id),
           'execution_runtime_fingerprint' => execution_runtime_fingerprint
         ),
         heartbeat: agent_registration.fetch(:heartbeat),
         agent_connection_credential: agent_registration.fetch(:agent_connection_credential),
         execution_runtime_connection_credential: execution_runtime_registration.fetch(:execution_runtime_connection_credential),
-        agent_snapshot: agent_registration.fetch(:agent_snapshot),
-        execution_runtime: execution_runtime_registration.fetch(:execution_runtime)
+        agent_definition_version: agent_registration.fetch(:agent_definition_version),
+        execution_runtime: execution_runtime_registration.fetch(:execution_runtime),
+        execution_runtime_version: execution_runtime_registration.fetch(:execution_runtime_version)
       )
     end
 
-    def register_external_agent_from_manifest!(enrollment_token:, agent_base_url:, fingerprint:)
+    def register_bring_your_own_agent_from_manifest!(pairing_token:, agent_base_url:)
       manifest = live_manifest(base_url: agent_base_url)
       registration = http_post_json(
         "#{CONTROL_BASE_URL}/agent_api/registrations",
         {
-          enrollment_token: enrollment_token,
-          fingerprint: fingerprint,
+          pairing_token: pairing_token,
           endpoint_metadata: manifest.fetch('endpoint_metadata'),
-          protocol_version: manifest.fetch('protocol_version'),
-          sdk_version: manifest.fetch('sdk_version'),
-          protocol_methods: manifest.fetch('protocol_methods', []),
-          tool_catalog: manifest.fetch('tool_catalog', []),
-          profile_catalog: manifest.fetch('profile_catalog', {}),
-          config_schema_snapshot: manifest.fetch('config_schema_snapshot', {}),
-          conversation_override_schema_snapshot: manifest.fetch('conversation_override_schema_snapshot', {}),
-          default_config_snapshot: manifest.fetch('default_config_snapshot', {})
+          definition_package: manifest.fetch('definition_package')
         }
       )
 
@@ -783,41 +780,47 @@ module Acceptance
         },
         headers: token_headers(agent_connection_credential)
       )
-      agent_snapshot = AgentSnapshot.find_by_public_id!(registration.fetch('agent_snapshot_id'))
+      agent_definition_version = AgentDefinitionVersion.find_by_public_id!(registration.fetch('agent_definition_version_id'))
+      agent_connection = AgentConnection.find_by_public_id!(registration.fetch('agent_connection_id'))
+      agent = agent_definition_version.agent
 
       {
         manifest: manifest,
         registration: registration,
         heartbeat: heartbeat,
+        agent: agent,
         agent_connection_credential: agent_connection_credential,
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
+        agent_connection: agent_connection,
         agent_connection_id: registration['agent_connection_id']
       }
     end
 
-    def register_external_execution_runtime!(enrollment_token:, runtime_base_url:, execution_runtime_fingerprint:)
+    def register_bring_your_own_execution_runtime!(pairing_token:, runtime_base_url:, execution_runtime_fingerprint:)
       manifest = live_manifest(base_url: runtime_base_url)
       registration = http_post_json(
         "#{CONTROL_BASE_URL}/execution_runtime_api/registrations",
         {
-          enrollment_token: enrollment_token,
-          execution_runtime_fingerprint: execution_runtime_fingerprint,
-          execution_runtime_kind: manifest.fetch('execution_runtime_kind', 'local'),
-          execution_runtime_connection_metadata: manifest.fetch(
+          pairing_token: pairing_token,
+          endpoint_metadata: manifest.fetch(
             'execution_runtime_connection_metadata',
             default_execution_runtime_connection_metadata(runtime_base_url:)
           ),
-          execution_runtime_capability_payload: manifest.fetch('execution_runtime_capability_payload', {}),
-          execution_runtime_tool_catalog: manifest.fetch('execution_runtime_tool_catalog', [])
+          version_package: manifest.fetch('version_package')
         }
       )
 
       execution_runtime = ExecutionRuntime.find_by_public_id!(registration.fetch('execution_runtime_id'))
+      execution_runtime_version = ExecutionRuntimeVersion.find_by_public_id!(registration.fetch('execution_runtime_version_id'))
+      execution_runtime_connection =
+        ExecutionRuntimeConnection.find_by_public_id!(registration.fetch('execution_runtime_connection_id'))
 
       {
         manifest: manifest,
         registration: registration,
         execution_runtime: execution_runtime,
+        execution_runtime_version: execution_runtime_version,
+        execution_runtime_connection: execution_runtime_connection,
         execution_runtime_connection_id: registration['execution_runtime_connection_id'],
         execution_runtime_connection_credential: registration.fetch('execution_runtime_connection_credential')
       }
@@ -871,7 +874,7 @@ module Acceptance
         runtime: runtime,
         agent_connection_credential: runtime.agent_connection_credential || agent_connection_credential,
         execution_runtime_connection_credential: runtime.execution_runtime_connection_credential || execution_runtime_connection_credential,
-        agent_snapshot: runtime.agent_snapshot,
+        agent_definition_version: runtime.agent_definition_version,
         execution_runtime: runtime.execution_runtime
       )
     end
@@ -883,25 +886,25 @@ module Acceptance
       }
     end
 
-    def enable_default_workspace!(agent_snapshot:)
-      user = User.find_by!(installation: agent_snapshot.installation, role: 'admin')
+    def enable_default_workspace!(agent_definition_version:)
+      user = User.find_by!(installation: agent_definition_version.installation, role: 'admin')
       user_binding = UserAgentBindings::Enable.call(
         user: user,
-        agent: agent_snapshot.agent
+        agent: agent_definition_version.agent
       ).binding
 
       user_binding.workspaces.find_by!(is_default: true)
     end
 
-    def create_conversation!(agent_snapshot:)
-      workspace = enable_default_workspace!(agent_snapshot: agent_snapshot)
+    def create_conversation!(agent_definition_version:)
+      workspace = enable_default_workspace!(agent_definition_version: agent_definition_version)
 
       {
         actor: workspace.user,
         workspace: workspace,
         conversation: Conversations::CreateRoot.call(
           workspace: workspace,
-          agent: agent_snapshot.agent
+          agent: agent_definition_version.agent
         )
       }
     end
@@ -986,8 +989,14 @@ module Acceptance
       run.transform_values { |value| value.respond_to?(:reload) ? value.reload : value }
     end
 
-    def execute_tool_call!(workflow_node:, tool_call:, round_bindings:, agent_snapshot:,
-                                   timeout_seconds: 30, poll_interval_seconds: 0.1)
+    def execute_tool_call!(
+      workflow_node:,
+      tool_call:,
+      round_bindings:,
+      agent_definition_version:,
+      timeout_seconds: 30,
+      poll_interval_seconds: 0.1
+    )
       deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
 
       loop do
@@ -996,7 +1005,7 @@ module Acceptance
           tool_call: tool_call,
           round_bindings: round_bindings,
           agent_request_exchange: ProviderExecution::AgentRequestExchange.new(
-            agent_snapshot: agent_snapshot
+            agent_definition_version: agent_definition_version
           )
         )
       rescue ProviderExecution::AgentRequestExchange::PendingResponse
@@ -1008,8 +1017,16 @@ module Acceptance
       end
     end
 
-    def dispatch_execution_report!(agent_snapshot:, mailbox_item:, agent_task_run:, method_id:, protocol_message_id:,
-                                   execution_runtime_connection:, occurred_at: Time.current, **payload)
+    def dispatch_execution_report!(
+      agent_definition_version:,
+      mailbox_item:,
+      agent_task_run:,
+      method_id:,
+      protocol_message_id:,
+      execution_runtime_connection:,
+      occurred_at: Time.current,
+      **payload
+    )
       AgentControl::Poll.call(
         execution_runtime_connection: execution_runtime_connection,
         limit: 10,
@@ -1017,7 +1034,7 @@ module Acceptance
       ) if method_id == 'execution_started'
 
       AgentControl::Report.call(
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         execution_runtime_connection: execution_runtime_connection,
         method_id: method_id,
         protocol_message_id: protocol_message_id,
@@ -1031,14 +1048,17 @@ module Acceptance
     end
 
     def run_fenix_mailbox_task!(
-      agent_connection_credential:, content:, mode:, agent_snapshot:,
+      agent_connection_credential:,
+      content:,
+      mode:,
+      agent_definition_version:,
       execution_runtime_connection_credential: agent_connection_credential,
       runtime_base_url: nil,
       extra_payload: {},
       delivery_mode: 'realtime'
     )
       _unused_runtime_base_url = runtime_base_url
-      conversation_context = create_conversation!(agent_snapshot: agent_snapshot)
+      conversation_context = create_conversation!(agent_definition_version: agent_definition_version)
       run = start_turn_workflow_on_conversation!(
         conversation: conversation_context.fetch(:conversation),
         content: content,

@@ -4,7 +4,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
   test "freezes one governed binding per allowed tool on the workflow node boundary" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
@@ -21,7 +21,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
   test "reuses an existing workflow-node-owned binding set" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
@@ -93,7 +93,7 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
   test "freezes default execution policy onto workflow-node-owned bindings" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 

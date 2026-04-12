@@ -36,14 +36,14 @@ Related design note:
 - registration responses still expose `execution_runtime_id`, and that
   field now carries `ExecutionRuntime.public_id`
 - registration, health, and heartbeat payloads expose public ids such as
-  `agent_id`, `agent_snapshot_id`, `agent_connection_id`, and
+  `agent_id`, `agent_definition_version_id`, `agent_connection_id`, and
   `execution_runtime_connection_id`
-- internal agent-snapshot, installation, and execution-runtime relations still use
+- internal agent-definition-version, installation, and execution-runtime relations still use
   `bigint` after the HTTP boundary reconciliation
 
 ## Authentication Model
 
-- registration uses a one-time `AgentEnrollment` token and exchanges it for a
+- registration uses a one-time `PairingSession` token and exchanges it for a
   durable connection credential
 - all follow-up agent API calls authenticate with HTTP token auth using the
   `AgentConnection` credential
@@ -66,7 +66,7 @@ Related design note:
 
 ### Tool Catalog
 
-- both `AgentSnapshot` and `ExecutionRuntime` register their own tool catalogs
+- both `AgentDefinitionVersion` and `ExecutionRuntime` register their own tool catalogs
   independently
 - capability snapshots publish `tool_catalog` separately from
   `protocol_methods`
@@ -87,7 +87,7 @@ Related design note:
   projection instead of controller-local hash assembly
 - `effective_tool_catalog` resolves ordinary tool-name conflicts in this order:
   - `ExecutionRuntime`
-  - `AgentSnapshot`
+  - `AgentDefinitionVersion`
   - `Core Matrix`
 - the agent profile policy may still mask tools from that effective set through
   `allowed_tool_names` before a turn freezes visible bindings
@@ -102,26 +102,26 @@ Related design note:
 
 ### Endpoint Responses
 
-- registration returns agent identity, agent snapshot identity, connection
+- registration returns agent identity, agent definition version identity, connection
   credentials, and the initial capability snapshot
-- registration returns `agent_id`, `agent_snapshot_id`,
+- registration returns `agent_id`, `agent_definition_version_id`,
   `agent_connection_id`, and optional `execution_runtime_connection_id` as public ids
 - heartbeat returns `method_id: "agent_health"` plus agent-connection health and
   the latest heartbeat timestamp
 - health returns the same public `agent_health` method family plus agent
-  snapshot fingerprint, protocol version, and SDK version
-- health returns `agent_snapshot_id` as a public id
+  definition fingerprint, protocol version, and SDK version
+- health returns `agent_definition_version_id` as a public id
 - capabilities refresh returns `method_id: "capabilities_refresh"` and the
-  current agent-snapshot capability payload
+  current agent-definition-version capability payload
 - capabilities handshake returns `method_id: "capabilities_handshake"` and the
-  current agent-snapshot capability payload
+  current agent-definition-version capability payload
 - when a default execution runtime is present, both capability endpoints also
   return execution-runtime identity and the current execution-runtime
   capability payload and tool catalog
 
-## Agent Snapshot Rules
+## Agent Definition Version Rules
 
-- `AgentSnapshot` remains immutable after creation
+- `AgentDefinitionVersion` remains immutable after creation
 - protocol method entries must be hashes with `snake_case` `method_id` values
 - tool catalog entries must be hashes with `snake_case` `tool_name` values and
   a supported `tool_kind`
@@ -134,17 +134,17 @@ Related design note:
   - `effective_tool_catalog`
   - conversation-facing runtime capability payloads
 - capability handshake now also projects the durable governance rows for the
-  current agent snapshot:
+  current agent definition version:
   - `ImplementationSource`
   - `ToolDefinition`
   - `ToolImplementation`
-- projection is idempotent per agent snapshot and profile policy:
+- projection is idempotent per agent definition version and profile policy:
   - if profiles declare `allowed_tool_names`, the governed projection is
     limited to the union of those declared logical tools
   - otherwise projection falls back to the full effective tool catalog
 - paused-work recovery now also relies on that same capability-contract shape:
-  `AgentSnapshots::ResolveRecoveryTarget` compares the replacement
-  agent snapshot against the paused turn's frozen capability surface before it
+  `ExecutionIdentityRecovery::ResolveTarget` compares the replacement
+  agent definition version against the paused turn's frozen capability surface before it
   allows paused work to continue
 - controllers and recovery paths build the shared contract through
   `RuntimeCapabilityContract` instead of carrying separate controller-local
@@ -152,10 +152,12 @@ Related design note:
 
 ## Config Reconciliation
 
-- `AgentSnapshots::Handshake` requires the caller fingerprint to match the
-- authenticated agent-snapshot fingerprint
-- handshake reuses the authenticated `AgentSnapshot`; it does not append
-  versioned capability rows under that same fingerprint
+- `AgentDefinitionVersions::Handshake` authenticates through the live
+  `AgentConnection`, not by trusting a caller-provided agent-definition-version identity
+- handshake reuses the existing `AgentDefinitionVersion` when the normalized
+  definition package already matches the authenticated version fingerprint
+- handshake appends a new `AgentDefinitionVersion` only when the normalized
+  package changes
 - handshake normalizes both execution-runtime-plane and agent-plane payloads
   through the shared runtime capability contract before response rendering and
   tool governance projection
@@ -163,11 +165,14 @@ Related design note:
   repeated handshakes reuse the same durable tool-definition rows without
   duplicate-key races
 - paused-work recovery re-resolves the frozen selector through
-  `AgentSnapshots::ResolveRecoveryTarget`, so frozen selector-bearing
-  defaults continue to shape whether a replacement agent snapshot can resume or
+  `ExecutionIdentityRecovery::ResolveTarget`, so frozen selector-bearing
+  defaults continue to shape whether a replacement agent definition version can resume or
   retry paused work safely
-- handshake returns an empty `reconciliation_report` when the authenticated
-  agent snapshot already matches the current contract
+- handshake returns a structured `reconciliation_report` with:
+  - `definition_changed`
+  - `agent_config_version`
+- `AgentConfigStates::Reconcile` keeps the effective config version stable when
+  both the base definition and effective payload remain unchanged
 
 ## Failure Modes
 
@@ -176,7 +181,6 @@ Related design note:
 - blank `execution_runtime_fingerprint` values are rejected during registration
 - execution-runtime reconciliation remains scoped to the enrollment
   installation instead of trusting caller-provided runtime ids
-- fingerprint mismatches are rejected during capability handshake
 - machine-facing endpoints reject unknown connection credentials before mutating
   connection health or capability state
 

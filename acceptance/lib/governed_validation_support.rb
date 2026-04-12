@@ -114,7 +114,7 @@ module GovernedValidationSupport
 
   def create_task_context!(
     workspace:,
-    agent_snapshot:,
+    agent_definition_version:,
     capability_snapshot:,
     content:,
     allowed_tool_names:,
@@ -124,13 +124,13 @@ module GovernedValidationSupport
   )
     conversation = Conversations::CreateRoot.call(
       workspace: workspace,
-      agent: agent_snapshot.agent
+      agent: agent_definition_version.agent
     )
 
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: content,
-      execution_runtime: agent_snapshot.agent.default_execution_runtime,
+      execution_runtime: agent_definition_version.agent.default_execution_runtime,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: resolved_model_selection_snapshot(
         capability_snapshot: capability_snapshot,
@@ -177,7 +177,7 @@ module GovernedValidationSupport
 
     agent_task_run = AgentTaskRun.create!(
       installation: workflow_run.installation,
-      agent: agent_snapshot.agent,
+      agent: agent_definition_version.agent,
       workflow_run: workflow_run,
       workflow_node: workflow_node,
       conversation: conversation,

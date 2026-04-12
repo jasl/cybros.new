@@ -4,7 +4,7 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
   test "freezes one governed binding per allowed tool on the agent task boundary" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
@@ -24,7 +24,7 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
   test "new attempts get a new frozen binding set instead of mutating the prior attempt" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 

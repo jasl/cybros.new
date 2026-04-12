@@ -125,7 +125,7 @@ class AgentApiToolInvocationsControllerTest < ActionDispatch::IntegrationTest
       profile_catalog: runtime_command_profile_catalog
     )
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 

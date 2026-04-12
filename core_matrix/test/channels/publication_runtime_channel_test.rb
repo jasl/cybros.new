@@ -9,7 +9,7 @@ class PublicationRuntimeChannelTest < ActionCable::Channel::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     publication = Publications::PublishLive.call(
       conversation: conversation,
@@ -17,7 +17,7 @@ class PublicationRuntimeChannelTest < ActionCable::Channel::TestCase
       visibility_mode: "external_public"
     )
 
-    stub_connection current_agent_snapshot: nil, current_execution_runtime: nil, current_publication: publication
+    stub_connection current_agent_definition_version: nil, current_execution_runtime: nil, current_publication: publication
 
     subscribe
 
@@ -26,7 +26,7 @@ class PublicationRuntimeChannelTest < ActionCable::Channel::TestCase
   end
 
   test "rejects subscriptions without a verified publication" do
-    stub_connection current_agent_snapshot: nil, current_execution_runtime: nil, current_publication: nil
+    stub_connection current_agent_definition_version: nil, current_execution_runtime: nil, current_publication: nil
 
     subscribe
 

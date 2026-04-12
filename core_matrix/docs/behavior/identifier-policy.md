@@ -27,7 +27,7 @@ agent-facing boundaries:
 - `Workspace`
 - `Agent`
 - `ExecutionRuntime`
-- `AgentSnapshot`
+- `AgentDefinitionVersion`
 - `AgentControlMailboxItem`
 - `Conversation`
 - `Turn`

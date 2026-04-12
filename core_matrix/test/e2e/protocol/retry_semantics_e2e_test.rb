@@ -102,7 +102,7 @@ class RetrySemanticsE2ETest < ActionDispatch::IntegrationTest
     )
     Leases::Acquire.call(
       leased_resource: background_service,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
 
@@ -138,7 +138,7 @@ class RetrySemanticsE2ETest < ActionDispatch::IntegrationTest
   def build_harness(context:)
     FakeAgentRuntimeHarness.new(
       test_case: self,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       agent_connection_credential: context[:agent_connection_credential]
     )
   end

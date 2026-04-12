@@ -1,6 +1,8 @@
 class Turn < ApplicationRecord
   include HasPublicId
 
+  attr_accessor :pinned_agent_definition_fingerprint
+
   enum :lifecycle_state,
     {
       queued: "queued",
@@ -29,8 +31,9 @@ class Turn < ApplicationRecord
 
   belongs_to :installation
   belongs_to :conversation
-  belongs_to :agent_snapshot
+  belongs_to :agent_definition_version
   belongs_to :execution_runtime, class_name: "ExecutionRuntime", optional: true
+  belongs_to :execution_runtime_version, class_name: "ExecutionRuntimeVersion", optional: true
   belongs_to :execution_contract, optional: true
   belongs_to :selected_input_message, class_name: "Message", optional: true
   belongs_to :selected_output_message, class_name: "Message", optional: true
@@ -45,15 +48,20 @@ class Turn < ApplicationRecord
   has_one :workflow_run, dependent: :restrict_with_exception
 
   validates :sequence, uniqueness: { scope: :conversation_id }
-  validates :pinned_agent_snapshot_fingerprint, presence: true
+  validates :agent_config_content_fingerprint, presence: true
+  validates :agent_config_version,
+    presence: true,
+    numericality: { only_integer: true, greater_than: 0 }
   validate :origin_payload_must_be_hash
   validate :feature_policy_snapshot_must_be_hash
   validate :resolved_config_snapshot_must_be_hash
   validate :resolved_model_selection_snapshot_must_be_hash
   validate :conversation_installation_match
-  validate :agent_snapshot_installation_match
+  validate :agent_definition_version_installation_match
   validate :execution_runtime_installation_match
-  validate :agent_snapshot_conversation_match
+  validate :execution_runtime_version_installation_match
+  validate :execution_runtime_version_runtime_match
+  validate :agent_definition_version_conversation_match
   validate :selected_input_message_rules
   validate :selected_output_message_rules
   validate :selected_output_lineage_rules
@@ -89,8 +97,8 @@ class Turn < ApplicationRecord
     @execution_snapshot ||= TurnExecutionSnapshot.new(turn: self)
   end
 
-  def pinned_capability_snapshot_version
-    1
+  def pinned_agent_definition_fingerprint
+    agent_definition_version&.definition_fingerprint
   end
 
   def feature_enabled?(feature_id)
@@ -139,11 +147,11 @@ class Turn < ApplicationRecord
     errors.add(:conversation, "must belong to the same installation")
   end
 
-  def agent_snapshot_installation_match
-    return if agent_snapshot.blank?
-    return if agent_snapshot.installation_id == installation_id
+  def agent_definition_version_installation_match
+    return if agent_definition_version.blank?
+    return if agent_definition_version.installation_id == installation_id
 
-    errors.add(:agent_snapshot, "must belong to the same installation")
+    errors.add(:agent_definition_version, "must belong to the same installation")
   end
 
   def execution_runtime_installation_match
@@ -153,11 +161,25 @@ class Turn < ApplicationRecord
     errors.add(:execution_runtime, "must belong to the same installation")
   end
 
-  def agent_snapshot_conversation_match
-    return if conversation.blank? || agent_snapshot.blank?
-    return if agent_snapshot.agent_id == conversation.agent_id
+  def execution_runtime_version_installation_match
+    return if execution_runtime_version.blank?
+    return if execution_runtime_version.installation_id == installation_id
 
-    errors.add(:agent_snapshot, "must belong to the conversation agent")
+    errors.add(:execution_runtime_version, "must belong to the same installation")
+  end
+
+  def execution_runtime_version_runtime_match
+    return if execution_runtime.blank? || execution_runtime_version.blank?
+    return if execution_runtime_version.execution_runtime_id == execution_runtime_id
+
+    errors.add(:execution_runtime_version, "must belong to the selected execution runtime")
+  end
+
+  def agent_definition_version_conversation_match
+    return if conversation.blank? || agent_definition_version.blank?
+    return if agent_definition_version.agent_id == conversation.agent_id
+
+    errors.add(:agent_definition_version, "must belong to the conversation agent")
   end
 
   def selected_input_message_rules

@@ -26,7 +26,7 @@ class AgentControlMailboxItem < ApplicationRecord
 
   belongs_to :installation
   belongs_to :target_agent, class_name: "Agent"
-  belongs_to :target_agent_snapshot, class_name: "AgentSnapshot", optional: true
+  belongs_to :target_agent_definition_version, class_name: "AgentDefinitionVersion", optional: true
   belongs_to :target_execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :agent_task_run, optional: true
   belongs_to :workflow_node, optional: true
@@ -46,7 +46,7 @@ class AgentControlMailboxItem < ApplicationRecord
   validates :lease_timeout_seconds, numericality: { only_integer: true, greater_than: 0 }
   validate :payload_must_be_hash
   validate :target_installation_match
-  validate :target_agent_snapshot_match
+  validate :target_agent_definition_version_match
   validate :target_execution_runtime_match
   validate :agent_task_run_match
   validate :workflow_node_match
@@ -85,42 +85,42 @@ class AgentControlMailboxItem < ApplicationRecord
     control_plane == "execution_runtime"
   end
 
-  def target_agent_snapshot?
-    target_agent_snapshot_id.present?
+  def target_agent_definition_version?
+    target_agent_definition_version_id.present?
   end
 
-  def targets?(agent_snapshot)
-    return false if agent_snapshot.blank?
+  def targets?(agent_definition_version)
+    return false if agent_definition_version.blank?
 
     if execution_runtime_plane?
       target_execution_runtime_id.present? &&
-        target_execution_runtime_id == execution_runtime_id_for(agent_snapshot)
+        target_execution_runtime_id == execution_runtime_id_for(agent_definition_version)
     else
-      if target_agent_snapshot_id.present?
-        agent_snapshot.id == target_agent_snapshot_id
+      if target_agent_definition_version_id.present?
+        agent_definition_version.id == target_agent_definition_version_id
       else
-        agent_snapshot.agent_id == target_agent_id
+        agent_definition_version.agent_id == target_agent_id
       end
     end
   end
 
-  def leased_to?(agent_snapshot)
-    return false if agent_snapshot.blank?
+  def leased_to?(agent_definition_version)
+    return false if agent_definition_version.blank?
 
-    case agent_snapshot
+    case agent_definition_version
     when AgentConnection
-      leased_to_agent_connection_id == agent_snapshot.id
-    when AgentSnapshot
-      leased_to_agent_connection&.agent_snapshot_id == agent_snapshot.id
+      leased_to_agent_connection_id == agent_definition_version.id
+    when AgentDefinitionVersion
+      leased_to_agent_connection&.agent_definition_version_id == agent_definition_version.id
     when ExecutionRuntimeConnection
-      leased_to_execution_runtime_connection_id == agent_snapshot.id
+      leased_to_execution_runtime_connection_id == agent_definition_version.id
     else
       false
     end
   end
 
-  def leased_to_agent_snapshot
-    leased_to_agent_connection&.agent_snapshot
+  def leased_to_agent_definition_version
+    leased_to_agent_connection&.agent_definition_version
   end
 
   def lease_stale?(at: Time.current)
@@ -163,7 +163,7 @@ class AgentControlMailboxItem < ApplicationRecord
     runtime_context["logical_work_id"] = logical_work_id
     runtime_context["attempt_no"] = attempt_no
     runtime_context["control_plane"] = control_plane
-    runtime_context["agent_snapshot_id"] = target_agent_snapshot.public_id if target_agent_snapshot.present?
+    runtime_context["agent_definition_version_id"] = target_agent_definition_version.public_id if target_agent_definition_version.present?
     runtime_context["agent_id"] ||= snapshot_runtime_context["agent_id"]
     runtime_context["user_id"] ||= snapshot_runtime_context["user_id"]
     runtime_context["agent_id"] ||= target_agent.public_id if target_agent.present?
@@ -212,11 +212,11 @@ class AgentControlMailboxItem < ApplicationRecord
     errors.add(:target_agent, "must belong to the same installation")
   end
 
-  def target_agent_snapshot_match
-    return if target_agent_snapshot.blank?
+  def target_agent_definition_version_match
+    return if target_agent_definition_version.blank?
 
-    errors.add(:target_agent_snapshot, "must belong to the same installation") if target_agent_snapshot.installation_id != installation_id
-    errors.add(:target_agent_snapshot, "must belong to the targeted agent") if target_agent_snapshot.agent_id != target_agent_id
+    errors.add(:target_agent_definition_version, "must belong to the same installation") if target_agent_definition_version.installation_id != installation_id
+    errors.add(:target_agent_definition_version, "must belong to the targeted agent") if target_agent_definition_version.agent_id != target_agent_id
   end
 
   def target_execution_runtime_match
@@ -249,7 +249,7 @@ class AgentControlMailboxItem < ApplicationRecord
 
     if leased_to_agent_connection.present?
       errors.add(:leased_to_agent_connection, "must belong to the same installation") if leased_to_agent_connection.installation_id != installation_id
-      errors.add(:leased_to_agent_connection, "must satisfy the mailbox target") unless targets?(leased_to_agent_connection.agent_snapshot)
+      errors.add(:leased_to_agent_connection, "must satisfy the mailbox target") unless targets?(leased_to_agent_connection.agent_definition_version)
     end
 
     if leased_to_execution_runtime_connection.present?
@@ -274,7 +274,7 @@ class AgentControlMailboxItem < ApplicationRecord
     errors.add(:target_execution_runtime, "must reference an execution runtime in the same installation")
   end
 
-  def execution_runtime_id_for(agent_snapshot)
-    agent_snapshot.agent.default_execution_runtime_id
+  def execution_runtime_id_for(agent_definition_version)
+    agent_definition_version.agent.default_execution_runtime_id
   end
 end

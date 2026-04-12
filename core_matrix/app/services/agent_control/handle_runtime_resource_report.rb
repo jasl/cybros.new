@@ -4,8 +4,8 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_snapshot:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
-      @agent_snapshot = agent_snapshot
+    def initialize(agent_definition_version:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
+      @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @execution_runtime_connection = execution_runtime_connection
       @resource = resource
@@ -99,7 +99,7 @@ module AgentControl
 
     def process_run
       @process_run ||= @resource || AgentControl::ClosableResourceRegistry.find!(
-        installation_id: @agent_snapshot.installation_id,
+        installation_id: @agent_definition_version.installation_id,
         resource_type: @payload.fetch("resource_type"),
         public_id: @payload.fetch("resource_id")
       )

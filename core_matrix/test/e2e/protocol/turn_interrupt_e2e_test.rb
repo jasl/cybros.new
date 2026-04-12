@@ -1,11 +1,11 @@
 require "test_helper"
 
 class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
-  test "execution terminal reports only mutate the lifecycle path for the accepted holder agent_snapshot" do
+  test "execution terminal reports only mutate the lifecycle path for the accepted holder agent_definition_version" do
     context = build_agent_control_context!
     holder_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       agent_connection_credential: context[:agent_connection_credential]
     )
     sibling_agent = create_agent!(installation: context[:installation])
@@ -24,7 +24,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     )
     sibling_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      agent_snapshot: sibling_registration.fetch(:agent_snapshot),
+      agent_definition_version: sibling_registration.fetch(:agent_definition_version),
       agent_connection_credential: sibling_registration.fetch(:agent_connection_credential)
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -49,13 +49,13 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
       attempt_no: agent_task_run.attempt_no,
-      terminal_payload: { "output" => "wrong agent_snapshot" }
+      terminal_payload: { "output" => "wrong agent_definition_version" }
     )
 
     assert_equal 409, sibling_terminal.fetch("http_status")
     assert_equal "stale", sibling_terminal.fetch("result")
     assert_equal "running", agent_task_run.reload.lifecycle_state
-    assert_equal context[:agent_snapshot], agent_task_run.holder_agent_snapshot
+    assert_equal context[:agent_definition_version], agent_task_run.holder_agent_definition_version
 
     holder_terminal = holder_harness.report!(
       method_id: "execution_complete",
@@ -64,7 +64,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       agent_task_run_id: agent_task_run.public_id,
       logical_work_id: agent_task_run.logical_work_id,
       attempt_no: agent_task_run.attempt_no,
-      terminal_payload: { "output" => "accepted agent_snapshot" }
+      terminal_payload: { "output" => "accepted agent_definition_version" }
     )
 
     assert_equal 200, holder_terminal.fetch("http_status")
@@ -76,7 +76,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       agent_connection_credential: context[:agent_connection_credential]
     )
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
@@ -86,7 +86,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
     [agent_task_run].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: context[:agent_snapshot].public_id,
+        holder_key: context[:agent_definition_version].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -155,7 +155,7 @@ class TurnInterruptE2ETest < ActionDispatch::IntegrationTest
       parent_conversation: context[:conversation],
       kind: "fork",
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       addressability: "agent_addressable"
     )
 

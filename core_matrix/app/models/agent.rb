@@ -8,9 +8,11 @@ class Agent < ApplicationRecord
   belongs_to :installation
   belongs_to :owner_user, class_name: "User", optional: true, inverse_of: :owned_agents
   belongs_to :default_execution_runtime, class_name: "ExecutionRuntime", optional: true
+  belongs_to :active_agent_definition_version, class_name: "AgentDefinitionVersion", optional: true
 
-  has_many :agent_enrollments, dependent: :restrict_with_exception
-  has_many :agent_snapshots, dependent: :restrict_with_exception
+  has_many :pairing_sessions, dependent: :restrict_with_exception
+  has_many :agent_definition_versions, dependent: :restrict_with_exception
+  has_one :agent_config_state, dependent: :restrict_with_exception
   has_many :user_agent_bindings, dependent: :restrict_with_exception
   has_many :conversations, dependent: :restrict_with_exception
   has_many :agent_connections, dependent: :restrict_with_exception
@@ -25,8 +27,8 @@ class Agent < ApplicationRecord
   validate :owner_user_installation_match
   validate :default_execution_runtime_installation_match
 
-  def current_agent_snapshot
-    active_agent_connection&.agent_snapshot
+  def current_agent_definition_version
+    active_agent_connection&.agent_definition_version || active_agent_definition_version
   end
 
   private

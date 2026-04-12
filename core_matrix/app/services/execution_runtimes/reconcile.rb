@@ -16,17 +16,25 @@ module ExecutionRuntimes
     def call
       raise MissingExecutionRuntimeFingerprint, "execution runtime fingerprint must be provided" if @execution_runtime_fingerprint.blank?
 
-      execution_runtime = ExecutionRuntime.find_or_initialize_by(
-        installation: @installation,
-        execution_runtime_fingerprint: @execution_runtime_fingerprint
-      )
+      execution_runtime = find_existing_execution_runtime || ExecutionRuntime.new(installation: @installation)
       execution_runtime.update!(
         display_name: execution_runtime.display_name.presence || @execution_runtime_fingerprint,
         kind: @kind,
-        connection_metadata: @connection_metadata,
         lifecycle_state: "active"
       )
       execution_runtime
+    end
+
+    def find_existing_execution_runtime
+      ExecutionRuntime
+        .where(installation: @installation)
+        .where(
+          active_execution_runtime_version_id: ExecutionRuntimeVersion.where(
+            execution_runtime_fingerprint: @execution_runtime_fingerprint
+          ).select(:id)
+        )
+        .order(:id)
+        .first
     end
   end
 end

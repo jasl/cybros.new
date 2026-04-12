@@ -43,7 +43,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
         runtime_context: {
           "agent_id" => "agent-1",
           "user_id" => "user-1",
-          "agent_version_id" => "agent-snapshot-1",
+          "agent_version_id" => "agent-definition-version-1",
         }
       ),
       deliver_reports: true,
@@ -86,7 +86,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
         mode: "tool_call",
         task_payload: {},
         runtime_context: {
-          "agent_version_id" => "agent-snapshot-1",
+          "agent_version_id" => "agent-definition-version-1",
         },
         tool_call: {
           "call_id" => "tool-call-1",
@@ -114,7 +114,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
       mailbox_item: execution_assignment_mailbox_item(
         mode: "skills_catalog_list",
         runtime_context: {
-          "agent_version_id" => "agent-snapshot-1",
+          "agent_version_id" => "agent-definition-version-1",
         }
       ),
       deliver_reports: true,

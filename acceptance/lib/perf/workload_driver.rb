@@ -149,7 +149,7 @@ module Acceptance
       def create_conversation_for(assignment)
         with_database_connection do
           @create_conversation.call(
-            agent_snapshot: assignment.registration.agent_snapshot
+            agent_definition_version: assignment.registration.agent_definition_version
           )
         end
       end

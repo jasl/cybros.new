@@ -13,13 +13,13 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -60,12 +60,12 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     origin_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate work",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -73,7 +73,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -107,7 +107,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
         execution_runtime: context[:execution_runtime],
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -126,7 +126,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
         execution_runtime: context[:execution_runtime],
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -151,10 +151,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     foreign_user = create_user!(installation: foreign_installation)
     foreign_agent = create_agent!(installation: foreign_installation)
     foreign_execution_runtime = create_execution_runtime!(installation: foreign_installation)
-    foreign_agent_snapshot = create_agent_snapshot!(
+    foreign_agent_definition_version = create_agent_definition_version!(
       installation: foreign_installation,
-      agent: foreign_agent,
-      execution_runtime: foreign_execution_runtime
+      agent: foreign_agent
     )
     foreign_binding = create_user_agent_binding!(
       installation: foreign_installation,
@@ -169,7 +168,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     foreign_owner = Conversations::CreateRoot.call(
       workspace: foreign_workspace,
       execution_runtime: foreign_execution_runtime,
-      agent_snapshot: foreign_agent_snapshot
+      agent_definition_version: foreign_agent_definition_version
     )
 
     child_session.owner_conversation = foreign_owner
@@ -182,13 +181,13 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -232,7 +231,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     open_session = build_subagent_connection(context:, owner_conversation:)
@@ -315,13 +314,13 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -343,7 +342,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
         execution_runtime: context[:execution_runtime],
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -364,7 +363,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
         execution_runtime: context[:execution_runtime],
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -386,7 +385,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
         execution_runtime: context[:execution_runtime],
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -409,7 +408,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         workspace: context[:workspace],
         parent_conversation: owner_conversation,
         execution_runtime: context[:execution_runtime],
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         kind: "fork",
         addressability: "agent_addressable"
       ),
@@ -444,7 +443,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     assert_includes SubagentConnection.column_names, "supervision_state"
@@ -490,13 +489,13 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     owner_conversation ||= Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     child_conversation = create_conversation_record!(
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )

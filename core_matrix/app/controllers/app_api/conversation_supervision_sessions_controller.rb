@@ -56,7 +56,7 @@ module AppAPI
     def find_supervision_session!(session_id)
       ConversationSupervisionSession.find_by!(
         public_id: session_id,
-        installation_id: current_agent_snapshot.installation_id
+        installation_id: current_agent_definition_version.installation_id
       )
     end
 

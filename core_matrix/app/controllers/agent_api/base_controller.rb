@@ -6,22 +6,23 @@ module AgentAPI
 
     rescue_from ActiveRecord::RecordInvalid, with: :render_record_invalid
     rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
-    rescue_from AgentSnapshots::Register::InvalidEnrollment, with: :render_unprocessable_entity
-    rescue_from AgentSnapshots::Register::ExpiredEnrollment, with: :render_unprocessable_entity
-    rescue_from AgentSnapshots::Handshake::FingerprintMismatch, with: :render_unprocessable_entity
-    rescue_from ExecutionRuntimes::Register::InvalidEnrollment, with: :render_unprocessable_entity
-    rescue_from ExecutionRuntimes::Register::ExpiredEnrollment, with: :render_unprocessable_entity
-    rescue_from ExecutionRuntimes::Reconcile::MissingExecutionRuntimeFingerprint, with: :render_unprocessable_entity
+    rescue_from KeyError, with: :render_unprocessable_entity
+    rescue_from PairingSessions::ResolveFromToken::InvalidPairingToken, with: :render_unprocessable_entity
+    rescue_from PairingSessions::ResolveFromToken::ExpiredPairingSession, with: :render_unprocessable_entity
+    rescue_from PairingSessions::ResolveFromToken::ClosedPairingSession, with: :render_unprocessable_entity
+    rescue_from PairingSessions::ResolveFromToken::RevokedPairingSession, with: :render_unprocessable_entity
+    rescue_from AgentDefinitionVersions::UpsertFromPackage::InvalidDefinitionPackage, with: :render_unprocessable_entity
+    rescue_from ExecutionRuntimeVersions::UpsertFromPackage::InvalidVersionPackage, with: :render_unprocessable_entity
 
     private
 
-    attr_reader :current_agent_connection, :current_agent_snapshot, :current_execution_runtime
+    attr_reader :current_agent_connection, :current_agent_definition_version, :current_execution_runtime
 
     def authenticate_agent_connection!
       @current_agent_connection = authenticate_with_http_token do |token, _options|
         AgentConnection.find_by_plaintext_connection_credential(token)
       end
-      @current_agent_snapshot = @current_agent_connection&.agent_snapshot
+      @current_agent_definition_version = @current_agent_connection&.agent_definition_version
       @current_execution_runtime = @current_agent_connection&.agent&.default_execution_runtime
       return if @current_agent_connection.present?
 
@@ -35,14 +36,14 @@ module AgentAPI
     def find_workspace!(workspace_id)
       Workspace.find_by!(
         public_id: workspace_id,
-        installation_id: current_agent_snapshot.installation_id
+        installation_id: current_agent_definition_version.installation_id
       )
     end
 
     def find_conversation!(conversation_id, workspace: nil)
       scope = {
         public_id: conversation_id,
-        installation_id: current_agent_snapshot.installation_id,
+        installation_id: current_agent_definition_version.installation_id,
         deletion_state: "retained",
       }
       scope[:workspace_id] = workspace.id if workspace.present?
@@ -53,42 +54,42 @@ module AgentAPI
     def find_turn!(turn_id)
       Turn.find_by!(
         public_id: turn_id,
-        installation_id: current_agent_snapshot.installation_id
+        installation_id: current_agent_definition_version.installation_id
       )
     end
 
     def find_workflow_run!(workflow_run_id)
       WorkflowRun.find_by!(
         public_id: workflow_run_id,
-        installation_id: current_agent_snapshot.installation_id
+        installation_id: current_agent_definition_version.installation_id
       )
     end
 
     def find_workflow_node!(workflow_node_id)
       WorkflowNode.find_by!(
         public_id: workflow_node_id,
-        installation_id: current_agent_snapshot.installation_id
+        installation_id: current_agent_definition_version.installation_id
       )
     end
 
     def find_agent_task_run!(agent_task_run_id)
       AgentTaskRun.find_by!(
         public_id: agent_task_run_id,
-        installation_id: current_agent_snapshot.installation_id
+        installation_id: current_agent_definition_version.installation_id
       )
     end
 
     def find_tool_invocation!(tool_invocation_id)
       ToolInvocation.find_by!(
         public_id: tool_invocation_id,
-        installation_id: current_agent_snapshot.installation_id
+        installation_id: current_agent_definition_version.installation_id
       )
     end
 
     def find_command_run!(command_run_id)
       CommandRun.find_by!(
         public_id: command_run_id,
-        installation_id: current_agent_snapshot.installation_id
+        installation_id: current_agent_definition_version.installation_id
       )
     end
 

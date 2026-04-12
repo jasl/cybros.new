@@ -10,7 +10,7 @@ class AgentControl::ApplyCloseOutcomeTest < ActiveSupport::TestCase
     )
     Leases::Acquire.call(
       leased_resource: process_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     mailbox_item = MailboxScenarioBuilder.new(self).close_request!(

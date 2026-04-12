@@ -32,14 +32,14 @@ class AgentControlPollExecutionTest < ActiveSupport::TestCase
       installation: context[:installation],
       default_execution_runtime: other_execution_runtime
     )
-    wrong_agent_snapshot = create_agent_snapshot!(
+    wrong_agent_definition_version = create_agent_definition_version!(
       installation: context[:installation],
       agent: other_agent
     )
     wrong_agent_connection = create_agent_connection!(
       installation: context[:installation],
       agent: other_agent,
-      agent_snapshot: wrong_agent_snapshot
+      agent_definition_version: wrong_agent_definition_version
     )
     wrong_execution_runtime_connection = create_execution_runtime_connection!(
       installation: context[:installation],

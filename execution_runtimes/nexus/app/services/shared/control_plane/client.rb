@@ -34,20 +34,14 @@ module Shared
       end
 
       def register!(
-        enrollment_token:,
-        execution_runtime_fingerprint:,
-        execution_runtime_kind: "local",
-        execution_runtime_connection_metadata:,
-        execution_runtime_capability_payload: {},
-        execution_runtime_tool_catalog: []
+        pairing_token:,
+        endpoint_metadata:,
+        version_package:
       )
         post_json("/execution_runtime_api/registrations", {
-          enrollment_token: enrollment_token,
-          execution_runtime_fingerprint: execution_runtime_fingerprint,
-          execution_runtime_kind: execution_runtime_kind,
-          execution_runtime_connection_metadata: execution_runtime_connection_metadata,
-          execution_runtime_capability_payload: execution_runtime_capability_payload,
-          execution_runtime_tool_catalog: execution_runtime_tool_catalog,
+          pairing_token: pairing_token,
+          endpoint_metadata: endpoint_metadata,
+          version_package: version_package,
         }, authorize: false)
       end
 
@@ -59,13 +53,9 @@ module Shared
         get_json("/execution_runtime_api/capabilities", credential: execution_runtime_connection_credential)
       end
 
-      def capabilities_handshake!(
-        execution_runtime_capability_payload: nil,
-        execution_runtime_tool_catalog: nil
-      )
+      def capabilities_handshake!(version_package:)
         post_json("/execution_runtime_api/capabilities", {
-          execution_runtime_capability_payload: execution_runtime_capability_payload,
-          execution_runtime_tool_catalog: execution_runtime_tool_catalog,
+          version_package: version_package,
         }.compact, credential: execution_runtime_connection_credential)
       end
 

@@ -3,22 +3,14 @@ module AgentAPI
     skip_before_action :authenticate_agent_connection!, only: :create
 
     def create
-      registration = AgentSnapshots::Register.call(
-        enrollment_token: request_payload.fetch("enrollment_token"),
-        fingerprint: request_payload.fetch("fingerprint"),
+      registration = AgentDefinitionVersions::Register.call(
+        pairing_token: request_payload.fetch("pairing_token"),
         endpoint_metadata: request_payload.fetch("endpoint_metadata", {}),
-        protocol_version: request_payload.fetch("protocol_version"),
-        sdk_version: request_payload.fetch("sdk_version"),
-        protocol_methods: request_payload.fetch("protocol_methods", []),
-        tool_catalog: request_payload.fetch("tool_catalog", []),
-        profile_catalog: request_payload.fetch("profile_catalog", {}),
-        config_schema_snapshot: request_payload.fetch("config_schema_snapshot", {}),
-        conversation_override_schema_snapshot: request_payload.fetch("conversation_override_schema_snapshot", {}),
-        default_config_snapshot: request_payload.fetch("default_config_snapshot", {})
+        definition_package: request_payload.fetch("definition_package")
       )
       capability_contract = RuntimeCapabilityContract.build(
         execution_runtime: registration.execution_runtime,
-        agent_snapshot: registration.agent_snapshot
+        agent_definition_version: registration.agent_definition_version
       )
 
       render json: capability_contract.capability_response(
@@ -26,10 +18,11 @@ module AgentAPI
         execution_runtime_id: registration.execution_runtime&.public_id,
         execution_runtime_fingerprint: registration.execution_runtime&.execution_runtime_fingerprint
       ).merge(
-        agent_id: registration.agent_snapshot.agent.public_id,
-        agent_snapshot_id: registration.agent_snapshot.public_id,
+        agent_id: registration.agent_definition_version.agent.public_id,
+        agent_definition_version_id: registration.agent_definition_version.public_id,
         agent_connection_id: registration.agent_connection.public_id,
         agent_connection_credential: registration.agent_connection_credential,
+        execution_runtime_version_id: registration.execution_runtime&.current_execution_runtime_version&.public_id,
       ), status: :created
     end
   end

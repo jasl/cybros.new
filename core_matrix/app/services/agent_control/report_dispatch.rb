@@ -27,8 +27,8 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_snapshot:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
-      @agent_snapshot = agent_snapshot
+    def initialize(agent_definition_version:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
+      @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @execution_runtime_connection = execution_runtime_connection
       @resource = resource
@@ -39,7 +39,7 @@ module AgentControl
 
     def call
       handler_class.new(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         agent_connection: @agent_connection,
         execution_runtime_connection: @execution_runtime_connection,
         resource: @resource,

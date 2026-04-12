@@ -5,11 +5,9 @@ class ProviderUsage::RecordEventTest < ActiveSupport::TestCase
     installation = create_installation!
     user = create_user!(installation: installation)
     agent = create_agent!(installation: installation)
-    execution_runtime = create_execution_runtime!(installation: installation)
-    agent_snapshot = create_agent_snapshot!(
+    agent_definition_version = create_agent_definition_version!(
       installation: installation,
-      agent: agent,
-      execution_runtime: execution_runtime
+      agent: agent
     )
     binding = create_user_agent_binding!(
       installation: installation,
@@ -30,7 +28,7 @@ class ProviderUsage::RecordEventTest < ActiveSupport::TestCase
       turn_id: 202,
       workflow_node_key: "planner-step",
       agent: agent,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       provider_handle: "openai",
       model_ref: "gpt-5.3-chat-latest",
       operation_kind: "text_generation",

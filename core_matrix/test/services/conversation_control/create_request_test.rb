@@ -70,7 +70,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
     end
   end
 
-  test "request_status_refresh targets the active runtime agent_snapshot after a runtime rotation" do
+  test "request_status_refresh targets the active runtime agent definition after a runtime rotation" do
     context = build_rotated_runtime_context!
     ConversationCapabilityPolicy.create!(
       installation: context.fetch(:installation),
@@ -103,7 +103,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
     mailbox_item = AgentControlMailboxItem.order(:id).last
 
     assert_equal "dispatched", request.lifecycle_state
-    assert_equal context.fetch(:replacement_agent_snapshot), mailbox_item.target_agent_snapshot
+    assert_equal context.fetch(:replacement_agent_definition_version), mailbox_item.target_agent_definition_version
   end
 
   test "resume_waiting_workflow uses the authorized requester as the recovery audit actor" do
@@ -148,8 +148,8 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
     )
     captured = nil
     original_call = Workflows::ManualResume.method(:call)
-    Workflows::ManualResume.singleton_class.define_method(:call) do |workflow_run:, agent_snapshot:, actor:, conversation_control_request: nil, **_rest|
-      captured = [workflow_run.public_id, agent_snapshot.public_id, actor.public_id, conversation_control_request&.public_id]
+    Workflows::ManualResume.singleton_class.define_method(:call) do |workflow_run:, agent_definition_version:, actor:, conversation_control_request: nil, **_rest|
+      captured = [workflow_run.public_id, agent_definition_version.public_id, actor.public_id, conversation_control_request&.public_id]
       workflow_run
     end
 
@@ -168,7 +168,7 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
 
     assert_equal [
       context.fetch(:workflow_run).public_id,
-      context.fetch(:agent_snapshot).public_id,
+      context.fetch(:agent_definition_version).public_id,
       outsider.public_id,
       request.public_id,
     ], captured

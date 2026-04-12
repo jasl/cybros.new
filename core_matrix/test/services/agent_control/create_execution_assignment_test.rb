@@ -19,7 +19,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
 
     assert_equal "execution_runtime", mailbox_item.control_plane
     assert_equal context[:agent], mailbox_item.target_agent
-    assert_equal context[:agent_snapshot], mailbox_item.target_agent_snapshot
+    assert_equal context[:agent_definition_version], mailbox_item.target_agent_definition_version
     assert_equal context[:execution_runtime], mailbox_item.target_execution_runtime
   end
 
@@ -54,12 +54,11 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
   test "serializes the subagent execution assignment envelope that nexus consumes" do
     installation = Installation.first || create_installation!(name: "Execution Assignment Contract #{SecureRandom.uuid}")
     user = create_user!(installation: installation)
-    agent = create_agent!(installation: installation)
     execution_runtime = create_execution_runtime!(installation: installation)
-    agent_snapshot = create_agent_snapshot!(
+    agent = create_agent!(installation: installation, default_execution_runtime: execution_runtime)
+    agent_definition_version = create_agent_definition_version!(
       installation: installation,
-      agent: agent,
-      execution_runtime: execution_runtime
+      agent: agent
     )
     user_agent_binding = create_user_agent_binding!(
       installation: installation,
@@ -77,12 +76,12 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
         user: user,
         agent: agent,
         execution_runtime: execution_runtime,
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         user_agent_binding: user_agent_binding,
         workspace: workspace,
       }
     )
-    activate_agent_snapshot!(
+    activate_agent_definition_version!(
       context,
       tool_catalog: fenix_tool_catalog,
       profile_catalog: fenix_profile_catalog,
@@ -267,10 +266,11 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     )
     payload["runtime_context"] = payload.fetch("runtime_context").merge(
       "logical_work_id" => "subagent-step:subagent-connection-public-id:subagent-turn-public-id",
-      "agent_snapshot_id" => "agent-snapshot-public-id",
+      "agent_definition_version_id" => "agent-definition-version-public-id",
       "agent_id" => "agent-public-id",
       "user_id" => "user-public-id",
-      "execution_runtime_id" => "execution-runtime-public-id"
+      "execution_runtime_id" => "execution-runtime-public-id",
+      "execution_runtime_version_id" => "execution-runtime-version-public-id"
     )
 
     serialized.merge(

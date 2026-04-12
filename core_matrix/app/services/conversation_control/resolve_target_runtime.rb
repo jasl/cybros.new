@@ -25,7 +25,7 @@ module ConversationControl
       :active_turn,
       :workflow_run,
       :subagent_connection,
-      :agent_snapshot,
+      :agent_definition_version,
       keyword_init: true
     )
 
@@ -73,7 +73,7 @@ module ConversationControl
         target_public_id: @conversation.public_id,
         active_turn: active_turn,
         workflow_run: active_workflow_run,
-        agent_snapshot: resolved_agent_snapshot
+        agent_definition_version: resolved_agent_definition_version
       )
     end
 
@@ -90,7 +90,7 @@ module ConversationControl
         active_turn: active_turn,
         workflow_run: active_workflow_run,
         subagent_connection: subagent_connection,
-        agent_snapshot: resolved_agent_snapshot
+        agent_definition_version: resolved_agent_definition_version
       )
     end
 
@@ -106,7 +106,7 @@ module ConversationControl
         target_public_id: workflow_run&.public_id,
         active_turn: workflow_run&.turn || active_turn,
         workflow_run: workflow_run,
-        agent_snapshot: resolved_agent_snapshot
+        agent_definition_version: resolved_agent_definition_version
       )
     end
 
@@ -126,11 +126,11 @@ module ConversationControl
       scope.detect { |session| !session.terminal_for_wait? } || scope.last
     end
 
-    def resolved_agent_snapshot
-      active_agent_connection&.agent_snapshot ||
-        active_turn&.agent_snapshot ||
-        active_workflow_run&.turn&.agent_snapshot ||
-        @conversation.turns.order(:created_at, :id).last&.agent_snapshot
+    def resolved_agent_definition_version
+      active_agent_connection&.agent_definition_version ||
+        active_turn&.agent_definition_version ||
+        active_workflow_run&.turn&.agent_definition_version ||
+        @conversation.turns.order(:created_at, :id).last&.agent_definition_version
     end
 
     def active_agent_connection

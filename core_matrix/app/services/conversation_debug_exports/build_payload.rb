@@ -82,7 +82,7 @@ module ConversationDebugExports
           :workflow_node,
           :subagent_connection,
           :origin_turn,
-          holder_agent_connection: :agent_snapshot
+          holder_agent_connection: :agent_definition_version
         )
         .order(:created_at, :id)
     end
@@ -150,8 +150,11 @@ module ConversationDebugExports
       @workspace_public_id_map ||= Workspace.where(id: usage_events.map(&:workspace_id).compact.uniq).pluck(:id, :public_id).to_h
     end
 
-    def agent_snapshot_public_id_map
-      @agent_snapshot_public_id_map ||= AgentSnapshot.where(id: usage_events.map(&:agent_snapshot_id).compact.uniq).pluck(:id, :public_id).to_h
+    def agent_definition_version_public_id_map
+      @agent_definition_version_public_id_map ||= AgentDefinitionVersion
+        .where(id: usage_events.map(&:agent_definition_version_id).compact.uniq)
+        .pluck(:id, :public_id)
+        .to_h
     end
 
     def serialize_conversation_snapshot(snapshot)
@@ -337,7 +340,7 @@ module ConversationDebugExports
         "turn_id" => task_run.turn.public_id,
         "subagent_connection_id" => task_run.subagent_connection&.public_id,
         "origin_turn_id" => task_run.origin_turn&.public_id,
-        "holder_agent_snapshot_id" => task_run.holder_agent_snapshot&.public_id,
+        "holder_agent_definition_version_id" => task_run.holder_agent_definition_version&.public_id,
         "kind" => task_run.kind,
         "lifecycle_state" => task_run.lifecycle_state,
         "logical_work_id" => task_run.logical_work_id,
@@ -439,7 +442,7 @@ module ConversationDebugExports
         "turn_id" => turn_public_id_map[event.turn_id],
         "user_id" => user_public_id_map[event.user_id],
         "workspace_id" => workspace_public_id_map[event.workspace_id],
-        "agent_snapshot_id" => agent_snapshot_public_id_map[event.agent_snapshot_id],
+        "agent_definition_version_id" => agent_definition_version_public_id_map[event.agent_definition_version_id],
         "provider_handle" => event.provider_handle,
         "model_ref" => event.model_ref,
         "operation_kind" => event.operation_kind,

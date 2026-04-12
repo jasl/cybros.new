@@ -6,12 +6,12 @@ class Conversations::ContextProjectionTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     first_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Keep me in context",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -22,7 +22,7 @@ class Conversations::ContextProjectionTest < ActiveSupport::TestCase
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Transcript only",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -50,19 +50,19 @@ class Conversations::ContextProjectionTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     first_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Visible root input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
     hidden_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Hidden in descendant",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

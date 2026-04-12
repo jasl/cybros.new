@@ -96,7 +96,7 @@ runtime resources that later tasks now build on are:
 
 - `ProcessRun` is now a first-class runtime resource instead of an opaque tool
   side effect.
-- `ProcessRun` is `ExecutionRuntime`-owned, not `AgentSnapshot`-owned.
+- `ProcessRun` is `ExecutionRuntime`-owned, not `AgentDefinitionVersion`-owned.
 - Every process run belongs to:
   - one installation
   - one workflow node
@@ -136,7 +136,7 @@ runtime resources that later tasks now build on are:
 - mailbox close for `ProcessRun` now rides the `executor` control plane:
   - mailbox `target_ref` is the owning `ExecutionRuntime.public_id`
   - delivery goes to the currently active `ExecutionRuntimeConnection` for that execution runtime
-  - agent snapshot rotation does not change process ownership
+  - agent definition version rotation does not change process ownership
 
 ## Agent Task Runs
 
@@ -149,7 +149,7 @@ runtime resources that later tasks now build on are:
   - one workflow node
   - one conversation
   - one turn
-  - optionally one accepted holder agent snapshot
+  - optionally one accepted holder agent definition version
 - task kinds are explicit and validated:
   - `turn_step`
   - `agent_tool_call`
@@ -165,7 +165,7 @@ runtime resources that later tasks now build on are:
   mailbox-delivery retries
 - `execution_started` is the durable acceptance point that:
   - moves the task to `running`
-  - records the accepted holder agent snapshot
+  - records the accepted holder agent definition version
   - acquires an `ExecutionLease`
 - mailbox execution also keeps the backing `WorkflowNode` aligned:
   - assignment creation moves the node to `queued`
@@ -226,7 +226,7 @@ runtime resources that later tasks now build on are:
 - `turn_id` must match the owning workflow run turn.
 - `origin_message_id`, when present, must belong to the same conversation and
   turn as the process run.
-- `AgentTaskRun.agent_id` must match the turn agent snapshot logical
+- `AgentTaskRun.agent_id` must match the turn agent definition version logical
   agent.
 - `ExecutionLease.holder_key` is only a routing and heartbeat hint for the
   current runtime endpoint; it does not redefine the owner of a process run.

@@ -4,9 +4,9 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_run:, agent_snapshot:, actor:, selector: nil, conversation_control_request: nil)
+    def initialize(workflow_run:, agent_definition_version:, actor:, selector: nil, conversation_control_request: nil)
       @workflow_run = workflow_run
-      @agent_snapshot = agent_snapshot
+      @agent_definition_version = agent_definition_version
       @actor = actor
       @selector = selector
       @conversation_control_request = conversation_control_request
@@ -23,22 +23,22 @@ module Workflows
           closing_message: "must not resume paused work while close is in progress"
         ) do |conversation, workflow_run, turn|
           validate_wait_state!(workflow_run)
-          recovery_target = AgentSnapshots::ResolveRecoveryTarget.call(
+          recovery_target = ExecutionIdentityRecovery::ResolveTarget.call(
             conversation: workflow_run.conversation,
             turn: turn,
-            agent_snapshot: @agent_snapshot,
+            agent_definition_version: @agent_definition_version,
             selector_source: "manual_recovery",
             selector: @selector.presence || turn.recovery_selector,
             rebind_turn: true
           )
-          previous_agent_snapshot = turn.agent_snapshot
+          previous_agent_definition_version = turn.agent_definition_version
 
-          AgentSnapshots::RebindTurn.call(
+          ExecutionIdentityRecovery::RebindTurn.call(
             turn: turn,
             recovery_target: recovery_target
           )
           workflow_run.update!(
-            AgentSnapshots::UnavailablePauseState.resume_attributes(
+            AgentDefinitionVersions::UnavailablePauseState.resume_attributes(
               workflow_run: workflow_run
             )
           )
@@ -49,8 +49,8 @@ module Workflows
             actor: @actor,
             subject: workflow_run,
             metadata: {
-              "previous_agent_snapshot_id" => previous_agent_snapshot.id,
-              "agent_snapshot_id" => recovery_target.agent_snapshot.id,
+              "previous_agent_definition_version_id" => previous_agent_definition_version.id,
+              "agent_definition_version_id" => recovery_target.agent_definition_version.id,
               "temporary_selector_override" => @selector,
             }.compact
           )

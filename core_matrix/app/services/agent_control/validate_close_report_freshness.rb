@@ -4,8 +4,8 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_snapshot:, execution_runtime_connection: nil, payload:, mailbox_item:, resource:, occurred_at: Time.current)
-      @agent_snapshot = agent_snapshot
+    def initialize(agent_definition_version:, execution_runtime_connection: nil, payload:, mailbox_item:, resource:, occurred_at: Time.current)
+      @agent_definition_version = agent_definition_version
       @execution_runtime_connection = execution_runtime_connection
       @payload = payload
       @mailbox_item = mailbox_item
@@ -41,7 +41,7 @@ module AgentControl
     def lease_owner
       return @execution_runtime_connection if @mailbox_item.execution_runtime_plane?
 
-      @agent_snapshot
+      @agent_definition_version
     end
 
     def stale!

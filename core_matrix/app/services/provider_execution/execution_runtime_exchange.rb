@@ -137,7 +137,7 @@ module ProviderExecution
 
       agent_task_run = AgentTaskRun.create!(
         installation: workflow_node.installation,
-        agent: workflow_node.turn.agent_snapshot.agent,
+        agent: workflow_node.turn.agent_definition_version.agent,
         workflow_run: workflow_node.workflow_run,
         workflow_node: workflow_node,
         conversation: workflow_node.conversation,

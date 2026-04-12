@@ -57,11 +57,22 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
       )
 
       client.register!(
-        enrollment_token: "enrollment-token",
-        fingerprint: "bundled-fenix-release-0.1.0",
+        pairing_token: "pairing-token",
         endpoint_metadata: { "transport" => "http", "base_url" => "http://fenix.example.test:3101", "runtime_manifest_path" => "/runtime/manifest" },
-        protocol_version: "agent-runtime/2026-04-01",
-        sdk_version: "fenix-0.1.0"
+        definition_package: {
+          "program_manifest_fingerprint" => "bundled-fenix-release-0.1.0",
+          "prompt_pack_ref" => "fenix/default",
+          "prompt_pack_fingerprint" => "prompt-pack-a",
+          "protocol_version" => "agent-runtime/2026-04-01",
+          "sdk_version" => "fenix-0.1.0",
+          "protocol_methods" => [],
+          "tool_contract" => [],
+          "profile_policy" => {},
+          "canonical_config_schema" => {},
+          "conversation_override_schema" => {},
+          "default_canonical_config" => {},
+          "reflected_surface" => {},
+        }
       )
       client.heartbeat!(health_status: "healthy", auto_resume_eligible: true)
     end
@@ -71,7 +82,8 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
 
     assert_equal "/agent_api/registrations", register_request.fetch(:path)
     assert_nil register_request.fetch(:authorization)
-    assert_equal "enrollment-token", register_request.fetch(:json_body).fetch("enrollment_token")
+    assert_equal "pairing-token", register_request.fetch(:json_body).fetch("pairing_token")
+    assert_equal "bundled-fenix-release-0.1.0", register_request.dig(:json_body, "definition_package", "program_manifest_fingerprint")
 
     assert_equal "/agent_api/heartbeats", heartbeat_request.fetch(:path)
     assert_equal %(Token token="secret"), heartbeat_request.fetch(:authorization)
@@ -90,11 +102,20 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
       client.health
       client.capabilities_refresh
       client.capabilities_handshake!(
-        fingerprint: "bundled-fenix-release-0.1.0",
-        protocol_version: "agent-runtime/2026-04-01",
-        sdk_version: "fenix-0.1.0",
-        protocol_methods: [{ "method_id" => "agent_completed" }],
-        tool_catalog: [{ "tool_name" => "compact_context" }]
+        definition_package: {
+          "program_manifest_fingerprint" => "bundled-fenix-release-0.1.0",
+          "prompt_pack_ref" => "fenix/default",
+          "prompt_pack_fingerprint" => "prompt-pack-a",
+          "protocol_version" => "agent-runtime/2026-04-01",
+          "sdk_version" => "fenix-0.1.0",
+          "protocol_methods" => [{ "method_id" => "agent_completed" }],
+          "tool_contract" => [{ "tool_name" => "compact_context" }],
+          "profile_policy" => {},
+          "canonical_config_schema" => {},
+          "conversation_override_schema" => {},
+          "default_canonical_config" => {},
+          "reflected_surface" => {},
+        }
       )
     end
 
@@ -108,7 +129,7 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
       %(Token token="secret"),
       %(Token token="secret"),
     ], requests.map { |entry| entry.fetch(:authorization) }
-    assert_equal "bundled-fenix-release-0.1.0", requests.fetch(2).dig(:json_body, "fingerprint")
+    assert_equal "bundled-fenix-release-0.1.0", requests.fetch(2).dig(:json_body, "definition_package", "program_manifest_fingerprint")
   end
 
   test "report treats stale 409 responses as idempotent replays" do

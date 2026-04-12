@@ -15,6 +15,7 @@ module Turns
         @conversation.workspace.default_execution_runtime ||
         @conversation.agent.default_execution_runtime
       return nil if runtime.blank?
+      runtime = ExecutionRuntime.find_by(id: runtime.id) || runtime
       return runtime if ExecutionRuntimeConnection.exists?(execution_runtime: runtime, lifecycle_state: "active")
 
       @conversation.errors.add(:base, "must have an active execution runtime connection for the selected execution runtime")

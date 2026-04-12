@@ -30,6 +30,14 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
       },
       turn.origin_payload
     )
+    assert_equal context[:agent_definition_version], turn.agent_definition_version
+    assert_equal context[:execution_runtime], turn.execution_runtime
+    assert_equal context[:execution_runtime].current_execution_runtime_version, turn.execution_runtime_version
+    assert_equal(context[:agent].agent_config_state&.version || 1, turn.agent_config_version)
+    assert_equal(
+      context[:agent].agent_config_state&.content_fingerprint || context[:agent_definition_version].definition_fingerprint,
+      turn.agent_config_content_fingerprint
+    )
     assert_equal "Conversation", turn.source_ref_type
     assert_equal owner_conversation.public_id, turn.source_ref_id
     assert_instance_of UserMessage, turn.selected_input_message

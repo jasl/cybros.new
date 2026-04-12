@@ -34,30 +34,14 @@ module Shared
       end
 
       def register!(
-        enrollment_token:,
-        fingerprint:,
+        pairing_token:,
         endpoint_metadata:,
-        protocol_version:,
-        sdk_version:,
-        protocol_methods: [],
-        tool_catalog: [],
-        profile_catalog: {},
-        config_schema_snapshot: {},
-        conversation_override_schema_snapshot: {},
-        default_config_snapshot: {}
+        definition_package:
       )
         post_json("/agent_api/registrations", {
-          enrollment_token: enrollment_token,
-          fingerprint: fingerprint,
+          pairing_token: pairing_token,
           endpoint_metadata: endpoint_metadata,
-          protocol_version: protocol_version,
-          sdk_version: sdk_version,
-          protocol_methods: protocol_methods,
-          tool_catalog: tool_catalog,
-          profile_catalog: profile_catalog,
-          config_schema_snapshot: config_schema_snapshot,
-          conversation_override_schema_snapshot: conversation_override_schema_snapshot,
-          default_config_snapshot: default_config_snapshot,
+          definition_package: definition_package,
         }, authorize: false)
       end
 
@@ -78,27 +62,9 @@ module Shared
         get_json("/agent_api/capabilities")
       end
 
-      def capabilities_handshake!(
-        fingerprint:,
-        protocol_version:,
-        sdk_version:,
-        protocol_methods: [],
-        tool_catalog: [],
-        profile_catalog: {},
-        config_schema_snapshot: {},
-        conversation_override_schema_snapshot: {},
-        default_config_snapshot: {}
-      )
+      def capabilities_handshake!(definition_package:)
         post_json("/agent_api/capabilities", {
-          fingerprint: fingerprint,
-          protocol_version: protocol_version,
-          sdk_version: sdk_version,
-          protocol_methods: protocol_methods,
-          tool_catalog: tool_catalog,
-          profile_catalog: profile_catalog,
-          config_schema_snapshot: config_schema_snapshot,
-          conversation_override_schema_snapshot: conversation_override_schema_snapshot,
-          default_config_snapshot: default_config_snapshot,
+          definition_package: definition_package,
         }.compact)
       end
 

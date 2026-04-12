@@ -6,14 +6,14 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     session = create_owned_subagent_connection!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: conversation,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -34,14 +34,14 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     session = create_owned_subagent_connection!(
       installation: context[:installation],
       workspace: context[:workspace],
       owner_conversation: conversation,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     session.update!(
       close_state: "requested",
@@ -108,14 +108,14 @@ class Conversations::ValidateQuiescenceTest < ActiveSupport::TestCase
 
   private
 
-  def create_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_snapshot:)
+  def create_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_definition_version:)
     child_conversation = create_conversation_record!(
       installation: installation,
       workspace: workspace,
       parent_conversation: owner_conversation,
       kind: "fork",
       execution_runtime: execution_runtime,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       addressability: "agent_addressable"
     )
     SubagentConnection.create!(

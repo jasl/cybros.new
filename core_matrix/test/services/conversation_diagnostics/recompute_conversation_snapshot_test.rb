@@ -14,7 +14,7 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
       turn_id: first_turn.id,
       workflow_node_key: "turn_step",
       agent: context[:agent],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",
@@ -32,7 +32,7 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Second question",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -57,7 +57,7 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
       turn_id: second_turn.id,
       workflow_node_key: "turn_step",
       agent: context[:agent],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",

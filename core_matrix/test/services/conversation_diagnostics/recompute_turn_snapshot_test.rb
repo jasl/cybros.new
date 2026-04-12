@@ -40,7 +40,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       workspace: context[:workspace],
       parent_conversation: context[:conversation],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -230,11 +230,11 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
   private
 
   def create_tool_execution!(context:, workflow_node:, tool_status:, command_line:, command_state:)
-    capability_snapshot = context[:agent_snapshot]
+    capability_snapshot = context[:agent_definition_version]
 
     tool_definition = ToolDefinition.find_or_create_by!(
       installation: context[:installation],
-      agent_snapshot: capability_snapshot,
+      agent_definition_version: capability_snapshot,
       tool_name: "exec_command"
     ) do |definition|
       definition.tool_kind = "function"
@@ -307,7 +307,7 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
       turn_id: context[:turn].id,
       workflow_node_key: workflow_node.node_key,
       agent: context[:agent],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",

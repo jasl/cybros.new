@@ -141,7 +141,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     )
     tool_definition = ToolDefinition.create!(
       installation: context.fetch(:installation),
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "exec_command",
       tool_kind: "agent_observation",
       governance_mode: "replaceable",
@@ -180,7 +180,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     )
 
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "execute_tool",
       payload: {
         "protocol_version" => "agent-runtime/2026-04-01",
@@ -211,7 +211,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
           "logical_work_id" => "tool-call:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
           "attempt_no" => 1,
           "control_plane" => "agent",
-          "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id,
+          "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id,
         },
       },
       logical_work_id: "tool-call:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
@@ -277,7 +277,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     )
     tool_definition = ToolDefinition.create!(
       installation: context.fetch(:installation),
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "browser_open",
       tool_kind: "agent_observation",
       governance_mode: "replaceable",
@@ -309,7 +309,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
     ).tool_invocation
 
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "execute_tool",
       payload: {
         "protocol_version" => "agent-runtime/2026-04-01",
@@ -340,7 +340,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
           "logical_work_id" => "tool-call:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",
           "attempt_no" => 1,
           "control_plane" => "agent",
-          "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id,
+          "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id,
         },
       },
       logical_work_id: "tool-call:#{context.fetch(:workflow_node).public_id}:#{invocation.idempotency_key}",

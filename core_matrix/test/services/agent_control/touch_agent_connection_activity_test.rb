@@ -6,7 +6,7 @@ class AgentControl::TouchAgentConnectionActivityTest < ActiveSupport::TestCase
     occurred_at = Time.zone.parse("2026-03-29 20:00:00 UTC")
 
     result = AgentControl::TouchAgentConnectionActivity.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       occurred_at: occurred_at
     )
 

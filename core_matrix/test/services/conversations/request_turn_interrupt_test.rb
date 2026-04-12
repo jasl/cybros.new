@@ -22,7 +22,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     )
     Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
     background_service = create_process_run!(
@@ -91,7 +91,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     )
     Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
 
@@ -279,7 +279,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       parent_conversation: context[:conversation],
       kind: "fork",
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       addressability: "agent_addressable"
     )
 
@@ -302,7 +302,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       parent_conversation: context[:conversation],
       kind: "fork",
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       addressability: "agent_addressable"
     )
     session = SubagentConnection.create!(
@@ -319,7 +319,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
       content: "Reusable delegated work",
       sender_kind: "owner_agent",
       sender_conversation: context[:conversation],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -337,7 +337,7 @@ class Conversations::RequestTurnInterruptTest < ActiveSupport::TestCase
     )
     Leases::Acquire.call(
       leased_resource: child_task_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
 

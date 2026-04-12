@@ -29,7 +29,7 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
     assert_equal context[:execution_runtime_connection], mailbox_item.reload.leased_to_execution_runtime_connection
   end
 
-  test "publishes a queued mailbox item to the agent_snapshot selected by ResolveTargetRuntime" do
+  test "publishes a queued mailbox item to the agent definition selected by ResolveTargetRuntime" do
     context = build_agent_control_context!
     context[:execution_runtime_connection].update!(endpoint_metadata: { "realtime_link_connected" => true })
     other_agent = create_agent!(installation: context[:installation])
@@ -64,14 +64,14 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
       target_agent: context[:agent],
-      target_agent_snapshot: context[:agent_snapshot],
+      target_agent_definition_version: context[:agent_definition_version],
       item_type: "agent_request",
       control_plane: "agent",
       payload: {
         "request_kind" => "prepare_round",
         "runtime_context" => {
           "agent_id" => context[:agent].public_id,
-          "agent_snapshot_id" => context[:agent_snapshot].public_id,
+          "agent_definition_version_id" => context[:agent_definition_version].public_id,
           "user_id" => context[:user].public_id,
         },
         "task" => {
@@ -93,7 +93,7 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
       end
     end
 
-    assert_equal [[AgentControl::StreamName.for_delivery_endpoint(context[:agent_snapshot]), mailbox_item.public_id]],
+    assert_equal [[AgentControl::StreamName.for_delivery_endpoint(context[:agent_definition_version]), mailbox_item.public_id]],
       broadcasts.map { |stream, payload| [stream, payload.fetch("item_id")] }
     assert_equal 1, lease_events.length
     assert_equal mailbox_item.public_id, lease_events.first.fetch("mailbox_item_public_id")
@@ -105,7 +105,7 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     context[:agent_connection].update!(endpoint_metadata: { "realtime_link_connected" => true })
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -131,7 +131,7 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
       AgentControl::PublishPending.call(mailbox_item: mailbox_item)
     end
 
-    assert_equal [[AgentControl::StreamName.for_delivery_endpoint(context[:agent_snapshot]), mailbox_item.public_id]],
+    assert_equal [[AgentControl::StreamName.for_delivery_endpoint(context[:agent_definition_version]), mailbox_item.public_id]],
       broadcasts.map { |stream, payload| [stream, payload.fetch("item_id")] }
     assert_equal context[:agent_connection], mailbox_item.reload.leased_to_agent_connection
   ensure
@@ -144,7 +144,7 @@ class AgentControlPublishPendingTest < ActiveSupport::TestCase
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
       target_agent: context[:agent],
-      target_agent_snapshot: context[:agent_snapshot],
+      target_agent_definition_version: context[:agent_definition_version],
       item_type: "agent_request",
       control_plane: "agent",
       payload: { "request_kind" => "prepare_round" }

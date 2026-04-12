@@ -17,7 +17,8 @@ module RuntimeCapabilities
     def call
       {
         "execution_runtime_id" => execution_runtime&.public_id,
-        "agent_snapshot_id" => agent_snapshot.public_id,
+        "execution_runtime_version_id" => execution_runtime_version&.public_id,
+        "agent_definition_version_id" => agent_definition_version.public_id,
         "tool_catalog" => visible_tool_catalog,
       }.compact
     end
@@ -33,20 +34,29 @@ module RuntimeCapabilities
       @visible_tool_catalog ||= visible_tool_catalog_composer.call
     end
 
-    def agent_snapshot
-      @agent_snapshot ||= Turns::FreezeAgentSnapshot.call(conversation: @conversation)
+    def execution_identity
+      @execution_identity ||= Turns::FreezeExecutionIdentity.call(
+        conversation: @conversation,
+        allow_unavailable_execution_runtime: true
+      )
+    end
+
+    def agent_definition_version
+      execution_identity.agent_definition_version
     end
 
     def execution_runtime
-      @execution_runtime ||= Turns::SelectExecutionRuntime.call(conversation: @conversation)
-    rescue ActiveRecord::RecordInvalid
-      nil
+      execution_identity.execution_runtime
+    end
+
+    def execution_runtime_version
+      execution_identity.execution_runtime_version
     end
 
     def visible_tool_catalog_composer
       @visible_tool_catalog_composer ||= RuntimeCapabilities::ComposeVisibleToolCatalog.new(
         conversation: @conversation,
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         execution_runtime: execution_runtime
       )
     end

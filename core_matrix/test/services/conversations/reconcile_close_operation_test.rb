@@ -51,7 +51,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     close_operation = create_close_operation!(
       conversation: conversation,
@@ -72,7 +72,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     conversation.update!(deletion_state: "pending_delete", deleted_at: close_requested_at)
     close_operation = create_close_operation!(
@@ -114,12 +114,12 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     anchor_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Parent fork anchor",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -237,7 +237,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     conversation.update!(deletion_state: "deleted", deleted_at: close_requested_at)
     close_operation = create_close_operation!(
@@ -334,12 +334,12 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     root_turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Fork close anchor",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -350,7 +350,7 @@ class Conversations::ReconcileCloseOperationTest < ActiveSupport::TestCase
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Fork close work",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

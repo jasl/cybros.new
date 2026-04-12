@@ -110,17 +110,9 @@ namespace :runtime do
     manifest = pairing_manifest_payload
 
     registration = runtime_client(agent_connection_credential: nil).register!(
-      enrollment_token: ENV.fetch("CORE_MATRIX_ENROLLMENT_TOKEN"),
-      fingerprint: manifest.fetch("fingerprint"),
+      pairing_token: ENV.fetch("CORE_MATRIX_PAIRING_TOKEN"),
       endpoint_metadata: manifest.fetch("endpoint_metadata"),
-      protocol_version: manifest.fetch("protocol_version"),
-      sdk_version: manifest.fetch("sdk_version"),
-      protocol_methods: manifest.fetch("protocol_methods"),
-      tool_catalog: manifest.fetch("tool_catalog"),
-      profile_catalog: manifest.fetch("profile_catalog"),
-      config_schema_snapshot: manifest.fetch("config_schema_snapshot"),
-      conversation_override_schema_snapshot: manifest.fetch("conversation_override_schema_snapshot"),
-      default_config_snapshot: manifest.fetch("default_config_snapshot")
+      definition_package: manifest.fetch("definition_package")
     )
 
     client = runtime_client(
@@ -131,15 +123,7 @@ namespace :runtime do
       {
         "registration" => registration,
         "capabilities_handshake" => client.capabilities_handshake!(
-          fingerprint: manifest.fetch("fingerprint"),
-          protocol_version: manifest.fetch("protocol_version"),
-          sdk_version: manifest.fetch("sdk_version"),
-          protocol_methods: manifest.fetch("protocol_methods"),
-          tool_catalog: manifest.fetch("tool_catalog"),
-          profile_catalog: manifest.fetch("profile_catalog"),
-          config_schema_snapshot: manifest.fetch("config_schema_snapshot"),
-          conversation_override_schema_snapshot: manifest.fetch("conversation_override_schema_snapshot"),
-          default_config_snapshot: manifest.fetch("default_config_snapshot")
+          definition_package: manifest.fetch("definition_package")
         ),
         "heartbeat" => client.heartbeat!(
           health_status: ENV.fetch("HEALTH_STATUS", "healthy"),

@@ -22,9 +22,15 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal 1, turn.sequence
     assert_equal "User", turn.source_ref_type
     assert_equal context[:user].public_id, turn.source_ref_id
-    assert_equal context[:agent_snapshot], turn.agent_snapshot
+    assert_equal context[:agent_definition_version], turn.agent_definition_version
     assert_equal context[:execution_runtime], turn.execution_runtime
-    assert_equal context[:agent_snapshot].fingerprint, turn.pinned_agent_snapshot_fingerprint
+    assert_equal context[:execution_runtime].current_execution_runtime_version, turn.execution_runtime_version
+    assert_equal context[:agent_definition_version].fingerprint, turn.pinned_agent_definition_fingerprint
+    assert_equal(context[:agent].agent_config_state&.version || 1, turn.agent_config_version)
+    assert_equal(
+      context[:agent].agent_config_state&.content_fingerprint || context[:agent_definition_version].definition_fingerprint,
+      turn.agent_config_content_fingerprint
+    )
     assert_equal({ "temperature" => 0.2 }, turn.resolved_config_snapshot)
     assert_equal "role:main", turn.resolved_model_selection_snapshot.fetch("normalized_selector")
     assert_instance_of UserMessage, turn.selected_input_message
@@ -58,7 +64,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
     )
-    alternate_agent_snapshot = create_agent_snapshot!(
+    alternate_agent_definition_version = create_agent_definition_version!(
       installation: context[:installation],
       agent: create_agent!(installation: context[:installation]),
       fingerprint: "alternate-#{next_test_sequence}"
@@ -71,9 +77,9 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal context[:agent_snapshot], turn.agent_snapshot
-    assert_equal context[:agent_snapshot].fingerprint, turn.pinned_agent_snapshot_fingerprint
-    refute_equal alternate_agent_snapshot, turn.agent_snapshot
+    assert_equal context[:agent_definition_version], turn.agent_definition_version
+    assert_equal context[:agent_definition_version].fingerprint, turn.pinned_agent_definition_fingerprint
+    refute_equal alternate_agent_definition_version, turn.agent_definition_version
   end
 
   test "accepts execution_runtime as an alias for the selected executor" do

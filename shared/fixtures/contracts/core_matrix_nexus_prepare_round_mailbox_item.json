@@ -74,7 +74,7 @@
       "control_plane": "execution_runtime",
       "logical_work_id": "prepare-round:workflow-node-public-id",
       "attempt_no": 1,
-      "agent_snapshot_id": "agent-snapshot-public-id"
+      "agent_definition_version_id": "agent-definition-version-public-id"
     }
   }
 }

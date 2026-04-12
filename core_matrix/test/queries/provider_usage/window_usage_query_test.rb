@@ -19,7 +19,7 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
         turn_id: nil,
         workflow_node_key: nil,
         agent_id: nil,
-        agent_snapshot_id: nil,
+        agent_definition_version_id: nil,
         provider_handle: "codex_subscription",
         model_ref: "gpt-5.4",
         operation_kind: "text_generation"
@@ -51,7 +51,7 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
         turn_id: nil,
         workflow_node_key: nil,
         agent_id: nil,
-        agent_snapshot_id: nil,
+        agent_definition_version_id: nil,
         provider_handle: "codex_subscription",
         model_ref: "gpt-5.4-mini",
         operation_kind: "text_generation"

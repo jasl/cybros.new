@@ -25,7 +25,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_equal "accepted", JSON.parse(response.body).fetch("result")
     assert_equal "acked", mailbox_item.reload.status
     assert_equal "running", agent_task_run.reload.lifecycle_state
-    assert_equal context[:agent_snapshot], agent_task_run.holder_agent_snapshot
+    assert_equal context[:agent_definition_version], agent_task_run.holder_agent_definition_version
   end
 
   test "execution_started report stays under a request query budget" do
@@ -130,7 +130,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     agent_task_run = scenario.fetch(:agent_task_run)
     lease_execution_assignment!(context:)
     AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "execution_started",
       protocol_message_id: "agent-start-#{next_test_sequence}",
@@ -215,7 +215,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
   test "agent_completed completes a leased mailbox request and reconstructs workflow refs through the public report api" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -229,7 +229,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}",
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
     protocol_message_id = "agent-complete-#{next_test_sequence}"
 
     post "/agent_api/control/report",
@@ -290,12 +290,12 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       request_kind: "supervision_guidance",
       payload: { "content" => "Stop and summarize." },
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     post "/agent_api/control/report",
       params: {
@@ -347,12 +347,12 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       request_kind: "supervision_status_refresh",
       payload: {},
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     post "/agent_api/control/report",
       params: {
@@ -413,7 +413,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     agent_task_run = scenario.fetch(:agent_task_run)
     lease_execution_assignment!(context:)
     AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "execution_started",
       protocol_message_id: "agent-start-#{next_test_sequence}",
@@ -463,7 +463,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     agent_task_run = scenario.fetch(:agent_task_run)
     lease_execution_assignment!(context:)
     AgentControl::Report.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       execution_runtime_connection: context[:execution_runtime_connection],
       method_id: "execution_started",
       protocol_message_id: "agent-start-#{next_test_sequence}",
@@ -517,12 +517,12 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "supervision_guidance",
       payload: { "content" => "Stop and summarize." },
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     report = supervision_guidance_report_fixture.deep_dup.merge(
       "mailbox_item_id" => mailbox_item.public_id,
@@ -552,7 +552,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
   test "agent_health_report refreshes control activity and piggybacks pending mailbox items" do
     context = build_agent_control_context!
     AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -580,10 +580,10 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
-    agent_snapshot = context[:agent_snapshot].reload
+    agent_connection = context[:agent_connection].reload
 
-    assert_equal "active_control", agent_snapshot.control_activity_state
-    assert_equal "healthy", agent_snapshot.health_status
+    assert_equal "active_control", agent_connection.control_activity_state
+    assert_equal "healthy", agent_connection.health_status
     assert_equal 1, response_body.fetch("mailbox_items").size
   end
 

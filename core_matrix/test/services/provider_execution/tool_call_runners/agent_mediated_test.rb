@@ -44,11 +44,11 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
     assert_equal({ "value" => 4 }, result.result)
     assert_equal(
       {
-        "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id,
+        "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id,
         "agent_id" => context.fetch(:agent).public_id,
         "user_id" => context.fetch(:user).public_id,
       },
-      request_payload.fetch("runtime_context").slice("agent_snapshot_id", "agent_id", "user_id")
+      request_payload.fetch("runtime_context").slice("agent_definition_version_id", "agent_id", "user_id")
     )
   end
 

@@ -5,12 +5,12 @@ class ToolBindings::ProjectCapabilitySnapshotTest < ActiveSupport::TestCase
     context = build_governed_tool_context!
 
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
     definitions = ToolDefinition.where(
-      agent_snapshot: context.fetch(:capability_snapshot)
+      agent_definition_version: context.fetch(:agent_definition_version)
     ).order(:tool_name)
 
     assert_equal %w[compact_context exec_command subagent_spawn], definitions.pluck(:tool_name)

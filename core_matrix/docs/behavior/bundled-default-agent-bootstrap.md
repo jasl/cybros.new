@@ -12,11 +12,11 @@ existing binding and workspace services.
 ### `Installations::RegisterBundledAgentRuntime`
 
 - Reconciles the packaged runtime into `Agent`,
-  `ExecutionRuntime`, `AgentSnapshot`, `AgentConnection`, and
+  `ExecutionRuntime`, `AgentDefinitionVersion`, `AgentConnection`, and
   `ExecutionRuntimeConnection`.
 - Treats `ExecutionRuntime` as the stable execution host and rotates
-  `AgentSnapshot` when the bundled runtime release fingerprint changes.
-- Reuses existing logical and agent-snapshot rows instead of duplicating them on
+  `AgentDefinitionVersion` when the bundled runtime release fingerprint changes.
+- Reuses existing logical and agent-definition-version rows instead of duplicating them on
   repeated calls.
 - Concurrent bundled-runtime reconciliation serializes around the logical
   agent and execution runtime so repeated passes reuse the same version and
@@ -50,6 +50,6 @@ existing binding and workspace services.
 - Disabled bundled bootstrap leaves registry, binding, and workspace rows
   untouched.
 - Repeated bundled runtime reconciliation must not duplicate logical agent or
-  agent-snapshot rows.
+  agent-definition-version rows.
 - Bundled bootstrap remains scoped to the single packaged runtime and does not
   act as a generic connector layer.

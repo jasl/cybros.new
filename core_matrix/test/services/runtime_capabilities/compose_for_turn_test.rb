@@ -13,6 +13,9 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
 
     composer = RuntimeCapabilities::ComposeForTurn.new(turn: turn)
 
+    assert_equal turn.execution_runtime.public_id, composer.call.fetch("execution_runtime_id")
+    assert_equal turn.execution_runtime_version.public_id, composer.call.fetch("execution_runtime_version_id")
+    assert_equal turn.agent_definition_version.public_id, composer.call.fetch("agent_definition_version_id")
     assert_equal "main", composer.current_profile_key
   end
 
@@ -56,6 +59,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
     workspace = create_workspace!(
       installation: registration[:installation],
       user: registration[:actor],
+      default_execution_runtime: registration[:execution_runtime],
       user_agent_binding: create_user_agent_binding!(
         installation: registration[:installation],
         user: registration[:actor],
@@ -66,7 +70,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
     Conversations::CreateRoot.call(
       workspace: workspace,
       execution_runtime: registration[:execution_runtime],
-      agent_snapshot: registration[:agent_snapshot]
+      agent_definition_version: registration[:agent_definition_version]
     )
   end
 
@@ -81,7 +85,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
         parent_conversation: previous_conversation,
         kind: "fork",
         execution_runtime: registration[:execution_runtime],
-        agent_snapshot: registration[:agent_snapshot],
+        agent_definition_version: registration[:agent_definition_version],
         addressability: "agent_addressable"
       )
       session = SubagentConnection.create!(

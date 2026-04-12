@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
-  test "creates and publishes a agent-snapshot-targeted mailbox request for the agent" do
+  test "creates and publishes an agent-definition-version-targeted mailbox request for the agent" do
     context = build_agent_control_context!
     published = []
     original_publish_pending = AgentControl::PublishPending.method(:call)
@@ -12,7 +12,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     end
 
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -31,7 +31,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     assert_equal "agent_request", mailbox_item.item_type
     assert_equal "agent", mailbox_item.control_plane
     refute_respond_to mailbox_item, :target_kind
-    assert_equal context.fetch(:agent_snapshot), mailbox_item.target_agent_snapshot
+    assert_equal context.fetch(:agent_definition_version), mailbox_item.target_agent_definition_version
     assert_equal context.fetch(:agent), mailbox_item.target_agent
     assert_equal "prepare_round", mailbox_item.payload.fetch("request_kind")
     assert_equal({ "request_kind" => "prepare_round" }, mailbox_item.payload_body)
@@ -47,7 +47,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
 
     error = assert_raises(ArgumentError) do
       AgentControl::CreateAgentRequest.call(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         request_kind: "prepare_round",
         payload: {
           "conversation_id" => context.fetch(:conversation).public_id,
@@ -66,7 +66,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     logical_work_id = "prepare-round:#{context.fetch(:workflow_node).public_id}"
 
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -81,7 +81,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
           "logical_work_id" => logical_work_id,
           "attempt_no" => 3,
           "control_plane" => "agent",
-          "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id,
+          "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id,
           "agent_id" => context.fetch(:agent).public_id,
           "user_id" => context.fetch(:user).public_id,
           "custom_flag" => "keep-me",
@@ -116,7 +116,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     assert_equal logical_work_id, mailbox_item.payload.dig("runtime_context", "logical_work_id")
     assert_equal 3, mailbox_item.payload.dig("runtime_context", "attempt_no")
     assert_equal "agent", mailbox_item.payload.dig("runtime_context", "control_plane")
-    assert_equal context.fetch(:agent_snapshot).public_id, mailbox_item.payload.dig("runtime_context", "agent_snapshot_id")
+    assert_equal context.fetch(:agent_definition_version).public_id, mailbox_item.payload.dig("runtime_context", "agent_definition_version_id")
     assert_equal context.fetch(:agent).public_id, mailbox_item.payload.dig("runtime_context", "agent_id")
     assert_equal context.fetch(:user).public_id, mailbox_item.payload.dig("runtime_context", "user_id")
     assert_equal "keep-me", mailbox_item.payload.dig("runtime_context", "custom_flag")
@@ -139,7 +139,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     }.compact
 
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "protocol_version" => "agent-runtime/2026-04-01",
@@ -157,7 +157,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
           "logical_work_id" => logical_work_id,
           "attempt_no" => 1,
           "control_plane" => "agent",
-          "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id,
+          "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id,
         },
       },
       logical_work_id: logical_work_id,
@@ -182,7 +182,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     context = build_agent_control_context!
 
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "supervision_status_refresh",
       payload: {
         "conversation_control" => {
@@ -206,7 +206,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     context = build_agent_control_context!
 
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "execute_tool",
       payload: {
         "task" => {

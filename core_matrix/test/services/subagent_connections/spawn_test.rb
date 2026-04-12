@@ -9,13 +9,13 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     agent_task_run = scenario.fetch(:agent_task_run)
 
     report_execution_started!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
 
     report_execution_complete!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run,
       terminal_payload: {
@@ -68,12 +68,12 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -131,12 +131,12 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -178,12 +178,12 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -224,12 +224,12 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -253,12 +253,12 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -283,12 +283,12 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     other_owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     other_owner_turn = Turns::StartUserTurn.call(
       conversation: other_owner_conversation,
       content: "Other delegate",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -317,12 +317,12 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -352,8 +352,8 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     allowed_tool_names = profile_catalog.values.flat_map do |profile|
       Array(profile["allowed_tool_names"])
     end
-    capability_snapshot = create_capability_snapshot!(
-      agent_snapshot: context[:agent_snapshot],
+    capability_snapshot = create_compatible_agent_definition_version!(
+      agent_definition_version: context[:agent_definition_version],
       version: 2,
       tool_catalog: default_tool_catalog("exec_command", *allowed_tool_names),
       profile_catalog: profile_catalog,
@@ -361,7 +361,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
       default_config_snapshot: profile_aware_default_config_snapshot
     )
-    adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
+    adopt_agent_definition_version!(context, capability_snapshot, turn: nil)
 
     context
   end

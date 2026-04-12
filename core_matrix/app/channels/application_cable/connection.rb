@@ -1,16 +1,16 @@
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
-    identified_by :current_agent_connection, :current_execution_runtime_connection, :current_agent_snapshot, :current_execution_runtime, :current_publication
+    identified_by :current_agent_connection, :current_execution_runtime_connection, :current_agent_definition_version, :current_execution_runtime, :current_publication
 
     def connect
       self.current_agent_connection = find_verified_agent_connection
       self.current_execution_runtime_connection = find_verified_execution_runtime_connection
-      self.current_agent_snapshot = current_agent_connection&.agent_snapshot
+      self.current_agent_definition_version = current_agent_connection&.agent_definition_version
       self.current_execution_runtime =
         current_execution_runtime_connection&.execution_runtime ||
         current_agent_connection&.agent&.default_execution_runtime
       self.current_publication = find_verified_publication
-      reject_unauthorized_connection if current_agent_snapshot.blank? && current_execution_runtime.blank? && current_publication.blank?
+      reject_unauthorized_connection if current_agent_definition_version.blank? && current_execution_runtime.blank? && current_publication.blank?
     end
 
     private

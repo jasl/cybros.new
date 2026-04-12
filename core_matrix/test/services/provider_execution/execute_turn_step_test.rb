@@ -647,7 +647,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
           messages: turn_step_messages_for(workflow_run),
           adapter: adapter,
           agent_request_exchange: ProviderExecution::AgentRequestExchange.new(
-            agent_snapshot: workflow_run.turn.agent_snapshot,
+            agent_definition_version: workflow_run.turn.agent_definition_version,
             timeout: 0.001,
             poll_interval: 0.0,
             sleeper: ->(_duration) { },

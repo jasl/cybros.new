@@ -54,13 +54,13 @@ freezes a per-turn execution snapshot that preserves:
   - `conversation_id`
   - `turn_id`
   - `execution_runtime_id`
-  - `agent_snapshot_id`
+  - `agent_definition_version_id`
 - these identity fields are public ids for the referenced resources, not raw
   internal `bigint` primary keys
 - `turn_origin` preserves the current turn's origin kind, origin payload, and
   source reference metadata
 - when `turn_origin.source_ref_type` points at an in-scope resource such as
-  `User` or `AgentSnapshot`, `turn_origin.source_ref_id` is that resource's
+  `User` or `AgentDefinitionVersion`, `turn_origin.source_ref_id` is that resource's
   public id rather than its internal row id
 - automation-origin turns therefore assemble successfully even when they do not
   have a selected transcript-bearing input message
@@ -249,7 +249,7 @@ freezes a per-turn execution snapshot that preserves:
 - `Turn` keeps aggregate invariants and row ownership only:
   - lifecycle
   - origin metadata and selected-message pointers
-  - frozen agent-agent-snapshot / execution-runtime identity
+  - frozen agent-definition-version / execution-runtime identity
   - resolved config snapshot row
   - resolved model-selection snapshot row
   - execution contract pointer

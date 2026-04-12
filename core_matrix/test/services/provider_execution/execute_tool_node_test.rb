@@ -389,7 +389,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     result = ProviderExecution::ExecuteToolNode.call(
       workflow_node: tool_node,
       agent_request_exchange: ProviderExecution::AgentRequestExchange.new(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         timeout: 0.001,
         poll_interval: 0.0,
         sleeper: ->(_duration) { },
@@ -452,7 +452,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     )
 
     exchange = ProviderExecution::AgentRequestExchange.new(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       timeout: 30.seconds,
       poll_interval: 0.0,
       sleeper: ->(_duration) { }
@@ -524,7 +524,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     )
 
     exchange = ProviderExecution::AgentRequestExchange.new(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       timeout: 30.seconds,
       poll_interval: 0.0,
       sleeper: ->(_duration) { }

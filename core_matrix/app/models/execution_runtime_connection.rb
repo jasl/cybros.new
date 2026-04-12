@@ -5,11 +5,14 @@ class ExecutionRuntimeConnection < ApplicationRecord
 
   belongs_to :installation
   belongs_to :execution_runtime
+  belongs_to :execution_runtime_version
 
   validates :connection_credential_digest, presence: true, uniqueness: true
   validates :connection_token_digest, presence: true, uniqueness: true
   validate :endpoint_metadata_must_be_hash
   validate :execution_runtime_installation_match
+  validate :execution_runtime_version_installation_match
+  validate :execution_runtime_version_runtime_match
   validate :single_active_connection
 
   def self.issue_connection_credential
@@ -49,6 +52,20 @@ class ExecutionRuntimeConnection < ApplicationRecord
     return if execution_runtime.installation_id == installation_id
 
     errors.add(:execution_runtime, "must belong to the same installation")
+  end
+
+  def execution_runtime_version_installation_match
+    return if execution_runtime_version.blank?
+    return if execution_runtime_version.installation_id == installation_id
+
+    errors.add(:execution_runtime_version, "must belong to the same installation")
+  end
+
+  def execution_runtime_version_runtime_match
+    return if execution_runtime.blank? || execution_runtime_version.blank?
+    return if execution_runtime_version.execution_runtime_id == execution_runtime_id
+
+    errors.add(:execution_runtime_version, "must belong to the connected execution runtime")
   end
 
   def single_active_connection

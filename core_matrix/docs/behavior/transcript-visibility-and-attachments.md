@@ -61,7 +61,7 @@ into descendant conversation support surfaces.
   checkpoint support projections.
 - transcript visibility decides which attachments are even eligible for a
   conversation, but later runtime exposure is still gated by the turn's frozen
-  capability surface from its `AgentSnapshot` plus any optional
+  capability surface from its `AgentDefinitionVersion` plus any optional
   `ExecutionRuntime`.
 
 ## Attachment Ancestry Behavior

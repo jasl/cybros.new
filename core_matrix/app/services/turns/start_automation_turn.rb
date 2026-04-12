@@ -26,8 +26,7 @@ module Turns
       ) do |conversation|
         raise_invalid!(conversation, :purpose, "must be automation for automation turn entry") unless conversation.automation?
 
-        agent_snapshot = Turns::FreezeAgentSnapshot.call(conversation: conversation)
-        execution_runtime = Turns::SelectExecutionRuntime.call(
+        execution_identity = Turns::FreezeExecutionIdentity.call(
           conversation: conversation,
           execution_runtime: @execution_runtime
         )
@@ -35,8 +34,9 @@ module Turns
         Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
-          agent_snapshot: agent_snapshot,
-          execution_runtime: execution_runtime,
+          agent_definition_version: execution_identity.agent_definition_version,
+          execution_runtime: execution_identity.execution_runtime,
+          execution_runtime_version: execution_identity.execution_runtime_version,
           sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "active",
           origin_kind: @origin_kind,
@@ -45,7 +45,9 @@ module Turns
           source_ref_id: @source_ref_id,
           idempotency_key: @idempotency_key,
           external_event_key: @external_event_key,
-          pinned_agent_snapshot_fingerprint: agent_snapshot.fingerprint,
+          pinned_agent_definition_fingerprint: execution_identity.pinned_agent_definition_fingerprint,
+          agent_config_version: execution_identity.agent_config_version,
+          agent_config_content_fingerprint: execution_identity.agent_config_content_fingerprint,
           resolved_config_snapshot: @resolved_config_snapshot,
           resolved_model_selection_snapshot: @resolved_model_selection_snapshot
         )

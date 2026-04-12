@@ -5,7 +5,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       agent_connection_credential: context[:agent_connection_credential],
       execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
@@ -21,7 +21,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: resource.is_a?(ProcessRun) ? context[:execution_runtime_connection].public_id : context[:agent_snapshot].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:execution_runtime_connection].public_id : context[:agent_definition_version].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -64,7 +64,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       agent_connection_credential: context[:agent_connection_credential],
       execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
@@ -81,7 +81,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: resource.is_a?(ProcessRun) ? context[:execution_runtime_connection].public_id : context[:agent_snapshot].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:execution_runtime_connection].public_id : context[:agent_definition_version].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -147,7 +147,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       agent_connection_credential: context[:agent_connection_credential],
       execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
@@ -163,7 +163,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     [agent_task_run, background_service].each do |resource|
       Leases::Acquire.call(
         leased_resource: resource,
-        holder_key: resource.is_a?(ProcessRun) ? context[:execution_runtime_connection].public_id : context[:agent_snapshot].public_id,
+        holder_key: resource.is_a?(ProcessRun) ? context[:execution_runtime_connection].public_id : context[:agent_definition_version].public_id,
         heartbeat_timeout_seconds: 30
       )
     end
@@ -172,7 +172,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
     child_turn = Turns::StartUserTurn.call(
       conversation: child,
       content: "Child keeps running",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -230,7 +230,7 @@ class ConversationCloseE2ETest < ActionDispatch::IntegrationTest
       parent_conversation: context[:conversation],
       kind: "fork",
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       addressability: "agent_addressable"
     )
 

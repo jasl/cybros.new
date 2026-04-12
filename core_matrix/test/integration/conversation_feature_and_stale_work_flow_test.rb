@@ -6,14 +6,14 @@ class ConversationFeatureAndStaleWorkFlowTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     conversation.update!(during_generation_input_policy: "queue")
 
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Original input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

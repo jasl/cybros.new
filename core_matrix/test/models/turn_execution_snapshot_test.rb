@@ -9,10 +9,11 @@ class TurnExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal(
       {
         "control_plane" => "agent",
-        "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id,
+        "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id,
         "agent_id" => context.fetch(:agent).public_id,
         "user_id" => context.fetch(:user).public_id,
         "execution_runtime_id" => context.fetch(:execution_runtime).public_id,
+        "execution_runtime_version_id" => context.fetch(:turn).execution_runtime_version.public_id,
       },
       snapshot.runtime_context.compact
     )

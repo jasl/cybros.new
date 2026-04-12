@@ -6,7 +6,7 @@ class AgentControl::ResolveTargetRuntimeTest < ActiveSupport::TestCase
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
       target_agent: context[:agent],
-      target_agent_snapshot: context[:agent_snapshot]
+      target_agent_definition_version: context[:agent_definition_version]
     )
 
     result = AgentControl::ResolveTargetRuntime.call(mailbox_item: mailbox_item)
@@ -14,7 +14,7 @@ class AgentControl::ResolveTargetRuntimeTest < ActiveSupport::TestCase
     assert_equal "agent", result.control_plane
     assert_nil result.execution_runtime
     assert_equal context[:agent_connection], result.delivery_endpoint
-    assert result.matches?(context[:agent_snapshot])
+    assert result.matches?(context[:agent_definition_version])
   end
 
   test "routes execution-runtime-plane work by execution runtime instead of agent hints" do
@@ -40,6 +40,6 @@ class AgentControl::ResolveTargetRuntimeTest < ActiveSupport::TestCase
     assert_equal context[:execution_runtime], result.execution_runtime
     assert_equal context[:execution_runtime_connection], result.delivery_endpoint
     assert result.matches?(context[:execution_runtime_connection])
-    refute result.matches?(context[:agent_snapshot])
+    refute result.matches?(context[:agent_definition_version])
   end
 end

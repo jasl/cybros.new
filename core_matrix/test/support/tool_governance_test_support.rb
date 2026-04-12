@@ -67,24 +67,47 @@ module ToolGovernanceTestSupport
     profile_catalog: governed_profile_catalog
   )
     context = build_agent_control_context!
-    context.fetch(:execution_runtime).update!(tool_catalog: execution_runtime_tool_catalog)
+    execution_runtime = context.fetch(:execution_runtime)
+    execution_runtime_version = create_execution_runtime_version!(
+      installation: context.fetch(:installation),
+      execution_runtime: execution_runtime,
+      execution_runtime_fingerprint: execution_runtime.execution_runtime_fingerprint || "runtime-fingerprint-#{next_test_sequence}",
+      capability_payload_document: create_json_document!(
+        installation: context.fetch(:installation),
+        document_kind: "execution_runtime_capability_payload",
+        payload: execution_runtime.capability_payload
+      ),
+      tool_catalog_document: create_json_document!(
+        installation: context.fetch(:installation),
+        document_kind: "execution_runtime_tool_catalog",
+        payload: execution_runtime_tool_catalog
+      ),
+      reflected_host_metadata_document: create_json_document!(
+        installation: context.fetch(:installation),
+        document_kind: "reflected_host_metadata",
+        payload: execution_runtime.current_execution_runtime_version&.reflected_host_metadata || {}
+      )
+    )
+    execution_runtime.update!(active_execution_runtime_version: execution_runtime_version)
+    context.fetch(:execution_runtime_connection).update!(execution_runtime_version: execution_runtime_version)
 
-    activate_agent_snapshot!(
+    activate_agent_definition_version!(
       context,
       tool_catalog: agent_tool_catalog,
       profile_catalog: profile_catalog,
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
+    agent_config_state = context.fetch(:agent).agent_config_state
     context.fetch(:turn).update!(
-      agent_snapshot: context.fetch(:agent_snapshot),
-      pinned_agent_snapshot_fingerprint: context.fetch(:agent_snapshot).fingerprint
+      agent_definition_version: context.fetch(:agent_definition_version),
+      execution_runtime_version: execution_runtime_version,
+      agent_config_version: agent_config_state.version,
+      agent_config_content_fingerprint: agent_config_state.content_fingerprint
     )
     Workflows::BuildExecutionSnapshot.call(turn: context.fetch(:turn))
 
     context.merge(
-      capability_snapshot: context.fetch(:agent_snapshot),
-      agent_snapshot: context.fetch(:agent_snapshot),
       turn: context.fetch(:turn).reload,
       workflow_node: context.fetch(:workflow_node).reload
     )

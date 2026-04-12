@@ -12,7 +12,7 @@ module Acceptance
         :event_output_path,
         :runtime_registration,
         :runtime_task_env,
-        :agent_snapshot,
+        :agent_definition_version,
         :agent_connection_credential,
         :execution_runtime_connection_credential,
         :execution_runtime,
@@ -55,25 +55,25 @@ module Acceptance
           build(...)
         end
 
-        def build(installation:, actor:, topology:, agent_count:, agent_base_url:, create_external_agent:, register_external_agent:, register_external_execution_runtime:)
+        def build(installation:, actor:, topology:, agent_count:, agent_base_url:, create_bring_your_own_agent:, register_bring_your_own_agent:, register_bring_your_own_execution_runtime:)
           agent_registrations = Array.new(agent_count) do |index|
             build_agent_registration(
               installation: installation,
               actor: actor,
               index: index + 1,
               agent_base_url: agent_base_url,
-              create_external_agent: create_external_agent,
-              register_external_agent: register_external_agent
+              create_bring_your_own_agent: create_bring_your_own_agent,
+              register_bring_your_own_agent: register_bring_your_own_agent
             )
           end.freeze
 
           runtime_registrations = topology.runtime_slots.each_with_index.map do |slot, index|
             agent_registration = agent_registrations.fetch(index % agent_registrations.length)
             build_runtime_registration(
-              enrollment_token: agent_registration.fetch(:enrollment_token),
+              pairing_token: agent_registration.fetch(:pairing_token),
               agent_registration: agent_registration,
               slot: slot,
-              register_external_execution_runtime: register_external_execution_runtime
+              register_bring_your_own_execution_runtime: register_bring_your_own_execution_runtime
             )
           end.freeze
 
@@ -88,30 +88,30 @@ module Acceptance
 
         private
 
-        def build_agent_registration(installation:, actor:, index:, agent_base_url:, create_external_agent:, register_external_agent:)
-          external_agent = create_external_agent.call(
+        def build_agent_registration(installation:, actor:, index:, agent_base_url:, create_bring_your_own_agent:, register_bring_your_own_agent:)
+          bring_your_own_agent = create_bring_your_own_agent.call(
             installation: installation,
             actor: actor,
             key: "multi-runtime-load-agent-#{format('%02d', index)}",
             display_name: "Shared Fenix Load Agent #{index}"
           )
 
-          registration = register_external_agent.call(
-            enrollment_token: external_agent.fetch(:enrollment_token),
-            agent_base_url: agent_base_url,
-            fingerprint: "shared-fenix-load-agent-#{format('%02d', index)}"
+          registration = register_bring_your_own_agent.call(
+            pairing_token: bring_your_own_agent.fetch(:pairing_token),
+            agent_base_url: agent_base_url
           )
 
           registration.merge(
-            enrollment_token: external_agent.fetch(:enrollment_token),
+            pairing_session: bring_your_own_agent.fetch(:pairing_session),
+            pairing_token: bring_your_own_agent.fetch(:pairing_token),
             label: format('fenix-%02d', index),
-            agent: external_agent.fetch(:agent)
+            agent: bring_your_own_agent.fetch(:agent)
           ).freeze
         end
 
-        def build_runtime_registration(enrollment_token:, agent_registration:, slot:, register_external_execution_runtime:)
-          runtime_registration = register_external_execution_runtime.call(
-            enrollment_token: enrollment_token,
+        def build_runtime_registration(pairing_token:, agent_registration:, slot:, register_bring_your_own_execution_runtime:)
+          runtime_registration = register_bring_your_own_execution_runtime.call(
+            pairing_token: pairing_token,
             runtime_base_url: slot.runtime_base_url,
             execution_runtime_fingerprint: "#{slot.label}-execution-runtime"
           )
@@ -128,7 +128,7 @@ module Acceptance
               'CYBROS_PERF_EVENTS_PATH' => slot.event_output_path.to_s,
               'CYBROS_PERF_INSTANCE_LABEL' => slot.label
             },
-            agent_snapshot: agent_registration.fetch(:agent_snapshot),
+            agent_definition_version: agent_registration.fetch(:agent_definition_version),
             agent_connection_credential: agent_registration.fetch(:agent_connection_credential),
             execution_runtime_connection_credential: runtime_registration.fetch(:execution_runtime_connection_credential),
             execution_runtime: runtime_registration.fetch(:execution_runtime)
@@ -174,7 +174,7 @@ module Acceptance
             {
               'label' => registration.fetch(:label),
               'agent_public_id' => registration.fetch(:agent).public_id,
-              'agent_snapshot_public_id' => registration.fetch(:agent_snapshot).public_id
+              'agent_definition_version_public_id' => registration.fetch(:agent_definition_version).public_id
             }
           end,
           'runtime_registrations' => runtime_registrations.map(&:artifact_payload)

@@ -15,15 +15,15 @@ class AgentConnection < ApplicationRecord
 
   belongs_to :installation
   belongs_to :agent
-  belongs_to :agent_snapshot
+  belongs_to :agent_definition_version
 
   validates :connection_credential_digest, presence: true, uniqueness: true
   validates :connection_token_digest, presence: true, uniqueness: true
   validate :endpoint_metadata_must_be_hash
   validate :health_metadata_must_be_hash
   validate :agent_installation_match
-  validate :agent_snapshot_installation_match
-  validate :agent_snapshot_agent_match
+  validate :agent_definition_version_installation_match
+  validate :agent_definition_version_agent_match
   validate :single_active_connection
 
   def self.issue_connection_credential
@@ -73,18 +73,18 @@ class AgentConnection < ApplicationRecord
     errors.add(:agent, "must belong to the same installation")
   end
 
-  def agent_snapshot_installation_match
-    return if agent_snapshot.blank?
-    return if agent_snapshot.installation_id == installation_id
+  def agent_definition_version_installation_match
+    return if agent_definition_version.blank?
+    return if agent_definition_version.installation_id == installation_id
 
-    errors.add(:agent_snapshot, "must belong to the same installation")
+    errors.add(:agent_definition_version, "must belong to the same installation")
   end
 
-  def agent_snapshot_agent_match
-    return if agent.blank? || agent_snapshot.blank?
-    return if agent_snapshot.agent_id == agent_id
+  def agent_definition_version_agent_match
+    return if agent.blank? || agent_definition_version.blank?
+    return if agent_definition_version.agent_id == agent_id
 
-    errors.add(:agent_snapshot, "must belong to the connected agent")
+    errors.add(:agent_definition_version, "must belong to the connected agent")
   end
 
   def single_active_connection

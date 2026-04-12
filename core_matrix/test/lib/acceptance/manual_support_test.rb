@@ -98,7 +98,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       "tool_name" => "process_exec",
       "arguments" => {},
     }
-    agent_snapshot = Object.new
+    agent_definition_version = Object.new
     result = Struct.new(:tool_invocation, :result).new(:invocation, { "process_run_id" => "process-1" })
     attempts = 0
     captured_kwargs = []
@@ -125,7 +125,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         workflow_node: workflow_node,
         tool_call: tool_call,
         round_bindings: round_bindings,
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         timeout_seconds: 1,
         poll_interval_seconds: 0.0
       )
@@ -506,7 +506,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       manifest: {},
       agent_connection_credential: "agent-secret",
       execution_runtime_connection_credential: "execution-secret",
-      agent_snapshot: "apv"
+      agent_definition_version: "adv"
     )
 
     with_redefined_singleton_method(
@@ -536,7 +536,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
       agent_connection_credential: "agent-secret",
-      agent_snapshot: "apv"
+      agent_definition_version: "adv"
     )
 
     with_redefined_singleton_method(
@@ -564,17 +564,22 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
   test "runtime registration exposes session ids without reaching into raw registration payloads" do
     registration = Acceptance::ManualSupport::RuntimeRegistration.new(
       manifest: {},
+      pairing_token: "pairing-token",
       agent_connection_credential: "agent-secret",
       execution_runtime_connection_credential: "execution-secret",
-      agent_snapshot: "apv",
+      agent_definition_version: "adv",
       registration: {
         "agent_connection_id" => "agent-session-public-id",
         "execution_runtime_connection_id" => "execution-runtime-connection-public-id",
       }
     )
 
+    assert_equal "pairing-token", registration.pairing_token
+    assert_equal "adv", registration.agent_definition_version
     assert_equal "agent-session-public-id", registration.agent_connection_id
     assert_equal "execution-runtime-connection-public-id", registration.execution_runtime_connection_id
+    assert_equal "pairing-token", registration.fetch(:pairing_token)
+    assert_equal "adv", registration.fetch(:agent_definition_version)
     assert_equal "agent-session-public-id", registration.fetch(:agent_connection_id)
     assert_equal "execution-runtime-connection-public-id", registration.fetch(:execution_runtime_connection_id)
   end
@@ -594,23 +599,44 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal [:establish, :with_connection], calls
   end
 
-  test "register_external_runtime! returns the execution runtime connection credential from the registration payload" do
+  test "register_bring_your_own_runtime! returns typed version and connection artifacts from the registration payloads" do
     agent_registration_calls = []
     execution_registration_calls = []
     heartbeat_calls = []
     manifest = {
       "endpoint_metadata" => { "runtime_manifest_path" => "/runtime/manifest" },
-      "protocol_version" => "agent-runtime/2026-04-01",
       "sdk_version" => "fenix-0.1.0",
-      "protocol_methods" => [],
-      "tool_catalog" => [],
-      "profile_catalog" => {},
-      "config_schema_snapshot" => {},
-      "conversation_override_schema_snapshot" => {},
-      "default_config_snapshot" => {},
-      "execution_runtime_capability_payload" => {},
-      "execution_runtime_tool_catalog" => [],
+      "definition_package" => {
+        "program_manifest_fingerprint" => "agent-fingerprint",
+        "protocol_version" => "agent-runtime/2026-04-01",
+        "sdk_version" => "fenix-0.1.0",
+        "prompt_pack_ref" => "fenix/default",
+        "prompt_pack_fingerprint" => "prompt-pack",
+        "protocol_methods" => [],
+        "tool_contract" => [],
+        "profile_policy" => {},
+        "canonical_config_schema" => {},
+        "conversation_override_schema" => {},
+        "default_canonical_config" => {},
+        "reflected_surface" => {},
+      },
+      "version_package" => {
+        "execution_runtime_fingerprint" => "runtime-fingerprint",
+        "kind" => "local",
+        "protocol_version" => "agent-runtime/2026-04-01",
+        "sdk_version" => "nexus-0.1.0",
+        "capability_payload" => {},
+        "tool_catalog" => [],
+        "reflected_host_metadata" => {},
+      },
+      "execution_runtime_connection_metadata" => { "transport" => "http", "base_url" => "http://127.0.0.1:3101" },
     }
+    pairing_session = Struct.new(:plaintext_token, :agent).new("pairing-token", Struct.new(:public_id).new("agt_123"))
+    agent_definition_version = Struct.new(:public_id, :agent).new("adv_123", pairing_session.agent)
+    agent_connection = Struct.new(:public_id).new("acn_123")
+    execution_runtime = Struct.new(:public_id, :execution_runtime_fingerprint).new("rt_123", "runtime-fingerprint")
+    execution_runtime_version = Struct.new(:public_id).new("erv_123")
+    execution_runtime_connection = Struct.new(:public_id).new("rtc_123")
 
     with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
       with_redefined_singleton_method(
@@ -622,12 +648,15 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
             {
               "execution_runtime_connection_credential" => "execution-secret",
               "execution_runtime_id" => "rt_123",
+              "execution_runtime_version_id" => "erv_123",
+              "execution_runtime_connection_id" => "rtc_123",
             }
           elsif url.end_with?("/agent_api/registrations")
             agent_registration_calls << [url, payload, headers]
             {
               "agent_connection_credential" => "agent-secret",
-              "agent_snapshot_id" => "apv_123",
+              "agent_definition_version_id" => "adv_123",
+              "agent_connection_id" => "acn_123",
             }
           else
             heartbeat_calls << [url, payload, headers]
@@ -635,56 +664,89 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           end
         end
       ) do
-        with_redefined_singleton_method(AgentSnapshot, :find_by_public_id!, ->(public_id) { public_id }) do
-          with_redefined_singleton_method(
-            ExecutionRuntime,
-            :find_by_public_id!,
-            ->(public_id) { Struct.new(:public_id).new(public_id) }
-          ) do
-            result = Acceptance::ManualSupport.register_external_runtime!(
-              enrollment_token: "enrollment-token",
-              runtime_base_url: "http://127.0.0.1:3101",
-              execution_runtime_fingerprint: "runtime-fingerprint",
-              fingerprint: "agent-fingerprint"
-            )
+        with_redefined_singleton_method(PairingSession, :find_by_plaintext_token, ->(plaintext) { plaintext == "pairing-token" ? pairing_session : nil }) do
+          with_redefined_singleton_method(AgentDefinitionVersion, :find_by_public_id!, ->(public_id) { public_id == "adv_123" ? agent_definition_version : nil }) do
+            with_redefined_singleton_method(AgentConnection, :find_by_public_id!, ->(public_id) { public_id == "acn_123" ? agent_connection : nil }) do
+              with_redefined_singleton_method(
+                ExecutionRuntime,
+                :find_by_public_id!,
+                ->(public_id) { public_id == "rt_123" ? execution_runtime : nil }
+              ) do
+                with_redefined_singleton_method(
+                  ExecutionRuntimeVersion,
+                  :find_by_public_id!,
+                  ->(public_id) { public_id == "erv_123" ? execution_runtime_version : nil }
+                ) do
+                  with_redefined_singleton_method(
+                    ExecutionRuntimeConnection,
+                    :find_by_public_id!,
+                    ->(public_id) { public_id == "rtc_123" ? execution_runtime_connection : nil }
+                  ) do
+                    result = Acceptance::ManualSupport.register_bring_your_own_runtime!(
+                      pairing_token: "pairing-token",
+                      runtime_base_url: "http://127.0.0.1:3101",
+                      execution_runtime_fingerprint: "runtime-fingerprint"
+                    )
 
-            assert_instance_of Acceptance::ManualSupport::RuntimeRegistration, result
-            assert_equal "agent-secret", result.agent_connection_credential
-            assert_equal "execution-secret", result.execution_runtime_connection_credential
-            assert_equal "apv_123", result.agent_snapshot
-            assert_equal "rt_123", result.execution_runtime.public_id
-            assert_equal 1, agent_registration_calls.length
-            assert_equal 1, execution_registration_calls.length
-            assert_equal 1, heartbeat_calls.length
-            registration_payload = execution_registration_calls.first.fetch(1)
+                    assert_instance_of Acceptance::ManualSupport::RuntimeRegistration, result
+                    assert_equal "agent-secret", result.agent_connection_credential
+                    assert_equal "execution-secret", result.execution_runtime_connection_credential
+                    assert_equal pairing_session, result.pairing_session
+                    assert_equal "pairing-token", result.pairing_token
+                    assert_equal agent_definition_version, result.agent_definition_version
+                    assert_equal execution_runtime, result.execution_runtime
+                    assert_equal execution_runtime_version, result.execution_runtime_version
+                    assert_equal agent_connection.public_id, result.agent_connection_id
+                    assert_equal execution_runtime_connection.public_id, result.execution_runtime_connection_id
+                    assert_equal 1, agent_registration_calls.length
+                    assert_equal 1, execution_registration_calls.length
+                    assert_equal 1, heartbeat_calls.length
 
-            assert_equal(
-              {
-                "transport" => "http",
-                "base_url" => "http://127.0.0.1:3101",
-              },
-              registration_payload.fetch(:execution_runtime_connection_metadata)
-            )
+                    agent_registration_payload = agent_registration_calls.first.fetch(1)
+                    execution_registration_payload = execution_registration_calls.first.fetch(1)
+
+                    assert_equal "pairing-token", agent_registration_payload.fetch(:pairing_token)
+                    assert_equal manifest.fetch("definition_package"), agent_registration_payload.fetch(:definition_package)
+                    assert_equal "pairing-token", execution_registration_payload.fetch(:pairing_token)
+                    assert_equal manifest.fetch("version_package"), execution_registration_payload.fetch(:version_package)
+                    assert_equal(
+                      manifest.fetch("execution_runtime_connection_metadata"),
+                      execution_registration_payload.fetch(:endpoint_metadata)
+                    )
+                  end
+                end
+              end
+            end
           end
         end
       end
     end
   end
 
-  test "register_external_agent_from_manifest! registers the agent plane and heartbeats it" do
+  test "register_bring_your_own_agent_from_manifest! registers the agent plane with a definition package and heartbeats it" do
     registration_calls = []
     heartbeat_calls = []
     manifest = {
       "endpoint_metadata" => { "runtime_manifest_path" => "/runtime/manifest" },
-      "protocol_version" => "agent-runtime/2026-04-01",
       "sdk_version" => "fenix-0.2.0",
-      "protocol_methods" => [],
-      "tool_catalog" => [],
-      "profile_catalog" => {},
-      "config_schema_snapshot" => {},
-      "conversation_override_schema_snapshot" => {},
-      "default_config_snapshot" => {},
+      "definition_package" => {
+        "program_manifest_fingerprint" => "agent-fingerprint",
+        "protocol_version" => "agent-runtime/2026-04-01",
+        "sdk_version" => "fenix-0.2.0",
+        "prompt_pack_ref" => "fenix/default",
+        "prompt_pack_fingerprint" => "prompt-pack",
+        "protocol_methods" => [],
+        "tool_contract" => [],
+        "profile_policy" => {},
+        "canonical_config_schema" => {},
+        "conversation_override_schema" => {},
+        "default_canonical_config" => {},
+        "reflected_surface" => {},
+      },
     }
+    agent = Struct.new(:public_id).new("agt_456")
+    agent_definition_version = Struct.new(:public_id, :agent).new("adv_456", agent)
+    agent_connection = Struct.new(:public_id).new("acn_456")
 
     with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
       with_redefined_singleton_method(
@@ -695,7 +757,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
             registration_calls << [url, payload, headers]
             {
               "agent_connection_credential" => "agent-secret",
-              "agent_snapshot_id" => "apv_456",
+              "agent_definition_version_id" => "adv_456",
+              "agent_connection_id" => "acn_456",
             }
           else
             heartbeat_calls << [url, payload, headers]
@@ -703,30 +766,45 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           end
         end
       ) do
-        with_redefined_singleton_method(AgentSnapshot, :find_by_public_id!, ->(public_id) { public_id }) do
-          result = Acceptance::ManualSupport.register_external_agent_from_manifest!(
-            enrollment_token: "enrollment-token",
-            agent_base_url: "http://127.0.0.1:3101",
-            fingerprint: "agent-fingerprint"
+        with_redefined_singleton_method(AgentDefinitionVersion, :find_by_public_id!, ->(public_id) { public_id == "adv_456" ? agent_definition_version : nil }) do
+          with_redefined_singleton_method(AgentConnection, :find_by_public_id!, ->(public_id) { public_id == "acn_456" ? agent_connection : nil }) do
+          result = Acceptance::ManualSupport.register_bring_your_own_agent_from_manifest!(
+            pairing_token: "pairing-token",
+            agent_base_url: "http://127.0.0.1:3101"
           )
 
           assert_equal "agent-secret", result.fetch(:agent_connection_credential)
-          assert_equal "apv_456", result.fetch(:agent_snapshot)
+          assert_equal agent, result.fetch(:agent)
+          assert_equal agent_definition_version, result.fetch(:agent_definition_version)
+          assert_equal agent_definition_version, result.fetch(:agent_definition_version)
+          assert_equal agent_connection, result.fetch(:agent_connection)
           assert_equal 1, registration_calls.length
           assert_equal 1, heartbeat_calls.length
+          assert_equal "pairing-token", registration_calls.first.fetch(1).fetch(:pairing_token)
+          assert_equal manifest.fetch("definition_package"), registration_calls.first.fetch(1).fetch(:definition_package)
+          end
         end
       end
     end
   end
 
-  test "register_external_execution_runtime! registers the execution runtime plane only" do
+  test "register_bring_your_own_execution_runtime! registers the execution runtime plane with a version package" do
     registration_calls = []
     manifest = {
-      "execution_runtime_kind" => "local",
       "execution_runtime_connection_metadata" => { "transport" => "http", "base_url" => "http://127.0.0.1:3201" },
-      "execution_runtime_capability_payload" => {},
-      "execution_runtime_tool_catalog" => [],
+      "version_package" => {
+        "execution_runtime_fingerprint" => "runtime-fingerprint",
+        "kind" => "local",
+        "protocol_version" => "agent-runtime/2026-04-01",
+        "sdk_version" => "nexus-0.1.0",
+        "capability_payload" => {},
+        "tool_catalog" => [],
+        "reflected_host_metadata" => {},
+      },
     }
+    execution_runtime = Struct.new(:public_id).new("rt_456")
+    execution_runtime_version = Struct.new(:public_id).new("erv_456")
+    execution_runtime_connection = Struct.new(:public_id).new("rtc_456")
 
     with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
       with_redefined_singleton_method(
@@ -737,25 +815,49 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           {
             "execution_runtime_connection_credential" => "runtime-secret",
             "execution_runtime_id" => "rt_456",
+            "execution_runtime_version_id" => "erv_456",
             "execution_runtime_connection_id" => "rtc_456",
           }
         end
       ) do
-        with_redefined_singleton_method(ExecutionRuntime, :find_by_public_id!, ->(public_id) { public_id }) do
-          result = Acceptance::ManualSupport.register_external_execution_runtime!(
-            enrollment_token: "enrollment-token",
+        with_redefined_singleton_method(ExecutionRuntime, :find_by_public_id!, ->(public_id) { public_id == "rt_456" ? execution_runtime : nil }) do
+          with_redefined_singleton_method(ExecutionRuntimeVersion, :find_by_public_id!, ->(public_id) { public_id == "erv_456" ? execution_runtime_version : nil }) do
+            with_redefined_singleton_method(ExecutionRuntimeConnection, :find_by_public_id!, ->(public_id) { public_id == "rtc_456" ? execution_runtime_connection : nil }) do
+          result = Acceptance::ManualSupport.register_bring_your_own_execution_runtime!(
+            pairing_token: "pairing-token",
             runtime_base_url: "http://127.0.0.1:3201",
             execution_runtime_fingerprint: "runtime-fingerprint"
           )
 
           assert_equal "runtime-secret", result.fetch(:execution_runtime_connection_credential)
-          assert_equal "rt_456", result.fetch(:execution_runtime)
+          assert_equal execution_runtime, result.fetch(:execution_runtime)
+          assert_equal execution_runtime_version, result.fetch(:execution_runtime_version)
+          assert_equal execution_runtime_connection, result.fetch(:execution_runtime_connection)
           assert_equal "rtc_456", result.fetch(:execution_runtime_connection_id)
           assert_equal 1, registration_calls.length
           assert_match(%r{/execution_runtime_api/registrations\z}, registration_calls.first.fetch(0))
+          assert_equal "pairing-token", registration_calls.first.fetch(1).fetch(:pairing_token)
+          assert_equal manifest.fetch("version_package"), registration_calls.first.fetch(1).fetch(:version_package)
+          assert_equal manifest.fetch("execution_runtime_connection_metadata"), registration_calls.first.fetch(1).fetch(:endpoint_metadata)
+            end
+          end
         end
       end
     end
+  end
+
+  test "manual support exposes bring-your-own registration helpers instead of legacy external helper names" do
+    legacy_create_helper = ("create_" + "external_" + "agent!").to_sym
+    legacy_register_runtime_helper = ("register_" + "external_" + "runtime!").to_sym
+    legacy_register_execution_runtime_helper = ("register_" + "external_" + "execution_" + "runtime!").to_sym
+
+    assert_respond_to Acceptance::ManualSupport, :create_bring_your_own_agent!
+    assert_respond_to Acceptance::ManualSupport, :register_bring_your_own_runtime!
+    assert_respond_to Acceptance::ManualSupport, :register_bring_your_own_agent_from_manifest!
+    assert_respond_to Acceptance::ManualSupport, :register_bring_your_own_execution_runtime!
+    refute_respond_to Acceptance::ManualSupport, legacy_create_helper
+    refute_respond_to Acceptance::ManualSupport, legacy_register_runtime_helper
+    refute_respond_to Acceptance::ManualSupport, legacy_register_execution_runtime_helper
   end
 
   test "register_bundled_runtime_from_manifest! preserves explicit executor connection metadata from the manifest" do
@@ -776,7 +878,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           Struct.new(
             :agent_connection_credential,
             :execution_runtime_connection_credential,
-            :agent_snapshot,
+            :agent_definition_version,
             :execution_runtime
           ).new(
             agent_connection_credential,
@@ -814,7 +916,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           Struct.new(
             :agent_connection_credential,
             :execution_runtime_connection_credential,
-            :agent_snapshot,
+            :agent_definition_version,
             :execution_runtime
           ).new(
             agent_connection_credential,
@@ -856,7 +958,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     with_redefined_singleton_method(
       Acceptance::ManualSupport,
       :create_conversation!,
-      ->(agent_snapshot:) { { conversation: conversation } }
+      ->(agent_definition_version:) { { conversation: conversation } }
     ) do
       with_redefined_singleton_method(
         Acceptance::ManualSupport,
@@ -896,7 +998,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
           ) do
             with_redefined_singleton_method(Acceptance::ManualSupport, :report_results_for, ->(agent_task_run:) { [] }) do
               result = Acceptance::ManualSupport.run_fenix_mailbox_task!(
-                agent_snapshot: "apv",
+                agent_definition_version: "apv",
                 agent_connection_credential: "agent-secret",
                 execution_runtime_connection_credential: "execution-secret",
                 content: "hello",

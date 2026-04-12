@@ -125,36 +125,34 @@ FileUtils.mkdir_p(nexus_home_root)
 Acceptance::ManualSupport.reset_backend_state!
 bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
 
-external_agent_a = Acceptance::ManualSupport.create_external_agent!(
+bring_your_own_agent_a = Acceptance::ManualSupport.create_bring_your_own_agent!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: 'fenix-skills-agent-a',
   display_name: 'Fenix Skills Runtime A'
 )
-external_agent_b = Acceptance::ManualSupport.create_external_agent!(
+bring_your_own_agent_b = Acceptance::ManualSupport.create_bring_your_own_agent!(
   installation: bootstrap.installation,
   actor: bootstrap.user,
   key: 'fenix-skills-agent-b',
   display_name: 'Fenix Skills Runtime B'
 )
 
-registration_a = Acceptance::ManualSupport.register_external_runtime!(
-  enrollment_token: external_agent_a.fetch(:enrollment_token),
+registration_a = Acceptance::ManualSupport.register_bring_your_own_runtime!(
+  pairing_token: bring_your_own_agent_a.fetch(:pairing_token),
   runtime_base_url: runtime_base_url,
   agent_base_url: agent_base_url,
-  execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-a',
-  fingerprint: 'acceptance-fenix-skills-a-v1'
+  execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-a'
 )
-registration_b = Acceptance::ManualSupport.register_external_runtime!(
-  enrollment_token: external_agent_b.fetch(:enrollment_token),
+registration_b = Acceptance::ManualSupport.register_bring_your_own_runtime!(
+  pairing_token: bring_your_own_agent_b.fetch(:pairing_token),
   runtime_base_url: runtime_base_url,
   agent_base_url: agent_base_url,
-  execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-b',
-  fingerprint: 'acceptance-fenix-skills-b-v1'
+  execution_runtime_fingerprint: 'acceptance-fenix-skills-environment-b'
 )
 
-agent_snapshot_a = registration_a.agent_snapshot
-agent_snapshot_b = registration_b.agent_snapshot
+agent_definition_version_a = registration_a.agent_definition_version
+agent_definition_version_b = registration_b.agent_definition_version
 
 source_root = Rails.root.join('tmp/acceptance-portable-notes-src/portable-notes')
 FileUtils.rm_rf(source_root.parent)
@@ -174,9 +172,9 @@ File.write(
 )
 File.write(source_root.join('references', 'checklist.md'), "# Checklist\n")
 
-conversation_a = Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot_a)
-conversation_b = Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot_a)
-conversation_c = Acceptance::ManualSupport.create_conversation!(agent_snapshot: agent_snapshot_b)
+conversation_a = Acceptance::ManualSupport.create_conversation!(agent_definition_version: agent_definition_version_a)
+conversation_b = Acceptance::ManualSupport.create_conversation!(agent_definition_version: agent_definition_version_a)
+conversation_c = Acceptance::ManualSupport.create_conversation!(agent_definition_version: agent_definition_version_b)
 
 install_run = nil
 same_agent_load_run = nil
@@ -308,13 +306,13 @@ Acceptance::ManualSupport.write_json(
     'different_agent_failure' => different_agent_failure,
     'registrations' => {
       'agent_a' => {
-        'agent_snapshot_id' => agent_snapshot_a.public_id,
+        'agent_definition_version_id' => agent_definition_version_a.public_id,
         'execution_runtime_id' => registration_a.execution_runtime&.public_id,
         'agent_connection_id' => registration_a.agent_connection_id,
         'execution_runtime_connection_id' => registration_a.execution_runtime_connection_id
       },
       'agent_b' => {
-        'agent_snapshot_id' => agent_snapshot_b.public_id,
+        'agent_definition_version_id' => agent_definition_version_b.public_id,
         'execution_runtime_id' => registration_b.execution_runtime&.public_id,
         'agent_connection_id' => registration_b.agent_connection_id,
         'execution_runtime_connection_id' => registration_b.execution_runtime_connection_id

@@ -31,7 +31,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     )
     contract = RuntimeCapabilityContract.build(
       execution_runtime: registration[:execution_runtime],
-      agent_snapshot: registration[:agent_snapshot],
+      agent_definition_version: registration[:agent_definition_version],
       core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG
     )
 
@@ -39,7 +39,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
       contract.effective_tool_catalog,
       RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
         execution_runtime: registration[:execution_runtime],
-        agent_snapshot: registration[:agent_snapshot]
+        agent_definition_version: registration[:agent_definition_version]
       )
     )
   end
@@ -52,7 +52,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
       execution_runtime: registration[:execution_runtime],
-      agent_snapshot: registration[:agent_snapshot]
+      agent_definition_version: registration[:agent_definition_version]
     )
 
     assert_equal RESERVED_SUBAGENT_TOOLS, effective_catalog.first(RESERVED_SUBAGENT_TOOLS.length).map { |entry| entry.fetch("tool_name") }
@@ -70,7 +70,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
     entry = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
       execution_runtime: registration[:execution_runtime],
-      agent_snapshot: registration[:agent_snapshot]
+      agent_definition_version: registration[:agent_definition_version]
     ).find { |candidate| candidate.fetch("tool_name") == "conversation_metadata_update" }
 
     assert_equal "core_matrix", entry.fetch("implementation_source")
@@ -106,7 +106,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
       execution_runtime: registration[:execution_runtime],
-      agent_snapshot: registration[:agent_snapshot]
+      agent_definition_version: registration[:agent_definition_version]
     )
     spawn_entry = effective_catalog.find { |entry| entry.fetch("tool_name") == "subagent_spawn" }
 
@@ -135,7 +135,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
       execution_runtime: registration[:execution_runtime],
-      agent_snapshot: registration[:agent_snapshot]
+      agent_definition_version: registration[:agent_definition_version]
     )
 
     assert effective_catalog.present?
@@ -165,7 +165,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
     entry = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
       execution_runtime: registration[:execution_runtime],
-      agent_snapshot: registration[:agent_snapshot]
+      agent_definition_version: registration[:agent_definition_version]
     ).find { |candidate| candidate.fetch("tool_name") == "remote_echo" }
 
     assert_equal false, entry.dig("execution_policy", "parallel_safe")
@@ -215,7 +215,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
       execution_runtime: registration[:execution_runtime],
-      agent_snapshot: registration[:agent_snapshot]
+      agent_definition_version: registration[:agent_definition_version]
     )
 
     remote_echo = effective_catalog.find { |candidate| candidate.fetch("tool_name") == "remote_echo" }

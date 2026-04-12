@@ -1,3 +1,6 @@
+require "digest"
+require "json"
+
 module Installations
   class RegisterBundledAgentRuntime
     DEFAULT_CONFIGURATION = {
@@ -28,8 +31,7 @@ module Installations
     Result = Struct.new(
       :agent,
       :execution_runtime,
-      :agent_snapshot,
-      :capability_snapshot,
+      :agent_definition_version,
       :agent_connection,
       :execution_runtime_connection,
       :agent_connection_credential,
@@ -59,7 +61,7 @@ module Installations
       ApplicationRecord.transaction do
         execution_runtime = reconcile_execution_runtime!
         agent = reconcile_agent!(execution_runtime)
-        agent_snapshot = nil
+        agent_definition_version = nil
         agent_connection = nil
         execution_runtime_connection = nil
         agent_connection_credential = nil
@@ -67,21 +69,21 @@ module Installations
 
         agent.with_lock do
           execution_runtime.with_lock do
-            agent_snapshot = reconcile_agent_snapshot!(agent)
-            agent_connection, agent_connection_credential = reconcile_agent_connection!(agent:, agent_snapshot:)
+            agent_definition_version = reconcile_agent_definition_version!(agent)
+            agent_connection, agent_connection_credential =
+              reconcile_agent_connection!(agent:, agent_definition_version:)
             execution_runtime_connection, execution_runtime_connection_credential = reconcile_execution_runtime_connection!(execution_runtime:)
           end
         end
 
         agent.reload
         execution_runtime.reload
-        agent_snapshot.reload
+        agent_definition_version.reload
 
         Result.new(
           agent:,
           execution_runtime:,
-          agent_snapshot:,
-          capability_snapshot: agent_snapshot,
+          agent_definition_version:,
           agent_connection:,
           execution_runtime_connection:,
           agent_connection_credential:,
@@ -128,55 +130,43 @@ module Installations
         provisioning_origin: "system",
         owner_user: nil
       )
-      ExecutionRuntimes::RecordCapabilities.call(
+      upsert_result = ExecutionRuntimeVersions::UpsertFromPackage.call(
         execution_runtime: execution_runtime,
-        capability_payload: @configuration[:execution_runtime_capability_payload],
-        tool_catalog: @configuration[:execution_runtime_tool_catalog]
+        version_package: bundled_runtime_version_package
+      )
+      execution_runtime.update!(
+        active_execution_runtime_version: upsert_result.execution_runtime_version
       )
       execution_runtime
     end
 
-    def reconcile_agent_snapshot!(agent)
-      agent_snapshot = AgentSnapshot.find_by(
-        installation: @installation,
-        fingerprint: @configuration[:fingerprint]
-      )
-      return agent_snapshot if agent_snapshot.present?
-
-      AgentSnapshot.create!(
-        installation: @installation,
+    def reconcile_agent_definition_version!(agent)
+      upsert_result = AgentDefinitionVersions::UpsertFromPackage.call(
         agent: agent,
-        fingerprint: @configuration[:fingerprint],
-        protocol_version: @configuration[:protocol_version],
-        sdk_version: @configuration[:sdk_version],
-        protocol_methods: @configuration[:protocol_methods],
-        tool_catalog: @configuration[:tool_catalog],
-        profile_catalog: @configuration[:profile_catalog],
-        config_schema_snapshot: @configuration[:config_schema_snapshot],
-        conversation_override_schema_snapshot: @configuration[:conversation_override_schema_snapshot],
-        default_config_snapshot: @configuration[:default_config_snapshot]
+        definition_package: bundled_definition_package
       )
+      agent.update!(active_agent_definition_version: upsert_result.agent_definition_version)
+      upsert_result.agent_definition_version
     rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
-      AgentSnapshot.find_by!(
-        installation: @installation,
-        fingerprint: @configuration[:fingerprint]
+      agent.agent_definition_versions.find_by!(
+        definition_fingerprint: bundled_definition_fingerprint
       )
     end
 
-    def reconcile_agent_connection!(agent:, agent_snapshot:)
+    def reconcile_agent_connection!(agent:, agent_definition_version:)
       active_session = agent.active_agent_connection
-      if active_session&.agent_snapshot_id == agent_snapshot.id
-        return refresh_agent_connection!(active_session, agent_snapshot)
+      if active_session&.agent_definition_version_id == agent_definition_version.id
+        return refresh_agent_connection!(active_session, agent_definition_version)
       end
 
       AgentConnection.where(agent:, lifecycle_state: "active").update_all(
         lifecycle_state: "stale",
         updated_at: Time.current
       )
-      create_agent_connection!(agent:, agent_snapshot:)
+      create_agent_connection!(agent:, agent_definition_version:)
     end
 
-    def refresh_agent_connection!(agent_connection, agent_snapshot)
+    def refresh_agent_connection!(agent_connection, agent_definition_version)
       agent_connection_credential = @agent_connection_credential
       if agent_connection_credential.present?
         agent_connection.assign_attributes(
@@ -185,7 +175,7 @@ module Installations
       end
 
       agent_connection.update!(
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         endpoint_metadata: @configuration[:endpoint_metadata],
         lifecycle_state: "active",
         health_status: "healthy",
@@ -198,7 +188,7 @@ module Installations
       [agent_connection, agent_connection_credential]
     end
 
-    def create_agent_connection!(agent:, agent_snapshot:)
+    def create_agent_connection!(agent:, agent_definition_version:)
       agent_connection_credential = @agent_connection_credential.presence
       connection_credential_digest =
         if agent_connection_credential.present?
@@ -211,7 +201,7 @@ module Installations
       agent_connection = AgentConnection.create!(
         installation: @installation,
         agent: agent,
-        agent_snapshot: agent_snapshot,
+        agent_definition_version: agent_definition_version,
         connection_credential_digest: connection_credential_digest,
         connection_token_digest: connection_token_digest,
         endpoint_metadata: @configuration[:endpoint_metadata],
@@ -228,7 +218,7 @@ module Installations
 
     def reconcile_execution_runtime_connection!(execution_runtime:)
       active_session = execution_runtime.active_execution_runtime_connection
-      return refresh_execution_runtime_connection!(active_session) if active_session.present?
+      return refresh_execution_runtime_connection!(active_session, execution_runtime: execution_runtime) if active_session.present?
 
       ExecutionRuntimeConnection.where(execution_runtime:, lifecycle_state: "active").update_all(
         lifecycle_state: "stale",
@@ -237,7 +227,7 @@ module Installations
       create_execution_runtime_connection!(execution_runtime:)
     end
 
-    def refresh_execution_runtime_connection!(execution_runtime_connection)
+    def refresh_execution_runtime_connection!(execution_runtime_connection, execution_runtime:)
       runtime_connection_credential = @execution_runtime_connection_credential
       if runtime_connection_credential.present?
         execution_runtime_connection.assign_attributes(
@@ -246,7 +236,8 @@ module Installations
       end
 
       execution_runtime_connection.update!(
-        endpoint_metadata: @configuration[:endpoint_metadata],
+        execution_runtime_version: execution_runtime.active_execution_runtime_version,
+        endpoint_metadata: @configuration[:connection_metadata],
         lifecycle_state: "active",
         last_heartbeat_at: Time.current
       )
@@ -266,13 +257,52 @@ module Installations
       execution_runtime_connection = ExecutionRuntimeConnection.create!(
         installation: @installation,
         execution_runtime: execution_runtime,
+        execution_runtime_version: execution_runtime.active_execution_runtime_version,
         connection_credential_digest: connection_credential_digest,
         connection_token_digest: connection_token_digest,
-        endpoint_metadata: @configuration[:endpoint_metadata],
+        endpoint_metadata: @configuration[:connection_metadata],
         lifecycle_state: "active",
         last_heartbeat_at: Time.current
       )
       [execution_runtime_connection, runtime_connection_credential]
+    end
+
+    def bundled_runtime_version_package
+      {
+        "execution_runtime_fingerprint" => @configuration[:execution_runtime_fingerprint],
+        "kind" => @configuration[:execution_runtime_kind],
+        "protocol_version" => @configuration[:protocol_version],
+        "sdk_version" => @configuration[:sdk_version],
+        "capability_payload" => @configuration[:execution_runtime_capability_payload],
+        "tool_catalog" => @configuration[:execution_runtime_tool_catalog],
+        "reflected_host_metadata" => {
+          "display_name" => @configuration[:executor_display_name]
+        }
+      }
+    end
+
+    def bundled_definition_package
+      {
+        "program_manifest_fingerprint" => @configuration[:fingerprint],
+        "prompt_pack_ref" => @configuration[:prompt_pack_ref] || "#{@configuration[:agent_key]}/bundled",
+        "prompt_pack_fingerprint" => @configuration[:prompt_pack_fingerprint] || @configuration[:fingerprint],
+        "protocol_version" => @configuration[:protocol_version],
+        "sdk_version" => @configuration[:sdk_version],
+        "protocol_methods" => @configuration[:protocol_methods],
+        "tool_contract" => @configuration[:tool_catalog],
+        "profile_policy" => @configuration[:profile_catalog],
+        "canonical_config_schema" => @configuration[:config_schema_snapshot],
+        "conversation_override_schema" => @configuration[:conversation_override_schema_snapshot],
+        "default_canonical_config" => @configuration[:default_config_snapshot],
+        "reflected_surface" => {
+          "display_name" => @configuration[:display_name],
+          "agent_key" => @configuration[:agent_key]
+        }
+      }
+    end
+
+    def bundled_definition_fingerprint
+      Digest::SHA256.hexdigest(JSON.generate(bundled_definition_package))
     end
   end
 end

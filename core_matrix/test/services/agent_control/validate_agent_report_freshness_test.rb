@@ -18,12 +18,12 @@ class AgentControl::ValidateAgentReportFreshnessTest < ActiveSupport::TestCase
       logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}"
     )
     mailbox_item = scenario.fetch(:mailbox_item)
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
     mailbox_item.reload
 
     assert_nothing_raised do
       AgentControl::ValidateAgentReportFreshness.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         method_id: "agent_completed",
         mailbox_item: mailbox_item,
         payload: {
@@ -52,12 +52,12 @@ class AgentControl::ValidateAgentReportFreshnessTest < ActiveSupport::TestCase
       logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}"
     )
     mailbox_item = scenario.fetch(:mailbox_item)
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
     mailbox_item.reload.update!(status: "completed", completed_at: Time.current)
 
     assert_raises(AgentControl::Report::StaleReportError) do
       AgentControl::ValidateAgentReportFreshness.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         method_id: "agent_completed",
         mailbox_item: mailbox_item,
         payload: {

@@ -6,8 +6,8 @@ module ToolBindings
       new(...).call
     end
 
-    def initialize(agent_snapshot: nil, capability_snapshot: nil, execution_runtime:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
-      @agent_snapshot = agent_snapshot || capability_snapshot
+    def initialize(agent_definition_version:, execution_runtime:, core_matrix_tool_catalog: RuntimeCapabilities::ComposeEffectiveToolCatalog::CORE_MATRIX_TOOL_CATALOG)
+      @agent_definition_version = agent_definition_version
       @execution_runtime = execution_runtime
       @core_matrix_tool_catalog = Array(core_matrix_tool_catalog)
     end
@@ -20,7 +20,7 @@ module ToolBindings
         end
       end
 
-      @agent_snapshot.tool_definitions.includes(:tool_implementations)
+      @agent_definition_version.tool_definitions.includes(:tool_implementations)
     end
 
     private
@@ -40,26 +40,26 @@ module ToolBindings
     def effective_tool_catalog
       @effective_tool_catalog ||= RuntimeCapabilityContract.build(
         execution_runtime: @execution_runtime,
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         core_matrix_tool_catalog: @core_matrix_tool_catalog
       ).effective_tool_catalog
     end
 
     def profile_allowed_tool_names
-      @profile_allowed_tool_names ||= @agent_snapshot.profile_catalog.values.flat_map do |profile|
+      @profile_allowed_tool_names ||= @agent_definition_version.profile_catalog.values.flat_map do |profile|
         Array(profile["allowed_tool_names"])
       end.uniq
     end
 
     def candidates_for(tool_name)
-      [@core_matrix_tool_catalog, @execution_runtime&.tool_catalog, @agent_snapshot.tool_catalog]
+      [@core_matrix_tool_catalog, @execution_runtime&.tool_catalog, @agent_definition_version.tool_catalog]
         .flat_map { |catalog| Array(catalog) }
         .select { |entry| entry.fetch("tool_name") == tool_name }
     end
 
     def upsert_definition!(effective_entry)
       definition = ToolDefinition.create_or_find_by!(
-        agent_snapshot: @agent_snapshot,
+        agent_definition_version: @agent_definition_version,
         tool_name: effective_entry.fetch("tool_name")
       ) do |record|
         record.installation = installation
@@ -141,7 +141,7 @@ module ToolBindings
       when "execution_runtime"
         @execution_runtime.public_id
       when "agent", "kernel"
-        "agent_snapshot:#{@agent_snapshot.public_id}"
+        "agent_definition_version:#{@agent_definition_version.public_id}"
       when "core_matrix"
         "built_in"
       else
@@ -162,7 +162,7 @@ module ToolBindings
     end
 
     def reserved_tool_name?(tool_name)
-      tool_name.start_with?(AgentSnapshot::RESERVED_CORE_MATRIX_PREFIX) || RESERVED_TOOL_NAMES.include?(tool_name)
+      tool_name.start_with?(AgentDefinitionVersion::RESERVED_CORE_MATRIX_PREFIX) || RESERVED_TOOL_NAMES.include?(tool_name)
     end
 
     def implementation_metadata_for(candidate)
@@ -180,7 +180,7 @@ module ToolBindings
     end
 
     def installation
-      @installation ||= @agent_snapshot.installation
+      @installation ||= @agent_definition_version.installation
     end
 
     def execution_policy_for(entry)

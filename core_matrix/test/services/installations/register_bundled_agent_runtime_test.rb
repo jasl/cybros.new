@@ -52,10 +52,10 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
 
     assert_equal first.agent, second.agent
     assert_equal first.execution_runtime, second.execution_runtime
-    assert_equal first.agent_snapshot, second.agent_snapshot
+    assert_equal first.agent_definition_version, second.agent_definition_version
     assert_equal 1, Agent.count
     assert_equal 1, ExecutionRuntime.count
-    assert_equal 1, AgentSnapshot.count
+    assert_equal 1, AgentDefinitionVersion.count
     assert_equal 1, AgentConnection.count
     assert_equal 1, ExecutionRuntimeConnection.count
     assert_equal 0, UserAgentBinding.count
@@ -66,17 +66,17 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert first.execution_runtime.visibility_public?
     assert first.execution_runtime.provisioning_origin_system?
     assert_nil first.execution_runtime.owner_user_id
-    assert_equal "active", first.agent_snapshot.bootstrap_state
-    assert first.agent_snapshot.healthy?
+    assert_equal "active", first.agent_definition_version.bootstrap_state
+    assert first.agent_definition_version.healthy?
     assert_equal first.agent_connection, AgentConnection.find_by_plaintext_connection_credential(first.agent_connection_credential)
     assert_equal first.execution_runtime_connection, ExecutionRuntimeConnection.find_by_plaintext_connection_credential(first.execution_runtime_connection_credential)
-    assert_equal default_profile_catalog, first.agent_snapshot.profile_catalog
-    assert_equal ["exec_command"], first.agent_snapshot.tool_catalog.map { |entry| entry.fetch("tool_name") }
+    assert_equal default_profile_catalog, first.agent_definition_version.profile_catalog
+    assert_equal ["exec_command"], first.agent_definition_version.tool_catalog.map { |entry| entry.fetch("tool_name") }
     assert_equal({ "source" => "bundled_runtime" }, first.agent_connection.health_metadata)
     assert_equal true, first.execution_runtime.capability_payload.dig("attachment_access", "request_attachment")
   end
 
-  test "supersedes the previous active agent_snapshot when the bundled fingerprint changes" do
+  test "supersedes the previous active agent definition version when the bundled fingerprint changes" do
     installation = create_installation!
 
     first = Installations::RegisterBundledAgentRuntime.call(
@@ -107,17 +107,17 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
 
     assert_equal first.agent, second.agent
     assert_equal first.execution_runtime, second.execution_runtime
-    refute_equal first.agent_snapshot, second.agent_snapshot
-    assert_equal "superseded", first.agent_snapshot.reload.bootstrap_state
-    assert_equal "active", second.agent_snapshot.bootstrap_state
-    assert second.agent_snapshot.healthy?
-    assert_equal "fenix-0.2.0", second.agent_snapshot.sdk_version
+    refute_equal first.agent_definition_version, second.agent_definition_version
+    assert_equal "superseded", first.agent_definition_version.reload.bootstrap_state
+    assert_equal "active", second.agent_definition_version.bootstrap_state
+    assert second.agent_definition_version.healthy?
+    assert_equal "fenix-0.2.0", second.agent_definition_version.sdk_version
     assert_equal({ "source" => "bundled_runtime" }, second.agent_connection.health_metadata)
     assert_equal "http://127.0.0.1:4200", second.execution_runtime.connection_metadata.fetch("base_url")
     assert_equal "http://127.0.0.1:4200", second.agent_connection.endpoint_metadata.fetch("base_url")
     assert_equal "/runtime/manifest", second.agent_connection.endpoint_metadata.fetch("runtime_manifest_path")
     assert_equal false, second.execution_runtime.capability_payload.dig("attachment_access", "request_attachment")
-    assert_equal 2, AgentSnapshot.where(agent: first.agent).count
+    assert_equal 2, AgentDefinitionVersion.where(agent: first.agent).count
     assert_equal 2, AgentConnection.where(agent: first.agent).count
     assert_equal 1, ExecutionRuntimeConnection.where(execution_runtime: first.execution_runtime, lifecycle_state: "active").count
   end

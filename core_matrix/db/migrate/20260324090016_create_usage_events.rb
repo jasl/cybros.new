@@ -8,7 +8,7 @@ class CreateUsageEvents < ActiveRecord::Migration[8.2]
       t.bigint :turn_id
       t.string :workflow_node_key
       t.references :agent, foreign_key: true
-      t.references :agent_snapshot, foreign_key: true
+      t.references :agent_definition_version, foreign_key: true
       t.string :provider_handle, null: false
       t.string :model_ref, null: false
       t.string :operation_kind, null: false

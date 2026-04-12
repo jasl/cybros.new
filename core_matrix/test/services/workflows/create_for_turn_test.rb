@@ -177,7 +177,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
 
   def prepare_profile_aware_execution_context!
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    activate_agent_snapshot!(
+    activate_agent_definition_version!(
       context,
       tool_catalog: default_tool_catalog("exec_command", "compact_context"),
       profile_catalog: default_profile_catalog,

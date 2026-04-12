@@ -92,18 +92,7 @@ class AgentTest < ActiveSupport::TestCase
   test "owner and default execution runtime must belong to the same installation" do
     installation = create_installation!
     owner_user = create_user!(installation: installation)
-    execution_runtime = ExecutionRuntime.create!(
-      installation: installation,
-      visibility: "public",
-      provisioning_origin: "system",
-      kind: "local",
-      display_name: "Executor #{next_test_sequence}",
-      execution_runtime_fingerprint: "executor-#{next_test_sequence}",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
-      lifecycle_state: "active"
-    )
+    execution_runtime = create_execution_runtime!(installation: installation)
 
     agent = Agent.create!(
       installation: installation,
@@ -137,10 +126,6 @@ class AgentTest < ActiveSupport::TestCase
       provisioning_origin: "system",
       kind: "local",
       display_name: "Foreign Executor",
-      execution_runtime_fingerprint: "foreign-executor-#{next_test_sequence}",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
       lifecycle_state: "active"
     )
 
@@ -169,5 +154,23 @@ class AgentTest < ActiveSupport::TestCase
 
     assert_not invalid_runtime.valid?
     assert_includes invalid_runtime.errors[:default_execution_runtime], "must belong to the same installation"
+  end
+
+  test "tracks the current definition version through the active connection or active version ref" do
+    installation = create_installation!
+    agent = create_agent!(installation: installation)
+    definition_version = create_agent_definition_version!(installation: installation, agent: agent)
+    agent_connection = create_agent_connection!(
+      installation: installation,
+      agent: agent,
+      agent_definition_version: definition_version,
+      lifecycle_state: "active"
+    )
+
+    agent.update!(active_agent_definition_version: definition_version)
+
+    assert_equal definition_version, agent.active_agent_definition_version
+    assert_equal definition_version, agent.current_agent_definition_version
+    assert_equal agent_connection, agent.active_agent_connection
   end
 end

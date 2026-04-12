@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "title": "Fenix Canonical Config",
+  "description": "Kernel-readable runtime behavior config for the Fenix agent.",
+  "additionalProperties": false,
+  "properties": {
+    "interactive": {
+      "type": "object",
+      "title": "Interactive Defaults",
+      "additionalProperties": false,
+      "properties": {
+        "default_profile_key": {
+          "type": "string",
+          "enum": ["main", "researcher"],
+          "default": "main",
+          "title": "Default Profile",
+          "description": "Default profile key for interactive turns."
+        }
+      },
+      "required": ["default_profile_key"]
+    },
+    "role_slots": {
+      "type": "object",
+      "title": "Role Slots",
+      "additionalProperties": false,
+      "properties": {
+        "main": { "$ref": "#/$defs/role_slot" },
+        "summary": { "$ref": "#/$defs/role_slot" }
+      },
+      "required": ["main", "summary"]
+    },
+    "profile_runtime_overrides": {
+      "type": "object",
+      "title": "Profile Runtime Overrides",
+      "additionalProperties": false,
+      "properties": {
+        "main": { "$ref": "#/$defs/profile_runtime_override" },
+        "researcher": { "$ref": "#/$defs/profile_runtime_override" }
+      },
+      "required": ["main", "researcher"]
+    },
+    "subagents": {
+      "type": "object",
+      "title": "Subagent Policy",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "title": "Enable Subagents"
+        },
+        "allow_nested": {
+          "type": "boolean",
+          "default": true,
+          "title": "Allow Nested Subagents"
+        },
+        "max_depth": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 0,
+          "title": "Maximum Subagent Depth"
+        }
+      },
+      "required": ["enabled", "allow_nested", "max_depth"]
+    },
+    "tool_policy_overlays": {
+      "type": "array",
+      "title": "Tool Policy Overlays",
+      "default": [],
+      "items": { "$ref": "#/$defs/tool_policy_overlay" }
+    },
+    "behavior": {
+      "type": "object",
+      "title": "Behavior",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox": {
+          "type": "string",
+          "enum": ["workspace-write", "read-only"],
+          "default": "workspace-write",
+          "title": "Sandbox Mode"
+        }
+      },
+      "required": ["sandbox"]
+    }
+  },
+  "required": [
+    "interactive",
+    "role_slots",
+    "profile_runtime_overrides",
+    "subagents",
+    "tool_policy_overlays",
+    "behavior"
+  ],
+  "$defs": {
+    "role_slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "selector": {
+          "type": "string",
+          "title": "Selector"
+        },
+        "fallback_role_slot": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Fallback Role Slot"
+        }
+      },
+      "required": ["selector", "fallback_role_slot"]
+    },
+    "profile_runtime_override": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role_slot": {
+          "type": "string",
+          "title": "Role Slot"
+        }
+      },
+      "required": ["role_slot"]
+    },
+    "tool_policy_overlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tool_name": { "type": "string" },
+        "execution_policy": {
+          "type": "string",
+          "enum": ["enabled", "disabled", "requires_confirmation"]
+        }
+      },
+      "required": ["tool_name", "execution_policy"]
+    }
+  }
+}

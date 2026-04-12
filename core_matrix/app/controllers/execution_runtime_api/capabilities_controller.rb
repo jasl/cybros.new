@@ -5,15 +5,14 @@ module ExecutionRuntimeAPI
     end
 
     def create
-      execution_runtime = ExecutionRuntimes::RecordCapabilities.call(
-        execution_runtime: current_execution_runtime,
-        capability_payload: request_payload.fetch("execution_runtime_capability_payload", current_execution_runtime.capability_payload),
-        tool_catalog: request_payload.fetch("execution_runtime_tool_catalog", current_execution_runtime.tool_catalog)
+      result = ExecutionRuntimeVersions::Refresh.call(
+        execution_runtime_connection: current_execution_runtime_connection,
+        version_package: request_payload.fetch("version_package")
       )
 
       render json: capability_payload(
         method_id: "capabilities_handshake",
-        execution_runtime: execution_runtime
+        execution_runtime: result.execution_runtime
       )
     end
 
@@ -25,6 +24,7 @@ module ExecutionRuntimeAPI
       {
         method_id: method_id,
         execution_runtime_id: execution_runtime.public_id,
+        execution_runtime_version_id: execution_runtime.current_execution_runtime_version&.public_id,
         execution_runtime_fingerprint: execution_runtime.execution_runtime_fingerprint,
         execution_runtime_kind: execution_runtime.kind,
         execution_runtime_capability_payload: contract.execution_runtime_capability_payload,

@@ -25,6 +25,14 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
     assert turn.active?
     assert turn.automation_schedule?
     assert_equal({ "cron" => "0 9 * * *" }, turn.origin_payload)
+    assert_equal context[:agent_definition_version], turn.agent_definition_version
+    assert_equal context[:execution_runtime], turn.execution_runtime
+    assert_equal context[:execution_runtime].current_execution_runtime_version, turn.execution_runtime_version
+    assert_equal(context[:agent].agent_config_state&.version || 1, turn.agent_config_version)
+    assert_equal(
+      context[:agent].agent_config_state&.content_fingerprint || context[:agent_definition_version].definition_fingerprint,
+      turn.agent_config_content_fingerprint
+    )
     assert_nil turn.selected_input_message
     assert_nil turn.selected_output_message
   end
@@ -34,7 +42,7 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
     conversation = Conversations::CreateAutomationRoot.call(
       workspace: context[:workspace]
     )
-    alternate_agent_snapshot = create_agent_snapshot!(
+    alternate_agent_definition_version = create_agent_definition_version!(
       installation: context[:installation],
       agent: create_agent!(installation: context[:installation]),
       fingerprint: "alternate-#{next_test_sequence}"
@@ -52,9 +60,9 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal context[:agent_snapshot], turn.agent_snapshot
-    assert_equal context[:agent_snapshot].fingerprint, turn.pinned_agent_snapshot_fingerprint
-    refute_equal alternate_agent_snapshot, turn.agent_snapshot
+    assert_equal context[:agent_definition_version], turn.agent_definition_version
+    assert_equal context[:agent_definition_version].fingerprint, turn.pinned_agent_definition_fingerprint
+    refute_equal alternate_agent_definition_version, turn.agent_definition_version
   end
 
   test "rejects pending delete automation conversations" do

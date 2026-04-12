@@ -10,24 +10,24 @@ class AgentConnectionCredentialLifecycleTest < ActionDispatch::IntegrationTest
       agent: context[:agent],
       execution_runtime: context[:execution_runtime]
     )
-    rotated = AgentSnapshots::RotateAgentConnectionCredential.call(
-      agent_snapshot: registration[:agent_snapshot],
+    rotated = AgentConnections::RotateConnectionCredential.call(
+      agent_definition_version: registration[:agent_definition_version],
       actor: registration[:actor]
     )
 
-    refute registration[:agent_snapshot].reload.matches_agent_connection_credential?(registration[:agent_connection_credential])
-    assert registration[:agent_snapshot].matches_agent_connection_credential?(rotated.agent_connection_credential)
+    refute registration[:agent_definition_version].reload.matches_agent_connection_credential?(registration[:agent_connection_credential])
+    assert registration[:agent_definition_version].matches_agent_connection_credential?(rotated.agent_connection_credential)
 
-    AgentSnapshots::RevokeAgentConnectionCredential.call(
-      agent_snapshot: registration[:agent_snapshot],
+    AgentConnections::RevokeConnectionCredential.call(
+      agent_definition_version: registration[:agent_definition_version],
       actor: registration[:actor]
     )
 
-    refute registration[:agent_snapshot].reload.matches_agent_connection_credential?(rotated.agent_connection_credential)
-    assert_nil AgentSnapshot.find_by_agent_connection_credential(rotated.agent_connection_credential)
+    refute registration[:agent_definition_version].reload.matches_agent_connection_credential?(rotated.agent_connection_credential)
+    assert_nil AgentDefinitionVersion.find_by_agent_connection_credential(rotated.agent_connection_credential)
 
-    AgentSnapshots::Retire.call(
-      agent_snapshot: registration[:agent_snapshot],
+    AgentDefinitionVersions::Retire.call(
+      agent_definition_version: registration[:agent_definition_version],
       actor: context[:user]
     )
 
@@ -39,7 +39,7 @@ class AgentConnectionCredentialLifecycleTest < ActionDispatch::IntegrationTest
     error = assert_raises(ActiveRecord::RecordInvalid) do
       Turns::StartUserTurn.call(
         conversation: future_conversation,
-        content: "Retry on retired agent snapshot",
+        content: "Retry on retired agent definition version",
         execution_runtime: context[:execution_runtime],
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
@@ -47,8 +47,8 @@ class AgentConnectionCredentialLifecycleTest < ActionDispatch::IntegrationTest
     end
 
     assert_includes error.record.errors[:agent], "must have an active agent connection for turn entry"
-    assert_equal 1, AuditLog.where(action: "agent_snapshot.agent_connection_credential_rotated").count
-    assert_equal 1, AuditLog.where(action: "agent_snapshot.agent_connection_credential_revoked").count
-    assert_equal 1, AuditLog.where(action: "agent_snapshot.retired").count
+    assert_equal 1, AuditLog.where(action: "agent_connection.credential_rotated").count
+    assert_equal 1, AuditLog.where(action: "agent_connection.credential_revoked").count
+    assert_equal 1, AuditLog.where(action: "agent_definition_version.retired").count
   end
 end

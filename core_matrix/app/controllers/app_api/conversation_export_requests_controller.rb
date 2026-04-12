@@ -44,7 +44,7 @@ module AppAPI
     def find_export_request!(request_id)
       ConversationExportRequest.find_by!(
         public_id: request_id,
-        installation_id: current_agent_snapshot.installation_id
+        installation_id: current_agent_definition_version.installation_id
       )
     end
 

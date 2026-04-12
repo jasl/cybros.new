@@ -13,13 +13,13 @@ class ProviderExecution::AgentRequestExchangePerfTest < ActiveSupport::TestCase
       now = Time.current
       mailbox_item.update!(
         status: "leased",
-        leased_to_agent_connection: kwargs.fetch(:agent_snapshot).active_agent_connection,
+        leased_to_agent_connection: kwargs.fetch(:agent_definition_version).active_agent_connection,
         leased_at: now,
         lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
       )
       AgentControlReportReceipt.create!(
-        installation: kwargs.fetch(:agent_snapshot).installation,
-        agent_connection: kwargs.fetch(:agent_snapshot).active_agent_connection,
+        installation: kwargs.fetch(:agent_definition_version).installation,
+        agent_connection: kwargs.fetch(:agent_definition_version).active_agent_connection,
         mailbox_item: mailbox_item,
         protocol_message_id: "report-#{SecureRandom.uuid}",
         method_id: "agent_completed",
@@ -43,7 +43,7 @@ class ProviderExecution::AgentRequestExchangePerfTest < ActiveSupport::TestCase
 
     ActiveSupport::Notifications.subscribed(->(*args) { events << args.last }, "perf.provider_execution.agent_request_exchange_wait") do
       ProviderExecution::AgentRequestExchange.new(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         sleeper: ->(_duration) { },
       ).prepare_round(
         payload: {
@@ -78,7 +78,7 @@ class ProviderExecution::AgentRequestExchangePerfTest < ActiveSupport::TestCase
     assert_raises(ProviderExecution::AgentRequestExchange::PendingResponse) do
       ActiveSupport::Notifications.subscribed(->(*args) { events << args.last }, "perf.provider_execution.agent_request_exchange_wait") do
         ProviderExecution::AgentRequestExchange.new(
-          agent_snapshot: context.fetch(:agent_snapshot),
+          agent_definition_version: context.fetch(:agent_definition_version),
           prepare_round_timeout: 0.001.seconds,
           sleeper: ->(_duration) { },
         ).prepare_round(
@@ -97,7 +97,7 @@ class ProviderExecution::AgentRequestExchangePerfTest < ActiveSupport::TestCase
     error = assert_raises(ProviderExecution::AgentRequestExchange::TimeoutError) do
       ActiveSupport::Notifications.subscribed(->(*args) { events << args.last }, "perf.provider_execution.agent_request_exchange_wait") do
         ProviderExecution::AgentRequestExchange.new(
-          agent_snapshot: context.fetch(:agent_snapshot),
+          agent_definition_version: context.fetch(:agent_definition_version),
           prepare_round_timeout: 0.001.seconds,
           sleeper: ->(_duration) { },
         ).prepare_round(

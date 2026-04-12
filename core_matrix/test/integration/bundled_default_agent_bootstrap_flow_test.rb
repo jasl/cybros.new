@@ -14,7 +14,7 @@ class BundledDefaultAgentBootstrapFlowTest < ActionDispatch::IntegrationTest
     assert result.user.admin?
     assert_equal 1, Agent.count
     assert_equal 1, ExecutionRuntime.count
-    assert_equal 1, AgentSnapshot.count
+    assert_equal 1, AgentDefinitionVersion.count
     assert_equal 1, UserAgentBinding.count
     assert_equal 1, Workspace.count
 
@@ -59,6 +59,6 @@ class BundledDefaultAgentBootstrapFlowTest < ActionDispatch::IntegrationTest
     )
 
     assert_equal first.execution_runtime.public_id, second.execution_runtime.public_id
-    refute_equal first.agent_snapshot.public_id, second.agent_snapshot.public_id
+    refute_equal first.agent_definition_version.public_id, second.agent_definition_version.public_id
   end
 end

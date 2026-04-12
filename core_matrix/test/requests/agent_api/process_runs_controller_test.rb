@@ -128,15 +128,15 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
 
   def build_process_runtime_context!
     context = build_agent_control_context!(workflow_node_type: "background_service")
-    capability_snapshot = create_capability_snapshot!(
-      agent_snapshot: context[:agent_snapshot],
+    capability_snapshot = create_compatible_agent_definition_version!(
+      agent_definition_version: context[:agent_definition_version],
       version: 2,
       tool_catalog: default_tool_catalog("process_exec")
     )
-    adopt_agent_snapshot!(context, capability_snapshot)
+    adopt_agent_definition_version!(context, capability_snapshot)
     context[:turn].update!(
       resolved_model_selection_snapshot: context[:turn].resolved_model_selection_snapshot.merge(
-        "agent_snapshot_id" => capability_snapshot.public_id
+        "agent_definition_version_id" => capability_snapshot.public_id
       )
     )
     Workflows::BuildExecutionSnapshot.call(turn: context[:turn].reload)

@@ -78,8 +78,8 @@ class ProviderExecution::BuildRequestContextTest < ActiveSupport::TestCase
 
   def create_mock_turn_step_workflow_run!(resolved_config_snapshot:)
     context = create_workspace_context!
-    capability_snapshot = create_capability_snapshot!(agent_snapshot: context[:agent_snapshot])
-    adopt_agent_snapshot!(context, capability_snapshot, turn: nil)
+    capability_snapshot = create_compatible_agent_definition_version!(agent_definition_version: context[:agent_definition_version])
+    adopt_agent_definition_version!(context, capability_snapshot, turn: nil)
     ProviderEntitlement.create!(
       installation: context[:installation],
       provider_handle: "dev",

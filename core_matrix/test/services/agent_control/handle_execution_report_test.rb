@@ -18,7 +18,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
       )
       Leases::Acquire.call(
         leased_resource: agent_task_run,
-        holder_key: context[:agent_snapshot].public_id,
+        holder_key: context[:agent_definition_version].public_id,
         heartbeat_timeout_seconds: 30
       )
       mailbox_item.update!(
@@ -32,7 +32,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
 
     assert_raises(AgentControl::Report::StaleReportError) do
       AgentControl::HandleExecutionReport.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         method_id: "execution_progress",
         payload: {
           "mailbox_item_id" => mailbox_item.public_id,
@@ -59,13 +59,13 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     agent_task_run = scenario.fetch(:agent_task_run)
 
     report_execution_started!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
 
     AgentControl::HandleExecutionReport.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "execution_progress",
       payload: {
         "mailbox_item_id" => mailbox_item.public_id,
@@ -112,7 +112,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     assert_nil context[:conversation].reload.conversation_supervision_state
 
     report_execution_started!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run,
       occurred_at: Time.current
@@ -213,7 +213,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     assert_equal "execution_runtime_request", root_node.workflow_run.reload.wait_reason_kind
 
     report_execution_started!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
@@ -222,7 +222,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
 
     assert_enqueued_with(job: Workflows::ExecuteNodeJob) do
       report_execution_complete!(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         mailbox_item: mailbox_item,
         agent_task_run: agent_task_run,
         terminal_payload: {
@@ -291,7 +291,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     agent_task_run = scenario.fetch(:agent_task_run)
 
     report_execution_started!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
@@ -299,7 +299,7 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     unsafe_output = (["provider_round_1_tool_1", "runtime.plan", "Delivered the patch."] * 40).join(" ")
 
     AgentControl::HandleExecutionReport.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "execution_complete",
       payload: {
         "mailbox_item_id" => mailbox_item.public_id,
@@ -328,13 +328,13 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     subagent_connection = child_scenario.fetch(:subagent_connection)
 
     report_execution_started!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
 
     AgentControl::HandleExecutionReport.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "execution_complete",
       payload: {
         "mailbox_item_id" => mailbox_item.public_id,
@@ -385,13 +385,13 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     agent_task_run = scenario.fetch(:agent_task_run)
 
     report_execution_started!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       mailbox_item: mailbox_item,
       agent_task_run: agent_task_run
     )
 
     AgentControl::HandleExecutionReport.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: method_id,
       payload: {
         "mailbox_item_id" => mailbox_item.public_id,

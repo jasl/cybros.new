@@ -22,7 +22,7 @@ class Shared::PayloadContextTest < ActiveSupport::TestCase
         },
         "provider_context" => {},
         "runtime_context" => {
-          "agent_snapshot_id" => "agent-snapshot-1",
+          "agent_definition_version_id" => "agent-definition-version-1",
         },
         "memory_context" => {
           "summary" => "Runtime memory summary",

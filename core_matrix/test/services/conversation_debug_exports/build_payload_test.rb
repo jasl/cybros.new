@@ -30,7 +30,17 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     assert_equal 1, payload.fetch("workflow_node_events").length
     assert_equal subagent_connection.public_id, payload.fetch("subagent_connections").first.fetch("subagent_connection_id")
     assert_not payload.fetch("subagent_connections").first.key?("summary")
+    assert_equal(
+      fixture.fetch(:context).fetch(:agent_definition_version).public_id,
+      payload.fetch("agent_task_runs").first.fetch("holder_agent_definition_version_id")
+    )
+    refute payload.fetch("agent_task_runs").first.key?("holder_agent_snapshot_id")
     assert_equal 120, payload.fetch("usage_events").first.fetch("input_tokens")
+    assert_equal(
+      fixture.fetch(:context).fetch(:agent_definition_version).public_id,
+      payload.fetch("usage_events").first.fetch("agent_definition_version_id")
+    )
+    refute payload.fetch("usage_events").first.key?("agent_snapshot_id")
     assert_equal "available", payload.fetch("usage_events").first.fetch("prompt_cache_status")
     assert_equal 60, payload.fetch("usage_events").first.fetch("cached_input_tokens")
     assert_equal 60, payload.dig("diagnostics", "conversation", "cached_input_tokens_total")
@@ -60,12 +70,12 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Debug input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -89,7 +99,7 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: conversation,
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       kind: "fork",
       addressability: "agent_addressable"
     )
@@ -165,14 +175,25 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       ordinal: 0,
       payload: { "state" => "started" }
     )
+    create_agent_task_run!(
+      workflow_node: yielding_node,
+      workflow_run: workflow_run,
+      conversation: conversation,
+      turn: turn,
+      agent: context[:agent_definition_version].agent,
+      lifecycle_state: "completed",
+      started_at: 70.seconds.ago,
+      finished_at: 60.seconds.ago,
+      holder_agent_connection: context[:agent_connection]
+    )
     UsageEvent.create!(
       installation: context[:installation],
       conversation_id: conversation.id,
       turn_id: turn.id,
       user: context[:user],
       workspace: context[:workspace],
-      agent: context[:agent_snapshot].agent,
-      agent_snapshot: context[:agent_snapshot],
+      agent: context[:agent_definition_version].agent,
+      agent_definition_version: context[:agent_definition_version],
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",

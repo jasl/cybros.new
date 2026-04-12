@@ -38,11 +38,11 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
     assert_includes request_payload.fetch("agent_context").fetch("allowed_tool_names"), "exec_command"
     assert_equal(
       {
-        "agent_snapshot_id" => context.fetch(:agent_snapshot).public_id,
+        "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id,
         "agent_id" => context.fetch(:agent).public_id,
         "user_id" => context.fetch(:user).public_id,
       },
-      request_payload.fetch("runtime_context").slice("agent_snapshot_id", "agent_id", "user_id")
+      request_payload.fetch("runtime_context").slice("agent_definition_version_id", "agent_id", "user_id")
     )
     assert_equal "prepare-round:#{context.fetch(:workflow_node).public_id}", request_payload.fetch("runtime_context").fetch("logical_work_id")
   end

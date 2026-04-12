@@ -91,8 +91,8 @@ module ExecutionRuntimeAPI
       raise ActiveRecord::RecordNotFound, "Couldn't find ToolInvocation" unless command_run.tool_invocation.running?
     end
 
-    def current_agent_snapshot_for_turn(turn)
-      turn.agent_snapshot
+    def current_agent_definition_version_for_turn(turn)
+      turn.agent_definition_version
     end
   end
 end

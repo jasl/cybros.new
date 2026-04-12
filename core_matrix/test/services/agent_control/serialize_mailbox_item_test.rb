@@ -7,7 +7,7 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     mailbox_item = create_agent_control_mailbox_item!(
       installation: context[:installation],
       target_agent: context[:agent],
-      target_agent_snapshot: context[:agent_snapshot],
+      target_agent_definition_version: context[:agent_definition_version],
       available_at: available_at,
       execution_hard_deadline_at: available_at + 5.minutes,
       payload: { "step" => "execute" }
@@ -26,7 +26,7 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
   test "serializes full payload documents for agent requests" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -75,7 +75,7 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "supervision_guidance",
       payload: {
         "content" => "Stop and summarize.",
@@ -122,7 +122,7 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     mailbox_item = travel_to(Time.zone.parse("2026-04-10 08:00:00 UTC")) do
       AgentControl::CreateConversationControlRequest.call(
         conversation_control_request: control_request,
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         request_kind: "supervision_guidance",
         payload: { "content" => "Stop and summarize." },
         dispatch_deadline_at: Time.zone.parse("2026-04-10 08:05:00 UTC")
@@ -137,7 +137,7 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
   test "serializes execute_tool mailbox requests with the full tool envelope and scoped runtime context" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "execute_tool",
       payload: {
         "task" => {
@@ -223,7 +223,7 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
       "agent_id" => "agent-public-id",
       "user_id" => "user-public-id",
       "logical_work_id" => "conversation-control:conversation-control-request-public-id:supervision_guidance",
-      "agent_snapshot_id" => "agent-snapshot-public-id"
+      "agent_definition_version_id" => "agent-definition-version-public-id"
     )
 
     serialized.merge(

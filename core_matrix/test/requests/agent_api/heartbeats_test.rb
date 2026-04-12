@@ -26,12 +26,13 @@ class AgentApiHeartbeatsTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
-    assert_equal registration[:agent_snapshot].public_id, response_body["agent_snapshot_id"]
+    assert_equal "agent_health", response_body["method_id"]
+    assert_equal registration[:agent_definition_version].public_id, response_body["agent_definition_version_id"]
     assert_equal registration[:agent_connection].public_id, response_body["agent_connection_id"]
     assert_equal "healthy", response_body["health_status"]
     assert_equal({ "latency_ms" => 15 }, response_body["health_metadata"])
     assert_equal true, response_body["auto_resume_eligible"]
     assert_equal "healthy", registration[:agent_connection].reload.health_status
-    refute_includes response.body, %("#{registration[:agent_snapshot].id}")
+    refute_includes response.body, %("#{registration[:agent_connection].id}")
   end
 end

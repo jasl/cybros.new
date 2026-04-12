@@ -30,8 +30,7 @@ module Turns
           raise_invalid!(conversation, :base, "must have active work before queueing follow up")
         end
 
-        agent_snapshot = Turns::FreezeAgentSnapshot.call(conversation: conversation)
-        execution_runtime = Turns::SelectExecutionRuntime.call(
+        execution_identity = Turns::FreezeExecutionIdentity.call(
           conversation: conversation,
           execution_runtime: @execution_runtime
         )
@@ -39,15 +38,18 @@ module Turns
         turn = Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
-          agent_snapshot: agent_snapshot,
-          execution_runtime: execution_runtime,
+          agent_definition_version: execution_identity.agent_definition_version,
+          execution_runtime: execution_identity.execution_runtime,
+          execution_runtime_version: execution_identity.execution_runtime_version,
           sequence: conversation.turns.maximum(:sequence).to_i + 1,
           lifecycle_state: "queued",
           origin_kind: "manual_user",
           origin_payload: {},
           source_ref_type: "User",
           source_ref_id: conversation.workspace.user.public_id,
-          pinned_agent_snapshot_fingerprint: agent_snapshot.fingerprint,
+          pinned_agent_definition_fingerprint: execution_identity.pinned_agent_definition_fingerprint,
+          agent_config_version: execution_identity.agent_config_version,
+          agent_config_content_fingerprint: execution_identity.agent_config_content_fingerprint,
           resolved_config_snapshot: @resolved_config_snapshot,
           resolved_model_selection_snapshot: @resolved_model_selection_snapshot
         )

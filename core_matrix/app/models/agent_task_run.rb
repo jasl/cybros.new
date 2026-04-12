@@ -54,13 +54,13 @@ class AgentTaskRun < ApplicationRecord
   validate :origin_turn_installation_match
   validate :workflow_projection_match
   validate :agent_turn_match
-  validate :holder_agent_snapshot_matches_task
+  validate :holder_agent_definition_version_matches_task
   validate :lifecycle_timestamps
 
   after_create :freeze_tool_bindings!
 
-  def holder_agent_snapshot
-    holder_agent_connection&.agent_snapshot
+  def holder_agent_definition_version
+    holder_agent_connection&.agent_definition_version
   end
 
   def feature_policy_snapshot
@@ -139,12 +139,12 @@ class AgentTaskRun < ApplicationRecord
 
   def agent_turn_match
     return if turn.blank? || agent.blank?
-    return if turn.agent_snapshot&.agent_id == agent_id
+    return if turn.agent_definition_version&.agent_id == agent_id
 
     errors.add(:agent, "must match the turn agent")
   end
 
-  def holder_agent_snapshot_matches_task
+  def holder_agent_definition_version_matches_task
     return if holder_agent_connection.blank?
 
     if holder_agent_connection.installation_id != installation_id

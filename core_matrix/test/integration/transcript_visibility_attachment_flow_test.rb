@@ -6,12 +6,12 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -79,12 +79,12 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -107,12 +107,12 @@ class TranscriptVisibilityAttachmentFlowTest < ActionDispatch::IntegrationTest
     root = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     turn = Turns::StartUserTurn.call(
       conversation: root,
       content: "Root input",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

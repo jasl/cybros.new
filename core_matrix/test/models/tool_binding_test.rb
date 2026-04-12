@@ -4,12 +4,12 @@ class ToolBindingTest < ActiveSupport::TestCase
   test "can bind a governed tool directly to a workflow node" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "compact_context"
     )
     implementation = definition.tool_implementations.find_by!(
@@ -31,12 +31,12 @@ class ToolBindingTest < ActiveSupport::TestCase
   test "belongs to the same installation and task projection as its binding target" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "compact_context"
     )
     implementation = definition.tool_implementations.find_by!(
@@ -65,12 +65,12 @@ class ToolBindingTest < ActiveSupport::TestCase
   test "freezes at most one binding per task and tool definition" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "compact_context"
     )
     implementation = definition.tool_implementations.find_by!(
@@ -94,12 +94,12 @@ class ToolBindingTest < ActiveSupport::TestCase
   test "freezes at most one workflow-node-owned binding per tool definition" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
     definition = ToolDefinition.find_by!(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "compact_context"
     )
     implementation = definition.tool_implementations.find_by!(
@@ -131,7 +131,7 @@ class ToolBindingTest < ActiveSupport::TestCase
   test "preserves frozen execution policy as structured columns" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 

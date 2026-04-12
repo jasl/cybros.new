@@ -69,14 +69,14 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
   def build_request_context(installation:, user:)
     agent = create_agent!(installation: installation, key: "agent-#{next_test_sequence}")
     execution_runtime = create_execution_runtime!(installation: installation)
-    agent_snapshot = create_agent_snapshot!(
+    agent_definition_version = create_agent_definition_version!(
       installation: installation,
       agent: agent
     )
     create_agent_connection!(
       installation: installation,
       agent: agent,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       health_status: "healthy",
       auto_resume_eligible: true,
       last_heartbeat_at: Time.current,
@@ -153,7 +153,7 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
       user: user,
       agent: agent,
       execution_runtime: execution_runtime,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       user_agent_binding: user_agent_binding,
       workspace: workspace,
       interactive: {

@@ -117,7 +117,7 @@ orchestration are still defined in:
     `ExecutionRuntime` foreign key on the mailbox row
   - if no active execution-runtime connection currently holds the resource
     lease, the
-    mailbox row still records the owning turn agent snapshot's logical
+    mailbox row still records the owning turn agent definition version's logical
     `agent` as the durable installation target
   - the live delivery endpoint is resolved separately through the shared
     `ResolveTargetRuntime` contract instead of SQL payload routing
@@ -142,7 +142,7 @@ orchestration are still defined in:
   `execution_assignment`
 - `execution_progress`, `execution_complete`, `execution_fail`, and
   `execution_interrupted` are attributed to the accepted holder agent connection,
-  its frozen `AgentSnapshot`, and the active `AgentTaskRun` lease
+  its frozen `AgentDefinitionVersion`, and the active `AgentTaskRun` lease
 - execution report lifecycle handling now lives in
   `HandleExecutionReport` and freshness checks live in
   `ValidateExecutionReportFreshness`
@@ -202,7 +202,7 @@ orchestration are still defined in:
 - close report lifecycle handling now lives in `HandleCloseReport` and
   freshness checks live in `ValidateCloseReportFreshness`
 - close reports are attributed to the connection and frozen
-  `leased_to_agent_snapshot` recorded for that mailbox item; once one
+  `leased_to_agent_definition_version` recorded for that mailbox item; once one
   connection has accepted the close request, sibling connections for the same
   logical agent must be treated as stale reporters for that request
 - terminal close reports for `AgentTaskRun`, `ProcessRun`, and
@@ -325,7 +325,7 @@ orchestration are still defined in:
   - `process_run_id`
 - workflow wait blockers also use durable identifiers:
   - `WorkflowRun.blocking_resource_id` stores `public_id` values, including
-    `AgentSnapshot.public_id` for `agent_unavailable`
+    `AgentDefinitionVersion.public_id` for `agent_unavailable`
 - raw internal bigint ids are never accepted as fallback resource lookups
 - capability snapshots still expose `protocol_methods` separately from
   `tool_catalog`
@@ -342,7 +342,7 @@ orchestration are still defined in:
 - `governed_effective_tool_catalog` adds the durable governance identifiers and
   `governance_mode` for the effective tool winner without exposing internal ids
 - `target_ref` is the durable owner reference, not a promise that the same
-  agent snapshot will remain the delivery endpoint across rotation
+  agent definition version will remain the delivery endpoint across rotation
 
 ## Governed Tool Execution Audit
 

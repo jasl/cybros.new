@@ -70,7 +70,7 @@ class Conversations::RequestTurnPauseTest < ActiveSupport::TestCase
     )
     Leases::Acquire.call(
       leased_resource: agent_task_run,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
 

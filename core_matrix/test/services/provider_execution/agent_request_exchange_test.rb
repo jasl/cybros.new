@@ -12,13 +12,13 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
       now = Time.current
       mailbox_item.update!(
         status: "leased",
-        leased_to_agent_connection: kwargs.fetch(:agent_snapshot).active_agent_connection,
+        leased_to_agent_connection: kwargs.fetch(:agent_definition_version).active_agent_connection,
         leased_at: now,
         lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
       )
       AgentControlReportReceipt.create!(
-        installation: kwargs.fetch(:agent_snapshot).installation,
-        agent_connection: kwargs.fetch(:agent_snapshot).active_agent_connection,
+        installation: kwargs.fetch(:agent_definition_version).installation,
+        agent_connection: kwargs.fetch(:agent_definition_version).active_agent_connection,
         mailbox_item: mailbox_item,
         protocol_message_id: "report-#{SecureRandom.uuid}",
         method_id: "agent_completed",
@@ -43,7 +43,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
     end
 
     result = ProviderExecution::AgentRequestExchange.new(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       sleeper: ->(_duration) { },
     ).prepare_round(
       payload: {
@@ -70,13 +70,13 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
       now = Time.current
       mailbox_item.update!(
         status: "leased",
-        leased_to_agent_connection: kwargs.fetch(:agent_snapshot).active_agent_connection,
+        leased_to_agent_connection: kwargs.fetch(:agent_definition_version).active_agent_connection,
         leased_at: now,
         lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
       )
       AgentControlReportReceipt.create!(
-        installation: kwargs.fetch(:agent_snapshot).installation,
-        agent_connection: kwargs.fetch(:agent_snapshot).active_agent_connection,
+        installation: kwargs.fetch(:agent_definition_version).installation,
+        agent_connection: kwargs.fetch(:agent_definition_version).active_agent_connection,
         mailbox_item: mailbox_item,
         protocol_message_id: "report-#{SecureRandom.uuid}",
         method_id: "agent_failed",
@@ -100,7 +100,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
     end
 
     result = ProviderExecution::AgentRequestExchange.new(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       sleeper: ->(_duration) { },
     ).execute_tool(
       payload: {
@@ -134,7 +134,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
     )
     tool_definition = ToolDefinition.create!(
       installation: context.fetch(:installation),
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       tool_name: "browser_open",
       tool_kind: "agent_observation",
       governance_mode: "replaceable",
@@ -172,13 +172,13 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
       now = Time.current
       mailbox_item.update!(
         status: "leased",
-        leased_to_agent_connection: kwargs.fetch(:agent_snapshot).active_agent_connection,
+        leased_to_agent_connection: kwargs.fetch(:agent_definition_version).active_agent_connection,
         leased_at: now,
         lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
       )
       AgentControlReportReceipt.create!(
-        installation: kwargs.fetch(:agent_snapshot).installation,
-        agent_connection: kwargs.fetch(:agent_snapshot).active_agent_connection,
+        installation: kwargs.fetch(:agent_definition_version).installation,
+        agent_connection: kwargs.fetch(:agent_definition_version).active_agent_connection,
         mailbox_item: mailbox_item,
         protocol_message_id: "report-#{SecureRandom.uuid}",
         method_id: "agent_completed",
@@ -207,7 +207,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
     end
 
     result = ProviderExecution::AgentRequestExchange.new(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       sleeper: ->(_duration) { },
     ).execute_tool(
       payload: {
@@ -251,13 +251,13 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
         now = Time.current
         mailbox_item.update!(
           status: "leased",
-          leased_to_agent_connection: kwargs.fetch(:agent_snapshot).active_agent_connection,
+          leased_to_agent_connection: kwargs.fetch(:agent_definition_version).active_agent_connection,
           leased_at: now,
           lease_expires_at: now + mailbox_item.lease_timeout_seconds.seconds
         )
         AgentControlReportReceipt.create!(
-          installation: kwargs.fetch(:agent_snapshot).installation,
-          agent_connection: kwargs.fetch(:agent_snapshot).active_agent_connection,
+          installation: kwargs.fetch(:agent_definition_version).installation,
+          agent_connection: kwargs.fetch(:agent_definition_version).active_agent_connection,
           mailbox_item: mailbox_item,
           protocol_message_id: "report-#{SecureRandom.uuid}",
           method_id: "agent_completed",
@@ -281,7 +281,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
       end
 
       ProviderExecution::AgentRequestExchange.new(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         sleeper: ->(_duration) { },
       ).execute_tool(
         payload: {
@@ -313,7 +313,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
 
     assert_raises(ProviderExecution::AgentRequestExchange::PendingResponse) do
       ProviderExecution::AgentRequestExchange.new(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         timeout: 0.001,
         poll_interval: 0.0,
         sleeper: ->(_duration) { },
@@ -331,7 +331,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
 
     error = assert_raises(ProviderExecution::AgentRequestExchange::TimeoutError) do
       ProviderExecution::AgentRequestExchange.new(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         timeout: 0.001,
         poll_interval: 0.0,
         sleeper: ->(_duration) { },
@@ -370,7 +370,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
     end
 
     exchange = ProviderExecution::AgentRequestExchange.new(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       timeout: 30.seconds,
       poll_interval: 0.0,
       sleeper: ->(_duration) { },
@@ -398,7 +398,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
 
     assert_raises(ProviderExecution::AgentRequestExchange::PendingResponse) do
       ProviderExecution::AgentRequestExchange.new(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         timeout: 0.001,
         poll_interval: 0.0,
         sleeper: ->(_duration) { },
@@ -448,7 +448,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
       completed_at: now
     )
     AgentControlReportReceipt.create!(
-      installation: context.fetch(:agent_snapshot).installation,
+      installation: context.fetch(:agent_definition_version).installation,
       agent_connection: context.fetch(:agent_connection),
       mailbox_item: mailbox_item,
       protocol_message_id: "report-#{SecureRandom.uuid}",
@@ -473,7 +473,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
     Workflows::ResumeBlockedStep.call(workflow_run: workflow_run)
 
     result = ProviderExecution::AgentRequestExchange.new(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       timeout: 0.001,
       poll_interval: 0.0,
       sleeper: ->(_duration) { },
@@ -494,7 +494,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
 
   test "uses capped exponential backoff when polling for terminal receipts" do
     exchange = ProviderExecution::AgentRequestExchange.new(
-      agent_snapshot: build_agent_control_context!.fetch(:agent_snapshot),
+      agent_definition_version: build_agent_control_context!.fetch(:agent_definition_version),
       poll_interval: 0.05,
       sleeper: ->(_duration) { },
     )
@@ -509,7 +509,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
 
   test "keeps zero poll intervals disabled for deterministic tests" do
     exchange = ProviderExecution::AgentRequestExchange.new(
-      agent_snapshot: build_agent_control_context!.fetch(:agent_snapshot),
+      agent_definition_version: build_agent_control_context!.fetch(:agent_definition_version),
       poll_interval: 0.0,
       sleeper: ->(_duration) { },
     )
@@ -547,7 +547,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
 
     assert_raises(ProviderExecution::AgentRequestExchange::PendingResponse) do
       ProviderExecution::AgentRequestExchange.new(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         timeout: 0.1,
         poll_interval: 0.0,
         sleeper: ->(_duration) { },
@@ -572,7 +572,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
       completed_at: now
     )
     AgentControlReportReceipt.create!(
-      installation: context.fetch(:agent_snapshot).installation,
+      installation: context.fetch(:agent_definition_version).installation,
       agent_connection: context.fetch(:agent_connection),
       mailbox_item: mailbox_item,
       protocol_message_id: "report-#{SecureRandom.uuid}",
@@ -596,7 +596,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
     )
 
     result = ProviderExecution::AgentRequestExchange.new(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       timeout: 0.1,
       poll_interval: 0.0,
       sleeper: ->(_duration) { },

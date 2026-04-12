@@ -22,39 +22,39 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
       metadata: {}
     )
 
-    AgentSnapshots::MarkUnavailable.call(
-      agent_snapshot: context[:agent_snapshot],
+    AgentDefinitionVersions::MarkUnavailable.call(
+      agent_definition_version: context[:agent_definition_version],
       severity: "transient",
       reason: "heartbeat_missed",
       occurred_at: Time.current
     )
 
-    drifted_snapshot = create_capability_snapshot!(
-      agent_snapshot: context[:agent_snapshot],
+    drifted_snapshot = create_compatible_agent_definition_version!(
+      agent_definition_version: context[:agent_definition_version],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
       tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
       config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
       default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
     )
-    adopt_agent_snapshot!(context, drifted_snapshot, turn: nil)
-    AgentSnapshots::RecordHeartbeat.call(
-      agent_snapshot: context[:agent_snapshot],
+    adopt_agent_definition_version!(context, drifted_snapshot, turn: nil)
+    AgentConnections::RecordHeartbeat.call(
+      agent_definition_version: context[:agent_definition_version],
       health_status: "healthy",
       health_metadata: {},
       auto_resume_eligible: true
     )
 
-    assert_equal [], AgentSnapshots::AutoResumeWorkflows.call(agent_snapshot: context[:agent_snapshot])
+    assert_equal [], AgentDefinitionVersions::AutoResumeWorkflows.call(agent_definition_version: context[:agent_definition_version])
 
-    replacement = create_replacement_agent_snapshot!(
+    replacement = create_replacement_agent_definition_version!(
       installation: context[:installation],
       agent: context[:agent],
       execution_runtime: context[:execution_runtime]
     )
     retried = Workflows::ManualRetry.call(
       workflow_run: workflow_run.reload,
-      agent_snapshot: replacement,
+      agent_definition_version: replacement,
       actor: create_user!(installation: context[:installation], role: "admin"),
       selector: "role:planner"
     )
@@ -63,22 +63,22 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
     assert_equal "manual_recovery_required", workflow_run.wait_reason_kind
     assert retried.active?
     assert_equal context[:agent], conversation.reload.agent
-    assert_equal replacement, retried.turn.agent_snapshot
+    assert_equal replacement, retried.turn.agent_definition_version
     assert_equal "role:planner", retried.turn.normalized_selector
     assert_equal "openai", retried.turn.resolved_provider_handle
     assert_equal "gpt-5.4", retried.turn.resolved_model_ref
-    assert_equal replacement.public_id, retried.turn.execution_snapshot.identity["agent_snapshot_id"]
-    assert_equal replacement.public_id, retried.execution_identity["agent_snapshot_id"]
+    assert_equal replacement.public_id, retried.turn.execution_snapshot.identity["agent_definition_version_id"]
+    assert_equal replacement.public_id, retried.execution_identity["agent_definition_version_id"]
     assert_equal context[:execution_runtime].public_id, retried.execution_identity["execution_runtime_id"]
     assert_equal(
-      %w[agent_snapshot.degraded agent_snapshot.paused_agent_unavailable workflow.manual_retried],
+      %w[agent_definition_version.degraded agent_definition_version.paused_agent_unavailable workflow.manual_retried],
       AuditLog.where(installation: context[:installation]).order(:created_at).pluck(:action).last(3)
     )
   end
 
   private
 
-  def create_replacement_agent_snapshot!(
+  def create_replacement_agent_definition_version!(
     installation:,
     agent:,
     execution_runtime: create_execution_runtime!(installation: installation)
@@ -87,7 +87,7 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
       lifecycle_state: "stale",
       updated_at: Time.current
     )
-    agent_snapshot = create_agent_snapshot!(
+    agent_definition_version = create_agent_definition_version!(
       installation: installation,
       agent: agent,
       fingerprint: "replacement-#{next_test_sequence}",
@@ -100,7 +100,7 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
     create_agent_connection!(
       installation: installation,
       agent: agent,
-      agent_snapshot: agent_snapshot,
+      agent_definition_version: agent_definition_version,
       health_status: "healthy",
       auto_resume_eligible: true,
       last_heartbeat_at: Time.current,
@@ -115,6 +115,6 @@ class AgentRecoveryFlowTest < ActionDispatch::IntegrationTest
       execution_runtime: execution_runtime,
       last_heartbeat_at: Time.current
     )
-    agent_snapshot
+    agent_definition_version
   end
 end

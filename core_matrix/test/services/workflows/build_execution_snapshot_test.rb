@@ -66,7 +66,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal conversation.public_id, snapshot.identity.fetch("conversation_id")
     assert_equal current_turn.public_id, snapshot.identity.fetch("turn_id")
     assert_equal context[:execution_runtime].public_id, snapshot.identity.fetch("execution_runtime_id")
-    assert_equal context[:agent_snapshot].public_id, snapshot.identity.fetch("agent_snapshot_id")
+    assert_equal context[:agent_definition_version].public_id, snapshot.identity.fetch("agent_definition_version_id")
     assert_equal "codex_subscription", snapshot.model_context.fetch("provider_handle")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("model_ref")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("api_model")
@@ -174,7 +174,27 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "keeps canonical attachments even when execution runtime does not advertise request_attachment access" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    context[:execution_runtime].update!(capability_payload: { "attachment_access" => { "request_attachment" => false } })
+    restricted_runtime_version = create_execution_runtime_version!(
+      installation: context[:installation],
+      execution_runtime: context[:execution_runtime],
+      capability_payload_document: create_json_document!(
+        installation: context[:installation],
+        document_kind: "runtime_capability_payload",
+        payload: { "attachment_access" => { "request_attachment" => false } }
+      ),
+      tool_catalog_document: create_json_document!(
+        installation: context[:installation],
+        document_kind: "runtime_tool_catalog",
+        payload: context[:execution_runtime].tool_catalog
+      ),
+      reflected_host_metadata_document: create_json_document!(
+        installation: context[:installation],
+        document_kind: "reflected_host_metadata",
+        payload: context[:execution_runtime].current_execution_runtime_version&.reflected_host_metadata || {}
+      )
+    )
+    context[:execution_runtime].update!(active_execution_runtime_version: restricted_runtime_version)
+    context[:execution_runtime_connection].update!(execution_runtime_version: restricted_runtime_version)
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
@@ -485,7 +505,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   def prepare_profile_aware_execution_context!(profile_catalog: default_profile_catalog)
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    activate_agent_snapshot!(
+    activate_agent_definition_version!(
       context,
       tool_catalog: default_tool_catalog("exec_command", "compact_context"),
       profile_catalog: profile_catalog,

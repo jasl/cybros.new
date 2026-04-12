@@ -115,8 +115,8 @@ module ProviderExecution
             "control_plane" => "execution_runtime",
             "logical_work_id" => "tool-call:#{@workflow_node.public_id}:#{@tool_call.fetch("call_id")}",
             "attempt_no" => 1,
-            "agent_snapshot_id" => @workflow_node.turn.agent_snapshot.public_id,
-            "agent_id" => @workflow_node.turn.agent_snapshot.agent.public_id,
+            "agent_definition_version_id" => @workflow_node.turn.agent_definition_version.public_id,
+            "agent_id" => @workflow_node.turn.agent_definition_version.agent.public_id,
             "user_id" => @workflow_node.conversation.workspace.user.public_id,
           },
           "tool_call" => {

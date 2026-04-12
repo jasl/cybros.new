@@ -8,7 +8,7 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     Conversations::RequestDeletion.call(conversation: conversation)
 
@@ -87,7 +87,7 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     stale_conversation = Conversation.find(conversation.id)
 

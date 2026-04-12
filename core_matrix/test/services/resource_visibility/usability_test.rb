@@ -11,7 +11,7 @@ class ResourceVisibility::UsabilityTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
 
     assert ResourceVisibility::Usability.workspace_accessible_by_user?(user: context[:user], workspace: context[:workspace])

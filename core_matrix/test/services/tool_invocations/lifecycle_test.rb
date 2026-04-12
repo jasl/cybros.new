@@ -4,7 +4,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
   test "records invocation lifecycle through the same model for reserved and runtime tools" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
@@ -39,7 +39,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
   test "increments attempt numbers per frozen binding" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
@@ -57,7 +57,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
   test "records invocation lifecycle for workflow-node-owned bindings" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
@@ -85,7 +85,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
   test "stores structured execution facts and trace payload outside metadata" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 
@@ -131,7 +131,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
   test "terminal updates ignore stale copies once an invocation has already terminalized" do
     context = build_governed_tool_context!
     ToolBindings::ProjectCapabilitySnapshot.call(
-      capability_snapshot: context.fetch(:capability_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime: context.fetch(:execution_runtime)
     )
 

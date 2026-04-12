@@ -6,7 +6,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     conversation.update!(lifecycle_state: "archived")
 
@@ -21,7 +21,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     queued_turn = Turns::QueueFollowUp.call(
       conversation: context[:conversation],
       content: "Queued follow up",
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
@@ -75,7 +75,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     )
     Leases::Acquire.call(
       leased_resource: background_service,
-      holder_key: context[:agent_snapshot].public_id,
+      holder_key: context[:agent_definition_version].public_id,
       heartbeat_timeout_seconds: 30
     )
 
@@ -95,7 +95,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     original_deleted_at = Time.zone.parse("2026-03-25 09:00:00 UTC")
 
@@ -115,7 +115,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     stale_conversation = Conversation.find(conversation.id)
     assert_nil stale_conversation.publication
@@ -137,7 +137,7 @@ class Conversations::RequestDeletionTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
-      agent_snapshot: context[:agent_snapshot]
+      agent_definition_version: context[:agent_definition_version]
     )
     stale_conversation = Conversation.find(conversation.id)
     original_deleted_at = Time.zone.parse("2026-03-25 09:00:00 UTC")

@@ -1,9 +1,9 @@
 class ControlPlaneChannel < ApplicationCable::Channel
   def subscribed
-    if current_agent_snapshot.present?
-      stream_from AgentControl::StreamName.for_agent_snapshot(current_agent_snapshot)
+    if current_agent_definition_version.present?
+      stream_from AgentControl::StreamName.for_agent_definition_version(current_agent_definition_version)
       AgentControl::RealtimeLinks::Open.call(
-        agent_snapshot: current_agent_snapshot,
+        agent_definition_version: current_agent_definition_version,
         agent_connection: current_agent_connection
       )
       return
@@ -21,9 +21,9 @@ class ControlPlaneChannel < ApplicationCable::Channel
   end
 
   def unsubscribed
-    if current_agent_snapshot.present?
+    if current_agent_definition_version.present?
       AgentControl::RealtimeLinks::Close.call(
-        agent_snapshot: current_agent_snapshot,
+        agent_definition_version: current_agent_definition_version,
         agent_connection: current_agent_connection
       )
       return

@@ -25,7 +25,7 @@ module Acceptance
         keyword_init: true
       )
       RuntimeRegistrationDouble = Struct.new(
-        :agent_snapshot,
+        :agent_definition_version,
         :agent_connection_credential,
         :execution_runtime_connection_credential,
         :execution_runtime,
@@ -44,19 +44,23 @@ module Acceptance
           topology: topology,
           agent_count: 2,
           agent_base_url: "http://127.0.0.1:3100",
-          create_external_agent: lambda do |installation:, actor:, key:, display_name:|
+          create_bring_your_own_agent: lambda do |installation:, actor:, key:, display_name:|
             created_agents << { installation:, actor:, key:, display_name: }
-            { agent: "agent-#{key}", enrollment_token: "enroll-#{key}" }
-          end,
-          register_external_agent: lambda do |enrollment_token:, agent_base_url:, fingerprint:|
-            agent_registrations << { enrollment_token:, agent_base_url:, fingerprint: }
             {
-              agent_snapshot: "agent-snapshot-#{fingerprint}",
-              agent_connection_credential: "agent-credential-#{fingerprint}",
+              agent: "agent-#{key}",
+              pairing_session: "pairing-session-#{key}",
+              pairing_token: "pair-#{key}"
             }
           end,
-          register_external_execution_runtime: lambda do |enrollment_token:, runtime_base_url:, execution_runtime_fingerprint:|
-            runtime_registrations << { enrollment_token:, runtime_base_url:, execution_runtime_fingerprint: }
+          register_bring_your_own_agent: lambda do |pairing_token:, agent_base_url:|
+            agent_registrations << { pairing_token:, agent_base_url: }
+            {
+              agent_definition_version: "agent-definition-version-#{pairing_token.delete_prefix('pair-')}",
+              agent_connection_credential: "agent-credential-#{pairing_token.delete_prefix('pair-')}",
+            }
+          end,
+          register_bring_your_own_execution_runtime: lambda do |pairing_token:, runtime_base_url:, execution_runtime_fingerprint:|
+            runtime_registrations << { pairing_token:, runtime_base_url:, execution_runtime_fingerprint: }
             {
               execution_runtime: "execution-runtime-#{execution_runtime_fingerprint}",
               execution_runtime_connection_credential: "execution-runtime-credential-#{execution_runtime_fingerprint}",
@@ -71,7 +75,7 @@ module Acceptance
         assert_equal %w[fenix-01 fenix-02], matrix.runtime_registrations.map(&:agent_label)
         assert_equal topology.runtime_slots.map { |slot| slot.event_output_path.to_s }, matrix.runtime_registrations.map(&:event_output_path)
         assert_equal topology.runtime_slots.map { |slot| runtime_task_env_for(slot) }, matrix.runtime_registrations.map(&:runtime_task_env)
-        assert_equal %w[agent-snapshot-shared-fenix-load-agent-01 agent-snapshot-shared-fenix-load-agent-02], matrix.runtime_registrations.map(&:agent_snapshot)
+        assert_equal %w[agent-definition-version-multi-runtime-load-agent-01 agent-definition-version-multi-runtime-load-agent-02], matrix.runtime_registrations.map(&:agent_definition_version)
         assert_equal 2, created_agents.length
         assert_equal 2, agent_registrations.length
         assert_equal 2, runtime_registrations.length
@@ -93,9 +97,9 @@ module Acceptance
         report = WorkloadDriver.call(
           manifest: manifest,
           registration_matrix: registration_matrix,
-          create_conversation: lambda do |agent_snapshot:|
+          create_conversation: lambda do |agent_definition_version:|
             conversation_id = "conversation-#{conversation_calls.length + 1}"
-            conversation_calls << { conversation_id:, agent_snapshot: }
+            conversation_calls << { conversation_id:, agent_definition_version: }
             { conversation: conversation_id }
           end,
           execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
@@ -114,8 +118,8 @@ module Acceptance
         assert_equal %w[nexus-01 nexus-02 nexus-01 nexus-02], execution_calls.map { |entry| entry.fetch(:slot_label) }
         assert_equal registration_matrix.runtime_registrations.map(&:event_output_path), report.fetch('runtime_assignments').map { |entry| entry.fetch('event_output_path') }
         assert_equal(
-          %w[agent-snapshot-fenix-01 agent-snapshot-fenix-02 agent-snapshot-fenix-01 agent-snapshot-fenix-02],
-          conversation_calls.map { |entry| entry.fetch(:agent_snapshot) }
+          %w[agent-definition-version-fenix-01 agent-definition-version-fenix-02 agent-definition-version-fenix-01 agent-definition-version-fenix-02],
+          conversation_calls.map { |entry| entry.fetch(:agent_definition_version) }
         )
       end
 
@@ -166,8 +170,8 @@ module Acceptance
         report = WorkloadDriver.call(
           manifest: manifest,
           registration_matrix: registration_matrix,
-          create_conversation: lambda do |agent_snapshot:|
-            { conversation: "conversation-for-#{agent_snapshot}" }
+          create_conversation: lambda do |agent_definition_version:|
+            { conversation: "conversation-for-#{agent_definition_version}" }
           end,
           execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
             _unused_task = task
@@ -227,24 +231,24 @@ module Acceptance
           runtime_count: 2,
           core_matrix_events_path: '/artifacts/core-matrix-events.ndjson',
           agent_registrations: [
-            { label: "fenix-01", agent: "agent-fenix-01", agent_snapshot: "agent-snapshot-fenix-01" },
-            { label: "fenix-02", agent: "agent-fenix-02", agent_snapshot: "agent-snapshot-fenix-02" }
+            { label: "fenix-01", agent: "agent-fenix-01", agent_definition_version: "agent-definition-version-fenix-01" },
+            { label: "fenix-02", agent: "agent-fenix-02", agent_definition_version: "agent-definition-version-fenix-02" }
           ],
           runtime_registrations: [
-            build_registration('nexus-01', 'fenix-01', 'agent-snapshot-fenix-01', 'agent-credential-01', 'execution-runtime-credential-01', '/artifacts/nexus-01-events.ndjson'),
-            build_registration('nexus-02', 'fenix-02', 'agent-snapshot-fenix-02', 'agent-credential-02', 'execution-runtime-credential-02', '/artifacts/nexus-02-events.ndjson')
+            build_registration('nexus-01', 'fenix-01', 'agent-definition-version-fenix-01', 'agent-credential-01', 'execution-runtime-credential-01', '/artifacts/nexus-01-events.ndjson'),
+            build_registration('nexus-02', 'fenix-02', 'agent-definition-version-fenix-02', 'agent-credential-02', 'execution-runtime-credential-02', '/artifacts/nexus-02-events.ndjson')
           ]
         )
       end
 
-      def build_registration(slot_label, agent_label, agent_snapshot, agent_connection_credential, execution_runtime_connection_credential, event_output_path)
+      def build_registration(slot_label, agent_label, agent_definition_version, agent_connection_credential, execution_runtime_connection_credential, event_output_path)
         RuntimeRegistrationMatrix::Registration.new(
           slot_label: slot_label,
           agent_label: agent_label,
           runtime_base_url: "http://127.0.0.1:#{slot_label.end_with?('01') ? '3201' : '3202'}",
           event_output_path: event_output_path,
           runtime_registration: RuntimeRegistrationDouble.new(
-            agent_snapshot: agent_snapshot,
+            agent_definition_version: agent_definition_version,
             agent_connection_credential: agent_connection_credential,
             execution_runtime_connection_credential: execution_runtime_connection_credential,
             execution_runtime: "execution-runtime-#{slot_label}"
@@ -255,7 +259,7 @@ module Acceptance
             'CYBROS_PERF_EVENTS_PATH' => event_output_path,
             'CYBROS_PERF_INSTANCE_LABEL' => slot_label
           },
-          agent_snapshot: agent_snapshot,
+          agent_definition_version: agent_definition_version,
           agent_connection_credential: agent_connection_credential,
           execution_runtime_connection_credential: execution_runtime_connection_credential,
           execution_runtime: "execution-runtime-#{slot_label}"

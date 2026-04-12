@@ -2,7 +2,7 @@ module AgentAPI
   class ControlController < BaseController
     def poll
       mailbox_items = AgentControl::Poll.call(
-        agent_snapshot: current_agent_snapshot,
+        agent_definition_version: current_agent_definition_version,
         agent_connection: current_agent_connection,
         limit: request_payload.fetch("limit", AgentControl::Poll::DEFAULT_LIMIT)
       )
@@ -14,7 +14,7 @@ module AgentAPI
 
     def report
       result = AgentControl::Report.call(
-        agent_snapshot: current_agent_snapshot,
+        agent_definition_version: current_agent_definition_version,
         agent_connection: current_agent_connection,
         payload: request_payload
       )

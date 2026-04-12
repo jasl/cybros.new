@@ -5,7 +5,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     correct_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       agent_connection_credential: context[:agent_connection_credential],
       execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )
@@ -18,7 +18,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
       execution_runtime: other_execution_runtime,
       reuse_enrollment: true
     )
-    wrong_agent_snapshot = wrong_registration.fetch(:agent_snapshot)
+    wrong_agent_definition_version = wrong_registration.fetch(:agent_definition_version)
     wrong_registration.fetch(:agent_connection).update!(
       health_status: "healthy",
       last_heartbeat_at: Time.current,
@@ -26,7 +26,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     )
     wrong_harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      agent_snapshot: wrong_agent_snapshot,
+      agent_definition_version: wrong_agent_definition_version,
       agent_connection_credential: wrong_registration.fetch(:agent_connection_credential),
       execution_runtime_connection_credential: wrong_registration.fetch(:execution_runtime_connection_credential)
     )
@@ -153,7 +153,7 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
     context = build_agent_control_context!
     harness = FakeAgentRuntimeHarness.new(
       test_case: self,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       agent_connection_credential: context[:agent_connection_credential],
       execution_runtime_connection_credential: context[:execution_runtime_connection_credential]
     )

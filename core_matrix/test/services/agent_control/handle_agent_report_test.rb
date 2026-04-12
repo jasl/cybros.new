@@ -20,10 +20,10 @@ class AgentControl::HandleAgentReportTest < ActiveSupport::TestCase
       logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}"
     )
     mailbox_item = scenario.fetch(:mailbox_item)
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     AgentControl::HandleAgentReport.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "agent_completed",
       payload: {
         "mailbox_item_id" => mailbox_item.public_id,
@@ -55,13 +55,13 @@ class AgentControl::HandleAgentReportTest < ActiveSupport::TestCase
         },
         logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}"
       )
-      AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+      AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
       scenario.fetch(:mailbox_item)
     end
 
     assert_raises(AgentControl::Report::StaleReportError) do
       AgentControl::HandleAgentReport.call(
-        agent_snapshot: context[:agent_snapshot],
+        agent_definition_version: context[:agent_definition_version],
         method_id: "agent_completed",
         payload: {
           "mailbox_item_id" => mailbox_item.public_id,
@@ -99,15 +99,15 @@ class AgentControl::HandleAgentReportTest < ActiveSupport::TestCase
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       request_kind: "supervision_status_refresh",
       payload: {},
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     AgentControl::HandleAgentReport.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "agent_completed",
       payload: {
         "mailbox_item_id" => mailbox_item.public_id,
@@ -154,15 +154,15 @@ class AgentControl::HandleAgentReportTest < ActiveSupport::TestCase
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       request_kind: "supervision_guidance",
       payload: { "content" => "Stop and summarize." },
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     AgentControl::HandleAgentReport.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "agent_failed",
       payload: {
         "mailbox_item_id" => mailbox_item.public_id,
@@ -207,15 +207,15 @@ class AgentControl::HandleAgentReportTest < ActiveSupport::TestCase
     )
     mailbox_item = AgentControl::CreateConversationControlRequest.call(
       conversation_control_request: control_request,
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       request_kind: "supervision_guidance",
       payload: { "content" => "Stop and summarize the blocker before coding." },
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(agent_snapshot: context[:agent_snapshot], limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context[:agent_definition_version], limit: 10)
 
     AgentControl::HandleAgentReport.call(
-      agent_snapshot: context[:agent_snapshot],
+      agent_definition_version: context[:agent_definition_version],
       method_id: "agent_completed",
       payload: {
         "mailbox_item_id" => mailbox_item.public_id,
@@ -246,7 +246,7 @@ class AgentControl::HandleAgentReportTest < ActiveSupport::TestCase
   test "resumes a blocked workflow inline when a terminal agent report arrives" do
     context = build_agent_control_context!
     mailbox_item = AgentControl::CreateAgentRequest.call(
-      agent_snapshot: context.fetch(:agent_snapshot),
+      agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
       payload: {
         "task" => {
@@ -259,7 +259,7 @@ class AgentControl::HandleAgentReportTest < ActiveSupport::TestCase
       logical_work_id: "prepare-round:#{context.fetch(:workflow_node).public_id}",
       dispatch_deadline_at: 5.minutes.from_now
     )
-    AgentControl::Poll.call(agent_snapshot: context.fetch(:agent_snapshot), limit: 10)
+    AgentControl::Poll.call(agent_definition_version: context.fetch(:agent_definition_version), limit: 10)
 
     context.fetch(:workflow_node).update!(
       lifecycle_state: "waiting",
@@ -288,7 +288,7 @@ class AgentControl::HandleAgentReportTest < ActiveSupport::TestCase
 
     assert_no_enqueued_jobs only: Workflows::ResumeBlockedStepJob do
       AgentControl::HandleAgentReport.call(
-        agent_snapshot: context.fetch(:agent_snapshot),
+        agent_definition_version: context.fetch(:agent_definition_version),
         method_id: "agent_completed",
         payload: {
           "mailbox_item_id" => mailbox_item.public_id,

@@ -126,8 +126,8 @@ class ConversationControl::DispatchRequestTest < ActiveSupport::TestCase
     captured = nil
 
     original_call = Workflows::ManualResume.method(:call)
-    Workflows::ManualResume.singleton_class.define_method(:call) do |workflow_run:, agent_snapshot:, actor:, conversation_control_request: nil, **_rest|
-      captured = [workflow_run.public_id, agent_snapshot.public_id, actor.public_id, conversation_control_request&.public_id]
+    Workflows::ManualResume.singleton_class.define_method(:call) do |workflow_run:, agent_definition_version:, actor:, conversation_control_request: nil, **_rest|
+      captured = [workflow_run.public_id, agent_definition_version.public_id, actor.public_id, conversation_control_request&.public_id]
       workflow_run
     end
 
@@ -139,7 +139,7 @@ class ConversationControl::DispatchRequestTest < ActiveSupport::TestCase
 
     assert_equal [
       fixture.fetch(:workflow_run).public_id,
-      fixture.fetch(:agent_snapshot).public_id,
+      fixture.fetch(:agent_definition_version).public_id,
       fixture.fetch(:user).public_id,
       request.public_id,
     ], captured

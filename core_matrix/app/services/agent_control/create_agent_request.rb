@@ -13,8 +13,8 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_snapshot:, request_kind:, payload:, logical_work_id:, attempt_no: 1, dispatch_deadline_at:, execution_hard_deadline_at: nil, protocol_message_id: nil, causation_id: nil, lease_timeout_seconds: 30, priority: 1)
-      @agent_snapshot = agent_snapshot
+    def initialize(agent_definition_version:, request_kind:, payload:, logical_work_id:, attempt_no: 1, dispatch_deadline_at:, execution_hard_deadline_at: nil, protocol_message_id: nil, causation_id: nil, lease_timeout_seconds: 30, priority: 1)
+      @agent_definition_version = agent_definition_version
       @request_kind = request_kind.to_s
       @payload = payload.deep_stringify_keys
       @logical_work_id = logical_work_id
@@ -35,9 +35,9 @@ module AgentControl
       execution_contract = workflow_node&.turn&.execution_contract
 
       mailbox_item = AgentControlMailboxItem.create!(
-        installation: @agent_snapshot.installation,
-        target_agent: @agent_snapshot.agent,
-        target_agent_snapshot: @agent_snapshot,
+        installation: @agent_definition_version.installation,
+        target_agent: @agent_definition_version.agent,
+        target_agent_definition_version: @agent_definition_version,
         item_type: "agent_request",
         control_plane: "agent",
         workflow_node: workflow_node,
@@ -53,7 +53,7 @@ module AgentControl
         lease_timeout_seconds: @lease_timeout_seconds,
         execution_hard_deadline_at: @execution_hard_deadline_at,
         payload_document: JsonDocuments::Store.call(
-          installation: @agent_snapshot.installation,
+          installation: @agent_definition_version.installation,
           document_kind: "agent_request",
           payload: request_payload(workflow_node:, execution_contract:)
         ),
@@ -98,7 +98,7 @@ module AgentControl
           "logical_work_id",
           "attempt_no",
           "control_plane",
-          "agent_snapshot_id"
+          "agent_definition_version_id"
         )
 
       if compact_runtime_context.present?
@@ -115,7 +115,7 @@ module AgentControl
       return if workflow_node_public_id.blank?
 
       WorkflowNode.find_by!(
-        installation_id: @agent_snapshot.installation_id,
+        installation_id: @agent_definition_version.installation_id,
         public_id: workflow_node_public_id
       )
     end

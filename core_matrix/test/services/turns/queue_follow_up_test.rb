@@ -25,6 +25,14 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     assert_equal 2, queued.sequence
     assert_equal "User", queued.source_ref_type
     assert_equal context[:user].public_id, queued.source_ref_id
+    assert_equal context[:agent_definition_version], queued.agent_definition_version
+    assert_equal context[:execution_runtime], queued.execution_runtime
+    assert_equal context[:execution_runtime].current_execution_runtime_version, queued.execution_runtime_version
+    assert_equal(context[:agent].agent_config_state&.version || 1, queued.agent_config_version)
+    assert_equal(
+      context[:agent].agent_config_state&.content_fingerprint || context[:agent_definition_version].definition_fingerprint,
+      queued.agent_config_content_fingerprint
+    )
     assert_instance_of UserMessage, queued.selected_input_message
     assert_equal "Follow up input", queued.selected_input_message.content
   end
@@ -40,7 +48,7 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
-    alternate_agent_snapshot = create_agent_snapshot!(
+    alternate_agent_definition_version = create_agent_definition_version!(
       installation: context[:installation],
       agent: create_agent!(installation: context[:installation]),
       fingerprint: "alternate-#{next_test_sequence}"
@@ -53,9 +61,9 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal context[:agent_snapshot], queued.agent_snapshot
-    assert_equal context[:agent_snapshot].fingerprint, queued.pinned_agent_snapshot_fingerprint
-    refute_equal alternate_agent_snapshot, queued.agent_snapshot
+    assert_equal context[:agent_definition_version], queued.agent_definition_version
+    assert_equal context[:agent_definition_version].fingerprint, queued.pinned_agent_definition_fingerprint
+    refute_equal alternate_agent_definition_version, queued.agent_definition_version
   end
 
   test "rejects queueing when no active work exists" do
