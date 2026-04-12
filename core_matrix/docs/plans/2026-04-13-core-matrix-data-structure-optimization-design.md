@@ -222,9 +222,9 @@ Its row should directly carry:
 - `agent_id`
 - `current_execution_runtime_id`
 - `current_execution_epoch_id`
-- `active_turn_id`
+- `latest_active_turn_id`
 - `latest_turn_id`
-- `active_workflow_run_id`
+- `latest_active_workflow_run_id`
 - `latest_message_id`
 - `last_activity_at`
 
@@ -233,11 +233,25 @@ This allows conversation-level app surfaces to answer:
 - who owns the conversation
 - which workspace and agent it belongs to
 - what its current runtime is
-- which turn is current
-- which workflow run is current
+- which active turn should be treated as the current read anchor under the
+  existing multi-active semantics
+- which active workflow run should be treated as the current read anchor under
+  the existing multi-active semantics
 - which message is the latest visible anchor
 
 without reconstructing that state through subordinate tables.
+
+The naming matters here. The current codebase still permits multiple active
+turns or workflow runs to coexist long enough for blocker accounting and
+recovery flows to observe them. This schema pass should therefore not introduce
+an accidental single-active invariant by naming these columns
+`active_turn_id` / `active_workflow_run_id` unless the project explicitly
+changes that business rule in a later pass. The safe first-step fields are
+`latest_active_turn_id` and `latest_active_workflow_run_id`.
+
+Implementation should use that naming consistently across schema, model
+associations, service APIs, query objects, tests, and behavior documentation.
+Do not mix `active_*` and `latest_active_*` names for the same concept.
 
 ### `Turn`
 
@@ -340,9 +354,14 @@ Access depends on:
 
 - `installation_id`
 - `user_id = current_user.id`
+- the same `Agent` usability semantics that currently gate bound workspaces
 
-At this phase, workspace access should not be reconstructed through agent
-visibility.
+At this phase, workspace access should no longer be reconstructed through
+`UserAgentBinding`, but it must continue to honor the current rule that a
+workspace disappears when its logical `Agent` is no longer usable by that user.
+The structural goal is to collapse that rule into a direct workspace boundary,
+or at worst a one-join SQL boundary through `workspaces.agent_id`, not to relax
+the rule itself.
 
 #### `Conversation`
 
@@ -351,9 +370,13 @@ Access depends on:
 - `installation_id`
 - `user_id = current_user.id`
 - `deletion_state = retained`
+- the same `Agent` usability semantics that currently gate the owning
+  workspace/conversation pair
 
 Again, this preserves the current owner-bound conversation semantics while
-removing the join-heavy enforcement path.
+removing the join-heavy enforcement path. It must not widen access beyond what
+the current `ResourceVisibility::Usability` and app-surface policy chain allow
+today.
 
 ## Schema Changes
 
@@ -410,14 +433,28 @@ Recommended indexes:
 - `(installation_id, user_id, agent_id, name, id)`
 - `(installation_id, user_id, is_default, updated_at)`
 
+Default workspace semantics should remain explicitly modeled at the app-facing
+boundary, but the contract should move off `UserAgentBinding`.
+
+- keep the existing `default_workspace_ref` API shape with `virtual` and
+  `materialized` states
+- resolve that reference from `(installation_id, user_id, agent_id)` rather
+  than from a binding row
+- keep read paths non-materializing: `agent home` and workspace list should be
+  able to return a virtual default reference without creating a row
+- reserve real default workspace creation for substantive write paths such as
+  explicit materialization or conversation creation
+- make default workspace uniqueness a workspace-native invariant, not a binding
+  invariant
+
 #### `conversations`
 
 Add:
 
 - `user_id`
-- `active_turn_id`
+- `latest_active_turn_id`
 - `latest_turn_id`
-- `active_workflow_run_id`
+- `latest_active_workflow_run_id`
 - `latest_message_id`
 - `last_activity_at`
 
@@ -482,6 +519,7 @@ Add:
 
 - `user_id`
 - `workspace_id`
+- `agent_id`
 - recommended: `execution_runtime_id`
 
 #### `conversation_supervision_states`
@@ -491,7 +529,7 @@ Add:
 - `user_id`
 - `workspace_id`
 - `agent_id`
-- optional: `active_turn_id`
+- optional: `latest_active_turn_id`
 
 #### `conversation_supervision_feed_entries`
 
@@ -505,6 +543,64 @@ Recommended indexes:
 
 - `(installation_id, user_id, occurred_at)`
 - `(target_conversation_id, target_turn_id, sequence)`
+
+#### `subagent_connections`
+
+Add:
+
+- `user_id`
+- `workspace_id`
+- `agent_id`
+
+This table is a durable delegated-control aggregate and participates directly in
+blocker accounting, conversation control targeting, and supervision summaries.
+It should therefore not be left outside the owner/context denormalization pass.
+
+#### `conversation_control_requests`
+
+Add:
+
+- `user_id`
+- `workspace_id`
+- `agent_id`
+
+This table is a durable bounded-audit control aggregate. Guidance history,
+control projections, and supervision-side auditing already read it directly, so
+it should carry owner/context columns like the other runtime control tables.
+
+#### `conversation_supervision_sessions`
+
+Add:
+
+- `user_id`
+- `workspace_id`
+- `agent_id`
+
+These are app-facing session records inside the supervision/control surface and
+should not require conversation joins for basic ownership filtering.
+
+#### `conversation_supervision_messages`
+
+Add:
+
+- `user_id`
+- `workspace_id`
+- `agent_id`
+
+These are persisted supervision artifacts within the same control surface and
+should be denormalized together with sessions rather than left to a later pass.
+
+#### `conversation_supervision_snapshots`
+
+Add:
+
+- `user_id`
+- `workspace_id`
+- `agent_id`
+
+These snapshots are still ephemeral observability artifacts, but they are part
+of the same persisted supervision conversation and should stay in scope with
+sessions and messages for ownership filtering and retention correctness.
 
 ### Should-change tables in the same pass if feasible
 
@@ -572,6 +668,14 @@ owner-bound boundary tables. The first optimization pass should therefore keep
 These tables already carry several useful dimensions. They are not part of the
 main structural bottleneck and should not be the center of this schema pass
 unless runtime-level usage analysis becomes an immediate product need.
+
+#### `conversation_events`
+
+These rows are already conversation-keyed operational projections rather than a
+cross-workspace listing surface in the current app API. They may remain
+conversation-scoped in this pass, but that choice should be explicit so future
+work can revisit them if a global event board or owner-wide event search
+appears.
 
 ## Wide-Row and Hot-Path Split Policy
 
@@ -935,15 +1039,20 @@ These columns should not drift after creation.
 
 These evolve during execution:
 
-- `conversations.active_turn_id`
+- `conversations.latest_active_turn_id`
 - `conversations.latest_turn_id`
-- `conversations.active_workflow_run_id`
+- `conversations.latest_active_workflow_run_id`
 - `conversations.latest_message_id`
 - `conversations.last_activity_at`
 - `agents.current_agent_definition_version_id`
 - `execution_runtimes.current_execution_runtime_version_id`
 
 These must be maintained by explicit write services inside transactions.
+
+These are anchors, not new business invariants. Unless a later design pass
+explicitly enforces one-active-turn / one-active-workflow semantics, these
+columns should always mean "the latest active record that current app surfaces
+should anchor to", not "the only active record that may exist".
 
 ## Transaction Rules
 
@@ -962,6 +1071,11 @@ transactional path that writes:
 
 The database unique constraint must be allowed to resolve concurrent creation
 attempts safely.
+
+The app-facing `default_workspace_ref` contract should remain available without
+forcing that transaction on read paths. It should be resolved from
+`(installation_id, user_id, agent_id)` and may still return `state = virtual`
+until a substantive write path materializes the workspace row.
 
 ### Conversation creation
 
@@ -1012,9 +1126,14 @@ structure rather than business logic.
 - `ResourceVisibility::Usability` as a hot-path access mechanism
 - app-surface query objects that still depend on `UserAgentBinding` for
   ownership reconstruction
+- `Workspaces::BuildDefaultReference` as a binding-backed resolver
 
 `ResourceVisibility::Usability` may still remain for low-frequency assertions
 or tests, but it should not remain the primary production access boundary.
+
+The replacement for binding-backed default workspace lookup should be a direct
+workspace-native resolver keyed by `(installation_id, user_id, agent_id)` that
+preserves the existing `virtual/materialized` response contract.
 
 ## Testing Requirements
 
@@ -1028,6 +1147,10 @@ Request and API tests should keep confirming that:
 - `public_id`-based access semantics remain unchanged
 - inaccessible private resources still return `not_found`
 - retained/deleted visibility behavior remains unchanged
+- workspaces and conversations still disappear when their logical `Agent`
+  becomes unusable under the current visibility rules
+- `default_workspace_ref` still returns the same `virtual/materialized`
+  contract after the binding-backed implementation is removed
 
 ### 2. Database invariant tests
 
@@ -1058,6 +1181,7 @@ Required focus areas:
 - conversation creation with first turn, first message, first workflow, and
   conversation current-state pointers
 - runtime progression that updates current-state conversation anchors
+- header/detail or document-backed split writes for wide hot tables
 
 Tests should prove that these writes either commit together or roll back
 together, with no durable half-updated boundary state.
@@ -1077,10 +1201,18 @@ The recommended implementation path is:
 1. restructure the center schema around `Workspace` and `Conversation`
 2. propagate owner and execution context into `Turn` and selected runtime
    tables
-3. replace Ruby-side hot-path access filtering with SQL boundary lookups
-4. treat denormalized columns as structural truth with explicit transactional
+3. include delegated-control and supervision-control aggregates such as
+   `SubagentConnection` and `ConversationControlRequest` in the same ownership
+   pass
+4. replace Ruby-side hot-path access filtering with SQL boundary lookups
+   without relaxing the current agent-usability semantics
+5. preserve the current `default_workspace_ref` contract while replacing the
+   binding-backed implementation with a workspace-native resolver
+6. treat denormalized columns as structural truth with explicit transactional
    ownership
-5. use tests to lock down contract, invariants, query budgets, and atomicity
+7. update the affected behavior documents so the landed structure and the
+   written product semantics stay aligned
+8. use tests to lock down contract, invariants, query budgets, and atomicity
 
 This keeps current business rules intact while giving Core Matrix a better base
 schema for a larger app API and future UI integration.
@@ -1093,8 +1225,11 @@ schema for a larger app API and future UI integration.
   and `Turn`
 - current-version pointers on `Agent` and `ExecutionRuntime`
 - owner/context dimensions on key runtime and supervision tables
+- owner/context dimensions on delegated-control and supervision-control
+  aggregates
 - SQL-first access boundaries
 - transaction-owned synchronization rules
+- behavior-doc synchronization for every affected surfaced rule or aggregate
 
 ### Explicitly not a focus in this revision
 
