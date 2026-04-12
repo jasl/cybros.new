@@ -7,10 +7,11 @@ module EmbeddedAgents
         new(...).call
       end
 
-      def initialize(actor:, conversation_supervision_session:, content:)
+      def initialize(actor:, conversation_supervision_session:, content:, supervision_access: nil)
         @actor = actor
         @conversation_supervision_session = conversation_supervision_session
         @content = content
+        @supervision_access = supervision_access
       end
 
       def call
@@ -18,13 +19,9 @@ module EmbeddedAgents
         target_conversation = @conversation_supervision_session.target_conversation
         raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if target_conversation.blank?
         target_conversation = target_conversation.reload
-        authority = Authority.call(
-          actor: @actor,
-          conversation_id: target_conversation.public_id
-        )
-        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "conversation supervision is not enabled" unless authority.side_chat_enabled?
-        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "not allowed to supervise conversation" unless authority.allowed?
-        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "not allowed to append to supervision session" unless initiator_matches_actor?
+        supervision_access = resolved_supervision_access
+        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "conversation supervision is not enabled" unless supervision_access.side_chat_enabled?
+        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "not allowed to supervise conversation" unless supervision_access.append_message?
         raise EmbeddedAgents::Errors::ClosedSupervisionSession, "supervision session is closed" unless @conversation_supervision_session.open?
 
         control_decision = MaybeDispatchControlIntent.call(
@@ -35,7 +32,8 @@ module EmbeddedAgents
         snapshot = with_deadlock_retry do
           BuildSnapshot.call(
             actor: @actor,
-            conversation_supervision_session: @conversation_supervision_session
+            conversation_supervision_session: @conversation_supervision_session,
+            supervision_access: supervision_access
           )
         end
         responder_output = respond(snapshot, control_decision:)
@@ -70,12 +68,11 @@ module EmbeddedAgents
         end
       end
 
-      def initiator_matches_actor?
-        session_initiator = @conversation_supervision_session.initiator
-        return false if session_initiator.blank? || @actor.blank?
-        return false unless session_initiator.class == @actor.class
-
-        session_initiator.id == @actor.id
+      def resolved_supervision_access
+        @supervision_access || AppSurface::Policies::ConversationSupervisionAccess.call(
+          user: @actor,
+          conversation_supervision_session: @conversation_supervision_session
+        )
       end
 
       def create_user_message(snapshot)

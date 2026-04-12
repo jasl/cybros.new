@@ -8,14 +8,14 @@ module AppAPI
         prompt_cache_status: "available"
       ).sum(:input_tokens)
 
-      render json: {
+      render_method_response(
         method_id: "conversation_diagnostics_show",
         conversation_id: conversation.public_id,
         snapshot: serialize_conversation_diagnostics_snapshot(
           snapshot,
           available_prompt_cache_input_tokens_total: available_prompt_cache_input_tokens_total
         ),
-      }
+      )
     end
 
     def turns
@@ -30,7 +30,7 @@ module AppAPI
         .group(:turn_id)
         .sum(:input_tokens)
 
-      render json: {
+      render_method_response(
         method_id: "conversation_diagnostics_turns",
         conversation_id: conversation.public_id,
         items: snapshots.map do |snapshot|
@@ -39,7 +39,7 @@ module AppAPI
             available_prompt_cache_input_tokens_total: available_prompt_cache_input_tokens_by_turn.fetch(snapshot.turn_id, 0)
           )
         end,
-      }
+      )
     end
 
     private

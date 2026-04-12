@@ -28,43 +28,40 @@ module EmbeddedAgents
 
       def call
         @conversation = resolve_conversation
-        @policy = @conversation.conversation_capability_policy
+        @access = AppSurface::Policies::ConversationSupervisionAccess.call(
+          user: actor,
+          conversation: @conversation
+        )
+        @policy = @access.policy
         self
       end
 
       def allowed?
-        accessible? && owner_on_own_conversation?
+        accessible?
       end
 
       def accessible?
-        return false if actor.blank? || conversation.blank?
-        return false unless actor.respond_to?(:installation_id)
-
-        ResourceVisibility::Usability.conversation_accessible_by_user?(user: actor, conversation: conversation)
+        @access.read?
       end
 
       def supervision_enabled?
-        policy&.supervision_enabled?
+        @access.supervision_enabled?
       end
 
       def side_chat_enabled?
-        supervision_enabled? && policy&.side_chat_enabled?
+        @access.side_chat_enabled?
       end
 
       def detailed_progress_enabled?
-        return false unless supervision_enabled?
-
-        policy&.detailed_progress_enabled?
+        @access.detailed_progress_enabled?
       end
 
       def control_enabled?
-        side_chat_enabled? && policy&.control_enabled?
+        @access.control_enabled?
       end
 
       def available_control_verbs
-        return [] unless control_enabled?
-
-        CONTROL_VERBS
+        @access.available_control_verbs
       end
 
       private
@@ -89,13 +86,6 @@ module EmbeddedAgents
         Conversation.find_by_public_id!(public_id)
       rescue ActiveRecord::RecordNotFound
         raise EmbeddedAgents::Errors::InvalidTargetIdentifier, "conversation_id must use public ids"
-      end
-
-      def owner_on_own_conversation?
-        return false unless actor.respond_to?(:id)
-        return false unless conversation.respond_to?(:workspace) && conversation.workspace.present?
-
-        actor.id == conversation.workspace.user_id
       end
     end
   end

@@ -8,6 +8,27 @@
 
 **Tech Stack:** Ruby on Rails, Hotwire Turbo, Stimulus, Tailwind CSS 4, daisyUI 5, tailwindcss-motion, ActionCable, Minitest, Rails system tests, VitePress guides
 
+## Current Status
+
+As of 2026-04-12, the plan is no longer at day-zero.
+
+- Phase 1 is complete.
+- Task 5, Task 6, and Task 7 are complete and committed.
+- The first Task 8 admin read slice is already in progress in the working tree:
+  - `installation`
+  - `agents`
+  - `execution_runtimes`
+  - `onboarding_sessions`
+- Contract-debt cleanup Batch A and Batch B are already implemented in the
+  working tree and should be kept ahead of the remaining Task 8 breadth.
+- Batch C design decisions are approved. The remaining Phase 2 implementation
+  work is now:
+  - complete `llm_providers`
+  - complete `audit_entries`
+  - add user-domain `workspace_policies`
+  - finalize app-facing event contracts
+  - repoint end-user/operator acceptance to the app surface
+
 ---
 
 ## Phase 1: Foundation Reset
@@ -19,10 +40,10 @@
 - Modify: `core_matrix/app/controllers/agent_api/base_controller.rb`
 - Modify: `core_matrix/app/controllers/execution_runtime_api/base_controller.rb`
 - Modify: `core_matrix/app/controllers/app_api/base_controller.rb`
-- Create: `core_matrix/app/controllers/api_error_rendering.rb`
-- Create: `core_matrix/app/controllers/session_authentication.rb`
-- Create: `core_matrix/app/controllers/installation_scoped_lookup.rb`
-- Create: `core_matrix/app/controllers/machine_api_support.rb`
+- Create: `core_matrix/app/controllers/concerns/api_error_rendering.rb`
+- Create: `core_matrix/app/controllers/concerns/session_authentication.rb`
+- Create: `core_matrix/app/controllers/concerns/installation_scoped_lookup.rb`
+- Create: `core_matrix/app/controllers/concerns/machine_api_support.rb`
 - Create: `core_matrix/test/requests/app_api/authentication_test.rb`
 - Modify: `core_matrix/test/requests/agent_api/registrations_test.rb`
 - Modify: `core_matrix/test/requests/execution_runtime_api/registrations_test.rb`
@@ -98,7 +119,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/app/controllers/application_controller.rb core_matrix/app/controllers/agent_api/base_controller.rb core_matrix/app/controllers/execution_runtime_api/base_controller.rb core_matrix/app/controllers/app_api/base_controller.rb core_matrix/app/controllers/api_error_rendering.rb core_matrix/app/controllers/session_authentication.rb core_matrix/app/controllers/installation_scoped_lookup.rb core_matrix/app/controllers/machine_api_support.rb core_matrix/test/requests/app_api/authentication_test.rb core_matrix/test/requests/agent_api/registrations_test.rb core_matrix/test/requests/execution_runtime_api/registrations_test.rb
+git add core_matrix/app/controllers/application_controller.rb core_matrix/app/controllers/agent_api/base_controller.rb core_matrix/app/controllers/execution_runtime_api/base_controller.rb core_matrix/app/controllers/app_api/base_controller.rb core_matrix/app/controllers/concerns/api_error_rendering.rb core_matrix/app/controllers/concerns/session_authentication.rb core_matrix/app/controllers/concerns/installation_scoped_lookup.rb core_matrix/app/controllers/concerns/machine_api_support.rb core_matrix/test/requests/app_api/authentication_test.rb core_matrix/test/requests/agent_api/registrations_test.rb core_matrix/test/requests/execution_runtime_api/registrations_test.rb
 git commit -m "refactor: split human and machine api foundations"
 ```
 
@@ -283,7 +304,6 @@ git commit -m "refactor: make default workspaces lazy"
 - Modify: `core_matrix/app/services/conversation_runtime/broadcast.rb`
 - Modify: `core_matrix/app/services/conversation_runtime/stream_name.rb`
 - Create: `core_matrix/app/channels/workbench_channel.rb`
-- Create: `core_matrix/app/services/conversation_runtime/authorize_subscription.rb`
 - Create: `core_matrix/app/services/conversation_runtime/build_app_event.rb`
 - Modify: `core_matrix/test/channels/application_cable/connection_test.rb`
 - Create: `core_matrix/test/channels/workbench_channel_test.rb`
@@ -324,7 +344,15 @@ Teach the cable connection to identify `current_session` and `current_user`, the
 ```ruby
 class WorkbenchChannel < ApplicationCable::Channel
   def subscribed
-    conversation = authorize_subscription!(params.fetch("conversation_id"))
+    conversation = Conversation.find_by!(
+      public_id: params.fetch("conversation_id"),
+      installation_id: current_user.installation_id,
+      deletion_state: "retained"
+    )
+    reject and return unless AppSurface::Policies::ConversationAccess.call(
+      user: current_user,
+      conversation: conversation
+    )
     stream_from ConversationRuntime::StreamName.for_app_conversation(conversation)
   end
 end
@@ -351,7 +379,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/app/channels/application_cable/connection.rb core_matrix/app/channels/workbench_channel.rb core_matrix/app/services/conversation_runtime/broadcast.rb core_matrix/app/services/conversation_runtime/stream_name.rb core_matrix/app/services/conversation_runtime/authorize_subscription.rb core_matrix/app/services/conversation_runtime/build_app_event.rb core_matrix/test/channels/application_cable/connection_test.rb core_matrix/test/channels/workbench_channel_test.rb core_matrix/test/services/conversation_runtime/publish_event_test.rb
+git add core_matrix/app/channels/application_cable/connection.rb core_matrix/app/channels/workbench_channel.rb core_matrix/app/services/conversation_runtime/broadcast.rb core_matrix/app/services/conversation_runtime/stream_name.rb core_matrix/app/services/conversation_runtime/build_app_event.rb core_matrix/test/channels/application_cable/connection_test.rb core_matrix/test/channels/workbench_channel_test.rb core_matrix/test/services/conversation_runtime/publish_event_test.rb
 git commit -m "feat: add user-authenticated realtime foundations"
 ```
 
@@ -616,7 +644,195 @@ git add core_matrix/config/routes.rb core_matrix/app/controllers/app_api/convers
 git commit -m "feat: add workbench app api actions and projections"
 ```
 
-### Task 8: Build Admin `app_api` Surfaces
+### Task 8: Extend Admin `app_api` Surfaces And Finish Batch C Resources
+
+Before broadening Task 8 beyond the already-started `installation / agents /
+execution_runtimes / onboarding_sessions` slice, finish the contract-debt
+cleanup batches below. These cleanup items are now higher priority than adding
+more app-surface breadth because they directly affect authorization,
+payload-shape consistency, and the remaining admin resource design.
+
+#### Contract-Debt Cleanup Gate
+
+##### Batch A: Remove Duplicate Product Authorization In App-Facing Supervision
+
+**Files:**
+- Modify: `core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversation_supervision_messages_controller.rb`
+- Create: `core_matrix/app/services/app_surface/policies/conversation_supervision_access.rb`
+- Modify: `core_matrix/app/services/embedded_agents/conversation_supervision/authority.rb`
+- Modify: `core_matrix/app/services/embedded_agents/conversation_supervision/create_session.rb`
+- Modify: `core_matrix/app/services/embedded_agents/conversation_supervision/append_message.rb`
+- Modify: `core_matrix/app/services/embedded_agents/conversation_supervision/build_snapshot.rb`
+- Modify: `core_matrix/app/services/embedded_agents/conversation_supervision/close_session.rb`
+- Delete: `core_matrix/app/services/conversation_runtime/authorize_subscription.rb` if it is no longer used after user-authenticated channel authorization lands
+- Create: `core_matrix/test/services/app_surface/policies/conversation_supervision_access_test.rb`
+
+**Goal:**
+
+Make app-surface authorization the single source of truth for supervision
+flows. Controllers should resolve and authorize the user against a single
+supervision access object. Downstream services may consume that resolved
+authority/capability object, but should not recompute the same end-user
+authorization again.
+
+Keep business invariants in the service layer:
+
+- session lifecycle checks
+- capability checks such as `side_chat_enabled?` / `control_enabled?`
+- initiator/session consistency where still needed
+
+##### Batch B: Unify Remaining Legacy `app_api` Endpoints On `MethodResponse`
+
+**Files:**
+- Modify: `core_matrix/app/controllers/app_api/conversation_export_requests_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversation_debug_export_requests_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversation_bundle_import_requests_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversation_turn_feeds_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversation_diagnostics_controller.rb`
+- Create: `core_matrix/test/controllers/app_api_method_response_layout_test.rb`
+
+**Goal:**
+
+Remove the remaining ad-hoc JSON response shapes from `app_api` so all
+app-surface endpoints use the same `MethodResponse` contract before more admin
+resources or SSR UI consume them.
+
+Batch A and Batch B are already implemented in the current working tree.
+Until they are committed, keep them inside the same verification window as the
+remaining Task 8 breadth so the cleanup and the new Batch C resources land as
+one coherent app-surface step.
+
+##### Batch C: Nail Down The Remaining Admin Resource Boundaries
+
+**Goal:**
+
+The Batch C contract decisions are approved and should drive the remaining
+Phase 2 implementation:
+
+- `llm_providers`
+  - admin resource keyed by effective provider-catalog handle
+  - composite of catalog definition plus installation-scoped overlays
+  - supports lazy overlay creation
+  - supports mixed read/write endpoints
+  - supports asynchronous connection testing that keeps only the latest result
+  - supports specialized OAuth actions for `codex_subscription`
+  - requires an installation-scoped latest connection-test record
+  - requires a transient provider authorization session/state carrier for
+    OAuth-backed providers
+- `workspace_policies`
+  - moved out of admin domain into user-facing `app_api/workspaces/:id/policies`
+  - represents workspace settings plus deny-only capability overlay
+  - may only disable capabilities exposed by the agent metadata
+  - affects only newly created conversations
+  - requires a workspace-scoped persisted overlay
+  - requires projection into new conversation capability state when a
+    conversation is created
+  - still needs a canonical end-user capability vocabulary, including the
+    approved `Fenix` defaults for `regenerate` and `swipe`
+- `audit_entries`
+  - admin read-only human operation audit stream
+  - excludes system/diagnostic event streams
+
+##### Task 8A: Add `codex_subscription` Authorization And OAuth Credential Lifecycle
+
+**Goal:**
+
+Land the only currently-approved provider-specific auth flow before the rest
+of the `llm_providers` breadth so the generic provider resource can expose a
+stable authorization state shape from the start.
+
+Approved rules:
+
+- use `AppAPI::Admin::LLMProviders::CodexSubscription::AuthorizationsController`
+- use the `LLMProviders` Ruby namespace consistently for provider-family
+  controllers and services; Rails paths remain `llm_providers/*`
+- use a singular resource:
+  - `GET /app_api/admin/llm_providers/codex_subscription/authorization`
+  - `POST /app_api/admin/llm_providers/codex_subscription/authorization`
+  - `DELETE /app_api/admin/llm_providers/codex_subscription/authorization`
+  - `GET /app_api/admin/llm_providers/codex_subscription/authorization/callback`
+- if `codex_subscription` is disabled in the effective catalog, these routes
+  return `404`
+- UI may poll or manually refresh authorization state
+- OAuth credential refresh happens automatically on demand before model
+  requests use an expired token
+- automatic refresh failure should surface as:
+  - `enabled=true`
+  - `reauthorization_required=true`
+  - `usable=false`
+
+**Files:**
+- Modify: `core_matrix/config/routes.rb`
+- Modify: `core_matrix/app/models/provider_credential.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/llm_providers/codex_subscription/authorizations_controller.rb`
+- Create: `core_matrix/app/models/provider_authorization_session.rb`
+- Create: `core_matrix/app/services/provider_authorization_sessions/issue.rb`
+- Create: `core_matrix/app/services/provider_authorization_sessions/resolve_from_state.rb`
+- Create: `core_matrix/app/services/provider_authorization_sessions/complete_codex_callback.rb`
+- Create: `core_matrix/app/services/provider_credentials/refresh_oauth_credential.rb`
+- Modify: `core_matrix/app/services/provider_gateway/dispatch_text.rb`
+- Modify: `core_matrix/app/services/provider_execution/dispatch_request.rb`
+- Create: `core_matrix/db/migrate/*_add_oauth_fields_to_provider_credentials.rb`
+- Create: `core_matrix/db/migrate/*_create_provider_authorization_sessions.rb`
+- Modify: `core_matrix/db/schema.rb`
+- Create: `core_matrix/test/requests/app_api/admin/llm_providers/codex_subscription/authorizations_test.rb`
+- Create: `core_matrix/test/models/provider_authorization_session_test.rb`
+- Create: `core_matrix/test/services/provider_authorization_sessions/issue_test.rb`
+- Create: `core_matrix/test/services/provider_authorization_sessions/complete_codex_callback_test.rb`
+- Create: `core_matrix/test/services/provider_credentials/refresh_oauth_credential_test.rb`
+
+**Step 1: Write the failing request and service tests**
+
+Add coverage that proves:
+
+- the singular authorization resource exists only for `codex_subscription`
+- disabled `codex_subscription` returns `404`
+- authorization creation returns an `authorization_url`
+- callback completion persists encrypted OAuth tokens on `ProviderCredential`
+- on-demand refresh updates the credential before expired OAuth requests are
+  dispatched
+
+**Step 2: Run the focused tests to verify failure**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test test/requests/app_api/admin/llm_providers/codex_subscription/authorizations_test.rb test/models/provider_authorization_session_test.rb test/services/provider_authorization_sessions/issue_test.rb test/services/provider_authorization_sessions/complete_codex_callback_test.rb test/services/provider_credentials/refresh_oauth_credential_test.rb
+```
+
+Expected: FAIL because the specialized controller, authorization session, and
+OAuth credential lifecycle do not exist yet.
+
+**Step 3: Implement the specialized authorization surface**
+
+Keep final token material on `ProviderCredential`, not in authorization-session
+metadata:
+
+- `secret` remains for API-key style credentials
+- add encrypted `access_token` and `refresh_token`
+- add plaintext lifecycle timestamps such as `expires_at`,
+  `last_refreshed_at`, and `refresh_failed_at`
+- keep `metadata` non-sensitive
+
+Route provider execution through the new refresh service before using
+`oauth_codex` credentials in either `ProviderGateway::DispatchText` or
+`ProviderExecution::DispatchRequest`.
+
+**Step 4: Run the tests to verify they pass**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:test:prepare
+bin/rails test test/requests/app_api/admin/llm_providers/codex_subscription/authorizations_test.rb test/models/provider_authorization_session_test.rb test/services/provider_authorization_sessions/issue_test.rb test/services/provider_authorization_sessions/complete_codex_callback_test.rb test/services/provider_credentials/refresh_oauth_credential_test.rb
+```
+
+Expected: PASS.
+
+##### Task 8B: Implement The Remaining Admin And User Configuration Surfaces
 
 **Files:**
 - Modify: `core_matrix/config/routes.rb`
@@ -625,25 +841,51 @@ git commit -m "feat: add workbench app api actions and projections"
 - Create: `core_matrix/app/controllers/app_api/admin/agents_controller.rb`
 - Create: `core_matrix/app/controllers/app_api/admin/execution_runtimes_controller.rb`
 - Create: `core_matrix/app/controllers/app_api/admin/onboarding_sessions_controller.rb`
-- Create: `core_matrix/app/controllers/app_api/admin/workspace_policies_controller.rb`
-- Create: `core_matrix/app/controllers/app_api/admin/provider_accounts_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/llm_providers_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/llm_providers/credentials_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/llm_providers/policies_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/llm_providers/entitlements_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/admin/llm_providers/connection_tests_controller.rb`
 - Create: `core_matrix/app/controllers/app_api/admin/audit_entries_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/workspace_policies_controller.rb`
+- Create: `core_matrix/app/models/provider_connection_check.rb`
+- Create: `core_matrix/app/models/workspace_policy.rb`
 - Create: `core_matrix/app/services/app_surface/queries/admin/installation_overview.rb`
 - Create: `core_matrix/app/services/app_surface/queries/admin/list_agents.rb`
 - Create: `core_matrix/app/services/app_surface/queries/admin/list_execution_runtimes.rb`
 - Create: `core_matrix/app/services/app_surface/queries/admin/list_onboarding_sessions.rb`
+- Create: `core_matrix/app/services/app_surface/queries/admin/list_llm_providers.rb`
+- Create: `core_matrix/app/services/app_surface/queries/admin/show_llm_provider.rb`
+- Create: `core_matrix/app/services/app_surface/queries/admin/list_audit_entries.rb`
+- Create: `core_matrix/app/services/provider_connection_checks/upsert_latest.rb`
+- Create: `core_matrix/app/services/workspace_policies/upsert.rb`
+- Modify: `core_matrix/app/services/workbench/create_conversation_from_agent.rb`
+- Modify: `core_matrix/app/services/conversations/create_root.rb`
+- Modify: `core_matrix/app/services/conversations/creation_support.rb`
+- Create: `core_matrix/db/migrate/*_create_provider_connection_checks.rb`
+- Create: `core_matrix/db/migrate/*_create_workspace_policies.rb`
+- Modify: `core_matrix/db/schema.rb`
 - Create: `core_matrix/test/requests/app_api/admin/installations_test.rb`
 - Create: `core_matrix/test/requests/app_api/admin/agents_test.rb`
 - Create: `core_matrix/test/requests/app_api/admin/execution_runtimes_test.rb`
 - Create: `core_matrix/test/requests/app_api/admin/onboarding_sessions_test.rb`
+- Create: `core_matrix/test/requests/app_api/admin/llm_providers_test.rb`
+- Create: `core_matrix/test/requests/app_api/admin/audit_entries_test.rb`
+- Create: `core_matrix/test/requests/app_api/workspace_policies_test.rb`
+- Create: `core_matrix/test/models/provider_connection_check_test.rb`
+- Create: `core_matrix/test/models/workspace_policy_test.rb`
+- Modify: `core_matrix/test/services/workbench/create_conversation_from_agent_test.rb`
 
-**Step 1: Write the failing admin request tests**
+**Step 1: Write the failing request tests for the remaining Batch C resources**
 
 Add request coverage that proves:
 
 - admin endpoints require an admin user
 - runtime and agent onboarding sessions are surfaced through the same resource family
 - admin JSON uses `public_id` and stable method IDs
+- `llm_providers` is catalog-backed and readable even before overlay rows exist
+- `workspace_policies` is user-facing rather than admin-facing
+- `audit_entries` excludes machine/system diagnostic records
 
 ```ruby
 test "non-admin cannot list onboarding sessions" do
@@ -659,12 +901,17 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/requests/app_api/admin/installations_test.rb test/requests/app_api/admin/agents_test.rb test/requests/app_api/admin/execution_runtimes_test.rb test/requests/app_api/admin/onboarding_sessions_test.rb
+bin/rails test test/requests/app_api/admin/installations_test.rb test/requests/app_api/admin/agents_test.rb test/requests/app_api/admin/execution_runtimes_test.rb test/requests/app_api/admin/onboarding_sessions_test.rb test/requests/app_api/admin/llm_providers_test.rb test/requests/app_api/admin/audit_entries_test.rb test/requests/app_api/workspace_policies_test.rb
 ```
 
-Expected: FAIL because no admin `app_api` surface exists.
+Expected:
 
-**Step 3: Implement the admin app surface**
+- the already-started `installation / agents / execution_runtimes /
+  onboarding_sessions` slice may pass
+- the new `llm_providers`, `audit_entries`, and `workspace_policies` tests
+  should fail until the remaining Batch C resources are implemented
+
+**Step 3: Implement the remaining admin and user configuration surfaces**
 
 Keep the browser-facing admin layer on top of product resources:
 
@@ -678,6 +925,9 @@ render json: AppSurface::MethodResponse.call(
 Do not leak raw registration or heartbeat endpoints into admin JSON.
 Use the same app-surface policy layer from Task 5 so admin authorization stays consistent between controllers, queries, and app-facing channels.
 
+Complete Batch A and Batch B before implementing the remaining admin resources
+that depended on the Batch C design decisions.
+
 **Step 4: Run the tests to verify they pass**
 
 Run:
@@ -685,7 +935,7 @@ Run:
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/rails db:test:prepare
-bin/rails test test/requests/app_api/admin/installations_test.rb test/requests/app_api/admin/agents_test.rb test/requests/app_api/admin/execution_runtimes_test.rb test/requests/app_api/admin/onboarding_sessions_test.rb
+bin/rails test test/services/app_surface/policies/conversation_supervision_access_test.rb test/services/embedded_agents/conversation_supervision/authority_test.rb test/services/embedded_agents/conversation_supervision/create_session_test.rb test/services/embedded_agents/conversation_supervision/append_message_test.rb test/services/embedded_agents/conversation_supervision/close_session_test.rb test/requests/app_api/conversation_supervision_sessions_test.rb test/requests/app_api/conversation_supervision_messages_test.rb test/controllers/app_api_method_response_layout_test.rb test/requests/app_api/conversation_export_requests_test.rb test/requests/app_api/conversation_debug_export_requests_test.rb test/requests/app_api/conversation_bundle_import_requests_test.rb test/requests/app_api/conversation_turn_feeds_controller_test.rb test/requests/app_api/conversation_diagnostics_test.rb test/requests/app_api/admin/installations_test.rb test/requests/app_api/admin/agents_test.rb test/requests/app_api/admin/execution_runtimes_test.rb test/requests/app_api/admin/onboarding_sessions_test.rb test/requests/app_api/admin/llm_providers_test.rb test/requests/app_api/admin/audit_entries_test.rb test/requests/app_api/workspace_policies_test.rb
 ```
 
 Expected: PASS.
@@ -694,8 +944,9 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/config/routes.rb core_matrix/app/controllers/app_api/admin/base_controller.rb core_matrix/app/controllers/app_api/admin/installations_controller.rb core_matrix/app/controllers/app_api/admin/agents_controller.rb core_matrix/app/controllers/app_api/admin/execution_runtimes_controller.rb core_matrix/app/controllers/app_api/admin/onboarding_sessions_controller.rb core_matrix/app/controllers/app_api/admin/workspace_policies_controller.rb core_matrix/app/controllers/app_api/admin/provider_accounts_controller.rb core_matrix/app/controllers/app_api/admin/audit_entries_controller.rb core_matrix/app/services/app_surface/queries/admin/installation_overview.rb core_matrix/app/services/app_surface/queries/admin/list_agents.rb core_matrix/app/services/app_surface/queries/admin/list_execution_runtimes.rb core_matrix/app/services/app_surface/queries/admin/list_onboarding_sessions.rb core_matrix/test/requests/app_api/admin/installations_test.rb core_matrix/test/requests/app_api/admin/agents_test.rb core_matrix/test/requests/app_api/admin/execution_runtimes_test.rb core_matrix/test/requests/app_api/admin/onboarding_sessions_test.rb
-git commit -m "feat: add admin app api surfaces"
+git add core_matrix/config/routes.rb core_matrix/app/controllers/app_api/conversation_export_requests_controller.rb core_matrix/app/controllers/app_api/conversation_debug_export_requests_controller.rb core_matrix/app/controllers/app_api/conversation_bundle_import_requests_controller.rb core_matrix/app/controllers/app_api/conversation_turn_feeds_controller.rb core_matrix/app/controllers/app_api/conversation_diagnostics_controller.rb core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb core_matrix/app/controllers/app_api/conversation_supervision_messages_controller.rb core_matrix/app/controllers/app_api/admin/base_controller.rb core_matrix/app/controllers/app_api/admin/installations_controller.rb core_matrix/app/controllers/app_api/admin/agents_controller.rb core_matrix/app/controllers/app_api/admin/execution_runtimes_controller.rb core_matrix/app/controllers/app_api/admin/onboarding_sessions_controller.rb core_matrix/app/controllers/app_api/admin/llm_providers_controller.rb core_matrix/app/controllers/app_api/admin/llm_providers/credentials_controller.rb core_matrix/app/controllers/app_api/admin/llm_providers/policies_controller.rb core_matrix/app/controllers/app_api/admin/llm_providers/entitlements_controller.rb core_matrix/app/controllers/app_api/admin/llm_providers/connection_tests_controller.rb core_matrix/app/controllers/app_api/admin/audit_entries_controller.rb core_matrix/app/controllers/app_api/admin/llm_providers/codex_subscription/authorizations_controller.rb core_matrix/app/controllers/app_api/workspace_policies_controller.rb core_matrix/app/models/provider_credential.rb core_matrix/app/models/provider_authorization_session.rb core_matrix/app/models/provider_connection_check.rb core_matrix/app/models/workspace_policy.rb core_matrix/app/services/app_surface/policies/conversation_supervision_access.rb core_matrix/app/services/embedded_agents/conversation_supervision/authority.rb core_matrix/app/services/embedded_agents/conversation_supervision/create_session.rb core_matrix/app/services/embedded_agents/conversation_supervision/append_message.rb core_matrix/app/services/embedded_agents/conversation_supervision/build_snapshot.rb core_matrix/app/services/embedded_agents/conversation_supervision/close_session.rb core_matrix/app/services/app_surface/queries/admin/installation_overview.rb core_matrix/app/services/app_surface/queries/admin/list_agents.rb core_matrix/app/services/app_surface/queries/admin/list_execution_runtimes.rb core_matrix/app/services/app_surface/queries/admin/list_onboarding_sessions.rb core_matrix/app/services/app_surface/queries/admin/list_llm_providers.rb core_matrix/app/services/app_surface/queries/admin/show_llm_provider.rb core_matrix/app/services/app_surface/queries/admin/list_audit_entries.rb core_matrix/app/services/provider_authorization_sessions/issue.rb core_matrix/app/services/provider_authorization_sessions/resolve_from_state.rb core_matrix/app/services/provider_authorization_sessions/complete_codex_callback.rb core_matrix/app/services/provider_credentials/refresh_oauth_credential.rb core_matrix/app/services/provider_connection_checks/upsert_latest.rb core_matrix/app/services/workspace_policies/upsert.rb core_matrix/app/services/provider_gateway/dispatch_text.rb core_matrix/app/services/provider_execution/dispatch_request.rb core_matrix/app/services/workbench/create_conversation_from_agent.rb core_matrix/app/services/conversations/create_root.rb core_matrix/app/services/conversations/creation_support.rb core_matrix/db/migrate core_matrix/db/schema.rb core_matrix/test/controllers/app_api_method_response_layout_test.rb core_matrix/test/services/app_surface/policies/conversation_supervision_access_test.rb core_matrix/test/models/provider_authorization_session_test.rb core_matrix/test/models/provider_connection_check_test.rb core_matrix/test/models/workspace_policy_test.rb core_matrix/test/services/provider_authorization_sessions/issue_test.rb core_matrix/test/services/provider_authorization_sessions/complete_codex_callback_test.rb core_matrix/test/services/provider_credentials/refresh_oauth_credential_test.rb core_matrix/test/services/workbench/create_conversation_from_agent_test.rb core_matrix/test/requests/app_api/conversation_export_requests_test.rb core_matrix/test/requests/app_api/conversation_debug_export_requests_test.rb core_matrix/test/requests/app_api/conversation_bundle_import_requests_test.rb core_matrix/test/requests/app_api/conversation_turn_feeds_controller_test.rb core_matrix/test/requests/app_api/conversation_diagnostics_test.rb core_matrix/test/requests/app_api/conversation_supervision_sessions_test.rb core_matrix/test/requests/app_api/conversation_supervision_messages_test.rb core_matrix/test/requests/app_api/admin/installations_test.rb core_matrix/test/requests/app_api/admin/agents_test.rb core_matrix/test/requests/app_api/admin/execution_runtimes_test.rb core_matrix/test/requests/app_api/admin/onboarding_sessions_test.rb core_matrix/test/requests/app_api/admin/llm_providers_test.rb core_matrix/test/requests/app_api/admin/audit_entries_test.rb core_matrix/test/requests/app_api/admin/llm_providers/codex_subscription/authorizations_test.rb core_matrix/test/requests/app_api/workspace_policies_test.rb
+git rm core_matrix/app/services/conversation_runtime/authorize_subscription.rb
+git commit -m "feat: complete admin and workspace policy app api surfaces"
 ```
 
 ### Task 9: Finalize App-Facing Event Contracts

@@ -9,17 +9,18 @@ module EmbeddedAgents
         new(...).call
       end
 
-      def initialize(actor:, conversation:, responder_strategy: "summary_model")
+      def initialize(actor:, conversation:, responder_strategy: "summary_model", supervision_access: nil)
         @actor = actor
         @conversation = conversation
         @responder_strategy = normalize_responder_strategy(responder_strategy)
+        @supervision_access = supervision_access
       end
 
       def call
         conversation = @conversation.reload
-        authority = Authority.call(actor: @actor, conversation_id: conversation.public_id)
-        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "conversation supervision is not enabled" unless authority.side_chat_enabled?
-        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "not allowed to supervise conversation" unless authority.allowed?
+        supervision_access = resolved_supervision_access(conversation)
+        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "conversation supervision is not enabled" unless supervision_access.side_chat_enabled?
+        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "not allowed to supervise conversation" unless supervision_access.read?
 
         ConversationSupervisionSession.create!(
           installation: conversation.installation,
@@ -28,10 +29,10 @@ module EmbeddedAgents
           lifecycle_state: "open",
           responder_strategy: @responder_strategy,
           capability_policy_snapshot: {
-            "supervision_enabled" => authority.supervision_enabled?,
-            "detailed_progress_enabled" => authority.detailed_progress_enabled?,
-            "side_chat_enabled" => authority.side_chat_enabled?,
-            "control_enabled" => authority.control_enabled?,
+            "supervision_enabled" => supervision_access.supervision_enabled?,
+            "detailed_progress_enabled" => supervision_access.detailed_progress_enabled?,
+            "side_chat_enabled" => supervision_access.side_chat_enabled?,
+            "control_enabled" => supervision_access.control_enabled?,
           }
         )
       end
@@ -43,6 +44,13 @@ module EmbeddedAgents
         return normalized if SUPPORTED_RESPONDER_STRATEGIES.include?(normalized)
 
         raise UnsupportedResponderStrategy, "unsupported supervision responder strategy #{normalized.inspect}"
+      end
+
+      def resolved_supervision_access(conversation)
+        @supervision_access || AppSurface::Policies::ConversationSupervisionAccess.call(
+          user: @actor,
+          conversation: conversation
+        )
       end
     end
   end

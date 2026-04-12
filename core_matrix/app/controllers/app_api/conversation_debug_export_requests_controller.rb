@@ -7,21 +7,22 @@ module AppAPI
         user: current_user
       )
 
-      render json: {
+      render_method_response(
         method_id: "conversation_debug_export_request_create",
         conversation_id: conversation.public_id,
         debug_export_request: serialize_debug_export_request(request),
-      }, status: :created
+        status: :created
+      )
     end
 
     def show
       request = find_debug_export_request!(params.fetch(:id))
 
-      render json: {
+      render_method_response(
         method_id: "conversation_debug_export_request_show",
         conversation_id: request.conversation.public_id,
         debug_export_request: serialize_debug_export_request(request),
-      }
+      )
     end
 
     def download

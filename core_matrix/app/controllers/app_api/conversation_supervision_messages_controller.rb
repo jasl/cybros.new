@@ -8,6 +8,7 @@ module AppAPI
       session = find_supervision_session!(params.fetch(:conversation_supervision_session_id))
       target_conversation = session.target_conversation
       raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if target_conversation.blank?
+      authorize_supervision_read!(session)
       return head :gone if session.closed?
 
       render_supervision_message_list!(session, target_conversation_id: target_conversation.public_id)
@@ -15,7 +16,8 @@ module AppAPI
 
     def create
       session = find_supervision_session!(params.fetch(:conversation_supervision_session_id))
-      result = append_supervision_message!(session)
+      supervision_access = authorize_supervision_append!(session)
+      result = append_supervision_message!(session, supervision_access:)
       render_supervision_message_create!(session, result) unless performed?
     end
 
@@ -45,11 +47,12 @@ module AppAPI
       }
     end
 
-    def append_supervision_message!(session)
+    def append_supervision_message!(session, supervision_access:)
       EmbeddedAgents::ConversationSupervision::AppendMessage.call(
         actor: current_user,
         conversation_supervision_session: session,
-        content: params.fetch(:content)
+        content: params.fetch(:content),
+        supervision_access: supervision_access
       )
     end
 
@@ -80,6 +83,23 @@ module AppAPI
 
     def render_gone(_error)
       head :gone
+    end
+
+    def authorize_supervision_read!(session)
+      supervision_access = AppSurface::Policies::ConversationSupervisionAccess.call(
+        user: current_user,
+        conversation_supervision_session: session
+      )
+      raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" unless supervision_access.read?
+
+      supervision_access
+    end
+
+    def authorize_supervision_append!(session)
+      supervision_access = authorize_supervision_read!(session)
+      raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" unless supervision_access.append_message?
+
+      supervision_access
     end
   end
 end

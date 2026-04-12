@@ -9,9 +9,10 @@ module EmbeddedAgents
         new(...).call
       end
 
-      def initialize(actor:, conversation_supervision_session:)
+      def initialize(actor:, conversation_supervision_session:, supervision_access: nil)
         @actor = actor
         @conversation_supervision_session = conversation_supervision_session
+        @supervision_access = supervision_access
       end
 
       def call
@@ -19,16 +20,16 @@ module EmbeddedAgents
         @conversation = @conversation_supervision_session.target_conversation
         raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if @conversation.blank?
 
-        authority = Authority.call(actor: @actor, conversation_id: @conversation.public_id)
-        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "conversation supervision is not enabled" unless authority.side_chat_enabled?
-        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "not allowed to supervise conversation" unless authority.allowed?
+        supervision_access = resolved_supervision_access
+        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "conversation supervision is not enabled" unless supervision_access.side_chat_enabled?
+        raise EmbeddedAgents::Errors::UnauthorizedSupervision, "not allowed to supervise conversation" unless supervision_access.read?
 
         state = Conversations::UpdateSupervisionState.call(
           conversation: @conversation,
           occurred_at: Time.current
         )
         policy = @conversation.conversation_capability_policy
-        bundle_payload = build_bundle_payload(authority:, state:, policy:)
+        bundle_payload = build_bundle_payload(supervision_access:, state:, policy:)
 
         snapshot = @conversation_supervision_session.conversation_supervision_snapshots.create!(
           installation: @conversation.installation,
@@ -57,8 +58,8 @@ module EmbeddedAgents
 
       private
 
-      def build_bundle_payload(authority:, state:, policy:)
-        detailed_progress_enabled = authority.detailed_progress_enabled?
+      def build_bundle_payload(supervision_access:, state:, policy:)
+        detailed_progress_enabled = supervision_access.detailed_progress_enabled?
         context_view = detailed_progress_enabled ? conversation_context_view : empty_context_view
         turn_feed = detailed_progress_enabled ? ::ConversationSupervision::BuildActivityFeed.call(conversation: @conversation) : []
         runtime_evidence =
@@ -83,13 +84,20 @@ module EmbeddedAgents
             state: state
           ),
           "capability_authority" => {
-            "supervision_enabled" => authority.supervision_enabled?,
-            "detailed_progress_enabled" => authority.detailed_progress_enabled?,
-            "side_chat_enabled" => authority.side_chat_enabled?,
-            "control_enabled" => authority.control_enabled?,
-            "available_control_verbs" => authority.available_control_verbs,
+            "supervision_enabled" => supervision_access.supervision_enabled?,
+            "detailed_progress_enabled" => supervision_access.detailed_progress_enabled?,
+            "side_chat_enabled" => supervision_access.side_chat_enabled?,
+            "control_enabled" => supervision_access.control_enabled?,
+            "available_control_verbs" => supervision_access.available_control_verbs,
           },
         }
+      end
+
+      def resolved_supervision_access
+        @supervision_access || AppSurface::Policies::ConversationSupervisionAccess.call(
+          user: @actor,
+          conversation_supervision_session: @conversation_supervision_session
+        )
       end
 
       def conversation_context_view

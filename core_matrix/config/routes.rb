@@ -62,6 +62,13 @@ Rails.application.routes.draw do
   end
 
   namespace :app_api do
+    namespace :admin do
+      resource :installation, only: :show
+      resources :agents, only: :index
+      resources :execution_runtimes, only: :index
+      resources :onboarding_sessions, only: :index
+    end
+
     resources :agents, only: :index do
       member do
         get "home", to: "agent_homes#show"

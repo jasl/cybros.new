@@ -6,10 +6,12 @@ module AppAPI
 
     def create
       conversation = find_conversation!(params.fetch(:conversation_id))
+      supervision_access = authorize_supervision_create!(conversation)
       session = EmbeddedAgents::ConversationSupervision::CreateSession.call(
         actor: current_user,
         conversation: conversation,
-        responder_strategy: params[:responder_strategy]
+        responder_strategy: params[:responder_strategy],
+        supervision_access: supervision_access
       )
 
       render_method_response(
@@ -24,7 +26,7 @@ module AppAPI
       session = find_supervision_session!(params.fetch(:id))
       target_conversation = session.target_conversation
       raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if target_conversation.blank?
-      authorize_conversation_usability!(target_conversation)
+      authorize_supervision_read!(session)
       return head :gone if session.closed?
 
       render_method_response(
@@ -38,11 +40,12 @@ module AppAPI
       session = find_supervision_session!(params.fetch(:id))
       target_conversation = session.target_conversation
       raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" if target_conversation.blank?
-      authorize_conversation_usability!(target_conversation)
+      supervision_access = authorize_supervision_close!(session)
 
       session = EmbeddedAgents::ConversationSupervision::CloseSession.call(
         actor: current_user,
-        conversation_supervision_session: session
+        conversation_supervision_session: session,
+        supervision_access: supervision_access
       )
 
       render_method_response(
@@ -77,6 +80,33 @@ module AppAPI
         "closed_at" => session.closed_at&.iso8601(6),
         "created_at" => session.created_at&.iso8601(6),
       }.compact
+    end
+
+    def authorize_supervision_create!(conversation)
+      supervision_access = AppSurface::Policies::ConversationSupervisionAccess.call(
+        user: current_user,
+        conversation: conversation
+      )
+      raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" unless supervision_access.create_session?
+
+      supervision_access
+    end
+
+    def authorize_supervision_read!(session)
+      supervision_access = AppSurface::Policies::ConversationSupervisionAccess.call(
+        user: current_user,
+        conversation_supervision_session: session
+      )
+      raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" unless supervision_access.read?
+
+      supervision_access
+    end
+
+    def authorize_supervision_close!(session)
+      supervision_access = authorize_supervision_read!(session)
+      raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" unless supervision_access.close_session?
+
+      supervision_access
     end
   end
 end

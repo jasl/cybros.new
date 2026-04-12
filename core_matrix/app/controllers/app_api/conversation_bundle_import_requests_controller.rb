@@ -12,21 +12,22 @@ module AppAPI
         target_agent_definition_version_id: agent_definition_version.public_id
       )
 
-      render json: {
+      render_method_response(
         method_id: "conversation_bundle_import_request_create",
         workspace_id: workspace.public_id,
         import_request: serialize_import_request(request),
-      }, status: :created
+        status: :created
+      )
     end
 
     def show
       request = find_import_request!(params.fetch(:id))
 
-      render json: {
+      render_method_response(
         method_id: "conversation_bundle_import_request_show",
         workspace_id: request.workspace.public_id,
         import_request: serialize_import_request(request),
-      }
+      )
     end
 
     private
