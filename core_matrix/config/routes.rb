@@ -90,53 +90,40 @@ Rails.application.routes.draw do
     end
 
     resources :agents, only: :index do
-      member do
-        get "home", to: "agent_homes#show"
-      end
-
-      resources :workspaces, only: :index
+      resource :home, only: :show, controller: "agents/homes"
+      resources :workspaces, only: :index, controller: "agents/workspaces"
     end
 
     resources :conversations, only: :create do
-      get "metadata", to: "conversations/metadata#show"
-      patch "metadata", to: "conversations/metadata#update"
-      post "metadata/regenerate", to: "conversations/metadata#regenerate"
-      post "messages", to: "conversation_messages#create"
+      resource :metadata, only: [:show, :update], controller: "conversations/metadata" do
+        post :regenerate
+      end
+      resources :messages, only: :create, controller: "conversations/messages"
+      resource :transcript, only: :show, controller: "conversations/transcript"
+      resource :diagnostics, only: :show, controller: "conversations/diagnostics" do
+        get :turns
+      end
+      resource :todo_plan, only: :show, controller: "conversations/todo_plans"
+      resource :feed, only: :show, controller: "conversations/feeds"
+      resources :export_requests, only: [:create, :show], controller: "conversations/export_requests" do
+        get :download, on: :member
+      end
+      resources :debug_export_requests, only: [:create, :show], controller: "conversations/debug_export_requests" do
+        get :download, on: :member
+      end
+      resources :supervision_sessions, only: [:create, :show], controller: "conversations/supervision/sessions" do
+        post :close, on: :member
+        resources :messages, only: [:index, :create], controller: "conversations/supervision/messages"
+      end
+      resources :turns, only: [] do
+        resources :runtime_events, only: :index, controller: "conversations/turns/runtime_events"
+      end
     end
 
-    resources :conversation_transcripts, only: :index
     resources :workspaces, only: [] do
-      member do
-        get :policies, to: "workspace_policies#show"
-        patch :policies, to: "workspace_policies#update"
-      end
+      resource :policy, only: [:show, :update], controller: "workspaces/policies"
+      resources :conversation_bundle_import_requests, only: [:create, :show], controller: "workspaces/conversation_bundle_import_requests"
     end
-    resources :conversation_diagnostics, only: [] do
-      collection do
-        get "show"
-        get "turns"
-      end
-    end
-    resources :conversation_turn_todo_plans, only: :index
-    resources :conversation_turn_feeds, only: :index
-    resources :conversation_turn_runtime_events, only: :index
-    resources :conversation_supervision_sessions, only: [:create, :show] do
-      member do
-        post :close
-      end
-      resources :conversation_supervision_messages, path: "messages", only: [:index, :create]
-    end
-    resources :conversation_export_requests, only: [:create, :show] do
-      member do
-        get "download"
-      end
-    end
-    resources :conversation_debug_export_requests, only: [:create, :show] do
-      member do
-        get "download"
-      end
-    end
-    resources :conversation_bundle_import_requests, only: [:create, :show]
   end
 
   if Rails.env.development? || Rails.env.test?

@@ -8,9 +8,8 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     upload = Rack::Test::UploadedFile.new(bundle.fetch("io").path, bundle.fetch("content_type"), true)
 
     assert_enqueued_with(job: ConversationBundleImports::ExecuteRequestJob) do
-      post "/app_api/conversation_bundle_import_requests",
+      post "/app_api/workspaces/#{context[:workspace].public_id}/conversation_bundle_import_requests",
         params: {
-          workspace_id: context[:workspace].public_id,
           upload_file: upload,
         },
         headers: app_api_headers(registration[:session_token])
@@ -30,7 +29,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
       ConversationBundleImportRequest.find_by_public_id!(request_id).request_payload.fetch("target_agent_definition_version_id")
     )
 
-    get "/app_api/conversation_bundle_import_requests/#{request_id}",
+    get "/app_api/workspaces/#{context[:workspace].public_id}/conversation_bundle_import_requests/#{request_id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
@@ -61,16 +60,15 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     )
     request.save!
 
-    post "/app_api/conversation_bundle_import_requests",
+    post "/app_api/workspaces/#{context[:workspace].id}/conversation_bundle_import_requests",
       params: {
-        workspace_id: context[:workspace].id,
         upload_file: upload,
       },
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
 
-    get "/app_api/conversation_bundle_import_requests/#{request.id}",
+    get "/app_api/workspaces/#{context[:workspace].public_id}/conversation_bundle_import_requests/#{request.id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
@@ -108,11 +106,42 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
 
     request.update_columns(imported_conversation_id: nil)
 
-    get "/app_api/conversation_bundle_import_requests/#{request.public_id}",
+    get "/app_api/workspaces/#{context[:workspace].public_id}/conversation_bundle_import_requests/#{request.public_id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
     response_body = JSON.parse(response.body)
     assert_equal imported_conversation.public_id, response_body.dig("import_request", "imported_conversation_id")
+  end
+
+  test "show returns not found through the wrong workspace scope" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+    bundle = ConversationExports::WriteZipBundle.call(conversation: context[:conversation])
+    request = ConversationBundleImportRequest.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      user: context[:user],
+      lifecycle_state: "queued",
+      request_payload: { "target_agent_definition_version_id" => context[:agent_definition_version].public_id }
+    )
+    request.upload_file.attach(
+      io: StringIO.new(File.binread(bundle.fetch("io").path)),
+      filename: bundle.fetch("filename"),
+      content_type: bundle.fetch("content_type")
+    )
+    request.save!
+    other_workspace = create_workspace!(
+      installation: context[:installation],
+      user_agent_binding: context[:user_agent_binding],
+      user: context[:user]
+    )
+
+    get "/app_api/workspaces/#{other_workspace.public_id}/conversation_bundle_import_requests/#{request.public_id}",
+      headers: app_api_headers(registration[:session_token])
+
+    assert_response :not_found
+  ensure
+    bundle&.fetch("io")&.close!
   end
 end

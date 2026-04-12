@@ -30,10 +30,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     ConversationDiagnosticsSnapshot.where(conversation: context[:conversation]).delete_all
     TurnDiagnosticsSnapshot.where(conversation: context[:conversation]).delete_all
 
-    get "/app_api/conversation_diagnostics/show",
-      params: {
-        conversation_id: context[:conversation].public_id,
-      },
+    get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
@@ -65,10 +62,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     refute_includes response.body, %("#{context[:conversation].id}")
     refute_includes response.body, %("#{context[:turn].id}")
 
-    get "/app_api/conversation_diagnostics/turns",
-      params: {
-        conversation_id: context[:conversation].public_id,
-      },
+    get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics/turns",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
@@ -123,10 +117,7 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       occurred_at: Time.utc(2026, 4, 2, 9, 0, 0)
     )
 
-    get "/app_api/conversation_diagnostics/show",
-      params: {
-        conversation_id: context[:conversation].public_id,
-      },
+    get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
@@ -137,18 +128,12 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
 
-    get "/app_api/conversation_diagnostics/show",
-      params: {
-        conversation_id: context[:conversation].id,
-      },
+    get "/app_api/conversations/#{context[:conversation].id}/diagnostics",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
 
-    get "/app_api/conversation_diagnostics/turns",
-      params: {
-        conversation_id: context[:conversation].id,
-      },
+    get "/app_api/conversations/#{context[:conversation].id}/diagnostics/turns",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found

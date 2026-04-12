@@ -453,11 +453,11 @@ Illustrative examples, not final route lock-in:
 - `POST /app_api/conversations`
   - if no `workspace_id` is supplied, the system uses the agent default
     workspace and materializes it on first use if needed
-- `GET /app_api/conversation_transcripts?conversation_id=...`
-- `GET /app_api/conversation_turn_todo_plans?conversation_id=...&turn_id=...`
-- `GET /app_api/conversation_turn_runtime_events?conversation_id=...&turn_id=...`
-- `POST /app_api/conversation_supervision_sessions`
-- `POST /app_api/conversation_supervision_sessions/:id/messages`
+- `GET /app_api/conversations/:conversation_id/transcript`
+- `GET /app_api/conversations/:conversation_id/todo_plan`
+- `GET /app_api/conversations/:conversation_id/turns/:turn_id/runtime_events`
+- `POST /app_api/conversations/:conversation_id/supervision_sessions`
+- `POST /app_api/conversations/:conversation_id/supervision_sessions/:id/messages`
 - `POST /app_api/approval_requests/:id/resolve`
 
 ### Admin
@@ -486,8 +486,8 @@ Illustrative examples, not final route lock-in:
 
 ### User Workspace Settings
 
-- `GET /app_api/workspaces/:workspace_id/policies`
-- `PATCH /app_api/workspaces/:workspace_id/policies`
+- `GET /app_api/workspaces/:workspace_id/policy`
+- `PATCH /app_api/workspaces/:workspace_id/policy`
 
 ## Batch C Resource Decisions
 

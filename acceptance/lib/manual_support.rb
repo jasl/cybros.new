@@ -214,10 +214,9 @@ module Acceptance
 
     def app_api_conversation_transcript!(conversation_id:, session_token:, cursor: nil, limit: nil)
       app_api_get_json(
-        '/app_api/conversation_transcripts',
+        "/app_api/conversations/#{conversation_id}/transcript",
         session_token:,
         params: {
-          conversation_id: conversation_id,
           cursor: cursor,
           limit: limit
         }.compact
@@ -226,33 +225,29 @@ module Acceptance
 
     def app_api_conversation_diagnostics_show!(conversation_id:, session_token:)
       app_api_get_json(
-        '/app_api/conversation_diagnostics/show',
-        session_token:,
-        params: { conversation_id: conversation_id }
+        "/app_api/conversations/#{conversation_id}/diagnostics",
+        session_token:
       )
     end
 
     def app_api_conversation_diagnostics_turns!(conversation_id:, session_token:)
       app_api_get_json(
-        '/app_api/conversation_diagnostics/turns',
-        session_token:,
-        params: { conversation_id: conversation_id }
+        "/app_api/conversations/#{conversation_id}/diagnostics/turns",
+        session_token:
       )
     end
 
-    def app_api_conversation_turn_feeds!(conversation_id:, session_token:)
+    def app_api_conversation_feed!(conversation_id:, session_token:)
       app_api_get_json(
-        '/app_api/conversation_turn_feeds',
-        session_token:,
-        params: { conversation_id: conversation_id }
+        "/app_api/conversations/#{conversation_id}/feed",
+        session_token:
       )
     end
 
     def app_api_conversation_turn_runtime_events!(conversation_id:, turn_id:, session_token:)
       app_api_get_json(
-        '/app_api/conversation_turn_runtime_events',
-        session_token:,
-        params: { conversation_id: conversation_id, turn_id: turn_id }
+        "/app_api/conversations/#{conversation_id}/turns/#{turn_id}/runtime_events",
+        session_token:
       )
     end
 
@@ -359,13 +354,13 @@ module Acceptance
 
     def app_api_export_conversation!(conversation_id:, session_token:, destination_path:, timeout_seconds: 60)
       created = app_api_post_json(
-        '/app_api/conversation_export_requests',
-        { conversation_id: conversation_id },
+        "/app_api/conversations/#{conversation_id}/export_requests",
+        {},
         session_token:
       )
       request_id = created.dig('export_request', 'request_id')
       shown = wait_for_app_api_request_terminal!(
-        path: "/app_api/conversation_export_requests/#{request_id}",
+        path: "/app_api/conversations/#{conversation_id}/export_requests/#{request_id}",
         request_key: 'export_request',
         session_token: session_token,
         terminal_states: %w[succeeded failed expired],
@@ -376,7 +371,7 @@ module Acceptance
       end
 
       download = app_api_download!(
-        "/app_api/conversation_export_requests/#{request_id}/download",
+        "/app_api/conversations/#{conversation_id}/export_requests/#{request_id}/download",
         destination_path: destination_path,
         session_token: session_token
       )
@@ -391,13 +386,13 @@ module Acceptance
     def app_api_debug_export_conversation!(conversation_id:, session_token:, destination_path:,
                                            timeout_seconds: 60)
       created = app_api_post_json(
-        '/app_api/conversation_debug_export_requests',
-        { conversation_id: conversation_id },
+        "/app_api/conversations/#{conversation_id}/debug_export_requests",
+        {},
         session_token:
       )
       request_id = created.dig('debug_export_request', 'request_id')
       shown = wait_for_app_api_request_terminal!(
-        path: "/app_api/conversation_debug_export_requests/#{request_id}",
+        path: "/app_api/conversations/#{conversation_id}/debug_export_requests/#{request_id}",
         request_key: 'debug_export_request',
         session_token: session_token,
         terminal_states: %w[succeeded failed expired],
@@ -408,7 +403,7 @@ module Acceptance
       end
 
       download = app_api_download!(
-        "/app_api/conversation_debug_export_requests/#{request_id}/download",
+        "/app_api/conversations/#{conversation_id}/debug_export_requests/#{request_id}/download",
         destination_path: destination_path,
         session_token: session_token
       )
@@ -450,15 +445,15 @@ module Acceptance
 
     def app_api_import_conversation_bundle!(workspace_id:, zip_path:, session_token:, timeout_seconds: 60)
       created = app_api_post_multipart_json(
-        '/app_api/conversation_bundle_import_requests',
-        params: { workspace_id: workspace_id },
+        "/app_api/workspaces/#{workspace_id}/conversation_bundle_import_requests",
+        params: {},
         file_param: :upload_file,
         file_path: zip_path,
         session_token: session_token
       )
       request_id = created.dig('import_request', 'request_id')
       shown = wait_for_app_api_request_terminal!(
-        path: "/app_api/conversation_bundle_import_requests/#{request_id}",
+        path: "/app_api/workspaces/#{workspace_id}/conversation_bundle_import_requests/#{request_id}",
         request_key: 'import_request',
         session_token: session_token,
         terminal_states: %w[succeeded failed],

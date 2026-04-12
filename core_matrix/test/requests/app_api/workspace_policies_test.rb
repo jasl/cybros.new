@@ -20,7 +20,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
       default_execution_runtime: runtime
     )
 
-    get "/app_api/workspaces/#{workspace.public_id}/policies",
+    get "/app_api/workspaces/#{workspace.public_id}/policy",
       headers: app_api_headers(session.plaintext_token)
 
     assert_response :success
@@ -74,7 +74,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
       default_execution_runtime: runtime_a
     )
 
-    patch "/app_api/workspaces/#{workspace.public_id}/policies",
+    patch "/app_api/workspaces/#{workspace.public_id}/policy",
       params: {
         disabled_capabilities: ["side_chat"],
         default_execution_runtime_id: runtime_b.public_id,
@@ -115,7 +115,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     session = create_session!(user: context[:user])
 
-    patch "/app_api/workspaces/#{context[:workspace].public_id}/policies",
+    patch "/app_api/workspaces/#{context[:workspace].public_id}/policy",
       params: {
         disabled_capabilities: ["not-real"],
       },
@@ -144,7 +144,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
       execution_runtime: private_runtime
     )
 
-    patch "/app_api/workspaces/#{context[:workspace].public_id}/policies",
+    patch "/app_api/workspaces/#{context[:workspace].public_id}/policy",
       params: {
         default_execution_runtime_id: private_runtime.public_id,
       },
@@ -160,7 +160,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     other_user = create_user!(installation: context[:installation])
     session = create_session!(user: other_user)
 
-    get "/app_api/workspaces/#{context[:workspace].public_id}/policies",
+    get "/app_api/workspaces/#{context[:workspace].public_id}/policy",
       headers: app_api_headers(session.plaintext_token)
 
     assert_response :not_found

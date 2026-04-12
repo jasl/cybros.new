@@ -121,7 +121,7 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
       turn_id: turn_id,
       session_token: app_api_session_token
     )
-    turn_feed = Acceptance::ManualSupport.app_api_conversation_turn_feeds!(
+    turn_feed = Acceptance::ManualSupport.app_api_conversation_feed!(
       conversation_id: conversation_id,
       session_token: app_api_session_token
     )

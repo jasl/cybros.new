@@ -7,10 +7,8 @@ class AppApiConversationTurnRuntimeEventsControllerTest < ActionDispatch::Integr
     fixture = prepare_provider_backed_conversation_supervision_context!
     registration = register_machine_api_for_context!(fixture)
 
-    get app_api_conversation_turn_runtime_events_path(
-      conversation_id: fixture.fetch(:conversation).public_id,
-      turn_id: fixture.fetch(:turn).public_id
-    ), headers: app_api_headers(registration[:session_token])
+    get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/turns/#{fixture.fetch(:turn).public_id}/runtime_events",
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 
@@ -32,5 +30,36 @@ class AppApiConversationTurnRuntimeEventsControllerTest < ActionDispatch::Integr
     assert current_check.fetch("workflow_node_key").present?
     refute_includes response.body, %("#{fixture.fetch(:conversation).id}")
     refute_includes response.body, %("#{fixture.fetch(:turn).id}")
+  end
+
+  test "rejects raw bigint identifiers and turn ids outside the conversation" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    other_conversation = create_conversation_record!(
+      workspace: fixture.fetch(:workspace),
+      agent_definition_version: fixture.fetch(:agent_definition_version),
+      execution_runtime: fixture.fetch(:execution_runtime)
+    )
+    other_turn = Turns::StartUserTurn.call(
+      conversation: other_conversation,
+      content: "Other conversation turn",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    get "/app_api/conversations/#{fixture.fetch(:conversation).id}/turns/#{fixture.fetch(:turn).public_id}/runtime_events",
+      headers: app_api_headers(registration[:session_token])
+
+    assert_response :not_found
+
+    get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/turns/#{fixture.fetch(:turn).id}/runtime_events",
+      headers: app_api_headers(registration[:session_token])
+
+    assert_response :not_found
+
+    get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/turns/#{other_turn.public_id}/runtime_events",
+      headers: app_api_headers(registration[:session_token])
+
+    assert_response :not_found
   end
 end

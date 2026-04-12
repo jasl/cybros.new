@@ -8,8 +8,7 @@ class AppApiAuthenticationTest < ActionDispatch::IntegrationTest
     registration = register_machine_api_for_context!(context)
     assert_nil Session.find_by_plaintext_token(registration[:agent_connection_credential])
 
-    get "/app_api/conversation_transcripts",
-      params: { conversation_id: context[:conversation].public_id },
+    get "/app_api/conversations/#{context[:conversation].public_id}/transcript",
       headers: agent_api_headers(registration[:agent_connection_credential])
 
     assert_response :unauthorized
@@ -25,8 +24,7 @@ class AppApiAuthenticationTest < ActionDispatch::IntegrationTest
       metadata: {}
     )
 
-    get "/app_api/conversation_transcripts",
-      params: { conversation_id: context[:conversation].public_id },
+    get "/app_api/conversations/#{context[:conversation].public_id}/transcript",
       headers: connection_api_headers(session.plaintext_token)
 
     assert_response :success
@@ -40,10 +38,7 @@ class AppApiAuthenticationTest < ActionDispatch::IntegrationTest
     fixture = prepare_conversation_supervision_context!
     session = create_session!(user: fixture[:user])
 
-    post "/app_api/conversation_supervision_sessions",
-      params: {
-        conversation_id: fixture[:conversation].public_id,
-      },
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions",
       headers: {
         "Cookie" => "#{SessionAuthentication::SESSION_COOKIE_KEY}=#{session.plaintext_token}",
         "Accept" => "application/json",
@@ -63,10 +58,7 @@ class AppApiAuthenticationTest < ActionDispatch::IntegrationTest
     fixture = prepare_conversation_supervision_context!
     session = create_session!(user: fixture[:user])
 
-    post "/app_api/conversation_supervision_sessions",
-      params: {
-        conversation_id: fixture[:conversation].public_id,
-      },
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions",
       headers: app_api_headers(session.plaintext_token),
       as: :json
 

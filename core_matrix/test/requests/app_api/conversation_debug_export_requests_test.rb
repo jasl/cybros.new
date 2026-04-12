@@ -7,10 +7,7 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
 
     assert_enqueued_with(job: ConversationDebugExports::ExecuteRequestJob) do
       assert_enqueued_with(job: ConversationDebugExports::ExpireRequestJob) do
-        post "/app_api/conversation_debug_export_requests",
-          params: {
-            conversation_id: context[:conversation].public_id,
-          },
+        post "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests",
           headers: app_api_headers(registration[:session_token]),
           as: :json
       end
@@ -25,7 +22,7 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     assert_equal "queued", response_body.dig("debug_export_request", "lifecycle_state")
     refute_includes response.body, %("#{context[:conversation].id}")
 
-    get "/app_api/conversation_debug_export_requests/#{request_id}",
+    get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request_id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
@@ -49,7 +46,7 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     )
     ConversationDebugExports::ExecuteRequest.call(request: request)
 
-    get "/app_api/conversation_debug_export_requests/#{request.public_id}/download",
+    get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request.public_id}/download",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
@@ -74,13 +71,13 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     ConversationDebugExports::ExecuteRequest.call(request: request)
     request.bundle_file.purge
 
-    get "/app_api/conversation_debug_export_requests/#{request.public_id}",
+    get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request.public_id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
     assert_equal false, JSON.parse(response.body).dig("debug_export_request", "bundle_available")
 
-    get "/app_api/conversation_debug_export_requests/#{request.public_id}/download",
+    get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request.public_id}/download",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :gone
@@ -101,13 +98,13 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     )
     ConversationDebugExports::ExecuteRequest.call(request: request)
 
-    get "/app_api/conversation_debug_export_requests/#{request.public_id}",
+    get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request.public_id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
     assert_equal false, JSON.parse(response.body).dig("debug_export_request", "bundle_available")
 
-    get "/app_api/conversation_debug_export_requests/#{request.public_id}/download",
+    get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request.public_id}/download",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :gone
@@ -126,21 +123,49 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
       request_payload: { "bundle_kind" => "conversation_debug_export" }
     )
 
-    post "/app_api/conversation_debug_export_requests",
-      params: {
-        conversation_id: context[:conversation].id,
-      },
+    post "/app_api/conversations/#{context[:conversation].id}/debug_export_requests",
       headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :not_found
 
-    get "/app_api/conversation_debug_export_requests/#{request.id}",
+    get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request.id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
 
-    get "/app_api/conversation_debug_export_requests/#{request.id}/download",
+    get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request.id}/download",
+      headers: app_api_headers(registration[:session_token])
+
+    assert_response :not_found
+  end
+
+  test "show and download return not found through the wrong conversation scope" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+    attach_selected_output!(context[:turn], content: "Scoped debug export output")
+    request = ConversationDebugExportRequest.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      conversation: context[:conversation],
+      user: context[:user],
+      lifecycle_state: "queued",
+      expires_at: 2.hours.from_now,
+      request_payload: { "bundle_kind" => "conversation_debug_export" }
+    )
+    ConversationDebugExports::ExecuteRequest.call(request: request)
+    other_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      agent_definition_version: context[:agent_definition_version],
+      execution_runtime: context[:execution_runtime]
+    )
+
+    get "/app_api/conversations/#{other_conversation.public_id}/debug_export_requests/#{request.public_id}",
+      headers: app_api_headers(registration[:session_token])
+
+    assert_response :not_found
+
+    get "/app_api/conversations/#{other_conversation.public_id}/debug_export_requests/#{request.public_id}/download",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found

@@ -7,10 +7,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     fixture = prepare_conversation_supervision_context!
     registration = register_machine_api_for_context!(fixture)
 
-    post "/app_api/conversation_supervision_sessions",
-      params: {
-        conversation_id: fixture[:conversation].public_id,
-      },
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions",
       headers: app_api_headers(registration[:session_token]),
       as: :json
 
@@ -34,7 +31,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     }, response_body.dig("conversation_supervision_session", "capability_policy_snapshot"))
     refute_includes response.body, %("#{fixture[:conversation].id}")
 
-    get "/app_api/conversation_supervision_sessions/#{session_id}",
+    get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session_id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
@@ -49,9 +46,8 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     fixture = prepare_conversation_supervision_context!
     registration = register_machine_api_for_context!(fixture)
 
-    post "/app_api/conversation_supervision_sessions",
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions",
       params: {
-        conversation_id: fixture[:conversation].public_id,
         responder_strategy: "agent_contract",
       },
       headers: app_api_headers(registration[:session_token]),
@@ -66,16 +62,13 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     registration = register_machine_api_for_context!(fixture)
     session = create_conversation_supervision_session!(fixture)
 
-    post "/app_api/conversation_supervision_sessions",
-      params: {
-        conversation_id: fixture[:conversation].id,
-      },
+    post "/app_api/conversations/#{fixture[:conversation].id}/supervision_sessions",
       headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :not_found
 
-    get "/app_api/conversation_supervision_sessions/#{session.id}",
+    get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
@@ -87,7 +80,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     session = create_conversation_supervision_session!(fixture)
     session.update!(lifecycle_state: "closed")
 
-    get "/app_api/conversation_supervision_sessions/#{session.public_id}",
+    get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :gone
@@ -98,7 +91,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
       end
     end
 
-    get "/app_api/conversation_supervision_sessions/#{session.public_id}",
+    get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
@@ -109,7 +102,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     registration = register_machine_api_for_context!(fixture)
     session = create_conversation_supervision_session!(fixture)
 
-    post "/app_api/conversation_supervision_sessions/#{session.public_id}/close",
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}/close",
       headers: app_api_headers(registration[:session_token]),
       as: :json
 
@@ -123,7 +116,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     assert_equal "closed", session.reload.lifecycle_state
     assert session.closed_at.present?
 
-    post "/app_api/conversation_supervision_sessions/#{session.id}/close",
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.id}/close",
       headers: app_api_headers(registration[:session_token]),
       as: :json
 
@@ -146,21 +139,40 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
       owner_user: replacement_owner
     )
 
-    post "/app_api/conversation_supervision_sessions",
-      params: {
-        conversation_id: fixture[:conversation].public_id,
-      },
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions",
       headers: app_api_headers(registration[:session_token]),
       as: :json
 
     assert_response :not_found
 
-    get "/app_api/conversation_supervision_sessions/#{session.public_id}",
+    get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
 
-    post "/app_api/conversation_supervision_sessions/#{session.public_id}/close",
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}/close",
+      headers: app_api_headers(registration[:session_token]),
+      as: :json
+
+    assert_response :not_found
+  end
+
+  test "returns not found when a session is requested through the wrong conversation scope" do
+    fixture = prepare_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    session = create_conversation_supervision_session!(fixture)
+    other_conversation = create_conversation_record!(
+      workspace: fixture[:workspace],
+      agent_definition_version: fixture[:agent_definition_version],
+      execution_runtime: fixture[:execution_runtime]
+    )
+
+    get "/app_api/conversations/#{other_conversation.public_id}/supervision_sessions/#{session.public_id}",
+      headers: app_api_headers(registration[:session_token])
+
+    assert_response :not_found
+
+    post "/app_api/conversations/#{other_conversation.public_id}/supervision_sessions/#{session.public_id}/close",
       headers: app_api_headers(registration[:session_token]),
       as: :json
 

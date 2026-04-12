@@ -211,7 +211,7 @@ git commit -m "refactor: align bindings and bootstrap with visibility reset"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/app_api/base_controller.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/embedded_agents/conversation_supervision/authority.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/conversation_control/authorize_request.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/app_api/conversations/supervision/sessions_controller.rb`
 - Modify or create: supporting visibility/usability service objects under `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/`
 - Test: workspace, supervision, and conversation access tests
 
@@ -242,7 +242,7 @@ Re-run the same targeted test set until green.
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/app/queries/workspaces/for_user_query.rb core_matrix/app/controllers/app_api/base_controller.rb core_matrix/app/services/embedded_agents/conversation_supervision/authority.rb core_matrix/app/services/conversation_control/authorize_request.rb core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb core_matrix/test
+git add core_matrix/app/queries/workspaces/for_user_query.rb core_matrix/app/controllers/app_api/base_controller.rb core_matrix/app/services/embedded_agents/conversation_supervision/authority.rb core_matrix/app/services/conversation_control/authorize_request.rb core_matrix/app/controllers/app_api/conversations/supervision/sessions_controller.rb core_matrix/test
 git commit -m "refactor: gate workspace and conversation access by visibility"
 ```
 

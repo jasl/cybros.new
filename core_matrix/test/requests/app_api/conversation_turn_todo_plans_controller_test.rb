@@ -7,9 +7,8 @@ class AppApiConversationTurnTodoPlansControllerTest < ActionDispatch::Integratio
     fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
     registration = register_machine_api_for_context!(fixture)
 
-    get app_api_conversation_turn_todo_plans_path(
-      conversation_id: fixture.fetch(:conversation).public_id
-    ), headers: app_api_headers(registration[:session_token])
+    get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/todo_plan",
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 
@@ -26,9 +25,8 @@ class AppApiConversationTurnTodoPlansControllerTest < ActionDispatch::Integratio
     fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
     registration = register_machine_api_for_context!(fixture)
 
-    get app_api_conversation_turn_todo_plans_path(
-      conversation_id: fixture.fetch(:conversation).id
-    ), headers: app_api_headers(registration[:session_token])
+    get "/app_api/conversations/#{fixture.fetch(:conversation).id}/todo_plan",
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
   end
@@ -37,9 +35,8 @@ class AppApiConversationTurnTodoPlansControllerTest < ActionDispatch::Integratio
     fixture = prepare_provider_backed_conversation_supervision_context!
     registration = register_machine_api_for_context!(fixture)
 
-    get app_api_conversation_turn_todo_plans_path(
-      conversation_id: fixture.fetch(:conversation).public_id
-    ), headers: app_api_headers(registration[:session_token])
+    get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/todo_plan",
+      headers: app_api_headers(registration[:session_token])
 
     assert_response :success
 

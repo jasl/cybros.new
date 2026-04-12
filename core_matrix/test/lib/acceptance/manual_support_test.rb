@@ -1383,6 +1383,85 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal [["conv_123", "session-token"]], show_calls
   end
 
+  test "app_api_conversation_transcript! uses the nested transcript route" do
+    captured = nil
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_get_json,
+      lambda do |path, session_token:, params: nil, headers: nil|
+        captured = { path:, session_token:, params:, headers: headers }
+        { "method_id" => "conversation_transcript_list" }
+      end
+    ) do
+      Acceptance::ManualSupport.app_api_conversation_transcript!(
+        conversation_id: "conv_123",
+        session_token: "session-token",
+        cursor: "msg_123",
+        limit: 5
+      )
+    end
+
+    assert_equal "/app_api/conversations/conv_123/transcript", captured.fetch(:path)
+    assert_equal "session-token", captured.fetch(:session_token)
+    assert_equal({ cursor: "msg_123", limit: 5 }, captured.fetch(:params))
+  end
+
+  test "app_api_conversation_diagnostics helpers use nested diagnostics routes" do
+    calls = []
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_get_json,
+      lambda do |path, session_token:, params: nil, headers: nil|
+        calls << { path:, session_token:, params:, headers: headers }
+        { "ok" => true }
+      end
+    ) do
+      Acceptance::ManualSupport.app_api_conversation_diagnostics_show!(
+        conversation_id: "conv_123",
+        session_token: "session-token"
+      )
+      Acceptance::ManualSupport.app_api_conversation_diagnostics_turns!(
+        conversation_id: "conv_123",
+        session_token: "session-token"
+      )
+    end
+
+    assert_equal [
+      { path: "/app_api/conversations/conv_123/diagnostics", session_token: "session-token", params: nil, headers: nil },
+      { path: "/app_api/conversations/conv_123/diagnostics/turns", session_token: "session-token", params: nil, headers: nil },
+    ], calls
+  end
+
+  test "app_api conversation feed and runtime event helpers use scoped routes" do
+    calls = []
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_get_json,
+      lambda do |path, session_token:, params: nil, headers: nil|
+        calls << { path:, session_token:, params:, headers: headers }
+        { "ok" => true }
+      end
+    ) do
+      Acceptance::ManualSupport.app_api_conversation_feed!(
+        conversation_id: "conv_123",
+        session_token: "session-token"
+      )
+      Acceptance::ManualSupport.app_api_conversation_turn_runtime_events!(
+        conversation_id: "conv_123",
+        turn_id: "turn_123",
+        session_token: "session-token"
+      )
+    end
+
+    assert_equal [
+      { path: "/app_api/conversations/conv_123/feed", session_token: "session-token", params: nil, headers: nil },
+      { path: "/app_api/conversations/conv_123/turns/turn_123/runtime_events", session_token: "session-token", params: nil, headers: nil },
+    ], calls
+  end
+
   test "extract_debug_export_payload! reads the canonical debug export json members" do
     Tempfile.create(["conversation-debug-export", ".zip"]) do |tempfile|
       Zip::OutputStream.open(tempfile.path) do |zip|

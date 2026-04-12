@@ -9,7 +9,7 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
     session = create_conversation_supervision_session!(fixture)
     transcript_count = fixture.fetch(:conversation).messages.count
 
-    post "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}/messages",
       params: {
         content: "What changed most recently?",
       },
@@ -29,7 +29,7 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
     assert_equal "user", response_body.dig("user_message", "role")
     assert_equal "supervisor_agent", response_body.dig("supervisor_message", "role")
 
-    get "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
+    get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}/messages",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
@@ -46,7 +46,7 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
     registration = register_machine_api_for_context!(fixture)
     session = create_conversation_supervision_session!(fixture)
 
-    post "/app_api/conversation_supervision_sessions/#{session.id}/messages",
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.id}/messages",
       params: {
         content: "What changed most recently?",
       },
@@ -55,7 +55,7 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
 
     assert_response :not_found
 
-    get "/app_api/conversation_supervision_sessions/#{session.id}/messages",
+    get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.id}/messages",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
@@ -67,12 +67,12 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
     session = create_conversation_supervision_session!(fixture)
     session.update!(lifecycle_state: "closed")
 
-    get "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
+    get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}/messages",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :gone
 
-    post "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
+    post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}/messages",
       params: {
         content: "What changed most recently?",
       },
@@ -88,7 +88,7 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
     session = create_conversation_supervision_session!(fixture)
 
     assert_difference("ConversationControlRequest.count", 1) do
-      post "/app_api/conversation_supervision_sessions/#{session.public_id}/messages",
+      post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}/messages",
         params: {
           content: "快住手",
         },
@@ -104,5 +104,30 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
     assert_equal "request_turn_interrupt", response_body.dig("human_sidechat", "classified_intent")
     assert_equal "control_dispatched", response_body.dig("human_sidechat", "response_kind")
     assert_match(/stop|interrupt/i, response_body.dig("human_sidechat", "content"))
+  end
+
+  test "returns not found when session messages are requested through the wrong conversation scope" do
+    fixture = prepare_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    session = create_conversation_supervision_session!(fixture)
+    other_conversation = create_conversation_record!(
+      workspace: fixture[:workspace],
+      agent_definition_version: fixture[:agent_definition_version],
+      execution_runtime: fixture[:execution_runtime]
+    )
+
+    get "/app_api/conversations/#{other_conversation.public_id}/supervision_sessions/#{session.public_id}/messages",
+      headers: app_api_headers(registration[:session_token])
+
+    assert_response :not_found
+
+    post "/app_api/conversations/#{other_conversation.public_id}/supervision_sessions/#{session.public_id}/messages",
+      params: {
+        content: "What changed most recently?",
+      },
+      headers: app_api_headers(registration[:session_token]),
+      as: :json
+
+    assert_response :not_found
   end
 end

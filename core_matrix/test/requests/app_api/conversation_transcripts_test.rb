@@ -21,9 +21,8 @@ class AppApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
       excluded_from_context: false
     )
 
-    get "/app_api/conversation_transcripts",
+    get "/app_api/conversations/#{context[:conversation].public_id}/transcript",
       params: {
-        conversation_id: context[:conversation].public_id,
         limit: 2,
       },
       headers: app_api_headers(registration[:session_token])
@@ -45,17 +44,13 @@ class AppApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
 
-    get "/app_api/conversation_transcripts",
-      params: {
-        conversation_id: context[:conversation].id,
-      },
+    get "/app_api/conversations/#{context[:conversation].id}/transcript",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :not_found
 
-    get "/app_api/conversation_transcripts",
+    get "/app_api/conversations/#{context[:conversation].public_id}/transcript",
       params: {
-        conversation_id: context[:conversation].public_id,
         cursor: context[:turn].selected_input_message.id,
       },
       headers: app_api_headers(registration[:session_token])
