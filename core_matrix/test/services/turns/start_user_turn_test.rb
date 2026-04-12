@@ -23,6 +23,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal "User", turn.source_ref_type
     assert_equal context[:user].public_id, turn.source_ref_id
     assert_equal context[:agent_definition_version], turn.agent_definition_version
+    assert_equal conversation.current_execution_epoch, turn.execution_epoch
     assert_equal context[:execution_runtime], turn.execution_runtime
     assert_equal context[:execution_runtime].current_execution_runtime_version, turn.execution_runtime_version
     assert_equal context[:agent_definition_version].fingerprint, turn.pinned_agent_definition_fingerprint
@@ -82,7 +83,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     refute_equal alternate_agent_definition_version, turn.agent_definition_version
   end
 
-  test "accepts execution_runtime as an alias for the selected executor" do
+  test "retargets the initial execution epoch when the first turn overrides runtime" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
@@ -99,6 +100,8 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     )
 
     assert_equal alternate_execution_runtime, turn.execution_runtime
+    assert_equal alternate_execution_runtime, conversation.reload.current_execution_runtime
+    assert_equal alternate_execution_runtime, conversation.current_execution_epoch.execution_runtime
   end
 
   test "rejects unexpected keyword arguments" do

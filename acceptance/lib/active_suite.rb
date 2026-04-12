@@ -18,6 +18,45 @@ module Acceptance
       "acceptance/scenarios/subagent_wait_all_validation.rb",
     ].freeze
 
+    SCENARIO_METADATA = {
+      "acceptance/scenarios/bring_your_own_agent_validation.rb" => {
+        mode: :hybrid_app_api,
+        reason: "uses admin app_api onboarding and app_api diagnostics/debug export, while deterministic mailbox execution still has no product entrypoint"
+      },
+      "acceptance/scenarios/bring_your_own_execution_runtime_validation.rb" => {
+        mode: :hybrid_app_api,
+        reason: "uses admin app_api onboarding and app_api diagnostics/debug export, while deterministic mailbox execution still has no product entrypoint"
+      },
+      "acceptance/scenarios/during_generation_steering_validation.rb" => {
+        mode: :internal_workflow,
+        reason: "validates internal steering, policy gate, branching, and stale-work semantics that do not yet have an app_api surface"
+      },
+      "acceptance/scenarios/fenix_skills_validation.rb" => {
+        mode: :hybrid_app_api,
+        reason: "uses app_api-backed onboarding and observation, while skills mailbox task modes remain internal-only"
+      },
+      "acceptance/scenarios/governed_mcp_validation.rb" => {
+        mode: :internal_workflow,
+        reason: "validates governed MCP invocation semantics directly against internal task/tool control paths with no product endpoint"
+      },
+      "acceptance/scenarios/governed_tool_validation.rb" => {
+        mode: :internal_workflow,
+        reason: "validates governed tool invocation semantics directly against internal task/tool control paths with no product endpoint"
+      },
+      "acceptance/scenarios/human_interaction_wait_resume_validation.rb" => {
+        mode: :internal_workflow,
+        reason: "validates human-interaction wait/resume state transitions with no end-user app_api flow yet"
+      },
+      "acceptance/scenarios/provider_backed_turn_validation.rb" => {
+        mode: :app_api_surface,
+        reason: "validates the end-user conversation creation, execution, diagnostics, and export flow entirely through app_api"
+      },
+      "acceptance/scenarios/subagent_wait_all_validation.rb" => {
+        mode: :internal_workflow,
+        reason: "validates wait_all barrier semantics for delegated subagent work with no dedicated app_api handoff/control flow"
+      },
+    }.freeze
+
     ACTIVE_WRAPPERS = [
       "acceptance/bin/multi_fenix_core_matrix_load_smoke.sh",
       "acceptance/bin/multi_fenix_core_matrix_load_target.sh",
@@ -27,7 +66,8 @@ module Acceptance
     OPTIONAL_ENTRYPOINTS = {
       "acceptance/bin/fenix_capstone_app_api_roundtrip_validation.sh" => {
         env_var: CAPSTONE_2048_ENABLE_ENV,
-        reason: "disabled by default because the 2048 capstone is a real provider-backed final proof"
+        reason: "disabled by default because the 2048 capstone is a real provider-backed final proof",
+        mode: :app_api_surface
       }
     }.freeze
 
@@ -51,6 +91,10 @@ module Acceptance
 
     def entrypoints(env = ENV)
       ACTIVE_SCENARIOS + ACTIVE_WRAPPERS + enabled_optional_entrypoints(env)
+    end
+
+    def scenario_metadata
+      SCENARIO_METADATA
     end
   end
 end

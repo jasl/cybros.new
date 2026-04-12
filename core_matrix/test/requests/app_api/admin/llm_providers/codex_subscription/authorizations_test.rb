@@ -77,4 +77,120 @@ class AppApiAdminLlmProvidersCodexSubscriptionAuthorizationsTest < ActionDispatc
 
     assert_response :not_found
   end
+
+  test "shows current codex subscription authorization state without exposing tokens" do
+    installation = create_installation!
+    admin = create_user!(installation: installation, role: "admin")
+    session = create_session!(user: admin)
+    authorization_session = ProviderAuthorizationSession.issue!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      issued_by_user: admin,
+      expires_at: 15.minutes.from_now
+    )
+    ProviderCredential.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex",
+      access_token: "access-token-1",
+      refresh_token: "refresh-token-1",
+      expires_at: 2.hours.from_now,
+      last_rotated_at: Time.current,
+      metadata: {}
+    )
+
+    get "/app_api/admin/llm_providers/codex_subscription/authorization",
+      headers: app_api_headers(session.plaintext_token)
+
+    assert_response :success
+    authorization = response.parsed_body.fetch("authorization")
+    assert_equal "pending", authorization.fetch("status")
+    assert_equal true, authorization.fetch("configured")
+    assert_nil authorization["access_token"]
+    assert_nil authorization["refresh_token"]
+    assert_equal true, authorization.fetch("usable")
+    assert authorization_session.reload.active?
+  end
+
+  test "destroy revokes pending sessions and removes oauth credentials" do
+    installation = create_installation!
+    admin = create_user!(installation: installation, role: "admin")
+    session = create_session!(user: admin)
+    pending_session = ProviderAuthorizationSession.issue!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      issued_by_user: admin,
+      expires_at: 15.minutes.from_now
+    )
+    ProviderCredential.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex",
+      access_token: "access-token-1",
+      refresh_token: "refresh-token-1",
+      expires_at: 2.hours.from_now,
+      last_rotated_at: Time.current,
+      metadata: {}
+    )
+
+    delete "/app_api/admin/llm_providers/codex_subscription/authorization",
+      headers: app_api_headers(session.plaintext_token)
+
+    assert_response :success
+    assert_equal "missing", response.parsed_body.dig("authorization", "status")
+    assert_predicate pending_session.reload, :revoked?
+    assert_nil ProviderCredential.find_by(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex"
+    )
+  end
+
+  test "callback completes the authorization session and persists the oauth credential" do
+    installation = create_installation!
+    admin = create_user!(installation: installation, role: "admin")
+    authorization_session = ProviderAuthorizationSession.issue!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      issued_by_user: admin,
+      expires_at: 15.minutes.from_now
+    )
+    original_exchange = LLMProviders::CodexSubscription::OAuthClient.method(:exchange_code)
+    LLMProviders::CodexSubscription::OAuthClient.singleton_class.define_method(:exchange_code) do |**_kwargs|
+      {
+        access_token: "access-token-1",
+        refresh_token: "refresh-token-1",
+        expires_at: 2.hours.from_now,
+      }
+    end
+
+    get "/app_api/admin/llm_providers/codex_subscription/authorization/callback",
+      params: {
+        state: authorization_session.plaintext_state,
+        code: "oauth-code-123",
+      }
+
+    assert_response :success
+    assert_match(/authorization completed/i, response.body)
+    assert_equal "completed", authorization_session.reload.status
+    credential = ProviderCredential.find_by!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex"
+    )
+    assert_equal "access-token-1", credential.access_token
+    assert_equal "refresh-token-1", credential.refresh_token
+  ensure
+    LLMProviders::CodexSubscription::OAuthClient.singleton_class.define_method(:exchange_code, original_exchange) if original_exchange
+  end
+
+  test "callback returns unprocessable entity for an invalid state" do
+    get "/app_api/admin/llm_providers/codex_subscription/authorization/callback",
+      params: {
+        state: "not-a-real-state",
+        code: "oauth-code-123",
+      }
+
+    assert_response :unprocessable_entity
+  end
 end

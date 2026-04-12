@@ -32,6 +32,7 @@ class Turn < ApplicationRecord
   belongs_to :installation
   belongs_to :conversation
   belongs_to :agent_definition_version
+  belongs_to :execution_epoch, class_name: "ConversationExecutionEpoch"
   belongs_to :execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :execution_runtime_version, class_name: "ExecutionRuntimeVersion", optional: true
   belongs_to :execution_contract, optional: true
@@ -58,8 +59,11 @@ class Turn < ApplicationRecord
   validate :resolved_model_selection_snapshot_must_be_hash
   validate :conversation_installation_match
   validate :agent_definition_version_installation_match
+  validate :execution_epoch_installation_match
+  validate :execution_epoch_conversation_match
   validate :execution_runtime_installation_match
   validate :execution_runtime_version_installation_match
+  validate :execution_runtime_epoch_match
   validate :execution_runtime_version_runtime_match
   validate :agent_definition_version_conversation_match
   validate :selected_input_message_rules
@@ -68,6 +72,7 @@ class Turn < ApplicationRecord
   validate :cancellation_request_pairing
 
   before_validation :default_feature_policy_snapshot
+  before_validation :default_execution_epoch
 
   def terminal?
     completed? || failed? || canceled?
@@ -154,6 +159,20 @@ class Turn < ApplicationRecord
     errors.add(:agent_definition_version, "must belong to the same installation")
   end
 
+  def execution_epoch_installation_match
+    return if execution_epoch.blank?
+    return if execution_epoch.installation_id == installation_id
+
+    errors.add(:execution_epoch, "must belong to the same installation")
+  end
+
+  def execution_epoch_conversation_match
+    return if execution_epoch.blank? || conversation.blank?
+    return if execution_epoch.conversation_id == conversation_id
+
+    errors.add(:execution_epoch, "must belong to the same conversation")
+  end
+
   def execution_runtime_installation_match
     return if execution_runtime.blank?
     return if execution_runtime.installation_id == installation_id
@@ -173,6 +192,13 @@ class Turn < ApplicationRecord
     return if execution_runtime_version.execution_runtime_id == execution_runtime_id
 
     errors.add(:execution_runtime_version, "must belong to the selected execution runtime")
+  end
+
+  def execution_runtime_epoch_match
+    return if execution_epoch.blank? || execution_runtime.blank?
+    return if execution_epoch.execution_runtime_id == execution_runtime_id
+
+    errors.add(:execution_runtime, "must match the execution epoch runtime")
   end
 
   def agent_definition_version_conversation_match
@@ -218,5 +244,12 @@ class Turn < ApplicationRecord
     return unless feature_policy_snapshot.blank?
 
     self.feature_policy_snapshot = conversation.feature_policy_snapshot
+  end
+
+  def default_execution_epoch
+    return if execution_epoch.present?
+    return unless conversation.present?
+
+    self.execution_epoch = conversation.current_execution_epoch
   end
 end

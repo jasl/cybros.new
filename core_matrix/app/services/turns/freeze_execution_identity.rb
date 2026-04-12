@@ -2,6 +2,7 @@ module Turns
   class FreezeExecutionIdentity
     ExecutionIdentity = Struct.new(
       :agent_definition_version,
+      :execution_epoch,
       :execution_runtime,
       :execution_runtime_version,
       :agent_config_state,
@@ -38,10 +39,12 @@ module Turns
       end
 
       execution_runtime = resolve_execution_runtime
+      execution_runtime = ExecutionRuntime.find_by(id: execution_runtime.id) || execution_runtime if execution_runtime.present?
       execution_runtime_version = resolve_execution_runtime_version(execution_runtime)
 
       ExecutionIdentity.new(
         agent_definition_version: agent_connection.agent_definition_version,
+        execution_epoch: @conversation.current_execution_epoch,
         execution_runtime: execution_runtime,
         execution_runtime_version: execution_runtime_version,
         agent_config_state: @conversation.agent.agent_config_state
@@ -51,9 +54,27 @@ module Turns
     private
 
     def resolve_execution_runtime
+      ConversationExecutionEpochs::InitializeCurrent.call(conversation: @conversation)
+
+      if @requested_execution_runtime.present?
+        return @requested_execution_runtime if @requested_execution_runtime == @conversation.current_execution_runtime
+
+        if @conversation.turns.exists?
+          @conversation.errors.add(:base, "conversation runtime handoff is not implemented yet")
+          raise ActiveRecord::RecordInvalid, @conversation unless @allow_unavailable_execution_runtime
+
+          return @requested_execution_runtime
+        end
+
+        ConversationExecutionEpochs::RetargetCurrent.call(
+          conversation: @conversation,
+          execution_runtime: @requested_execution_runtime
+        )
+        return @requested_execution_runtime
+      end
+
       Turns::SelectExecutionRuntime.call(
-        conversation: @conversation,
-        execution_runtime: @requested_execution_runtime
+        conversation: @conversation
       )
     rescue ActiveRecord::RecordInvalid
       raise unless @allow_unavailable_execution_runtime

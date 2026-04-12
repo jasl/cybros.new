@@ -40,6 +40,7 @@ module Conversations
       )
       @owned_subagent_conversation_ids = owned_subagent_tree.conversation_ids
       @owned_conversation_ids = [@conversation.id] + @owned_subagent_conversation_ids
+      @execution_epoch_ids = ConversationExecutionEpoch.where(conversation_id: @owned_conversation_ids).pluck(:id)
       @workflow_run_ids = WorkflowRun.where(conversation_id: @owned_conversation_ids).pluck(:id)
       @workflow_node_ids = WorkflowNode.where(workflow_run_id: @workflow_run_ids).pluck(:id)
       @turn_ids = Turn.where(conversation_id: @owned_conversation_ids).pluck(:id)
@@ -254,6 +255,12 @@ module Conversations
     end
 
     def purge_structural_rows!
+      Conversation.where(id: @owned_conversation_ids).update_all(
+        current_execution_epoch_id: nil,
+        current_execution_runtime_id: nil,
+        updated_at: Time.current
+      )
+      ConversationExecutionEpoch.where(id: @execution_epoch_ids).delete_all if @execution_epoch_ids.any?
       LineageStoreReference.where(owner_type: "Conversation", owner_id: @owned_conversation_ids).delete_all
       ConversationClosure.where(ancestor_conversation_id: @owned_conversation_ids).or(
         ConversationClosure.where(descendant_conversation_id: @owned_conversation_ids)
@@ -307,6 +314,7 @@ module Conversations
         active_storage_attachment_scope,
         Message.where(id: @message_ids),
         Turn.where(id: @turn_ids),
+        ConversationExecutionEpoch.where(id: @execution_epoch_ids),
         LineageStoreReference.where(owner_type: "Conversation", owner_id: @owned_conversation_ids),
         Conversation.where(id: @owned_subagent_conversation_ids),
         ConversationClosure.where(ancestor_conversation_id: @owned_conversation_ids).or(

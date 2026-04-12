@@ -561,13 +561,13 @@ git commit -m "feat: add workspace-first agent read apis"
 - Modify: `core_matrix/app/controllers/app_api/conversation_turn_runtime_events_controller.rb`
 - Modify: `core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb`
 - Modify: `core_matrix/app/controllers/app_api/conversation_supervision_messages_controller.rb`
-- Create: `core_matrix/app/controllers/app_api/agent_conversations_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/conversations_controller.rb`
 - Create: `core_matrix/app/controllers/app_api/conversation_messages_controller.rb`
 - Create: `core_matrix/app/services/workbench/create_conversation_from_agent.rb`
 - Create: `core_matrix/app/services/workbench/send_message.rb`
 - Modify: `core_matrix/app/services/conversations/create_root.rb`
 - Modify: `core_matrix/app/services/turns/start_user_turn.rb`
-- Create: `core_matrix/test/requests/app_api/agent_conversations_test.rb`
+- Create: `core_matrix/test/requests/app_api/conversations_test.rb`
 - Create: `core_matrix/test/requests/app_api/conversation_messages_test.rb`
 - Modify: `core_matrix/test/requests/app_api/conversation_transcripts_test.rb`
 - Modify: `core_matrix/test/requests/app_api/conversation_turn_todo_plans_controller_test.rb`
@@ -581,14 +581,14 @@ git commit -m "feat: add workspace-first agent read apis"
 
 Add coverage that proves:
 
-- `POST /app_api/agents/:agent_id/conversations` materializes the default workspace on first use
+- `POST /app_api/conversations` materializes the default workspace on first use
 - `POST /app_api/conversations/:conversation_id/messages` appends user input through a product action
 - transcript/plan/activity/supervision endpoints are authenticated via human session and presented via the new app-surface layer
 
 ```ruby
 assert_difference("Workspace.count", +1) do
-  post "/app_api/agents/#{agent.public_id}/conversations",
-    params: { content: "Help me start" },
+  post "/app_api/conversations",
+    params: { agent_id: agent.public_id, content: "Help me start" },
     headers: auth_headers(session)
 end
 ```
@@ -599,7 +599,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/requests/app_api/agent_conversations_test.rb test/requests/app_api/conversation_messages_test.rb test/requests/app_api/conversation_transcripts_test.rb test/requests/app_api/conversation_turn_todo_plans_controller_test.rb test/requests/app_api/conversation_turn_runtime_events_controller_test.rb test/requests/app_api/conversation_supervision_sessions_test.rb test/requests/app_api/conversation_supervision_messages_test.rb test/services/workbench/create_conversation_from_agent_test.rb test/services/workbench/send_message_test.rb
+bin/rails test test/requests/app_api/conversations_test.rb test/requests/app_api/conversation_messages_test.rb test/requests/app_api/conversation_transcripts_test.rb test/requests/app_api/conversation_turn_todo_plans_controller_test.rb test/requests/app_api/conversation_turn_runtime_events_controller_test.rb test/requests/app_api/conversation_supervision_sessions_test.rb test/requests/app_api/conversation_supervision_messages_test.rb test/services/workbench/create_conversation_from_agent_test.rb test/services/workbench/send_message_test.rb
 ```
 
 Expected: FAIL because no workspace-first workbench actions exist yet.
@@ -627,7 +627,7 @@ Run:
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/rails db:test:prepare
-bin/rails test test/requests/app_api/agent_conversations_test.rb test/requests/app_api/conversation_messages_test.rb test/requests/app_api/conversation_transcripts_test.rb test/requests/app_api/conversation_turn_todo_plans_controller_test.rb test/requests/app_api/conversation_turn_runtime_events_controller_test.rb test/requests/app_api/conversation_supervision_sessions_test.rb test/requests/app_api/conversation_supervision_messages_test.rb test/services/workbench/create_conversation_from_agent_test.rb test/services/workbench/send_message_test.rb
+bin/rails test test/requests/app_api/conversations_test.rb test/requests/app_api/conversation_messages_test.rb test/requests/app_api/conversation_transcripts_test.rb test/requests/app_api/conversation_turn_todo_plans_controller_test.rb test/requests/app_api/conversation_turn_runtime_events_controller_test.rb test/requests/app_api/conversation_supervision_sessions_test.rb test/requests/app_api/conversation_supervision_messages_test.rb test/services/workbench/create_conversation_from_agent_test.rb test/services/workbench/send_message_test.rb
 ```
 
 Expected: PASS.
@@ -636,7 +636,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-git add core_matrix/config/routes.rb core_matrix/app/controllers/app_api/conversation_transcripts_controller.rb core_matrix/app/controllers/app_api/conversation_turn_todo_plans_controller.rb core_matrix/app/controllers/app_api/conversation_turn_runtime_events_controller.rb core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb core_matrix/app/controllers/app_api/conversation_supervision_messages_controller.rb core_matrix/app/controllers/app_api/agent_conversations_controller.rb core_matrix/app/controllers/app_api/conversation_messages_controller.rb core_matrix/app/services/workbench/create_conversation_from_agent.rb core_matrix/app/services/workbench/send_message.rb core_matrix/app/services/conversations/create_root.rb core_matrix/app/services/turns/start_user_turn.rb core_matrix/test/requests/app_api/agent_conversations_test.rb core_matrix/test/requests/app_api/conversation_messages_test.rb core_matrix/test/requests/app_api/conversation_transcripts_test.rb core_matrix/test/requests/app_api/conversation_turn_todo_plans_controller_test.rb core_matrix/test/requests/app_api/conversation_turn_runtime_events_controller_test.rb core_matrix/test/requests/app_api/conversation_supervision_sessions_test.rb core_matrix/test/requests/app_api/conversation_supervision_messages_test.rb core_matrix/test/services/workbench/create_conversation_from_agent_test.rb core_matrix/test/services/workbench/send_message_test.rb
+git add core_matrix/config/routes.rb core_matrix/app/controllers/app_api/conversations_controller.rb core_matrix/app/controllers/app_api/conversation_transcripts_controller.rb core_matrix/app/controllers/app_api/conversation_turn_todo_plans_controller.rb core_matrix/app/controllers/app_api/conversation_turn_runtime_events_controller.rb core_matrix/app/controllers/app_api/conversation_supervision_sessions_controller.rb core_matrix/app/controllers/app_api/conversation_supervision_messages_controller.rb core_matrix/app/controllers/app_api/conversation_messages_controller.rb core_matrix/app/services/workbench/create_conversation_from_agent.rb core_matrix/app/services/workbench/send_message.rb core_matrix/app/services/conversations/create_root.rb core_matrix/app/services/turns/start_user_turn.rb core_matrix/test/requests/app_api/conversations_test.rb core_matrix/test/requests/app_api/conversation_messages_test.rb core_matrix/test/requests/app_api/conversation_transcripts_test.rb core_matrix/test/requests/app_api/conversation_turn_todo_plans_controller_test.rb core_matrix/test/requests/app_api/conversation_turn_runtime_events_controller_test.rb core_matrix/test/requests/app_api/conversation_supervision_sessions_test.rb core_matrix/test/requests/app_api/conversation_supervision_messages_test.rb core_matrix/test/services/workbench/create_conversation_from_agent_test.rb core_matrix/test/services/workbench/send_message_test.rb
 git commit -m "feat: add workbench app api actions and projections"
 ```
 
@@ -912,7 +912,7 @@ Expected:
 Current product decision for runtime selection:
 
 - workspace policy owns the default execution runtime for new conversations
-- `POST /app_api/agents/:id/conversations` may override the runtime for the
+- `POST /app_api/conversations` may override the runtime for the
   first turn only
 - `POST /app_api/conversations/:id/messages` must not switch runtime
 - follow-up runtime-switch attempts must return an explicit product error until

@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# ACCEPTANCE_MODE: internal_workflow
+# This scenario intentionally exercises subagent wait_all barrier semantics because there is no equivalent app_api surface.
 
 require_relative "../lib/boot"
 

@@ -565,6 +565,28 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.index ["turn_id"], name: "index_conversation_events_on_turn_id"
   end
 
+  create_table "conversation_execution_epochs", force: :cascade do |t|
+    t.datetime "closed_at"
+    t.jsonb "continuity_payload", default: {}, null: false
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "execution_runtime_id"
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "active", null: false
+    t.datetime "opened_at", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.integer "sequence", null: false
+    t.bigint "source_execution_epoch_id"
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id", "sequence"], name: "idx_on_conversation_id_sequence_57213b8b1e", unique: true
+    t.index ["conversation_id"], name: "idx_conversation_execution_epochs_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
+    t.index ["conversation_id"], name: "index_conversation_execution_epochs_on_conversation_id"
+    t.index ["execution_runtime_id"], name: "index_conversation_execution_epochs_on_execution_runtime_id"
+    t.index ["installation_id"], name: "index_conversation_execution_epochs_on_installation_id"
+    t.index ["public_id"], name: "index_conversation_execution_epochs_on_public_id", unique: true
+    t.index ["source_execution_epoch_id"], name: "idx_on_source_execution_epoch_id_9c5f89d7b2"
+  end
+
   create_table "conversation_export_requests", force: :cascade do |t|
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
@@ -754,10 +776,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.string "addressability", default: "owner_addressable", null: false
     t.bigint "agent_id", null: false
     t.datetime "created_at", null: false
+    t.bigint "current_execution_epoch_id"
+    t.bigint "current_execution_runtime_id"
     t.datetime "deleted_at"
     t.string "deletion_state", default: "retained", null: false
     t.string "during_generation_input_policy", default: "queue", null: false
     t.string "enabled_feature_ids", default: [], null: false, array: true
+    t.string "execution_continuity_state", default: "ready", null: false
     t.bigint "historical_anchor_message_id"
     t.bigint "installation_id", null: false
     t.string "interactive_selector_mode", default: "auto", null: false
@@ -784,6 +809,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.bigint "workspace_id", null: false
     t.index ["agent_id", "lifecycle_state"], name: "idx_conversations_agent_lifecycle"
     t.index ["agent_id"], name: "index_conversations_on_agent_id"
+    t.index ["current_execution_epoch_id"], name: "index_conversations_on_current_execution_epoch_id"
+    t.index ["current_execution_runtime_id"], name: "index_conversations_on_current_execution_runtime_id"
     t.index ["installation_id"], name: "index_conversations_on_installation_id"
     t.index ["parent_conversation_id"], name: "index_conversations_on_parent_conversation_id"
     t.index ["public_id"], name: "index_conversations_on_public_id", unique: true
@@ -1225,6 +1252,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.datetime "ended_at"
+    t.bigint "execution_epoch_id", null: false
     t.bigint "execution_runtime_id", null: false
     t.integer "exit_status"
     t.string "idempotency_key"
@@ -1241,6 +1269,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.bigint "workflow_node_id", null: false
     t.index ["conversation_id", "lifecycle_state"], name: "idx_process_runs_conversation_lifecycle"
     t.index ["conversation_id"], name: "index_process_runs_on_conversation_id"
+    t.index ["execution_epoch_id"], name: "index_process_runs_on_execution_epoch_id"
     t.index ["execution_runtime_id", "lifecycle_state"], name: "idx_process_runs_executor_lifecycle"
     t.index ["execution_runtime_id"], name: "index_process_runs_on_execution_runtime_id"
     t.index ["installation_id"], name: "index_process_runs_on_installation_id"
@@ -1670,6 +1699,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.bigint "execution_contract_id"
+    t.bigint "execution_epoch_id", null: false
     t.bigint "execution_runtime_id"
     t.bigint "execution_runtime_version_id"
     t.string "external_event_key"
@@ -1692,6 +1722,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.index ["conversation_id", "sequence"], name: "index_turns_on_conversation_id_and_sequence", unique: true
     t.index ["conversation_id"], name: "index_turns_on_conversation_id"
     t.index ["execution_contract_id"], name: "index_turns_on_execution_contract_id"
+    t.index ["execution_epoch_id"], name: "index_turns_on_execution_epoch_id"
     t.index ["execution_runtime_id"], name: "index_turns_on_execution_runtime_id"
     t.index ["execution_runtime_version_id"], name: "index_turns_on_execution_runtime_version_id"
     t.index ["installation_id"], name: "index_turns_on_installation_id"
@@ -2095,6 +2126,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "conversation_events", "conversations"
   add_foreign_key "conversation_events", "installations"
   add_foreign_key "conversation_events", "turns"
+  add_foreign_key "conversation_execution_epochs", "conversation_execution_epochs", column: "source_execution_epoch_id"
+  add_foreign_key "conversation_execution_epochs", "conversations"
+  add_foreign_key "conversation_execution_epochs", "execution_runtimes"
+  add_foreign_key "conversation_execution_epochs", "installations"
   add_foreign_key "conversation_export_requests", "conversations"
   add_foreign_key "conversation_export_requests", "installations"
   add_foreign_key "conversation_export_requests", "users"
@@ -2127,7 +2162,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "conversation_supervision_states", "conversations", column: "target_conversation_id"
   add_foreign_key "conversation_supervision_states", "installations"
   add_foreign_key "conversations", "agents"
+  add_foreign_key "conversations", "conversation_execution_epochs", column: "current_execution_epoch_id"
   add_foreign_key "conversations", "conversations", column: "parent_conversation_id"
+  add_foreign_key "conversations", "execution_runtimes", column: "current_execution_runtime_id"
   add_foreign_key "conversations", "installations"
   add_foreign_key "conversations", "workspaces"
   add_foreign_key "execution_capability_snapshots", "agent_definition_versions"
@@ -2193,6 +2230,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "onboarding_sessions", "execution_runtimes", column: "target_execution_runtime_id"
   add_foreign_key "onboarding_sessions", "installations"
   add_foreign_key "onboarding_sessions", "users", column: "issued_by_user_id"
+  add_foreign_key "process_runs", "conversation_execution_epochs", column: "execution_epoch_id"
   add_foreign_key "process_runs", "conversations"
   add_foreign_key "process_runs", "execution_runtimes"
   add_foreign_key "process_runs", "installations"
@@ -2257,6 +2295,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "turn_todo_plans", "installations"
   add_foreign_key "turn_todo_plans", "turns"
   add_foreign_key "turns", "agent_definition_versions"
+  add_foreign_key "turns", "conversation_execution_epochs", column: "execution_epoch_id"
   add_foreign_key "turns", "conversations"
   add_foreign_key "turns", "execution_contracts"
   add_foreign_key "turns", "execution_runtime_versions"

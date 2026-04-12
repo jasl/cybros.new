@@ -18,4 +18,5 @@ else
 fi
 
 cd "${CORE_MATRIX_ROOT}"
+export ACCEPTANCE_SKIP_BACKEND_RESET=true
 bin/rails runner "${TARGET_PATH}" "$@"

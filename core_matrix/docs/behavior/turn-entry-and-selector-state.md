@@ -45,7 +45,8 @@ execution-snapshot persistence on the turn row.
 ## Turn Behavior
 
 - `Turn` belongs to a conversation, installation, pinned
-  `AgentDefinitionVersion`, and optional `ExecutionRuntime`
+  `AgentDefinitionVersion`, required `ConversationExecutionEpoch`, optional
+  `ExecutionRuntime`, and optional `ExecutionRuntimeVersion`
 - turn state is explicit and supports:
   - `queued`
   - `active`
@@ -99,14 +100,20 @@ execution-snapshot persistence on the turn row.
 
 - `Turns::StartUserTurn` creates an active manual-user turn plus an initial
   selected `UserMessage`
-- execution-runtime selection is creation-scoped:
-  - when a conversation has no prior turns, runtime selection comes from the
-    workspace default, falling back to the agent default unless an explicit
-    first-turn override is supplied
-  - once a conversation already has a turn history, ordinary end-user message
-    APIs must not switch the execution runtime
-  - conversation runtime handoff is therefore deferred to a future dedicated
-    flow rather than piggybacking on follow-up message creation
+- execution continuity is conversation-scoped through
+  `Conversation.current_execution_epoch` plus the cached
+  `Conversation.current_execution_runtime`
+- root conversation creation seeds the current execution runtime from the
+  workspace default, falling back to the agent default unless an explicit
+  initial runtime override is supplied
+- when a conversation still has no turn history, an explicit first-turn runtime
+  override may retarget the current execution epoch before the first turn is
+  frozen
+- follow-up turns always freeze execution identity from the conversation current
+  execution epoch rather than re-deriving continuity from previous-turn runtime
+- ordinary end-user follow-up message APIs must not switch the execution
+  runtime; conversation runtime handoff is deferred to a future dedicated flow
+  instead of piggybacking on message creation
 - agent discovery and agent-home visibility are separate from launchability;
   the launchability check happens when a conversation is started, not when an
   agent is merely listed or viewed
@@ -165,6 +172,8 @@ execution-snapshot persistence on the turn row.
 - automation-origin turns may exist without a transcript-bearing `UserMessage`
 - queued follow-up only exists when there is already active work to follow
 - selected transcript pointers remain explicit turn-owned state
+- follow-up execution continuity is taken from the conversation current epoch,
+  not from historical turn lookup
 - execution-runtime identity may advance to newer versions for the same runtime
   id, but user-facing follow-up message APIs do not change the conversation to
   a different runtime id

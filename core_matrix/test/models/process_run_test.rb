@@ -1,6 +1,26 @@
 require "test_helper"
 
 class ProcessRunTest < ActiveSupport::TestCase
+  test "defaults the execution epoch from the turn" do
+    process_context = build_process_context!
+
+    process_run = ProcessRun.new(
+      installation: process_context[:installation],
+      workflow_node: process_context[:workflow_node],
+      execution_runtime: process_context[:execution_runtime],
+      conversation: process_context[:conversation],
+      turn: process_context[:turn],
+      origin_message: process_context[:origin_message],
+      kind: "background_service",
+      lifecycle_state: "running",
+      command_line: "echo hi",
+      metadata: {}
+    )
+
+    assert process_run.valid?
+    assert_equal process_context[:turn].execution_epoch, process_run.execution_epoch
+  end
+
   test "requires the process run execution runtime to match the frozen turn execution runtime" do
     process_context = build_process_context!
     other_runtime = create_execution_runtime!(
@@ -56,6 +76,7 @@ class ProcessRunTest < ActiveSupport::TestCase
       installation: installation,
       workspace: workspace,
       agent: agent,
+      current_execution_runtime: execution_runtime,
       kind: "root",
       purpose: "interactive",
       lifecycle_state: "active"

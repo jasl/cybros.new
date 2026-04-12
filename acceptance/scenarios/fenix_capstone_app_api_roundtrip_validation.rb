@@ -22,6 +22,7 @@ artifact_dir = repo_root.join("acceptance", "artifacts", artifact_stamp)
 workspace_root = Pathname.new(ENV.fetch("CAPSTONE_WORKSPACE_ROOT", repo_root.join("tmp", "fenix").to_s)).expand_path
 generated_app_dir = workspace_root.join("game-2048")
 conversation_export_path = artifact_dir.join("exports", "conversation-export.zip")
+conversation_debug_export_path = artifact_dir.join("exports", "conversation-debug-export.zip")
 prompt = Acceptance::CapstoneAppApiRoundtrip.prompt(generated_app_dir: generated_app_dir.to_s)
 
 def write_json(path, payload)
@@ -50,15 +51,12 @@ bundled_registration = Acceptance::ManualSupport.register_bundled_runtime_from_m
   execution_runtime_fingerprint: "acceptance-capstone-bundled-fenix-environment",
   fingerprint: "acceptance-capstone-bundled-fenix-runtime"
 )
-onboarding_session = OnboardingSessions::Issue.call(
-  installation: bootstrap.installation,
+onboarding = Acceptance::ManualSupport.app_api_admin_create_onboarding_session!(
   target_kind: "execution_runtime",
-  target: nil,
-  issued_by: bootstrap.user,
-  expires_at: 2.hours.from_now
+  session_token: app_api_session_token
 )
 bring_your_own_runtime_registration = Acceptance::ManualSupport.register_bring_your_own_execution_runtime!(
-  onboarding_token: onboarding_session.plaintext_token,
+  onboarding_token: onboarding.fetch("onboarding_token"),
   runtime_base_url: runtime_base_url,
   execution_runtime_fingerprint: "acceptance-capstone-bring-your-own-runtime-environment"
 )
@@ -69,7 +67,7 @@ write_json(
     agent_definition_version: bundled_registration.agent_definition_version,
     execution_runtime: bring_your_own_runtime_registration.fetch(:execution_runtime),
     agent_connection_credential: bundled_registration.agent_connection_credential,
-    onboarding_session: onboarding_session
+    onboarding_session_id: onboarding.dig("onboarding_session", "onboarding_session_id")
   ).merge(
     "agent_connection_id" => bundled_registration.agent_connection_id,
     "execution_runtime_connection_id" => bring_your_own_runtime_registration.fetch(:execution_runtime_connection_id)
@@ -86,8 +84,12 @@ write_json(
   )
 )
 
-conversation_context = nil
-run = nil
+created = nil
+conversation_id = nil
+turn_id = nil
+terminal = nil
+turn_runtime_events = nil
+turn_feed = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker!(
   agent_connection_credential: bundled_registration.agent_connection_credential,
@@ -107,22 +109,33 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
       session_token: app_api_session_token,
       execution_runtime_id: bring_your_own_runtime_registration.fetch(:execution_runtime).public_id
     )
-    run = Acceptance::ManualSupport.wait_for_turn_workflow_terminal!(
-      turn_id: created.fetch("turn_id"),
-      inline_if_queued: false
+    conversation_id = created.dig("conversation", "conversation_id")
+    turn_id = created.fetch("turn_id")
+    terminal = Acceptance::ManualSupport.wait_for_app_api_turn_terminal!(
+      conversation_id: conversation_id,
+      turn_id: turn_id,
+      session_token: app_api_session_token
     )
-    conversation_context = {
-      actor: bootstrap.user,
-      workspace: Workspace.find_by_public_id!(created.dig("workspace", "workspace_id")),
-      conversation: run.fetch(:conversation)
-    }
+    turn_runtime_events = Acceptance::ManualSupport.app_api_conversation_turn_runtime_events!(
+      conversation_id: conversation_id,
+      turn_id: turn_id,
+      session_token: app_api_session_token
+    )
+    turn_feed = Acceptance::ManualSupport.app_api_conversation_turn_feeds!(
+      conversation_id: conversation_id,
+      session_token: app_api_session_token
+    )
   end
 end
 
-conversation = conversation_context.fetch(:conversation).reload
-turn = run.fetch(:turn).reload
-workflow_run = run.fetch(:workflow_run).reload
-debug_payload = ConversationDebugExports::BuildPayload.call(conversation: conversation)
+debug_export_download = Acceptance::ManualSupport.app_api_debug_export_conversation!(
+  conversation_id: conversation_id,
+  session_token: app_api_session_token,
+  destination_path: conversation_debug_export_path
+)
+debug_payload = Acceptance::ManualSupport.extract_debug_export_payload!(
+  debug_export_download.dig("download", "path")
+)
 runtime_validation = ManualAcceptance::ConversationRuntimeValidation.build(
   tool_invocations: debug_payload.fetch("tool_invocations")
 )
@@ -137,16 +150,22 @@ host_validation_bundle = Acceptance::HostValidation.run!(
 host_validation = host_validation_bundle.fetch("host_validation")
 playwright_validation = host_validation_bundle.fetch("playwright_validation")
 export_download = Acceptance::ManualSupport.app_api_export_conversation!(
-  conversation_id: conversation.public_id,
+  conversation_id: conversation_id,
   session_token: app_api_session_token,
   destination_path: conversation_export_path
 )
 
 write_json(artifact_dir.join("evidence", "conversation-debug-export.json"), debug_payload)
+write_json(artifact_dir.join("evidence", "conversation-turn-runtime-events.json"), turn_runtime_events)
+write_json(artifact_dir.join("evidence", "conversation-turn-feed.json"), turn_feed)
 write_json(artifact_dir.join("evidence", "runtime-validation.json"), runtime_validation)
+write_json(artifact_dir.join("evidence", "conversation-debug-export-download.json"), debug_export_download)
 write_json(artifact_dir.join("evidence", "conversation-export-download.json"), export_download)
 
-observed_dag_shape = Acceptance::ManualSupport.workflow_node_keys(workflow_run)
+observed_dag_shape = debug_payload.fetch("workflow_nodes")
+  .select { |node| node.fetch("turn_id") == turn_id }
+  .sort_by { |node| [node.fetch("ordinal"), node.fetch("created_at").to_s] }
+  .map { |node| node.fetch("node_key") }
 expected_dag_shape = [
   "turn_step",
   "provider_round_*_tool_*",
@@ -162,15 +181,21 @@ expected_conversation_state = {
   "workflow_wait_state" => "ready",
   "turn_lifecycle_state" => "completed",
 }
-observed_conversation_state = Acceptance::ManualSupport.workflow_state_hash(
-  conversation: conversation,
-  workflow_run: workflow_run,
-  turn: turn,
-  extra: {
-    "selected_output_message_id" => turn.selected_output_message&.public_id,
-    "selected_output_content" => turn.selected_output_message&.content,
-  }
-)
+workflow_run = debug_payload.fetch("workflow_runs")
+  .select { |candidate| candidate.fetch("turn_id") == turn_id }
+  .max_by { |candidate| [candidate.fetch("created_at").to_s, candidate.fetch("workflow_run_id")] } || {}
+selected_output_message = debug_payload.fetch("conversation_payload")
+  .fetch("messages")
+  .reverse
+  .find { |message| message.fetch("turn_public_id") == turn_id && message.fetch("role") == "assistant" }
+observed_conversation_state = {
+  "conversation_state" => terminal.fetch("conversation").fetch("lifecycle_state"),
+  "workflow_lifecycle_state" => workflow_run.fetch("lifecycle_state"),
+  "workflow_wait_state" => workflow_run.fetch("wait_state"),
+  "turn_lifecycle_state" => terminal.fetch("turn").fetch("lifecycle_state"),
+  "selected_output_message_id" => selected_output_message&.fetch("message_public_id", nil),
+  "selected_output_content" => selected_output_message&.fetch("content", nil),
+}.compact
 
 passed = dag_shape_passed &&
   expected_conversation_state.all? { |key, value| observed_conversation_state[key] == value } &&
@@ -210,21 +235,22 @@ result = Acceptance::ManualSupport.scenario_result(
   extra: {
     "agent_base_url" => agent_base_url,
     "runtime_base_url" => runtime_base_url,
-    "onboarding_session_id" => onboarding_session.public_id,
+    "onboarding_session_id" => onboarding.dig("onboarding_session", "onboarding_session_id"),
     "agent_definition_version_id" => bundled_registration.agent_definition_version.public_id,
     "execution_runtime_id" => bring_your_own_runtime_registration.fetch(:execution_runtime).public_id,
     "execution_runtime_version_id" => bring_your_own_runtime_registration.fetch(:execution_runtime_version).public_id,
-    "conversation_id" => conversation.public_id,
-    "turn_id" => turn.public_id,
-    "workflow_run_id" => workflow_run.public_id,
+    "conversation_id" => conversation_id,
+    "turn_id" => turn_id,
+    "workflow_run_id" => workflow_run.fetch("workflow_run_id", nil),
     "dag_shape_passed" => dag_shape_passed,
     "runtime_validation" => runtime_validation,
     "runtime_browser_mentions_2048" => runtime_mentions_2048,
     "host_validation" => host_validation,
     "playwright_validation" => playwright_validation,
     "conversation_export_path" => conversation_export_path.to_s,
-    "selected_output_message_id" => turn.selected_output_message&.public_id,
-    "selected_output_content" => turn.selected_output_message&.content,
+    "conversation_debug_export_path" => conversation_debug_export_path.to_s,
+    "selected_output_message_id" => selected_output_message&.fetch("message_public_id", nil),
+    "selected_output_content" => selected_output_message&.fetch("content", nil),
   }
 )
 result["passed"] = passed

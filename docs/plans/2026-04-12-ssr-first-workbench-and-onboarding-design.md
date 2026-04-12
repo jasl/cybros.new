@@ -450,7 +450,7 @@ Illustrative examples, not final route lock-in:
 - `GET /app_api/agents/:agent_id/workspaces`
 - `GET /app_api/agents/:agent_id/workspaces/:workspace_id`
 - `GET /app_api/agents/:agent_id/workspaces/:workspace_id/conversations`
-- `POST /app_api/agents/:agent_id/conversations`
+- `POST /app_api/conversations`
   - if no `workspace_id` is supplied, the system uses the agent default
     workspace and materializes it on first use if needed
 - `GET /app_api/conversation_transcripts?conversation_id=...`

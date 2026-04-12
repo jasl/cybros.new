@@ -26,37 +26,16 @@ class Workbench::SendMessageTest < ActiveSupport::TestCase
     assert_equal result.turn, result.workflow_run.turn
   end
 
-  test "keeps using the runtime pinned by the conversation's previous turn" do
+  test "keeps using the runtime pinned by the conversation current execution state" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     override_runtime = create_execution_runtime!(installation: context[:installation])
-    override_runtime_connection = create_execution_runtime_connection!(
+    create_execution_runtime_connection!(
       installation: context[:installation],
       execution_runtime: override_runtime
     )
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace], agent: context[:agent])
-    agent_config_state = AgentConfigStates::Reconcile.call(
-      agent: context[:agent],
-      agent_definition_version: context[:agent_definition_version]
-    )
-
-    Turn.create!(
-      installation: context[:installation],
-      conversation: conversation,
-      agent_definition_version: context[:agent_definition_version],
-      execution_runtime: override_runtime,
-      execution_runtime_version: override_runtime_connection.execution_runtime_version,
-      sequence: 1,
-      lifecycle_state: "completed",
-      origin_kind: "manual_user",
-      origin_payload: {},
-      source_ref_type: "User",
-      source_ref_id: context[:user].public_id,
-      pinned_agent_definition_fingerprint: context[:agent_definition_version].definition_fingerprint,
-      agent_config_version: agent_config_state.version,
-      agent_config_content_fingerprint: agent_config_state.content_fingerprint,
-      resolved_config_snapshot: {},
-      resolved_model_selection_snapshot: {}
-    )
+    conversation.current_execution_epoch.update!(execution_runtime: override_runtime)
+    conversation.update!(current_execution_runtime: override_runtime)
 
     result = nil
 

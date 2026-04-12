@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# ACCEPTANCE_MODE: hybrid_app_api
+# This scenario must use app_api where a product/operator surface exists and only keep internal hooks for skills mailbox task modes that have no product endpoint yet.
 # frozen_string_literal: true
 
 require 'fileutils'
@@ -67,30 +69,72 @@ def report_results_for(agent_task_run:)
   Acceptance::ManualSupport.report_results_for(agent_task_run: agent_task_run)
 end
 
-def serialize_run(run)
+def observe_run_via_app_api(run:, session_token:, artifact_dir:)
+  conversation_id = run.fetch(:conversation).public_id
+  turn_id = run.fetch(:turn).public_id
+  debug_export_path = artifact_dir.join('exports', "#{turn_id}-conversation-debug-export.zip")
+  diagnostics = Acceptance::ManualSupport.app_api_conversation_diagnostics_show!(
+    conversation_id: conversation_id,
+    session_token: session_token
+  )
+  turns_payload = Acceptance::ManualSupport.app_api_conversation_diagnostics_turns!(
+    conversation_id: conversation_id,
+    session_token: session_token
+  )
+  debug_export_download = Acceptance::ManualSupport.app_api_debug_export_conversation!(
+    conversation_id: conversation_id,
+    session_token: session_token,
+    destination_path: debug_export_path
+  )
+  debug_payload = Acceptance::ManualSupport.extract_debug_export_payload!(
+    debug_export_download.dig('download', 'path')
+  )
+  workflow_run = debug_payload.fetch('workflow_runs')
+    .select { |candidate| candidate.fetch('turn_id') == turn_id }
+    .max_by { |candidate| [candidate.fetch('created_at').to_s, candidate.fetch('workflow_run_id')] } || {}
+  turn_snapshot = turns_payload.fetch('items').find { |item| item.fetch('turn_id') == turn_id } || {}
+  selected_output_message = debug_payload.fetch('conversation_payload')
+    .fetch('messages')
+    .reverse
+    .find { |message| message.fetch('turn_public_id') == turn_id && message.fetch('role') == 'assistant' }
+
+  {
+    'dag_shape' => debug_payload.fetch('workflow_nodes')
+      .select { |node| node.fetch('turn_id') == turn_id }
+      .sort_by { |node| [node.fetch('ordinal'), node.fetch('created_at').to_s] }
+      .map { |node| node.fetch('node_key') },
+    'conversation_state' => {
+      'conversation_state' => diagnostics.dig('snapshot', 'lifecycle_state'),
+      'workflow_lifecycle_state' => workflow_run.fetch('lifecycle_state', nil),
+      'workflow_wait_state' => workflow_run.fetch('wait_state', nil),
+      'turn_lifecycle_state' => turn_snapshot.fetch('lifecycle_state', nil),
+      'agent_task_run_state' => run.fetch(:agent_task_run).reload.lifecycle_state,
+      'selected_output_message_id' => selected_output_message&.fetch('message_public_id', nil),
+      'selected_output_content' => selected_output_message&.fetch('content', nil)
+    }.compact,
+    'workflow_run_id' => workflow_run.fetch('workflow_run_id', nil),
+    'debug_export_path' => debug_export_path.to_s
+  }
+end
+
+def serialize_run(run, session_token:, artifact_dir:)
+  observed = observe_run_via_app_api(run:, session_token:, artifact_dir:)
+
   serialize_run_identity(run)
-    .merge('dag_shape' => Acceptance::ManualSupport.workflow_node_keys(run.fetch(:workflow_run)))
-    .merge('conversation_state' => serialize_run_conversation_state(run))
+    .merge('workflow_run_id' => observed.fetch('workflow_run_id'))
+    .merge('dag_shape' => observed.fetch('dag_shape'))
+    .merge('conversation_state' => observed.fetch('conversation_state'))
     .merge(serialize_run_execution(run))
     .merge('report_results' => run.fetch(:report_results))
+    .merge('debug_export_path' => observed.fetch('debug_export_path'))
 end
 
 def serialize_run_identity(run)
   {
     'conversation_id' => run.fetch(:conversation).public_id,
     'turn_id' => run.fetch(:turn).public_id,
-    'workflow_run_id' => run.fetch(:workflow_run).public_id,
     'agent_task_run_id' => run.fetch(:agent_task_run).public_id
   }
-end
-
-def serialize_run_conversation_state(run)
-  Acceptance::ManualSupport.workflow_state_hash(
-    conversation: run.fetch(:conversation),
-    workflow_run: run.fetch(:workflow_run),
-    turn: run.fetch(:turn),
-    agent_task_run: run.fetch(:agent_task_run)
-  )
 end
 
 def serialize_run_execution(run)
@@ -112,6 +156,10 @@ end
 
 agent_base_url = ENV.fetch('FENIX_RUNTIME_BASE_URL', 'http://127.0.0.1:3101')
 runtime_base_url = ENV.fetch('NEXUS_RUNTIME_BASE_URL', 'http://127.0.0.1:3301')
+artifact_stamp = ENV.fetch('FENIX_SKILLS_ARTIFACT_STAMP') do
+  "#{Time.current.strftime("%Y-%m-%d-%H%M%S")}-fenix-skills-validation"
+end
+artifact_dir = AcceptanceHarness.repo_root.join('acceptance', 'artifacts', artifact_stamp)
 nexus_home_root = ensure_disposable_nexus_home_root!(
   Pathname.new(
     ENV.fetch('NEXUS_HOME_ROOT', Rails.root.join('tmp/acceptance-nexus-home').to_s)
@@ -124,6 +172,9 @@ FileUtils.mkdir_p(nexus_home_root)
 
 Acceptance::ManualSupport.reset_backend_state!
 bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
+app_api_session_token = Acceptance::ManualSupport.issue_app_api_session_token!(user: bootstrap.user)
+FileUtils.rm_rf(artifact_dir)
+FileUtils.mkdir_p(artifact_dir)
 
 bring_your_own_agent_a = Acceptance::ManualSupport.create_bring_your_own_agent!(
   installation: bootstrap.installation,
@@ -262,10 +313,10 @@ expected_isolation_failure_state = {
   'agent_task_run_state' => 'failed'
 }.freeze
 
-serialized_install_run = serialize_run(install_run)
-serialized_same_agent_load_run = serialize_run(same_agent_load_run)
-serialized_same_agent_read_run = serialize_run(same_agent_read_run)
-serialized_different_agent_load_run = serialize_run(different_agent_load_run)
+serialized_install_run = serialize_run(install_run, session_token: app_api_session_token, artifact_dir: artifact_dir)
+serialized_same_agent_load_run = serialize_run(same_agent_load_run, session_token: app_api_session_token, artifact_dir: artifact_dir)
+serialized_same_agent_read_run = serialize_run(same_agent_read_run, session_token: app_api_session_token, artifact_dir: artifact_dir)
+serialized_different_agent_load_run = serialize_run(different_agent_load_run, session_token: app_api_session_token, artifact_dir: artifact_dir)
 
 shared_conversation_success = {
   'passed' => run_passed?(serialized_same_agent_load_run, expected_conversation_state) &&
@@ -297,7 +348,7 @@ Acceptance::ManualSupport.write_json(
   {
     'scenario' => 'fenix_skills_validation',
     'passed' => passed,
-    'proof_artifact_path' => nil,
+    'proof_artifact_path' => artifact_dir.to_s,
     'agent_base_url' => agent_base_url,
     'runtime_base_url' => runtime_base_url,
     'nexus_home_root' => nexus_home_root.to_s,

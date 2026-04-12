@@ -3,6 +3,7 @@ class CreateProcessRuns < ActiveRecord::Migration[8.2]
     create_table :process_runs do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :workflow_node, null: false, foreign_key: true
+      t.references :execution_epoch, null: false, foreign_key: { to_table: :conversation_execution_epochs }
       t.references :execution_runtime, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
       t.references :turn, null: false, foreign_key: true

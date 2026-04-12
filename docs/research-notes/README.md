@@ -31,3 +31,4 @@ Current notes:
 - [2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-core-matrix-phase-2-runtime-loop-and-mcp-research-note.md)
 - [2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-skills-and-agent-skills-spec-research-note.md)
 - [2026-03-25-fenix-agent-snapshot-rotation-and-discourse-operations-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-25-fenix-agent-snapshot-rotation-and-discourse-operations-research-note.md)
+- [2026-04-13-conversation-execution-runtime-handoff-research-note.md](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-04-13-conversation-execution-runtime-handoff-research-note.md)

@@ -46,4 +46,26 @@ class AppApiConversationMessagesTest < ActionDispatch::IntegrationTest
     assert_equal "conversation_runtime_handoff_not_implemented", response.parsed_body.fetch("method_id")
     assert_equal "conversation runtime handoff is not implemented yet", response.parsed_body.fetch("error")
   end
+
+  test "uses the conversation current execution runtime instead of deriving from prior turns" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    session = create_session!(user: context[:user])
+    alternate_runtime = create_execution_runtime!(installation: context[:installation])
+    create_execution_runtime_connection!(installation: context[:installation], execution_runtime: alternate_runtime)
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace], agent: context[:agent])
+    conversation.current_execution_epoch.update!(execution_runtime: alternate_runtime)
+    conversation.update!(current_execution_runtime: alternate_runtime)
+
+    post "/app_api/conversations/#{conversation.public_id}/messages",
+      params: {
+        content: "Use conversation current runtime",
+      },
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :created
+    turn = Turn.find_by_public_id!(response.parsed_body.fetch("turn_id"))
+    assert_equal alternate_runtime, turn.execution_runtime
+    assert_equal conversation.current_execution_epoch, turn.execution_epoch
+  end
 end

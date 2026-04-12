@@ -52,16 +52,20 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, 'ENV.fetch("CAPSTONE_SELECTOR", "candidate:openrouter/openai-gpt-5.4")'
     assert_includes scenario, 'ENV.fetch("CAPSTONE_HOST_PREVIEW_PORT", "4274")'
     assert_includes scenario, "issue_app_api_session_token!"
+    assert_includes scenario, "app_api_admin_create_onboarding_session!"
     assert_includes scenario, "app_api_create_conversation!"
-    assert_includes scenario, "wait_for_turn_workflow_terminal!"
-    assert_includes scenario, "inline_if_queued: false"
+    assert_includes scenario, "wait_for_app_api_turn_terminal!"
+    assert_includes scenario, "app_api_conversation_turn_runtime_events!"
+    assert_includes scenario, "app_api_debug_export_conversation!"
     assert_includes scenario, "provider_round_*_tool_*"
     assert_includes scenario, "dag_shape_passed"
-    assert_includes scenario, "ConversationDebugExports::BuildPayload.call"
     assert_includes scenario, "ManualAcceptance::ConversationRuntimeValidation.build"
     assert_includes scenario, "Acceptance::HostValidation.run!"
     assert_includes scenario, "app_api_export_conversation!"
     assert_includes scenario, "execution_runtime_id: bring_your_own_runtime_registration.fetch(:execution_runtime).public_id"
+    refute_includes scenario, "wait_for_turn_workflow_terminal!"
+    refute_includes scenario, "ConversationDebugExports::BuildPayload.call"
+    refute_includes scenario, "OnboardingSessions::Issue.call"
   end
 
   test "capstone prompt forbids foreground shell servers for long-running app startup" do

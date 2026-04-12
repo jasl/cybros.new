@@ -10,6 +10,7 @@ require 'open3'
 require 'stringio'
 require 'uri'
 require 'timeout'
+require 'zip'
 require_relative 'manual_support/runtime_registration'
 require_relative '../../core_matrix/config/environment' unless defined?(Rails.application)
 
@@ -23,6 +24,8 @@ module Acceptance
     CONTROL_BASE_URL = ENV.fetch('CORE_MATRIX_BASE_URL', 'http://127.0.0.1:3000')
 
     def reset_backend_state!
+      return if ActiveModel::Type::Boolean.new.cast(ENV['ACCEPTANCE_SKIP_BACKEND_RESET'])
+
       disconnect_application_record!
       run_database_reset_command!
       reconnect_application_record!
@@ -159,6 +162,18 @@ module Acceptance
       http_post_json(control_url(path), payload, headers: token_headers(session_token))
     end
 
+    def app_api_admin_create_onboarding_session!(target_kind:, session_token:, agent_key: nil, display_name: nil)
+      app_api_post_json(
+        "/app_api/admin/onboarding_sessions",
+        {
+          target_kind: target_kind,
+          agent_key: agent_key,
+          display_name: display_name,
+        }.compact,
+        session_token: session_token
+      )
+    end
+
     def app_api_post_multipart_json(path, params:, file_param:, file_path:, session_token:,
                                     content_type: 'application/zip')
       http_post_multipart_json(
@@ -225,11 +240,28 @@ module Acceptance
       )
     end
 
+    def app_api_conversation_turn_feeds!(conversation_id:, session_token:)
+      app_api_get_json(
+        '/app_api/conversation_turn_feeds',
+        session_token:,
+        params: { conversation_id: conversation_id }
+      )
+    end
+
+    def app_api_conversation_turn_runtime_events!(conversation_id:, turn_id:, session_token:)
+      app_api_get_json(
+        '/app_api/conversation_turn_runtime_events',
+        session_token:,
+        params: { conversation_id: conversation_id, turn_id: turn_id }
+      )
+    end
+
     def app_api_create_conversation!(agent_id:, content:, session_token:, workspace_id: nil, selector: nil,
                                      execution_runtime_id: nil)
       app_api_post_json(
-        "/app_api/agents/#{agent_id}/conversations",
+        "/app_api/conversations",
         {
+          agent_id: agent_id,
           content: content,
           workspace_id: workspace_id,
           selector: selector,
@@ -237,6 +269,39 @@ module Acceptance
         }.compact,
         session_token: session_token
       )
+    end
+
+    def wait_for_app_api_turn_terminal!(conversation_id:, turn_id:, session_token:, terminal_states: %w[completed failed canceled],
+                                        timeout_seconds: 3600, poll_interval_seconds: 0.1)
+      deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+      terminal_states = Array(terminal_states)
+
+      loop do
+        turns_payload = app_api_conversation_diagnostics_turns!(
+          conversation_id: conversation_id,
+          session_token: session_token
+        )
+        turn = turns_payload.fetch('items').find { |candidate| candidate.fetch('turn_id') == turn_id }
+
+        if turn.present? && terminal_states.include?(turn.fetch('lifecycle_state'))
+          conversation_payload = app_api_conversation_diagnostics_show!(
+            conversation_id: conversation_id,
+            session_token: session_token
+          )
+
+          return {
+            'conversation' => conversation_payload.fetch('snapshot'),
+            'turn' => turn,
+            'turns' => turns_payload.fetch('items'),
+          }
+        end
+
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+          raise "timed out waiting for app api turn #{turn_id} to reach #{terminal_states.join(', ')}"
+        end
+
+        sleep(poll_interval_seconds)
+      end
     end
 
     def wait_for_turn_workflow_terminal!(turn_id:, timeout_seconds: 3600, poll_interval_seconds: 0.1,
@@ -353,6 +418,34 @@ module Acceptance
         'show' => shown,
         'download' => download
       }
+    end
+
+    def extract_debug_export_payload!(zip_path)
+      entries = {}
+
+      Zip::File.open(zip_path) do |zip_file|
+        {
+          'manifest' => 'manifest.json',
+          'conversation_payload' => 'conversation.json',
+          'diagnostics' => 'diagnostics.json',
+          'workflow_runs' => 'workflow_runs.json',
+          'workflow_nodes' => 'workflow_nodes.json',
+          'workflow_node_events' => 'workflow_node_events.json',
+          'agent_task_runs' => 'agent_task_runs.json',
+          'tool_invocations' => 'tool_invocations.json',
+          'command_runs' => 'command_runs.json',
+          'process_runs' => 'process_runs.json',
+          'subagent_connections' => 'subagent_connections.json',
+          'usage_events' => 'usage_events.json',
+        }.each do |payload_key, entry_name|
+          entry = zip_file.find_entry(entry_name)
+          next if entry.blank?
+
+          entries[payload_key] = JSON.parse(entry.get_input_stream.read)
+        end
+      end
+
+      entries
     end
 
     def app_api_import_conversation_bundle!(workspace_id:, zip_path:, session_token:, timeout_seconds: 60)
@@ -743,26 +836,22 @@ module Acceptance
     end
 
     def create_bring_your_own_agent!(installation:, actor:, key:, display_name:)
-      agent = Agent.create!(
-        installation: installation,
-        key: key,
-        display_name: display_name,
-        visibility: "public",
-        provisioning_origin: "system",
-        lifecycle_state: "active"
-      )
-      onboarding_session = OnboardingSessions::Issue.call(
-        installation: installation,
+      session_token = issue_app_api_session_token!(user: actor)
+      created = app_api_admin_create_onboarding_session!(
         target_kind: "agent",
-        target: agent,
-        issued_by: actor,
-        expires_at: 2.hours.from_now
+        agent_key: key,
+        display_name: display_name,
+        session_token: session_token
       )
+      onboarding_session = OnboardingSession.find_by_public_id!(
+        created.dig("onboarding_session", "onboarding_session_id")
+      )
+      agent = Agent.find_by_public_id!(created.dig("onboarding_session", "target_agent_id"))
 
       {
         agent: agent,
         onboarding_session: onboarding_session,
-        onboarding_token: onboarding_session.plaintext_token
+        onboarding_token: created.fetch("onboarding_token")
       }
     end
 
@@ -773,13 +862,21 @@ module Acceptance
       agent_base_url: runtime_base_url
     )
       onboarding_session = OnboardingSession.find_by_plaintext_token(onboarding_token)
+      admin_session_token = issue_app_api_session_token!(user: onboarding_session.issued_by_user)
+      runtime_onboarding = app_api_admin_create_onboarding_session!(
+        target_kind: "execution_runtime",
+        session_token: admin_session_token
+      )
       execution_runtime_registration = register_bring_your_own_execution_runtime!(
-        onboarding_token:,
+        onboarding_token: runtime_onboarding.fetch("onboarding_token"),
         runtime_base_url: runtime_base_url,
         execution_runtime_fingerprint: execution_runtime_fingerprint
       )
+      onboarding_session.target_agent&.update!(
+        default_execution_runtime: execution_runtime_registration.fetch(:execution_runtime)
+      )
       agent_registration = register_bring_your_own_agent_from_manifest!(
-        onboarding_token:,
+        onboarding_token: onboarding_token,
         agent_base_url: agent_base_url
       )
 
@@ -937,7 +1034,7 @@ module Acceptance
         agent: agent_definition_version.agent
       ).binding
 
-      user_binding.workspaces.find_by!(is_default: true)
+      Workspaces::MaterializeDefault.call(user_agent_binding: user_binding)
     end
 
     def create_conversation!(agent_definition_version:)

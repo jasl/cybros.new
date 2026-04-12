@@ -100,6 +100,7 @@ runtime resources that later tasks now build on are:
 - Every process run belongs to:
   - one installation
   - one workflow node
+  - one execution epoch
   - one execution runtime
   - one conversation
   - one turn
@@ -243,7 +244,8 @@ runtime resources that later tasks now build on are:
   opening a detached workflow process resource.
 - Provision currently:
   - materializes one `ProcessRun` in `starting`
-  - derives `conversation` and `turn` from the owning workflow run
+  - derives `conversation`, `turn`, and `execution_epoch` from the owning
+    workflow run turn
   - appends one `WorkflowNodeEvent` with `event_kind=status` and
     `payload.state=starting`
   - acquires the delivery lease used by later `process_started`,

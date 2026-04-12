@@ -11,7 +11,7 @@ module Turns
 
     def call
       runtime = @requested_execution_runtime ||
-        previous_turn_runtime ||
+        @conversation.current_execution_runtime ||
         @conversation.workspace.default_execution_runtime ||
         @conversation.agent.default_execution_runtime
       return nil if runtime.blank?
@@ -20,14 +20,6 @@ module Turns
 
       @conversation.errors.add(:base, "must have an active execution runtime connection for the selected execution runtime")
       raise ActiveRecord::RecordInvalid, @conversation
-    end
-
-    private
-
-    def previous_turn_runtime
-      @conversation.turns.order(sequence: :desc).limit(1).pick(:execution_runtime_id)&.then do |runtime_id|
-        ExecutionRuntime.find_by(id: runtime_id)
-      end
     end
   end
 end

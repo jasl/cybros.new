@@ -89,18 +89,25 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     refute_includes response.parsed_body.dig("workspace_policy", "effective_capabilities"), "control"
     assert_equal runtime_b.public_id, response.parsed_body.dig("workspace_policy", "default_execution_runtime_id")
 
-    result = Workbench::CreateConversationFromAgent.call(
-      user: user,
-      agent: agent,
-      workspace_id: workspace.public_id,
-      content: "Start work",
-      selector: "candidate:codex_subscription/gpt-5.3-codex"
-    )
+    post "/app_api/conversations",
+      params: {
+        agent_id: agent.public_id,
+        workspace_id: workspace.public_id,
+        content: "Start work",
+        selector: "candidate:codex_subscription/gpt-5.3-codex",
+      },
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
 
-    capability_policy = result.conversation.conversation_capability_policy
+    assert_response :created
+
+    turn = Turn.find_by_public_id!(response.parsed_body.fetch("turn_id"))
+    conversation = Conversation.find_by_public_id!(response.parsed_body.dig("conversation", "conversation_id"))
+    capability_policy = conversation.conversation_capability_policy
     assert_not_nil capability_policy
     assert_equal false, capability_policy.side_chat_enabled
     assert_equal false, capability_policy.control_enabled
+    assert_equal runtime_b, turn.execution_runtime
     assert_equal runtime_b, workspace.reload.default_execution_runtime
   end
 

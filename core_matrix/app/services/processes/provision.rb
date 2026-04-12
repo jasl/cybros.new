@@ -37,6 +37,7 @@ module Processes
           process_run = ProcessRun.create!(
             installation: @workflow_node.installation,
             workflow_node: @workflow_node,
+            execution_epoch: @workflow_node.workflow_run.turn.execution_epoch,
             execution_runtime: @execution_runtime,
             conversation: @workflow_node.workflow_run.conversation,
             turn: @workflow_node.workflow_run.turn,

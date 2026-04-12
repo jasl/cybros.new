@@ -4,13 +4,16 @@ class CreateConversations < ActiveRecord::Migration[8.2]
       t.references :installation, null: false, foreign_key: true
       t.references :workspace, null: false, foreign_key: true
       t.references :agent, null: false, foreign_key: true
+      t.references :current_execution_runtime, foreign_key: { to_table: :execution_runtimes }
       t.belongs_to :parent_conversation, foreign_key: { to_table: :conversations }
+      t.bigint :current_execution_epoch_id
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :kind, null: false
       t.string :purpose, null: false
       t.string :addressability, null: false, default: "owner_addressable"
       t.string :lifecycle_state, null: false
       t.string :deletion_state, null: false, default: "retained"
+      t.string :execution_continuity_state, null: false, default: "ready"
       t.datetime :deleted_at
       t.bigint :historical_anchor_message_id
       t.text :title
@@ -27,6 +30,7 @@ class CreateConversations < ActiveRecord::Migration[8.2]
 
     add_index :conversations, [:workspace_id, :purpose, :lifecycle_state], name: "idx_conversations_workspace_purpose_lifecycle"
     add_index :conversations, [:agent_id, :lifecycle_state], name: "idx_conversations_agent_lifecycle"
+    add_index :conversations, :current_execution_epoch_id
     add_index :conversations, :public_id, unique: true
     add_check_constraint :conversations,
       "(deletion_state IN ('retained', 'pending_delete', 'deleted'))",

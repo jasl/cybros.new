@@ -2,10 +2,25 @@ require "test_helper"
 require Rails.root.join("../acceptance/lib/active_suite")
 
 class Acceptance::ActiveSuiteContractTest < ActiveSupport::TestCase
+  FORBIDDEN_OBSOLETE_SHORTCUTS = [
+    "OnboardingSessions::Issue.call",
+    "ConversationDebugExports::BuildPayload.call",
+    "workflow_node_keys(",
+    "workflow_state_hash(",
+    "wait_for_turn_workflow_terminal!"
+  ].freeze
+
   test "active acceptance suite only references existing entrypoints" do
     Acceptance::ActiveSuite.entrypoints.each do |entrypoint|
       assert Rails.root.join("..", entrypoint).exist?, "expected active acceptance entrypoint #{entrypoint} to exist"
     end
+  end
+
+  test "every active scenario declares acceptance metadata" do
+    assert_equal(
+      Acceptance::ActiveSuite::ACTIVE_SCENARIOS.sort,
+      Acceptance::ActiveSuite.scenario_metadata.keys.sort
+    )
   end
 
   test "optional acceptance entrypoints expose enablement and skip metadata" do
@@ -19,6 +34,7 @@ class Acceptance::ActiveSuiteContractTest < ActiveSupport::TestCase
     )
 
     assert_equal env_var, optional_entry.fetch(:env_var)
+    assert_equal :app_api_surface, optional_entry.fetch(:mode)
     assert_equal [], Acceptance::ActiveSuite.enabled_optional_entrypoints
 
     skipped = Acceptance::ActiveSuite.skipped_optional_entrypoints
@@ -35,6 +51,45 @@ class Acceptance::ActiveSuiteContractTest < ActiveSupport::TestCase
     assert_includes script, 'bash "${SCRIPT_DIR}/run_with_fresh_start.sh" "${entrypoint}"'
     assert_includes script, "skipped optional acceptance entrypoints:"
     assert_includes script, "Acceptance::ActiveSuite.skipped_optional_entrypoints"
+  end
+
+  test "app_api_surface scenarios avoid obsolete internal shortcuts" do
+    Acceptance::ActiveSuite.scenario_metadata.each do |entrypoint, metadata|
+      next unless metadata.fetch(:mode) == :app_api_surface
+
+      scenario = Rails.root.join("..", entrypoint).read
+
+      assert_includes scenario, "ACCEPTANCE_MODE: app_api_surface", "#{entrypoint} must declare app_api surface mode"
+      assert_includes scenario, "app_api_", "#{entrypoint} must use app_api helpers"
+      FORBIDDEN_OBSOLETE_SHORTCUTS.each do |shortcut|
+        refute_includes scenario, shortcut, "#{entrypoint} should not use obsolete shortcut #{shortcut}"
+      end
+    end
+  end
+
+  test "hybrid_app_api scenarios use app_api where available and avoid obsolete shortcuts" do
+    Acceptance::ActiveSuite.scenario_metadata.each do |entrypoint, metadata|
+      next unless metadata.fetch(:mode) == :hybrid_app_api
+
+      scenario = Rails.root.join("..", entrypoint).read
+
+      assert_includes scenario, "ACCEPTANCE_MODE: hybrid_app_api", "#{entrypoint} must declare hybrid app_api mode"
+      assert_includes scenario, "app_api_", "#{entrypoint} must use app_api helpers somewhere in the flow"
+      FORBIDDEN_OBSOLETE_SHORTCUTS.each do |shortcut|
+        refute_includes scenario, shortcut, "#{entrypoint} should not use obsolete shortcut #{shortcut}"
+      end
+    end
+  end
+
+  test "internal workflow scenarios explicitly declare their control-plane boundary" do
+    Acceptance::ActiveSuite.scenario_metadata.each do |entrypoint, metadata|
+      next unless metadata.fetch(:mode) == :internal_workflow
+
+      scenario = Rails.root.join("..", entrypoint).read
+
+      assert_includes scenario, "ACCEPTANCE_MODE: internal_workflow", "#{entrypoint} must declare internal workflow mode"
+      assert_includes scenario, "no equivalent app_api surface", "#{entrypoint} must explain why it remains internal"
+    end
   end
 
   test "governed acceptance support uses agent definition version vocabulary" do

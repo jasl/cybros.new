@@ -1,10 +1,17 @@
 #!/usr/bin/env ruby
+# ACCEPTANCE_MODE: app_api_surface
+# This scenario must validate the end-user conversation flow through app_api only.
 
 require_relative "../lib/boot"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 fingerprint = "acceptance-provider-backed-runtime"
 selector = ENV.fetch("PHASE2_PROVIDER_SELECTOR", "candidate:openrouter/openai-gpt-5.4")
+artifact_stamp = ENV.fetch("PROVIDER_BACKED_TURN_ARTIFACT_STAMP") do
+  "#{Time.current.strftime("%Y-%m-%d-%H%M%S")}-provider-backed-turn-validation"
+end
+artifact_dir = AcceptanceHarness.repo_root.join("acceptance", "artifacts", artifact_stamp)
+debug_export_path = artifact_dir.join("exports", "conversation-debug-export.zip")
 content = ENV.fetch(
   "PHASE2_PROVIDER_PROMPT",
   "Reply with ACCEPTED-PHASE2 exactly. Do not add any other words or punctuation."
@@ -12,50 +19,71 @@ content = ENV.fetch(
 
 Acceptance::ManualSupport.reset_backend_state!
 bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
+app_api_session_token = Acceptance::ManualSupport.issue_app_api_session_token!(user: bootstrap.user)
 bundled = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: runtime_base_url,
   execution_runtime_fingerprint: "acceptance-provider-backed-environment",
   fingerprint: fingerprint
 )
-conversation_context = nil
-run = nil
+FileUtils.rm_rf(artifact_dir)
+FileUtils.mkdir_p(artifact_dir)
+created = nil
+terminal = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: bundled) do
-  conversation_context = Acceptance::ManualSupport.create_conversation!(agent_definition_version: bundled.agent_definition_version)
-  run = Acceptance::ManualSupport.start_turn_workflow_on_conversation!(
-    conversation: conversation_context.fetch(:conversation),
+  created = Acceptance::ManualSupport.app_api_create_conversation!(
+    agent_id: bundled.agent_definition_version.agent.public_id,
     content: content,
-    root_node_key: "turn_step",
-    root_node_type: "turn_step",
-    decision_source: "system",
-    selector_source: "manual",
-    selector: selector
+    selector: selector,
+    session_token: app_api_session_token
   )
-  Acceptance::ManualSupport.execute_provider_workflow!(workflow_run: run.fetch(:workflow_run))
+  terminal = Acceptance::ManualSupport.wait_for_app_api_turn_terminal!(
+    conversation_id: created.dig("conversation", "conversation_id"),
+    turn_id: created.fetch("turn_id"),
+    session_token: app_api_session_token
+  )
 end
 
-workflow_run = run.fetch(:workflow_run).reload
-turn = run.fetch(:turn).reload
-model_context = workflow_run.execution_snapshot.model_context
+conversation_id = created.dig("conversation", "conversation_id")
+turn_id = created.fetch("turn_id")
+debug_export_download = Acceptance::ManualSupport.app_api_debug_export_conversation!(
+  conversation_id: conversation_id,
+  session_token: app_api_session_token,
+  destination_path: debug_export_path
+)
+debug_payload = Acceptance::ManualSupport.extract_debug_export_payload!(
+  debug_export_download.dig("download", "path")
+)
+workflow_run = debug_payload.fetch("workflow_runs")
+  .select { |candidate| candidate.fetch("turn_id") == turn_id }
+  .max_by { |candidate| [candidate.fetch("created_at").to_s, candidate.fetch("workflow_run_id")] } || {}
+selected_output_message = debug_payload.fetch("conversation_payload")
+  .fetch("messages")
+  .reverse
+  .find { |message| message.fetch("turn_public_id") == turn_id && message.fetch("role") == "assistant" }
+usage_event = debug_payload.fetch("usage_events")
+  .find { |event| event.fetch("turn_id") == turn_id }
 
 expected_dag_shape = ["turn_step"]
-observed_dag_shape = Acceptance::ManualSupport.workflow_node_keys(workflow_run)
+observed_dag_shape = debug_payload.fetch("workflow_nodes")
+  .select { |node| node.fetch("turn_id") == turn_id }
+  .sort_by { |node| [node.fetch("ordinal"), node.fetch("created_at").to_s] }
+  .map { |node| node.fetch("node_key") }
 expected_conversation_state = {
   "conversation_state" => "active",
   "workflow_lifecycle_state" => "completed",
   "workflow_wait_state" => "ready",
   "turn_lifecycle_state" => "completed",
 }
-observed_conversation_state = Acceptance::ManualSupport.workflow_state_hash(
-  conversation: conversation_context.fetch(:conversation),
-  workflow_run: workflow_run,
-  turn: turn,
-  extra: {
-    "selected_output_message_id" => turn.selected_output_message&.public_id,
-    "selected_output_content" => turn.selected_output_message&.content,
-  }
-)
+observed_conversation_state = {
+  "conversation_state" => terminal.fetch("conversation").fetch("lifecycle_state"),
+  "workflow_lifecycle_state" => workflow_run.fetch("lifecycle_state"),
+  "workflow_wait_state" => workflow_run.fetch("wait_state"),
+  "turn_lifecycle_state" => terminal.fetch("turn").fetch("lifecycle_state"),
+  "selected_output_message_id" => selected_output_message&.fetch("message_public_id", nil),
+  "selected_output_content" => selected_output_message&.fetch("content", nil),
+}.compact
 
 Acceptance::ManualSupport.write_json(
   Acceptance::ManualSupport.scenario_result(
@@ -67,13 +95,13 @@ Acceptance::ManualSupport.write_json(
     extra: {
       "agent_definition_version_id" => bundled.agent_definition_version.public_id,
       "execution_runtime_id" => bundled.execution_runtime.public_id,
-      "conversation_id" => conversation_context.fetch(:conversation).public_id,
-      "turn_id" => turn.public_id,
-      "workflow_run_id" => workflow_run.public_id,
-      "provider_handle" => model_context["provider_handle"],
-      "model_ref" => model_context["model_ref"],
-      "api_model" => model_context["api_model"],
-      "selector" => workflow_run.normalized_selector,
+      "conversation_id" => conversation_id,
+      "turn_id" => turn_id,
+      "workflow_run_id" => workflow_run.fetch("workflow_run_id", nil),
+      "provider_handle" => usage_event&.fetch("provider_handle", nil),
+      "model_ref" => usage_event&.fetch("model_ref", nil),
+      "selector" => selector,
+      "debug_export_path" => debug_export_path.to_s,
     }
   )
 )

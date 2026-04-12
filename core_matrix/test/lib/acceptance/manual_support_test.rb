@@ -1,6 +1,7 @@
 require "test_helper"
 require Rails.root.join("../acceptance/lib/manual_support")
 require "tmpdir"
+require "zip"
 
 class Acceptance::ManualSupportTest < ActiveSupport::TestCase
   ExecutionSnapshot = Struct.new(:conversation_projection)
@@ -603,6 +604,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     agent_registration_calls = []
     execution_registration_calls = []
     heartbeat_calls = []
+    runtime_onboarding_calls = []
+    updated_runtime = nil
     manifest = {
       "endpoint_metadata" => { "runtime_manifest_path" => "/runtime/manifest" },
       "sdk_version" => "fenix-0.1.0",
@@ -631,14 +634,36 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       },
       "execution_runtime_connection_metadata" => { "transport" => "http", "base_url" => "http://127.0.0.1:3101" },
     }
-    onboarding_session = Struct.new(:plaintext_token, :target_agent).new("onboarding-token", Struct.new(:public_id).new("agt_123"))
-    agent_definition_version = Struct.new(:public_id, :agent).new("adv_123", onboarding_session.target_agent)
+    target_agent = Struct.new(:public_id) do
+      attr_reader :updated_default_execution_runtime
+
+      def update!(default_execution_runtime:)
+        @updated_default_execution_runtime = default_execution_runtime
+      end
+    end.new("agt_123")
+    issued_by_user = Struct.new(:public_id).new("usr_123")
+    onboarding_session = Struct.new(:plaintext_token, :target_agent, :issued_by_user).new("onboarding-token", target_agent, issued_by_user)
+    agent_definition_version = Struct.new(:public_id, :agent).new("adv_123", target_agent)
     agent_connection = Struct.new(:public_id).new("acn_123")
     execution_runtime = Struct.new(:public_id, :execution_runtime_fingerprint).new("rt_123", "runtime-fingerprint")
     execution_runtime_version = Struct.new(:public_id).new("erv_123")
     execution_runtime_connection = Struct.new(:public_id).new("rtc_123")
 
-    with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
+      with_redefined_singleton_method(Acceptance::ManualSupport, :live_manifest, ->(base_url:) { manifest }) do
+      with_redefined_singleton_method(Acceptance::ManualSupport, :issue_app_api_session_token!, ->(user:, expires_at: 30.days.from_now) { "session-secret" }) do
+        with_redefined_singleton_method(
+          Acceptance::ManualSupport,
+          :app_api_admin_create_onboarding_session!,
+          lambda do |target_kind:, session_token:, agent_key: nil, display_name: nil|
+            runtime_onboarding_calls << [target_kind, session_token, agent_key, display_name]
+            {
+              "onboarding_session" => {
+                "onboarding_session_id" => "ons_runtime_123",
+              },
+              "onboarding_token" => "runtime-onboarding-token",
+            }
+          end
+        ) do
       with_redefined_singleton_method(
         Acceptance::ManualSupport,
         :http_post_json,
@@ -701,24 +726,28 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
                     assert_equal 1, agent_registration_calls.length
                     assert_equal 1, execution_registration_calls.length
                     assert_equal 1, heartbeat_calls.length
+                    assert_equal [["execution_runtime", "session-secret", nil, nil]], runtime_onboarding_calls
 
                     agent_registration_payload = agent_registration_calls.first.fetch(1)
                     execution_registration_payload = execution_registration_calls.first.fetch(1)
 
                     assert_equal "onboarding-token", agent_registration_payload.fetch(:onboarding_token)
                     assert_equal manifest.fetch("definition_package"), agent_registration_payload.fetch(:definition_package)
-                    assert_equal "onboarding-token", execution_registration_payload.fetch(:onboarding_token)
+                    assert_equal "runtime-onboarding-token", execution_registration_payload.fetch(:onboarding_token)
                     assert_equal manifest.fetch("version_package"), execution_registration_payload.fetch(:version_package)
                     assert_equal(
                       manifest.fetch("execution_runtime_connection_metadata"),
                       execution_registration_payload.fetch(:endpoint_metadata)
                     )
+                    assert_equal execution_runtime, target_agent.updated_default_execution_runtime
                   end
                 end
               end
             end
           end
         end
+      end
+      end
       end
     end
   end
@@ -858,6 +887,48 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     refute_respond_to Acceptance::ManualSupport, legacy_create_helper
     refute_respond_to Acceptance::ManualSupport, legacy_register_runtime_helper
     refute_respond_to Acceptance::ManualSupport, legacy_register_execution_runtime_helper
+  end
+
+  test "create_bring_your_own_agent! issues onboarding through the admin app api" do
+    test_case = self
+    created_payload = {
+      "onboarding_session" => {
+        "onboarding_session_id" => "ons_123",
+        "target_agent_id" => "agt_123",
+      },
+      "onboarding_token" => "onboarding-secret",
+    }
+    onboarding_session = Struct.new(:public_id).new("ons_123")
+    agent = Struct.new(:public_id, :key, :display_name).new("agt_123", "bring-your-own-agent", "Bring Your Own Agent")
+
+    with_redefined_singleton_method(Acceptance::ManualSupport, :issue_app_api_session_token!, ->(user:, expires_at: 30.days.from_now) { "session-secret" }) do
+      with_redefined_singleton_method(
+        Acceptance::ManualSupport,
+        :app_api_admin_create_onboarding_session!,
+        lambda do |target_kind:, session_token:, agent_key: nil, display_name: nil|
+          test_case.assert_equal "agent", target_kind
+          test_case.assert_equal "session-secret", session_token
+          test_case.assert_equal "bring-your-own-agent", agent_key
+          test_case.assert_equal "Bring Your Own Agent", display_name
+          created_payload
+        end
+      ) do
+        with_redefined_singleton_method(OnboardingSession, :find_by_public_id!, ->(public_id) { public_id == "ons_123" ? onboarding_session : nil }) do
+          with_redefined_singleton_method(Agent, :find_by_public_id!, ->(public_id) { public_id == "agt_123" ? agent : nil }) do
+            result = Acceptance::ManualSupport.create_bring_your_own_agent!(
+              installation: "installation",
+              actor: "actor",
+              key: "bring-your-own-agent",
+              display_name: "Bring Your Own Agent"
+            )
+
+            assert_equal agent, result.fetch(:agent)
+            assert_equal onboarding_session, result.fetch(:onboarding_session)
+            assert_equal "onboarding-secret", result.fetch(:onboarding_token)
+          end
+        end
+      end
+    end
   end
 
   test "register_bundled_runtime_from_manifest! preserves explicit executor connection metadata from the manifest" do
@@ -1166,9 +1237,10 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       assert_equal "conv_123", result.fetch("conversation_id")
     end
 
-    assert_equal "/app_api/agents/agt_123/conversations", captured.fetch(0)
+    assert_equal "/app_api/conversations", captured.fetch(0)
     assert_equal(
       {
+        agent_id: "agt_123",
         content: "Build the app",
         selector: "candidate:openrouter/openai-gpt-5.4",
         execution_runtime_id: "rt_123",
@@ -1218,5 +1290,115 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       "execution_runtime_capability_payload" => {},
       "execution_runtime_tool_catalog" => [],
     }.merge(overrides)
+  end
+
+  test "reset_backend_state! is a no-op when acceptance skip env is enabled" do
+    calls = []
+    previous = ENV["ACCEPTANCE_SKIP_BACKEND_RESET"]
+    ENV["ACCEPTANCE_SKIP_BACKEND_RESET"] = "true"
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :disconnect_application_record!,
+      lambda do
+        calls << :disconnect
+      end
+    ) do
+      with_redefined_singleton_method(
+        Acceptance::ManualSupport,
+        :run_database_reset_command!,
+        lambda do
+          calls << :reset
+        end
+      ) do
+        with_redefined_singleton_method(
+          Acceptance::ManualSupport,
+          :reconnect_application_record!,
+          lambda do
+            calls << :reconnect
+          end
+        ) do
+          Acceptance::ManualSupport.reset_backend_state!
+        end
+      end
+    end
+
+    assert_empty calls
+  ensure
+    ENV["ACCEPTANCE_SKIP_BACKEND_RESET"] = previous
+  end
+
+  test "wait_for_app_api_turn_terminal! polls diagnostics until the target turn reaches a terminal state" do
+    responses = [
+      {
+        "items" => [
+          {
+            "turn_id" => "turn_123",
+            "lifecycle_state" => "active",
+          },
+        ],
+      },
+      {
+        "items" => [
+          {
+            "turn_id" => "turn_123",
+            "lifecycle_state" => "completed",
+          },
+        ],
+      },
+    ]
+    calls = []
+    show_calls = []
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_conversation_diagnostics_turns!,
+      lambda do |conversation_id:, session_token:|
+        calls << [conversation_id, session_token]
+        responses.shift
+      end
+    ) do
+      with_redefined_singleton_method(
+        Acceptance::ManualSupport,
+        :app_api_conversation_diagnostics_show!,
+        lambda do |conversation_id:, session_token:|
+          show_calls << [conversation_id, session_token]
+          { "snapshot" => { "conversation_id" => "conv_123", "lifecycle_state" => "active" } }
+        end
+      ) do
+        payload = Acceptance::ManualSupport.wait_for_app_api_turn_terminal!(
+          conversation_id: "conv_123",
+          turn_id: "turn_123",
+          session_token: "session-token",
+          timeout_seconds: 1,
+          poll_interval_seconds: 0.0
+        )
+
+        assert_equal "completed", payload.fetch("turn").fetch("lifecycle_state")
+        assert_equal "active", payload.fetch("conversation").fetch("lifecycle_state")
+      end
+    end
+
+    assert_equal [["conv_123", "session-token"], ["conv_123", "session-token"]], calls
+    assert_equal [["conv_123", "session-token"]], show_calls
+  end
+
+  test "extract_debug_export_payload! reads the canonical debug export json members" do
+    Tempfile.create(["conversation-debug-export", ".zip"]) do |tempfile|
+      Zip::OutputStream.open(tempfile.path) do |zip|
+        zip.put_next_entry("tool_invocations.json")
+        zip.write(JSON.generate([{ "tool_invocation_id" => "tool_123" }]))
+        zip.put_next_entry("diagnostics.json")
+        zip.write(JSON.generate({ "turn_count" => 1 }))
+        zip.put_next_entry("manifest.json")
+        zip.write(JSON.generate({ "bundle_kind" => "conversation_debug_export" }))
+      end
+
+      payload = Acceptance::ManualSupport.extract_debug_export_payload!(tempfile.path)
+
+      assert_equal [{ "tool_invocation_id" => "tool_123" }], payload.fetch("tool_invocations")
+      assert_equal({ "turn_count" => 1 }, payload.fetch("diagnostics"))
+      assert_equal({ "bundle_kind" => "conversation_debug_export" }, payload.fetch("manifest"))
+    end
   end
 end

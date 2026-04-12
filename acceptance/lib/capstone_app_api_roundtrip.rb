@@ -42,7 +42,7 @@ module Acceptance
       PROMPT
     end
 
-    def registration_artifact(agent_definition_version:, execution_runtime:, agent_connection_credential:, onboarding_session:)
+    def registration_artifact(agent_definition_version:, execution_runtime:, agent_connection_credential:, onboarding_session_id:)
       {
         "agent_id" => agent_definition_version.agent.public_id,
         "agent_display_name" => agent_definition_version.agent.display_name,
@@ -50,7 +50,7 @@ module Acceptance
         "execution_runtime_id" => execution_runtime.public_id,
         "execution_runtime_display_name" => execution_runtime.display_name,
         "execution_runtime_fingerprint" => execution_runtime.execution_runtime_fingerprint,
-        "onboarding_session_id" => onboarding_session.public_id,
+        "onboarding_session_id" => onboarding_session_id,
         "agent_connection_credential_redacted" => redact(agent_connection_credential)
       }
     end

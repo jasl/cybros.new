@@ -146,12 +146,14 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     perform_enqueued_jobs
 
     assert_difference("Conversation.count", -1) do
-      assert_difference("Turn.count", -1) do
-        assert_difference("WorkflowRun.count", -1) do
-          assert_difference("HumanInteractionRequest.count", -1) do
-            assert_difference("Publication.count", -1) do
-              assert_difference("PublicationAccessEvent.count", -1) do
-                Conversations::PurgeDeleted.call(conversation: context[:conversation].reload)
+      assert_difference("ConversationExecutionEpoch.count", -1) do
+        assert_difference("Turn.count", -1) do
+          assert_difference("WorkflowRun.count", -1) do
+            assert_difference("HumanInteractionRequest.count", -1) do
+              assert_difference("Publication.count", -1) do
+                assert_difference("PublicationAccessEvent.count", -1) do
+                  Conversations::PurgeDeleted.call(conversation: context[:conversation].reload)
+                end
               end
             end
           end
@@ -282,10 +284,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     delete_and_finalize_conversation!(conversation)
 
     assert_difference("Conversation.count", -1) do
-      assert_difference("MessageAttachment.count", -2) do
-        assert_difference("WorkflowArtifact.count", -1) do
-          assert_difference("ActiveStorage::Attachment.count", -3) do
-            Conversations::PurgeDeleted.call(conversation: conversation.reload)
+      assert_difference("ConversationExecutionEpoch.count", -1) do
+        assert_difference("MessageAttachment.count", -2) do
+          assert_difference("WorkflowArtifact.count", -1) do
+            assert_difference("ActiveStorage::Attachment.count", -3) do
+              Conversations::PurgeDeleted.call(conversation: conversation.reload)
+            end
           end
         end
       end
@@ -696,10 +700,12 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     )
 
     assert_difference("Conversation.count", -3) do
-      assert_difference("SubagentConnection.count", -2) do
-        assert_difference("AgentControlMailboxItem.count", -2) do
-          assert_difference("AgentControlReportReceipt.count", -2) do
-            Conversations::PurgeDeleted.call(conversation: branch.reload)
+      assert_difference("ConversationExecutionEpoch.count", -3) do
+        assert_difference("SubagentConnection.count", -2) do
+          assert_difference("AgentControlMailboxItem.count", -2) do
+            assert_difference("AgentControlReportReceipt.count", -2) do
+              Conversations::PurgeDeleted.call(conversation: branch.reload)
+            end
           end
         end
       end
@@ -708,6 +714,9 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert_not Conversation.exists?(branch.id)
     assert_not Conversation.exists?(session_tree.fetch(:direct_conversation).id)
     assert_not Conversation.exists?(session_tree.fetch(:nested_conversation).id)
+    assert_not ConversationExecutionEpoch.exists?(branch.current_execution_epoch_id)
+    assert_not ConversationExecutionEpoch.exists?(session_tree.fetch(:direct_conversation).current_execution_epoch_id)
+    assert_not ConversationExecutionEpoch.exists?(session_tree.fetch(:nested_conversation).current_execution_epoch_id)
     assert_not SubagentConnection.exists?(session_tree.fetch(:direct_session).id)
     assert_not SubagentConnection.exists?(session_tree.fetch(:nested_session).id)
     assert Conversation.exists?(root.id)

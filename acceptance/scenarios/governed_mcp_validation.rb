@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# ACCEPTANCE_MODE: internal_workflow
+# This scenario intentionally exercises internal governed-MCP task semantics because there is no equivalent app_api surface.
 
 ENV["RAILS_ENV"] ||= "development"
 

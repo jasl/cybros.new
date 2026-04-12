@@ -12,6 +12,11 @@ class ExecutionRuntime < ApplicationRecord
 
   has_many :agents, foreign_key: :default_execution_runtime_id, dependent: :restrict_with_exception
   has_many :workspaces, foreign_key: :default_execution_runtime_id, dependent: :restrict_with_exception
+  has_many :current_conversations,
+    class_name: "Conversation",
+    foreign_key: :current_execution_runtime_id,
+    dependent: :restrict_with_exception
+  has_many :conversation_execution_epochs, dependent: :restrict_with_exception
   has_many :turns, foreign_key: :execution_runtime_id, dependent: :restrict_with_exception
   has_many :process_runs, foreign_key: :execution_runtime_id, dependent: :restrict_with_exception
   has_many :execution_runtime_versions, dependent: :restrict_with_exception

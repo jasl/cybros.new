@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# ACCEPTANCE_MODE: internal_workflow
+# This scenario intentionally exercises human-interaction wait/resume workflow semantics because there is no equivalent app_api surface.
 
 require_relative "../lib/boot"
 

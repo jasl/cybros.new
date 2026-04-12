@@ -975,6 +975,7 @@ module ActiveSupport
       ProcessRun.create!({
         installation: installation,
         workflow_node: workflow_node,
+        execution_epoch: turn.execution_epoch,
         execution_runtime: execution_runtime,
         conversation: conversation,
         turn: turn,
@@ -1107,11 +1108,15 @@ module ActiveSupport
       agent ||= agent_definition_version&.agent
       agent ||= workspace.user_agent_binding&.agent
       agent ||= create_agent!(installation: installation, default_execution_runtime: execution_runtime)
+      execution_runtime ||= parent_conversation&.current_execution_runtime
+      execution_runtime ||= workspace.default_execution_runtime
+      execution_runtime ||= agent.default_execution_runtime
 
       Conversation.create!({
         installation: installation,
         workspace: workspace,
         agent: agent,
+        current_execution_runtime: execution_runtime,
         parent_conversation: parent_conversation,
         kind: kind,
         purpose: purpose,

@@ -28,7 +28,8 @@ module Workbench
       workspace = resolve_workspace(binding)
       conversation = Conversations::CreateRoot.call(
         workspace: workspace,
-        agent: @agent
+        agent: @agent,
+        execution_runtime: @execution_runtime
       )
       turn = Turns::StartUserTurn.call(
         conversation: conversation,

@@ -1,5 +1,5 @@
 module AppAPI
-  class AgentConversationsController < BaseController
+  class ConversationsController < BaseController
     def create
       execution_runtime = resolve_initial_execution_runtime
       agent = find_launchable_agent!(
@@ -16,7 +16,7 @@ module AppAPI
       )
 
       render_method_response(
-        method_id: "agent_conversation_create",
+        method_id: "conversation_create",
         status: :created,
         agent_id: agent.public_id,
         workspace: AppSurface::Presenters::WorkspacePresenter.call(workspace: result.workspace),

@@ -17,7 +17,7 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
     assert_nil Turns::SelectExecutionRuntime.call(conversation: conversation)
   end
 
-  test "prefers the workspace default execution runtime over the agent default" do
+  test "uses the conversation current execution runtime when present" do
     installation = create_installation!
     agent_default_runtime = create_execution_runtime!(installation: installation, display_name: "Agent Default")
     workspace_default_runtime = create_execution_runtime!(installation: installation, display_name: "Workspace Default")
@@ -37,7 +37,7 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
     assert_equal workspace_default_runtime, Turns::SelectExecutionRuntime.call(conversation: conversation)
   end
 
-  test "prefers the previous turn execution runtime over the workspace default" do
+  test "does not infer continuity from the previous turn runtime anymore" do
     installation = create_installation!
     previous_turn_runtime = create_execution_runtime!(installation: installation, display_name: "Previous Turn")
     workspace_default_runtime = create_execution_runtime!(installation: installation, display_name: "Workspace Default")
@@ -58,6 +58,17 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
       agent: agent,
       agent_definition_version: agent_definition_version
     )
+    historical_epoch = ConversationExecutionEpoch.create!(
+      installation: installation,
+      conversation: conversation,
+      execution_runtime: previous_turn_runtime,
+      source_execution_epoch: conversation.current_execution_epoch,
+      sequence: 2,
+      lifecycle_state: "superseded",
+      continuity_payload: {},
+      opened_at: Time.current,
+      closed_at: Time.current
+    )
 
     Turn.create!(
       installation: installation,
@@ -74,10 +85,11 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
       pinned_agent_definition_fingerprint: agent_definition_version.definition_fingerprint,
       agent_config_version: agent_config_state.version,
       agent_config_content_fingerprint: agent_config_state.content_fingerprint,
+      execution_epoch: historical_epoch,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
 
-    assert_equal previous_turn_runtime, Turns::SelectExecutionRuntime.call(conversation: conversation)
+    assert_equal workspace_default_runtime, Turns::SelectExecutionRuntime.call(conversation: conversation)
   end
 end

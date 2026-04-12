@@ -2,11 +2,12 @@ module Conversations
   module CreationSupport
     private
 
-    def create_root_conversation!(workspace:, agent:, purpose:)
+    def create_root_conversation!(workspace:, agent:, purpose:, execution_runtime: nil)
       conversation = Conversation.create!(
         installation: workspace.installation,
         workspace: workspace,
         agent: agent,
+        current_execution_runtime: execution_runtime,
         kind: "root",
         purpose: purpose,
         lifecycle_state: "active"
@@ -30,6 +31,7 @@ module Conversations
         installation: parent.installation,
         workspace: parent.workspace,
         agent: parent.agent,
+        current_execution_runtime: parent.current_execution_runtime,
         parent_conversation: parent,
         kind: kind,
         purpose: parent.purpose,
@@ -43,6 +45,7 @@ module Conversations
       conversation.installation = parent.installation
       conversation.workspace = parent.workspace
       conversation.agent = parent.agent
+      conversation.current_execution_runtime = parent.current_execution_runtime
       conversation.parent_conversation = parent
       conversation.purpose = parent.purpose
       conversation.lifecycle_state = "active"

@@ -23,9 +23,10 @@ registry and private workspaces: `User -> UserAgentBinding -> Workspace`.
 - A binding may have many workspaces, but only one default workspace.
 - Workspace ownership follows the binding owner and installation boundary.
 - `Workspace` may optionally pin a default `ExecutionRuntime`.
-- That workspace-level default runtime overrides the agent-level default when
-  new turns resolve runtime selection and no explicit or prior-turn runtime is
-  present.
+- That workspace-level default runtime seeds the current execution runtime for
+  new conversations unless an explicit initial runtime override is supplied.
+- Follow-up turns then continue from the conversation current execution epoch
+  rather than re-deriving continuity from prior turns.
 
 ## Services
 

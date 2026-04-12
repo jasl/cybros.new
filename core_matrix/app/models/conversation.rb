@@ -84,18 +84,31 @@ class Conversation < ApplicationRecord
       explicit_candidate: "explicit_candidate",
     },
     validate: true
+  enum :execution_continuity_state,
+    {
+      ready: "ready",
+      handoff_pending: "handoff_pending",
+      handoff_blocked: "handoff_blocked",
+    },
+    validate: true
 
   data_lifecycle_kind! :owner_bound
 
   belongs_to :installation
   belongs_to :workspace
   belongs_to :agent
+  belongs_to :current_execution_epoch, class_name: "ConversationExecutionEpoch", optional: true
+  belongs_to :current_execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :parent_conversation, class_name: "Conversation", optional: true
   belongs_to :historical_anchor_message, class_name: "Message", optional: true
 
   has_many :messages, dependent: :restrict_with_exception
   has_many :conversation_imports, dependent: :restrict_with_exception
   has_many :turns, dependent: :restrict_with_exception
+  has_many :execution_epochs,
+    class_name: "ConversationExecutionEpoch",
+    dependent: :restrict_with_exception,
+    inverse_of: :conversation
   has_many :conversation_message_visibilities, dependent: :restrict_with_exception
   has_many :conversation_summary_segments, dependent: :restrict_with_exception
   has_many :conversation_events, dependent: :restrict_with_exception
@@ -163,6 +176,10 @@ class Conversation < ApplicationRecord
   validate :parent_workspace_match
   validate :parent_agent_match
   validate :historical_anchor_membership
+  validate :current_execution_epoch_installation_match
+  validate :current_execution_epoch_conversation_match
+  validate :current_execution_runtime_installation_match
+  validate :current_execution_cache_matches_epoch
   validate :automation_rules
   validate :override_payload_must_be_hash
   validate :override_reconciliation_report_must_be_hash
@@ -173,6 +190,9 @@ class Conversation < ApplicationRecord
 
   after_initialize :apply_default_feature_policy, if: :new_record?
   before_validation :normalize_enabled_feature_ids
+  before_validation :default_execution_continuity_state
+  before_validation :default_current_execution_runtime
+  after_create :ensure_initial_execution_epoch!
 
   def deleting?
     pending_delete? || deleted?
@@ -341,5 +361,51 @@ class Conversation < ApplicationRecord
     end
 
     errors.add(:deleted_at, "must be present when deletion state is pending_delete or deleted") if deleted_at.blank?
+  end
+
+  def current_execution_epoch_installation_match
+    return if current_execution_epoch.blank?
+    return if current_execution_epoch.installation_id == installation_id
+
+    errors.add(:current_execution_epoch, "must belong to the same installation")
+  end
+
+  def current_execution_epoch_conversation_match
+    return if current_execution_epoch.blank?
+    return if current_execution_epoch.conversation_id == id
+    return if new_record? && current_execution_epoch.conversation.equal?(self)
+
+    errors.add(:current_execution_epoch, "must belong to the same conversation")
+  end
+
+  def current_execution_runtime_installation_match
+    return if current_execution_runtime.blank?
+    return if current_execution_runtime.installation_id == installation_id
+
+    errors.add(:current_execution_runtime, "must belong to the same installation")
+  end
+
+  def current_execution_cache_matches_epoch
+    return if current_execution_epoch.blank? || current_execution_runtime.blank?
+    return if current_execution_epoch.execution_runtime_id == current_execution_runtime_id
+
+    errors.add(:current_execution_runtime, "must match the current execution epoch runtime")
+  end
+
+  def default_execution_continuity_state
+    self.execution_continuity_state ||= "ready"
+  end
+
+  def default_current_execution_runtime
+    return if current_execution_runtime.present?
+
+    self.current_execution_runtime =
+      parent_conversation&.current_execution_runtime ||
+      workspace&.default_execution_runtime ||
+      agent&.default_execution_runtime
+  end
+
+  def ensure_initial_execution_epoch!
+    ConversationExecutionEpochs::InitializeCurrent.call(conversation: self)
   end
 end

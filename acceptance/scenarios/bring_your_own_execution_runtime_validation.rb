@@ -1,30 +1,37 @@
 #!/usr/bin/env ruby
+# ACCEPTANCE_MODE: hybrid_app_api
+# This scenario must use app_api where a product/operator surface exists and only keep internal hooks for deterministic mailbox execution.
 
 require_relative "../lib/boot"
 
 agent_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 runtime_base_url = ENV.fetch("NEXUS_RUNTIME_BASE_URL", "http://127.0.0.1:3301")
+artifact_stamp = ENV.fetch("BRING_YOUR_OWN_EXECUTION_RUNTIME_ARTIFACT_STAMP") do
+  "#{Time.current.strftime("%Y-%m-%d-%H%M%S")}-bring-your-own-execution-runtime-validation"
+end
+artifact_dir = AcceptanceHarness.repo_root.join("acceptance", "artifacts", artifact_stamp)
+debug_export_path = artifact_dir.join("exports", "conversation-debug-export.zip")
 
 Acceptance::ManualSupport.reset_backend_state!
 bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
+app_api_session_token = Acceptance::ManualSupport.issue_app_api_session_token!(user: bootstrap.user)
 bundled_registration = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: agent_base_url,
   execution_runtime_fingerprint: "acceptance-bundled-fenix-environment",
   fingerprint: "acceptance-bundled-fenix-runtime"
 )
-onboarding_session = OnboardingSessions::Issue.call(
-  installation: bootstrap.installation,
+onboarding = Acceptance::ManualSupport.app_api_admin_create_onboarding_session!(
   target_kind: "execution_runtime",
-  target: nil,
-  issued_by: bootstrap.user,
-  expires_at: 2.hours.from_now
+  session_token: app_api_session_token
 )
 bring_your_own_runtime_registration = Acceptance::ManualSupport.register_bring_your_own_execution_runtime!(
-  onboarding_token: onboarding_session.plaintext_token,
+  onboarding_token: onboarding.fetch("onboarding_token"),
   runtime_base_url: runtime_base_url,
   execution_runtime_fingerprint: "acceptance-bring-your-own-runtime-environment"
 )
+FileUtils.rm_rf(artifact_dir)
+FileUtils.mkdir_p(artifact_dir)
 conversation_context = nil
 run = nil
 
@@ -80,9 +87,34 @@ bundled_agent = bundled_registration.agent_definition_version.agent.reload
 selected_turn = run.fetch(:turn).reload
 selected_runtime = bring_your_own_runtime_registration.fetch(:execution_runtime)
 selected_runtime_version = bring_your_own_runtime_registration.fetch(:execution_runtime_version)
+conversation_id = conversation_context.fetch(:conversation).public_id
+turn_id = selected_turn.public_id
+diagnostics = Acceptance::ManualSupport.app_api_conversation_diagnostics_show!(
+  conversation_id: conversation_id,
+  session_token: app_api_session_token
+)
+turns_payload = Acceptance::ManualSupport.app_api_conversation_diagnostics_turns!(
+  conversation_id: conversation_id,
+  session_token: app_api_session_token
+)
+debug_export_download = Acceptance::ManualSupport.app_api_debug_export_conversation!(
+  conversation_id: conversation_id,
+  session_token: app_api_session_token,
+  destination_path: debug_export_path
+)
+debug_payload = Acceptance::ManualSupport.extract_debug_export_payload!(
+  debug_export_download.dig("download", "path")
+)
+workflow_run = debug_payload.fetch("workflow_runs")
+  .select { |candidate| candidate.fetch("turn_id") == turn_id }
+  .max_by { |candidate| [candidate.fetch("created_at").to_s, candidate.fetch("workflow_run_id")] } || {}
+turn_snapshot = turns_payload.fetch("items").find { |item| item.fetch("turn_id") == turn_id } || {}
 
 expected_dag_shape = ["agent_turn_step"]
-observed_dag_shape = Acceptance::ManualSupport.workflow_node_keys(run.fetch(:workflow_run))
+observed_dag_shape = debug_payload.fetch("workflow_nodes")
+  .select { |node| node.fetch("turn_id") == turn_id }
+  .sort_by { |node| [node.fetch("ordinal"), node.fetch("created_at").to_s] }
+  .map { |node| node.fetch("node_key") }
 expected_conversation_state = {
   "conversation_state" => "active",
   "workflow_lifecycle_state" => "completed",
@@ -90,12 +122,13 @@ expected_conversation_state = {
   "turn_lifecycle_state" => "active",
   "agent_task_run_state" => "completed",
 }
-observed_conversation_state = Acceptance::ManualSupport.workflow_state_hash(
-  conversation: conversation_context.fetch(:conversation),
-  workflow_run: run.fetch(:workflow_run),
-  turn: selected_turn,
-  agent_task_run: run.fetch(:agent_task_run)
-)
+observed_conversation_state = {
+  "conversation_state" => diagnostics.dig("snapshot", "lifecycle_state"),
+  "workflow_lifecycle_state" => workflow_run.fetch("lifecycle_state", nil),
+  "workflow_wait_state" => workflow_run.fetch("wait_state", nil),
+  "turn_lifecycle_state" => turn_snapshot.fetch("lifecycle_state", nil),
+  "agent_task_run_state" => run.fetch(:agent_task_run).reload.lifecycle_state,
+}.compact
 
 Acceptance::ManualSupport.write_json(
   Acceptance::ManualSupport.scenario_result(
@@ -105,7 +138,7 @@ Acceptance::ManualSupport.write_json(
     expected_conversation_state: expected_conversation_state,
     observed_conversation_state: observed_conversation_state,
     extra: {
-      "onboarding_session_id" => onboarding_session.public_id,
+      "onboarding_session_id" => onboarding.dig("onboarding_session", "onboarding_session_id"),
       "agent_definition_version_id" => bundled_registration.agent_definition_version.public_id,
       "agent_connection_id" => bundled_registration.agent_connection_id,
       "bundled_execution_runtime_id" => bundled_registration.execution_runtime.public_id,
@@ -117,12 +150,13 @@ Acceptance::ManualSupport.write_json(
       "reused_logical_runtime" => bundled_registration.execution_runtime.public_id == selected_runtime.public_id,
       "agent_base_url" => agent_base_url,
       "runtime_base_url" => runtime_base_url,
-      "conversation_id" => conversation_context.fetch(:conversation).public_id,
-      "turn_id" => selected_turn.public_id,
-      "workflow_run_id" => run.fetch(:workflow_run).public_id,
+      "conversation_id" => conversation_id,
+      "turn_id" => turn_id,
+      "workflow_run_id" => workflow_run.fetch("workflow_run_id", nil),
       "agent_task_run_id" => run.fetch(:agent_task_run).public_id,
       "runtime_execution_status" => run.fetch(:execution).fetch("status"),
       "runtime_output" => run.fetch(:execution).fetch("output"),
+      "debug_export_path" => debug_export_path.to_s,
     }
   )
 )

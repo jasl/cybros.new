@@ -66,7 +66,7 @@ Rails.application.routes.draw do
       resource :installation, only: :show
       resources :agents, only: :index
       resources :execution_runtimes, only: :index
-      resources :onboarding_sessions, only: :index
+      resources :onboarding_sessions, only: [:index, :create]
       resources :audit_entries, only: :index
       resources :llm_providers, only: [:index, :show, :update], param: :provider do
         member do
@@ -94,11 +94,10 @@ Rails.application.routes.draw do
         get "home", to: "agent_homes#show"
       end
 
-      resources :conversations, only: :create, controller: :agent_conversations
       resources :workspaces, only: :index
     end
 
-    resources :conversations, only: [] do
+    resources :conversations, only: :create do
       get "metadata", to: "conversations/metadata#show"
       patch "metadata", to: "conversations/metadata#update"
       post "metadata/regenerate", to: "conversations/metadata#regenerate"

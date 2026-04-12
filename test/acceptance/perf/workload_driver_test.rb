@@ -48,19 +48,19 @@ module Acceptance
             created_agents << { installation:, actor:, key:, display_name: }
             {
               agent: "agent-#{key}",
-              pairing_session: "pairing-session-#{key}",
-              pairing_token: "pair-#{key}"
+              onboarding_session: "onboarding-session-#{key}",
+              onboarding_token: "onboard-#{key}"
             }
           end,
-          register_bring_your_own_agent: lambda do |pairing_token:, agent_base_url:|
-            agent_registrations << { pairing_token:, agent_base_url: }
+          register_bring_your_own_agent: lambda do |onboarding_token:, agent_base_url:|
+            agent_registrations << { onboarding_token:, agent_base_url: }
             {
-              agent_definition_version: "agent-definition-version-#{pairing_token.delete_prefix('pair-')}",
-              agent_connection_credential: "agent-credential-#{pairing_token.delete_prefix('pair-')}",
+              agent_definition_version: "agent-definition-version-#{onboarding_token.delete_prefix('onboard-')}",
+              agent_connection_credential: "agent-credential-#{onboarding_token.delete_prefix('onboard-')}",
             }
           end,
-          register_bring_your_own_execution_runtime: lambda do |pairing_token:, runtime_base_url:, execution_runtime_fingerprint:|
-            runtime_registrations << { pairing_token:, runtime_base_url:, execution_runtime_fingerprint: }
+          register_bring_your_own_execution_runtime: lambda do |onboarding_token:, runtime_base_url:, execution_runtime_fingerprint:|
+            runtime_registrations << { onboarding_token:, runtime_base_url:, execution_runtime_fingerprint: }
             {
               execution_runtime: "execution-runtime-#{execution_runtime_fingerprint}",
               execution_runtime_connection_credential: "execution-runtime-credential-#{execution_runtime_fingerprint}",
