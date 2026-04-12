@@ -72,6 +72,66 @@ This is preferred over a full frontend/backend split because:
 - the product semantics are still evolving and should not be frozen behind an
   extra frontend/backend split yet
 
+## Existing Frontend Baseline
+
+The current `core_matrix` frontend baseline is already sufficient for the
+first product phase and should be treated as the approved implementation base.
+
+Current `core_matrix/package.json` already includes:
+
+- `@hotwired/turbo-rails`
+- `@hotwired/stimulus`
+- `@rails/request.js`
+- `tailwindcss`
+- `daisyui`
+- `tailwindcss-motion`
+- `@iconify-json/lucide` and `@iconify/tailwind4`
+
+Implementation should reuse this stack rather than introducing a second UI
+framework or a separate component system.
+
+In particular:
+
+- do not add React, Vue, or another SPA framework for this phase
+- do not add a second CSS framework
+- prefer server-rendered HTML, Turbo navigation, and focused Stimulus
+  controllers over client-heavy page orchestration
+- use Tailwind and daisyUI as the primary styling vocabulary for the SSR-first
+  client
+
+## UI Product References
+
+The approved product references for layout and interaction are:
+
+- Codex
+- ChatGPT
+
+These references should guide:
+
+- a left navigation rail for agent/workspace/conversation access
+- a dominant center transcript/composer column
+- a secondary right-side context lane for plan, activity, and approvals
+- tight, keyboard-friendly, productivity-first spacing
+- status chips and activity summaries that read as product language rather
+  than machine internals
+
+The goal is not literal cloning. The goal is a similarly legible,
+work-focused shell for long-running agent work.
+
+## Rails SSR Reference
+
+`references/original/references/fizzy` is the approved Rails SSR reference for
+technical implementation style.
+
+Relevant lessons to absorb from `fizzy`:
+
+- keep Rails views as the primary page-rendering layer
+- use Turbo/Stimulus as enhancement, not as a hidden SPA runtime
+- prefer many small, focused Stimulus controllers over one large client
+  application object
+- keep layout structure and navigation in server-rendered templates
+- let HTML-first flows remain understandable without deep client-side state
+
 ## Product Surface Layers
 
 `core_matrix` should be treated as three explicit layers:
