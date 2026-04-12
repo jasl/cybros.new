@@ -782,6 +782,114 @@ Any header/detail split introduced in this revision should add tests for:
 - current-state updates not accidentally mutating detached cold payloads
 - list queries continuing to avoid detail joins unless explicitly requested
 
+## Database Constraint Layering Policy
+
+This revision should also distinguish between:
+
+- schema-level structural truth
+- application-level business semantics
+
+Not every current check constraint belongs in the database forever. Some of the
+existing constraints are carrying row-shape truth, and those should remain or
+be strengthened. Others are carrying value-level semantic whitelists that can
+reasonably move into model and service validation.
+
+The rule is:
+
+- database constraints protect structural integrity
+- model and service logic protect evolving business semantics
+
+### Keep in the database
+
+These belong in schema-level constraints because corruption here makes rows or
+query boundaries structurally unreliable:
+
+- foreign keys and relational alignment
+- uniqueness rules
+- non-null guarantees for structural columns
+- pairing or shape constraints such as "A and B must both exist or both be
+  absent"
+- lifecycle/deletion consistency constraints
+- constraints that support critical partial indexes or query boundaries
+
+Examples:
+
+- default-workspace uniqueness
+- owner/context alignment between center tables
+- `deleted_at` and deletion-state consistency
+- cancellation pairing rules such as
+  `cancellation_reason_kind` and `cancellation_requested_at` being present
+  together
+
+### Allow model-layer ownership
+
+These can move out of the database when they are semantically useful but not
+structurally defining:
+
+- internal reason-kind whitelists
+- internal event-kind whitelists
+- other fast-evolving semantic label sets such as source/focus/origin tags
+
+These fields should still be validated, but usually by:
+
+- model enums and validations
+- explicit application-service write boundaries
+- tests that lock expected accepted and rejected values
+
+The main benefit is that the schema keeps protecting durable structure without
+becoming brittle around evolving internal reason vocabularies.
+
+### Recommended application to current schema
+
+For fields such as:
+
+- `turns.cancellation_reason_kind`
+- `workflow_runs.cancellation_reason_kind`
+
+the design should prefer:
+
+- keeping the database-level pairing/shape constraint
+- relaxing the database-level whitelist of exact reason values
+- enforcing the exact allowed value set in model and service logic
+
+This keeps row integrity strong while reducing migration churn for reason-code
+expansion.
+
+### Constraint tiers
+
+For implementation, treat constraints in three tiers.
+
+#### Tier A: Schema-required
+
+Must stay in the database:
+
+- owner/context consistency
+- foreign keys
+- uniqueness
+- row-shape invariants
+- critical lifecycle consistency
+
+#### Tier B: Schema shape plus application semantics
+
+Database keeps the coarse shape, application keeps the precise vocabulary:
+
+- `*_reason_kind`
+- `event_kind`
+- `source_kind`
+- `focus_kind`
+
+#### Tier C: Application-only
+
+These should not be forced into check constraints:
+
+- multi-row business process legality
+- state-machine transition policy
+- orchestration-level conditional behavior
+- flow-specific permission to enter a state
+
+This split keeps the schema strict where strictness protects data quality and
+keeps the application flexible where values are expected to evolve.
+
 ## Database Constraint Direction
 
 This pass should increase the role of schema-level consistency rules.
