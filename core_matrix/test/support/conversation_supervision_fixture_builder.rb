@@ -121,9 +121,8 @@ module ConversationSupervisionFixtureBuilder
       supervision_payload: {}
     )
 
-    policy = ConversationCapabilityPolicy.create!(
-      installation: context.fetch(:installation),
-      target_conversation: conversation,
+    policy = upsert_conversation_capability_policy!(
+      conversation: conversation,
       supervision_enabled: true,
       detailed_progress_enabled: detailed_progress_enabled,
       side_chat_enabled: side_chat_enabled,
@@ -351,9 +350,8 @@ module ConversationSupervisionFixtureBuilder
         }
       )
     )
-    policy = ConversationCapabilityPolicy.create!(
-      installation: context.fetch(:installation),
-      target_conversation: context.fetch(:conversation),
+    policy = upsert_conversation_capability_policy!(
+      conversation: context.fetch(:conversation),
       supervision_enabled: true,
       detailed_progress_enabled: true,
       side_chat_enabled: true,

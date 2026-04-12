@@ -12,9 +12,8 @@ class EmbeddedAgents::InvokeTest < ActiveSupport::TestCase
       execution_runtime: context[:execution_runtime],
       agent: context[:agent]
     )
-    ConversationCapabilityPolicy.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
+    upsert_conversation_capability_policy!(
+      conversation: conversation,
       supervision_enabled: true,
       side_chat_enabled: true,
       control_enabled: false,

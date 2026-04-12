@@ -10,24 +10,20 @@
 
 ## Current Status
 
-As of 2026-04-12, the plan is no longer at day-zero.
+As of 2026-04-13:
 
 - Phase 1 is complete.
-- Task 5, Task 6, and Task 7 are complete and committed.
-- The first Task 8 admin read slice is already in progress in the working tree:
-  - `installation`
-  - `agents`
-  - `execution_runtimes`
-  - `onboarding_sessions`
-- Contract-debt cleanup Batch A and Batch B are already implemented in the
-  working tree and should be kept ahead of the remaining Task 8 breadth.
-- Batch C design decisions are approved. The remaining Phase 2 implementation
-  work is now:
-  - complete `llm_providers`
-  - complete `audit_entries`
-  - add user-domain `workspace_policies`
-  - finalize app-facing event contracts
-  - repoint end-user/operator acceptance to the app surface
+- Phase 2 is complete.
+- `app_api` now exposes:
+  - workbench conversation creation and message send paths that immediately
+    create and execute workflow runs
+  - admin `llm_providers`, `audit_entries`, and existing installation/agent/runtime/onboarding resources
+  - user-facing `workspace_policies`
+- app-facing realtime remains on the dedicated workbench stream and contract.
+- end-user/operator acceptance now drives `app_api` with human session tokens
+  through `Acceptance::ManualSupport`, while machine protocol validation
+  remains direct to `agent_api` and `execution_runtime_api`.
+- Phase 3 SSR UI work is the next remaining phase.
 
 ---
 
@@ -1023,13 +1019,10 @@ git commit -m "feat: finalize app event contracts"
 
 **Files:**
 - Modify: `acceptance/lib/manual_support.rb`
-- Create: `acceptance/lib/app_surface_support.rb`
-- Modify: `acceptance/lib/active_suite.rb`
-- Modify: `acceptance/lib/capstone_app_api_roundtrip.rb`
-- Modify: `acceptance/lib/conversation_runtime_validation.rb`
 - Modify: `acceptance/scenarios/*` for workbench and admin operator flows
+- Modify: `core_matrix/test/lib/fenix_capstone_acceptance_contract_test.rb`
 - Modify: `core_matrix/test/lib/acceptance/manual_support_test.rb`
-- Create: `core_matrix/test/lib/acceptance/app_surface_support_test.rb`
+- Modify: `core_matrix/test/lib/acceptance/active_suite_contract_test.rb`
 
 **Step 1: Write the failing acceptance helper tests**
 
@@ -1040,10 +1033,10 @@ Add coverage that proves:
 - machine protocol validation helpers remain direct to `agent_api` and `execution_runtime_api`
 
 ```ruby
-test "app surface helper uses human session auth" do
-  helper = Acceptance::AppSurfaceSupport.new(session: user_session)
+test "manual support issues app api session tokens for product flows" do
+  token = Acceptance::ManualSupport.issue_app_api_session_token!(user: user)
 
-  response = helper.get_json("/app_api/agents")
+  response = Acceptance::ManualSupport.app_api_get_json("/app_api/agents", session_token: token)
 
   assert_equal "agents_index", response.fetch("method_id")
 end
@@ -1055,14 +1048,14 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/lib/acceptance/manual_support_test.rb test/lib/acceptance/app_surface_support_test.rb
+bin/rails test test/lib/acceptance/manual_support_test.rb test/lib/fenix_capstone_acceptance_contract_test.rb test/lib/acceptance/active_suite_contract_test.rb
 ```
 
 Expected: FAIL because the acceptance helpers still assume a transitional, machine-authenticated `app_api` shape.
 
 **Step 3: Repoint acceptance to the product surface**
 
-Split the helper boundary explicitly:
+Split the helper boundary explicitly inside `Acceptance::ManualSupport`:
 
 - end-user and operator flows use `app_api` plus app-facing realtime and human session auth
 - machine protocol flows keep exercising `agent_api` and `execution_runtime_api`
@@ -1077,7 +1070,7 @@ Run:
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/rails db:test:prepare
-bin/rails test test/lib/acceptance/manual_support_test.rb test/lib/acceptance/app_surface_support_test.rb
+bin/rails test test/lib/acceptance/manual_support_test.rb test/lib/fenix_capstone_acceptance_contract_test.rb test/lib/acceptance/active_suite_contract_test.rb
 ```
 
 Expected: PASS.
@@ -1086,7 +1079,7 @@ Expected: PASS.
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-git add acceptance/lib/manual_support.rb acceptance/lib/app_surface_support.rb acceptance/lib/active_suite.rb acceptance/lib/capstone_app_api_roundtrip.rb acceptance/lib/conversation_runtime_validation.rb acceptance/scenarios core_matrix/test/lib/acceptance/manual_support_test.rb core_matrix/test/lib/acceptance/app_surface_support_test.rb
+git add acceptance/lib/manual_support.rb acceptance/scenarios core_matrix/test/lib/acceptance/manual_support_test.rb core_matrix/test/lib/fenix_capstone_acceptance_contract_test.rb core_matrix/test/lib/acceptance/active_suite_contract_test.rb
 git commit -m "refactor: point product acceptance flows at app surface"
 ```
 

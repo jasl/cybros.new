@@ -67,9 +67,8 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
 
   test "refreshes an existing supervision state before freezing the snapshot" do
     context = build_agent_control_context!
-    policy = ConversationCapabilityPolicy.create!(
-      installation: context.fetch(:installation),
-      target_conversation: context.fetch(:conversation),
+    policy = upsert_conversation_capability_policy!(
+      conversation: context.fetch(:conversation),
       supervision_enabled: true,
       side_chat_enabled: true,
       control_enabled: false,

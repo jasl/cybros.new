@@ -72,9 +72,8 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
 
   test "request_status_refresh targets the active runtime agent definition after a runtime rotation" do
     context = build_rotated_runtime_context!
-    ConversationCapabilityPolicy.create!(
-      installation: context.fetch(:installation),
-      target_conversation: context.fetch(:conversation),
+    upsert_conversation_capability_policy!(
+      conversation: context.fetch(:conversation),
       supervision_enabled: true,
       side_chat_enabled: true,
       control_enabled: true,
@@ -109,9 +108,8 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
   test "resume_waiting_workflow uses the authorized requester as the recovery audit actor" do
     context = build_agent_control_context!
     outsider = create_user!(installation: context.fetch(:installation))
-    ConversationCapabilityPolicy.create!(
-      installation: context.fetch(:installation),
-      target_conversation: context.fetch(:conversation),
+    upsert_conversation_capability_policy!(
+      conversation: context.fetch(:conversation),
       supervision_enabled: true,
       side_chat_enabled: true,
       control_enabled: true,

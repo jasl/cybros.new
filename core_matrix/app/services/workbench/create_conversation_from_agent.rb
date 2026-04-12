@@ -5,6 +5,7 @@ module Workbench
       :workspace,
       :conversation,
       :turn,
+      :workflow_run,
       :message,
       keyword_init: true
     )
@@ -13,11 +14,12 @@ module Workbench
       new(...).call
     end
 
-    def initialize(user:, agent:, content:, workspace_id: nil)
+    def initialize(user:, agent:, content:, workspace_id: nil, selector: nil)
       @user = user
       @agent = agent
       @content = content
       @workspace_id = workspace_id
+      @selector = selector
     end
 
     def call
@@ -33,12 +35,23 @@ module Workbench
         resolved_config_snapshot: {},
         resolved_model_selection_snapshot: {}
       )
+      workflow_run = Workflows::CreateForTurn.call(
+        turn: turn,
+        root_node_key: "turn_step",
+        root_node_type: "turn_step",
+        decision_source: "system",
+        metadata: {},
+        selector_source: @selector.present? ? "app_api" : "conversation",
+        selector: @selector
+      )
+      Workflows::ExecuteRun.call(workflow_run: workflow_run)
 
       Result.new(
         user_agent_binding: binding,
         workspace: workspace,
         conversation: conversation,
         turn: turn,
+        workflow_run: workflow_run,
         message: turn.selected_input_message
       )
     end

@@ -698,6 +698,22 @@ module ActiveSupport
       }
     end
 
+    def upsert_conversation_capability_policy!(conversation:, installation: conversation.installation, **attrs)
+      policy = ConversationCapabilityPolicy.find_or_initialize_by(
+        installation: installation,
+        target_conversation: conversation
+      )
+      policy.assign_attributes({
+        supervision_enabled: true,
+        detailed_progress_enabled: true,
+        side_chat_enabled: true,
+        control_enabled: false,
+        policy_payload: {},
+      }.merge(attrs))
+      policy.save!
+      policy
+    end
+
     def prepare_workflow_execution_setup!(
       context,
       codex_entitlement_active: true,

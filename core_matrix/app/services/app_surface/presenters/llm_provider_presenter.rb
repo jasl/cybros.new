@@ -5,13 +5,14 @@ module AppSurface
         new(...).call
       end
 
-      def initialize(effective_catalog:, provider_handle:, provider_definition:, policy: nil, credential: nil, entitlements: [])
+      def initialize(effective_catalog:, provider_handle:, provider_definition:, policy: nil, credential: nil, entitlements: [], connection_check: nil)
         @effective_catalog = effective_catalog
         @provider_handle = provider_handle.to_s
         @provider_definition = provider_definition.deep_stringify_keys
         @policy = policy
         @credential = credential
         @entitlements = entitlements
+        @connection_check = connection_check
       end
 
       def call
@@ -31,6 +32,7 @@ module AppSurface
           "credential" => credential_payload,
           "policy" => policy_payload,
           "entitlements" => entitlement_payloads,
+          "connection_test" => connection_test_payload,
         }.compact
       end
 
@@ -98,6 +100,21 @@ module AppSurface
             "metadata" => entitlement.metadata,
           }
         end
+      end
+
+      def connection_test_payload
+        return { "status" => "never_requested" } if @connection_check.blank?
+
+        {
+          "connection_test_id" => @connection_check.public_id,
+          "status" => @connection_check.lifecycle_state,
+          "queued_at" => @connection_check.queued_at&.iso8601(6),
+          "started_at" => @connection_check.started_at&.iso8601(6),
+          "finished_at" => @connection_check.finished_at&.iso8601(6),
+          "request" => @connection_check.request_payload,
+          "result" => @connection_check.result_payload.presence,
+          "failure" => @connection_check.failure_payload.presence,
+        }.compact
       end
     end
   end

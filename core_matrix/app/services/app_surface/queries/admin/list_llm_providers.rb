@@ -15,6 +15,7 @@ module AppSurface
           overlay_policies = ProviderPolicy.where(installation: @installation).index_by(&:provider_handle)
           overlay_credentials = ProviderCredential.where(installation: @installation).index_by(&:provider_handle)
           overlay_entitlements = ProviderEntitlement.where(installation: @installation).group_by(&:provider_handle)
+          connection_checks = ProviderConnectionCheck.where(installation: @installation).index_by(&:provider_handle)
 
           ProviderCatalog::Registry.current.providers.keys.sort.map do |provider_handle|
             provider_definition = @effective_catalog.provider(provider_handle)
@@ -24,7 +25,8 @@ module AppSurface
               provider_definition: provider_definition,
               policy: overlay_policies[provider_handle],
               credential: overlay_credentials[provider_handle],
-              entitlements: overlay_entitlements.fetch(provider_handle, [])
+              entitlements: overlay_entitlements.fetch(provider_handle, []),
+              connection_check: connection_checks[provider_handle]
             )
           end
         end

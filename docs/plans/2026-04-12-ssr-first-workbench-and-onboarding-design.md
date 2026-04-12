@@ -625,8 +625,12 @@ Acceptance helpers should be split by boundary:
   - authenticate with machine credentials
   - call `agent_api` / `execution_runtime_api`
 
-The current pattern of session-like product checks using machine credentials is
-only transitional and should be removed as the app surface stabilizes.
+The stabilized pattern is:
+
+- end-user/operator acceptance authenticates with human session tokens and
+  drives `app_api`
+- machine protocol acceptance continues to authenticate with machine
+  credentials and hit `agent_api` / `execution_runtime_api`
 
 ### Observation Rule
 

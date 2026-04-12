@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_06_113000) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -302,12 +302,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_113000) do
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
     t.jsonb "metadata", default: {}, null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.bigint "subject_id"
     t.string "subject_type"
     t.datetime "updated_at", null: false
     t.index ["actor_type", "actor_id"], name: "index_audit_logs_on_actor"
     t.index ["installation_id", "action"], name: "index_audit_logs_on_installation_id_and_action"
     t.index ["installation_id"], name: "index_audit_logs_on_installation_id"
+    t.index ["public_id"], name: "index_audit_logs_on_public_id", unique: true
     t.index ["subject_type", "subject_id"], name: "index_audit_logs_on_subject"
   end
 
@@ -1271,6 +1273,26 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_113000) do
     t.index ["state_digest"], name: "index_provider_authorization_sessions_on_state_digest", unique: true
   end
 
+  create_table "provider_connection_checks", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "failure_payload", default: {}, null: false
+    t.datetime "finished_at"
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "queued", null: false
+    t.string "provider_handle", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.datetime "queued_at", null: false
+    t.jsonb "request_payload", default: {}, null: false
+    t.bigint "requested_by_user_id"
+    t.jsonb "result_payload", default: {}, null: false
+    t.datetime "started_at"
+    t.datetime "updated_at", null: false
+    t.index ["installation_id", "provider_handle"], name: "idx_provider_connection_checks_installation_provider", unique: true
+    t.index ["installation_id"], name: "index_provider_connection_checks_on_installation_id"
+    t.index ["public_id"], name: "index_provider_connection_checks_on_public_id", unique: true
+    t.index ["requested_by_user_id"], name: "index_provider_connection_checks_on_requested_by_user_id"
+  end
+
   create_table "provider_credentials", force: :cascade do |t|
     t.text "access_token"
     t.datetime "created_at", null: false
@@ -1954,6 +1976,16 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_113000) do
     t.check_constraint "resume_policy IS NULL OR resume_policy::text = 're_enter_agent'::text", name: "chk_workflow_runs_resume_policy"
   end
 
+  create_table "workspace_policies", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "disabled_capabilities", default: [], null: false
+    t.bigint "installation_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workspace_id", null: false
+    t.index ["installation_id"], name: "index_workspace_policies_on_installation_id"
+    t.index ["workspace_id"], name: "index_workspace_policies_on_workspace_id", unique: true
+  end
+
   create_table "workspaces", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "default_execution_runtime_id"
@@ -2169,6 +2201,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_113000) do
   add_foreign_key "process_runs", "workflow_nodes"
   add_foreign_key "provider_authorization_sessions", "installations"
   add_foreign_key "provider_authorization_sessions", "users", column: "issued_by_user_id"
+  add_foreign_key "provider_connection_checks", "installations"
+  add_foreign_key "provider_connection_checks", "users", column: "requested_by_user_id"
   add_foreign_key "provider_credentials", "installations"
   add_foreign_key "provider_entitlements", "installations"
   add_foreign_key "provider_policies", "installations"
@@ -2275,6 +2309,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_113000) do
   add_foreign_key "workflow_runs", "installations"
   add_foreign_key "workflow_runs", "json_documents", column: "wait_snapshot_document_id"
   add_foreign_key "workflow_runs", "turns"
+  add_foreign_key "workspace_policies", "installations"
+  add_foreign_key "workspace_policies", "workspaces"
   add_foreign_key "workspaces", "execution_runtimes", column: "default_execution_runtime_id"
   add_foreign_key "workspaces", "installations"
   add_foreign_key "workspaces", "user_agent_bindings"

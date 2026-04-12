@@ -1,0 +1,66 @@
+module WorkspacePolicies
+  module Capabilities
+    KEYS = %w[
+      supervision
+      detailed_progress
+      side_chat
+      control
+      regenerate
+      swipe
+    ].freeze
+    FENIX_DISABLED = %w[regenerate swipe].freeze
+
+    module_function
+
+    def available_for(agent:)
+      reflected_surface = agent.current_agent_definition_version&.reflected_surface || {}
+      explicit = normalize_capabilities(
+        reflected_surface["workspace_capabilities"] ||
+        reflected_surface["available_workspace_capabilities"] ||
+        reflected_surface.dig("capabilities", "workspace")
+      )
+      available = explicit.presence || KEYS
+      available -= FENIX_DISABLED if agent.key.to_s == "fenix"
+      normalize_dependencies(available)
+    end
+
+    def disabled_for(workspace:)
+      normalize_capabilities(workspace.workspace_policy&.disabled_capabilities)
+    end
+
+    def effective_for(workspace:)
+      available = available_for(agent: workspace.user_agent_binding.agent)
+      disabled = disabled_for(workspace:) & available
+      normalize_dependencies(available - disabled)
+    end
+
+    def projection_attributes_for(workspace:)
+      available = available_for(agent: workspace.user_agent_binding.agent)
+      disabled = disabled_for(workspace:) & available
+      effective = normalize_dependencies(available - disabled)
+
+      {
+        supervision_enabled: effective.include?("supervision"),
+        detailed_progress_enabled: effective.include?("detailed_progress"),
+        side_chat_enabled: effective.include?("side_chat"),
+        control_enabled: effective.include?("control"),
+        policy_payload: {
+          "available_capabilities" => available,
+          "disabled_capabilities" => disabled,
+          "effective_capabilities" => effective,
+        },
+      }
+    end
+
+    def normalize_capabilities(values)
+      Array(values).map(&:to_s).uniq & KEYS
+    end
+
+    def normalize_dependencies(capabilities)
+      normalized = capabilities.dup
+      normalized -= %w[detailed_progress side_chat control] unless normalized.include?("supervision")
+      normalized -= %w[control] unless normalized.include?("side_chat")
+      normalized
+    end
+  end
+end

@@ -2,18 +2,20 @@ require "test_helper"
 
 class AppApiConversationMessagesTest < ActionDispatch::IntegrationTest
   test "appends a user message through the app api" do
-    context = create_workspace_context!
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
     session = create_session!(user: context[:user])
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
 
     assert_no_difference(["Workspace.count", "Conversation.count"]) do
-      assert_difference(["Turn.count", "Message.count"], +1) do
-        post "/app_api/conversations/#{conversation.public_id}/messages",
-          params: {
-            content: "Follow up",
-          },
-          headers: app_api_headers(session.plaintext_token),
-          as: :json
+      assert_enqueued_with(job: Workflows::ExecuteNodeJob) do
+        assert_difference(["Turn.count", "Message.count", "WorkflowRun.count"], +1) do
+          post "/app_api/conversations/#{conversation.public_id}/messages",
+            params: {
+              content: "Follow up",
+            },
+            headers: app_api_headers(session.plaintext_token),
+            as: :json
+        end
       end
     end
 

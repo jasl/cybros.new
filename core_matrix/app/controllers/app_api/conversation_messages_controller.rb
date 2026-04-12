@@ -4,7 +4,8 @@ module AppAPI
       conversation = find_conversation!(params.fetch(:conversation_id))
       result = Workbench::SendMessage.call(
         conversation: conversation,
-        content: params.fetch(:content)
+        content: params.fetch(:content),
+        selector: params[:selector]
       )
 
       render_method_response(

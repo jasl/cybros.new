@@ -14,6 +14,7 @@ module Conversations
 
       create_self_closure!(conversation)
       LineageStores::BootstrapForConversation.call(conversation: conversation)
+      create_capability_policy_for!(conversation, workspace: workspace)
 
       conversation
     end
@@ -77,6 +78,16 @@ module Conversations
       LineageStoreReference.create!(
         owner: conversation,
         lineage_store_snapshot: parent_reference.lineage_store_snapshot
+      )
+    end
+
+    def create_capability_policy_for!(conversation, workspace:)
+      projection = WorkspacePolicies::Capabilities.projection_attributes_for(workspace: workspace)
+
+      ConversationCapabilityPolicy.create!(
+        installation: conversation.installation,
+        target_conversation: conversation,
+        **projection
       )
     end
   end

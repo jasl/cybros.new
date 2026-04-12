@@ -51,7 +51,9 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert_includes scenario, 'ENV.fetch("CAPSTONE_SELECTOR", "candidate:openrouter/openai-gpt-5.4")'
     assert_includes scenario, 'ENV.fetch("CAPSTONE_HOST_PREVIEW_PORT", "4274")'
-    assert_includes scenario, "execute_provider_turn_on_conversation!"
+    assert_includes scenario, "issue_app_api_session_token!"
+    assert_includes scenario, "app_api_create_conversation!"
+    assert_includes scenario, "wait_for_turn_workflow_terminal!"
     assert_includes scenario, "inline_if_queued: false"
     assert_includes scenario, "provider_round_*_tool_*"
     assert_includes scenario, "dag_shape_passed"

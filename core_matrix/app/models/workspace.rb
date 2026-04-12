@@ -9,6 +9,7 @@ class Workspace < ApplicationRecord
   belongs_to :default_execution_runtime, class_name: "ExecutionRuntime", optional: true
 
   has_many :canonical_variables, dependent: :restrict_with_exception
+  has_one :workspace_policy, dependent: :restrict_with_exception
 
   validates :name, presence: true
   validates :privacy, presence: true, inclusion: { in: PRIVACY_VALUES }

@@ -19,7 +19,8 @@ module AppSurface
             provider_definition: provider_definition,
             policy: ProviderPolicy.find_by(installation: @installation, provider_handle: @provider_handle),
             credential: ProviderCredential.find_by(installation: @installation, provider_handle: @provider_handle),
-            entitlements: ProviderEntitlement.where(installation: @installation, provider_handle: @provider_handle)
+            entitlements: ProviderEntitlement.where(installation: @installation, provider_handle: @provider_handle),
+            connection_check: ProviderConnectionCheck.find_by(installation: @installation, provider_handle: @provider_handle)
           )
         end
 

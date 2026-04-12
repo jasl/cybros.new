@@ -1,4 +1,6 @@
 class AuditLog < ApplicationRecord
+  include HasPublicId
+
   belongs_to :installation
   belongs_to :actor, polymorphic: true, optional: true
   belongs_to :subject, polymorphic: true, optional: true

@@ -182,9 +182,8 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
       capability_policy_snapshot: {},
       last_snapshot_at: Time.current
     )
-    policy = ConversationCapabilityPolicy.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
+    policy = upsert_conversation_capability_policy!(
+      conversation: conversation,
       supervision_enabled: true,
       side_chat_enabled: true,
       control_enabled: true,

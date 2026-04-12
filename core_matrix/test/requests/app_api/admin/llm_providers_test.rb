@@ -212,4 +212,88 @@ class AppApiAdminLLMProvidersTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     assert_equal "admin access is required", response.parsed_body.fetch("error")
   end
+
+  test "queues an async connection test and exposes the latest succeeded result" do
+    installation = create_installation!
+    admin = create_user!(installation: installation, role: "admin")
+    session = create_session!(user: admin)
+    ProviderEntitlements::Upsert.call(
+      installation: installation,
+      actor: admin,
+      provider_handle: "openai",
+      entitlement_key: "shared_window",
+      window_kind: "rolling_five_hours",
+      quota_limit: 250_000,
+      active: true,
+      metadata: {}
+    )
+    ProviderCredentials::UpsertSecret.call(
+      installation: installation,
+      actor: admin,
+      provider_handle: "openai",
+      credential_kind: "api_key",
+      secret: "sk-openai",
+      metadata: {}
+    )
+
+    original_dispatch = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.define_method(:call) do |**_kwargs|
+      ProviderGateway::DispatchText::Result.new(
+        provider_result: nil,
+        provider_request_id: "provider-request-123",
+        content: "pong",
+        usage: { "total_tokens" => 5 },
+        duration_ms: 42
+      )
+    end
+
+    assert_enqueued_with(job: ProviderConnectionChecks::ExecuteJob) do
+      post "/app_api/admin/llm_providers/openai/test_connection",
+        headers: app_api_headers(session.plaintext_token),
+        as: :json
+    end
+
+    assert_response :accepted
+    assert_equal "admin_llm_provider_test_connection", response.parsed_body.fetch("method_id")
+    assert_equal "queued", response.parsed_body.dig("llm_provider", "connection_test", "status")
+
+    perform_enqueued_jobs only: ProviderConnectionChecks::ExecuteJob
+
+    get "/app_api/admin/llm_providers/openai", headers: app_api_headers(session.plaintext_token)
+
+    assert_response :success
+    assert_equal "succeeded", response.parsed_body.dig("llm_provider", "connection_test", "status")
+    assert_equal "provider-request-123", response.parsed_body.dig("llm_provider", "connection_test", "result", "provider_request_id")
+    assert_equal "candidate:openai/gpt-5.3-chat-latest", response.parsed_body.dig("llm_provider", "connection_test", "request", "selector")
+  ensure
+    ProviderGateway::DispatchText.singleton_class.define_method(:call, original_dispatch) if original_dispatch
+  end
+
+  test "persists the latest failed connection test result when the provider is unusable" do
+    installation = create_installation!
+    admin = create_user!(installation: installation, role: "admin")
+    session = create_session!(user: admin)
+    ProviderCredentials::UpsertSecret.call(
+      installation: installation,
+      actor: admin,
+      provider_handle: "openai",
+      credential_kind: "api_key",
+      secret: "sk-openai",
+      metadata: {}
+    )
+
+    post "/app_api/admin/llm_providers/openai/test_connection",
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :accepted
+
+    perform_enqueued_jobs only: ProviderConnectionChecks::ExecuteJob
+
+    get "/app_api/admin/llm_providers/openai", headers: app_api_headers(session.plaintext_token)
+
+    assert_response :success
+    assert_equal "failed", response.parsed_body.dig("llm_provider", "connection_test", "status")
+    assert_equal "missing_entitlement", response.parsed_body.dig("llm_provider", "connection_test", "failure", "reason_key")
+  end
 end

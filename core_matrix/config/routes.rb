@@ -67,6 +67,7 @@ Rails.application.routes.draw do
       resources :agents, only: :index
       resources :execution_runtimes, only: :index
       resources :onboarding_sessions, only: :index
+      resources :audit_entries, only: :index
       resources :llm_providers, only: [:index, :show, :update], param: :provider do
         member do
           patch :credential, to: "llm_providers/credentials#update"
@@ -75,6 +76,7 @@ Rails.application.routes.draw do
           put :policy, to: "llm_providers/policies#update"
           patch :entitlements, to: "llm_providers/entitlements#update"
           put :entitlements, to: "llm_providers/entitlements#update"
+          post :test_connection, to: "llm_providers/connection_tests#create"
         end
       end
 
@@ -104,6 +106,12 @@ Rails.application.routes.draw do
     end
 
     resources :conversation_transcripts, only: :index
+    resources :workspaces, only: [] do
+      member do
+        get :policies, to: "workspace_policies#show"
+        patch :policies, to: "workspace_policies#update"
+      end
+    end
     resources :conversation_diagnostics, only: [] do
       collection do
         get "show"

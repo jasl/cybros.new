@@ -44,10 +44,19 @@ module Acceptance
       bootstrap
     end
 
-    def token_headers(agent_connection_credential)
+    def token_headers(bearer_token)
       {
-        'Authorization' => ActionController::HttpAuthentication::Token.encode_credentials(agent_connection_credential)
+        'Authorization' => ActionController::HttpAuthentication::Token.encode_credentials(bearer_token)
       }
+    end
+
+    def issue_app_api_session_token!(user:, expires_at: 30.days.from_now)
+      Session.issue_for!(
+        identity: user.identity,
+        user: user,
+        expires_at: expires_at,
+        metadata: { "source" => "acceptance_app_api" }
+      ).plaintext_token
     end
 
     def control_url(path)
@@ -141,16 +150,16 @@ module Acceptance
       http_get_json("#{base_url}/runtime/manifest")
     end
 
-    def app_api_get_json(path, agent_connection_credential:, params: {})
+    def app_api_get_json(path, session_token:, params: {})
       query = params.present? ? "?#{URI.encode_www_form(params.transform_keys(&:to_s))}" : ''
-      http_get_json(control_url(path) + query, headers: token_headers(agent_connection_credential))
+      http_get_json(control_url(path) + query, headers: token_headers(session_token))
     end
 
-    def app_api_post_json(path, payload, agent_connection_credential:)
-      http_post_json(control_url(path), payload, headers: token_headers(agent_connection_credential))
+    def app_api_post_json(path, payload, session_token:)
+      http_post_json(control_url(path), payload, headers: token_headers(session_token))
     end
 
-    def app_api_post_multipart_json(path, params:, file_param:, file_path:, agent_connection_credential:,
+    def app_api_post_multipart_json(path, params:, file_param:, file_path:, session_token:,
                                     content_type: 'application/zip')
       http_post_multipart_json(
         control_url(path),
@@ -158,25 +167,25 @@ module Acceptance
         file_param: file_param,
         file_path: file_path,
         content_type: content_type,
-        headers: token_headers(agent_connection_credential)
+        headers: token_headers(session_token)
       )
     end
 
-    def app_api_download!(path, destination_path:, agent_connection_credential:)
+    def app_api_download!(path, destination_path:, session_token:)
       http_download!(
         control_url(path),
-        headers: token_headers(agent_connection_credential),
+        headers: token_headers(session_token),
         destination_path: destination_path
       )
     end
 
-    def wait_for_app_api_request_terminal!(path:, request_key:, agent_connection_credential:, terminal_states:,
+    def wait_for_app_api_request_terminal!(path:, request_key:, session_token:, terminal_states:,
                                            timeout_seconds: 30, poll_interval_seconds: 0.2)
       deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
       terminal_states = Array(terminal_states)
 
       loop do
-        payload = app_api_get_json(path, agent_connection_credential:)
+        payload = app_api_get_json(path, session_token:)
         request = payload.fetch(request_key)
         return payload if terminal_states.include?(request.fetch('lifecycle_state'))
 
@@ -188,10 +197,10 @@ module Acceptance
       end
     end
 
-    def app_api_conversation_transcript!(conversation_id:, agent_connection_credential:, cursor: nil, limit: nil)
+    def app_api_conversation_transcript!(conversation_id:, session_token:, cursor: nil, limit: nil)
       app_api_get_json(
         '/app_api/conversation_transcripts',
-        agent_connection_credential:,
+        session_token:,
         params: {
           conversation_id: conversation_id,
           cursor: cursor,
@@ -200,20 +209,51 @@ module Acceptance
       )
     end
 
-    def app_api_conversation_diagnostics_show!(conversation_id:, agent_connection_credential:)
+    def app_api_conversation_diagnostics_show!(conversation_id:, session_token:)
       app_api_get_json(
         '/app_api/conversation_diagnostics/show',
-        agent_connection_credential:,
+        session_token:,
         params: { conversation_id: conversation_id }
       )
     end
 
-    def app_api_conversation_diagnostics_turns!(conversation_id:, agent_connection_credential:)
+    def app_api_conversation_diagnostics_turns!(conversation_id:, session_token:)
       app_api_get_json(
         '/app_api/conversation_diagnostics/turns',
-        agent_connection_credential:,
+        session_token:,
         params: { conversation_id: conversation_id }
       )
+    end
+
+    def app_api_create_conversation!(agent_id:, content:, session_token:, workspace_id: nil, selector: nil)
+      app_api_post_json(
+        "/app_api/agents/#{agent_id}/conversations",
+        {
+          content: content,
+          workspace_id: workspace_id,
+          selector: selector
+        }.compact,
+        session_token: session_token
+      )
+    end
+
+    def wait_for_turn_workflow_terminal!(turn_id:, timeout_seconds: 3600, poll_interval_seconds: 0.1,
+                                         inline_if_queued: true, catalog: nil)
+      turn = Turn.find_by_public_id!(turn_id)
+      workflow_run = turn.workflow_run || raise("workflow run missing for turn #{turn_id}")
+      wait_for_workflow_run_terminal!(
+        workflow_run: workflow_run,
+        timeout_seconds: timeout_seconds,
+        poll_interval_seconds: poll_interval_seconds,
+        inline_if_queued: inline_if_queued,
+        catalog: catalog
+      )
+
+      {
+        conversation: turn.conversation.reload,
+        turn: turn.reload,
+        workflow_run: workflow_run.reload
+      }
     end
 
     def create_conversation_supervision_session!(conversation_id:, actor:, responder_strategy: 'summary_model')
@@ -250,17 +290,17 @@ module Acceptance
       }
     end
 
-    def app_api_export_conversation!(conversation_id:, agent_connection_credential:, destination_path:, timeout_seconds: 60)
+    def app_api_export_conversation!(conversation_id:, session_token:, destination_path:, timeout_seconds: 60)
       created = app_api_post_json(
         '/app_api/conversation_export_requests',
         { conversation_id: conversation_id },
-        agent_connection_credential:
+        session_token:
       )
       request_id = created.dig('export_request', 'request_id')
       shown = wait_for_app_api_request_terminal!(
         path: "/app_api/conversation_export_requests/#{request_id}",
         request_key: 'export_request',
-        agent_connection_credential: agent_connection_credential,
+        session_token: session_token,
         terminal_states: %w[succeeded failed expired],
         timeout_seconds: timeout_seconds
       )
@@ -271,7 +311,7 @@ module Acceptance
       download = app_api_download!(
         "/app_api/conversation_export_requests/#{request_id}/download",
         destination_path: destination_path,
-        agent_connection_credential: agent_connection_credential
+        session_token: session_token
       )
 
       {
@@ -281,18 +321,18 @@ module Acceptance
       }
     end
 
-    def app_api_debug_export_conversation!(conversation_id:, agent_connection_credential:, destination_path:,
+    def app_api_debug_export_conversation!(conversation_id:, session_token:, destination_path:,
                                            timeout_seconds: 60)
       created = app_api_post_json(
         '/app_api/conversation_debug_export_requests',
         { conversation_id: conversation_id },
-        agent_connection_credential:
+        session_token:
       )
       request_id = created.dig('debug_export_request', 'request_id')
       shown = wait_for_app_api_request_terminal!(
         path: "/app_api/conversation_debug_export_requests/#{request_id}",
         request_key: 'debug_export_request',
-        agent_connection_credential: agent_connection_credential,
+        session_token: session_token,
         terminal_states: %w[succeeded failed expired],
         timeout_seconds: timeout_seconds
       )
@@ -303,7 +343,7 @@ module Acceptance
       download = app_api_download!(
         "/app_api/conversation_debug_export_requests/#{request_id}/download",
         destination_path: destination_path,
-        agent_connection_credential: agent_connection_credential
+        session_token: session_token
       )
 
       {
@@ -313,19 +353,19 @@ module Acceptance
       }
     end
 
-    def app_api_import_conversation_bundle!(workspace_id:, zip_path:, agent_connection_credential:, timeout_seconds: 60)
+    def app_api_import_conversation_bundle!(workspace_id:, zip_path:, session_token:, timeout_seconds: 60)
       created = app_api_post_multipart_json(
         '/app_api/conversation_bundle_import_requests',
         params: { workspace_id: workspace_id },
         file_param: :upload_file,
         file_path: zip_path,
-        agent_connection_credential: agent_connection_credential
+        session_token: session_token
       )
       request_id = created.dig('import_request', 'request_id')
       shown = wait_for_app_api_request_terminal!(
         path: "/app_api/conversation_bundle_import_requests/#{request_id}",
         request_key: 'import_request',
-        agent_connection_credential: agent_connection_credential,
+        session_token: session_token,
         terminal_states: %w[succeeded failed],
         timeout_seconds: timeout_seconds
       )

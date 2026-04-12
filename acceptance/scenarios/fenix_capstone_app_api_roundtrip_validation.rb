@@ -43,6 +43,7 @@ FileUtils.mkdir_p(artifact_dir)
 FileUtils.rm_rf(generated_app_dir)
 
 bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
+app_api_session_token = Acceptance::ManualSupport.issue_app_api_session_token!(user: bootstrap.user)
 bundled_registration = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: bootstrap.installation,
   runtime_base_url: agent_base_url,
@@ -99,16 +100,21 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
     limit: 10,
     inline: true
   ) do
-    conversation_context = Acceptance::ManualSupport.create_conversation!(
-      agent_definition_version: bundled_registration.agent_definition_version
-    )
-    run = Acceptance::ManualSupport.execute_provider_turn_on_conversation!(
-      conversation: conversation_context.fetch(:conversation),
-      execution_runtime: bring_your_own_runtime_registration.fetch(:execution_runtime),
-      selector: selector,
+    created = Acceptance::ManualSupport.app_api_create_conversation!(
+      agent_id: bundled_registration.agent_definition_version.agent.public_id,
       content: prompt,
+      selector: selector,
+      session_token: app_api_session_token
+    )
+    run = Acceptance::ManualSupport.wait_for_turn_workflow_terminal!(
+      turn_id: created.fetch("turn_id"),
       inline_if_queued: false
     )
+    conversation_context = {
+      actor: bootstrap.user,
+      workspace: Workspace.find_by_public_id!(created.dig("workspace", "workspace_id")),
+      conversation: run.fetch(:conversation)
+    }
   end
 end
 
@@ -131,7 +137,7 @@ host_validation = host_validation_bundle.fetch("host_validation")
 playwright_validation = host_validation_bundle.fetch("playwright_validation")
 export_download = Acceptance::ManualSupport.app_api_export_conversation!(
   conversation_id: conversation.public_id,
-  agent_connection_credential: bundled_registration.agent_connection_credential,
+  session_token: app_api_session_token,
   destination_path: conversation_export_path
 )
 

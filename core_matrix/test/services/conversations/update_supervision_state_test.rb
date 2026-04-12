@@ -130,9 +130,8 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
 
   test "suppresses detailed summaries and semantic feed when the conversation only allows coarse supervision" do
     context = build_agent_control_context!
-    ConversationCapabilityPolicy.create!(
-      installation: context[:installation],
-      target_conversation: context[:conversation],
+    upsert_conversation_capability_policy!(
+      conversation: context[:conversation],
       supervision_enabled: true,
       detailed_progress_enabled: false,
       side_chat_enabled: true,

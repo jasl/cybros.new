@@ -6,7 +6,8 @@ module AppAPI
         user: current_user,
         agent: agent,
         workspace_id: params[:workspace_id],
-        content: params.fetch(:content)
+        content: params.fetch(:content),
+        selector: params[:selector]
       )
 
       render_method_response(

@@ -4,6 +4,8 @@ module Workbench
 end
 
 class Workbench::CreateConversationFromAgentTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   test "enables the agent materializes the default workspace and creates the first user turn" do
     installation = create_installation!
     user = create_user!(installation: installation)
@@ -15,15 +17,38 @@ class Workbench::CreateConversationFromAgentTest < ActiveSupport::TestCase
       default_execution_runtime: execution_runtime
     )
     create_agent_connection!(installation: installation, agent: agent)
+    ProviderEntitlement.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      entitlement_key: "shared_window",
+      window_kind: "rolling_five_hours",
+      window_seconds: 5.hours.to_i,
+      quota_limit: 200_000,
+      active: true,
+      metadata: {}
+    )
+    ProviderCredential.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex",
+      access_token: "oauth-codex-access-token",
+      refresh_token: "oauth-codex-refresh-token",
+      expires_at: 2.hours.from_now,
+      last_rotated_at: Time.current,
+      metadata: {}
+    )
 
     result = nil
 
-    assert_difference(["UserAgentBinding.count", "Workspace.count", "Conversation.count", "Turn.count", "Message.count"], +1) do
-      result = Workbench::CreateConversationFromAgent.call(
-        user: user,
-        agent: agent,
-        content: "Help me start"
-      )
+    assert_enqueued_with(job: Workflows::ExecuteNodeJob) do
+      assert_difference(["UserAgentBinding.count", "Workspace.count", "Conversation.count", "Turn.count", "Message.count", "WorkflowRun.count"], +1) do
+        result = Workbench::CreateConversationFromAgent.call(
+          user: user,
+          agent: agent,
+          content: "Help me start",
+          selector: "candidate:codex_subscription/gpt-5.3-codex"
+        )
+      end
     end
 
     assert_equal user, result.workspace.user
@@ -31,5 +56,7 @@ class Workbench::CreateConversationFromAgentTest < ActiveSupport::TestCase
     assert result.workspace.is_default?
     assert_equal "Help me start", result.message.content
     assert_equal result.conversation, result.turn.conversation
+    assert_equal result.turn, result.workflow_run.turn
+    assert_equal "candidate:codex_subscription/gpt-5.3-codex", result.turn.reload.resolved_model_selection_snapshot.fetch("normalized_selector")
   end
 end
