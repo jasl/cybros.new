@@ -217,7 +217,7 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
     context = build_governed_tool_context!(
       execution_runtime_tool_catalog: [],
       agent_tool_catalog: runtime_command_tool_catalog,
-      profile_catalog: runtime_command_profile_catalog
+      profile_policy: runtime_command_profile_policy
     )
     ToolBindings::ProjectCapabilitySnapshot.call(
       agent_definition_version: context.fetch(:agent_definition_version),
@@ -258,7 +258,7 @@ class AgentApiCommandRunsControllerTest < ActionDispatch::IntegrationTest
     ]
   end
 
-  def runtime_command_profile_catalog
+  def runtime_command_profile_policy
     {
       "main" => {
         "label" => "Main",

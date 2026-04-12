@@ -4,7 +4,7 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
   test "sends public agent and user scope ids in execute_tool payloads" do
     context = build_governed_tool_context!(
       agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry],
-      profile_catalog: governed_profile_catalog.deep_merge(
+      profile_policy: governed_profile_policy.deep_merge(
         "main" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn calculator],
         }
@@ -55,7 +55,7 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
   test "preserves a running invocation across a deferred mailbox exchange and completes it on rerun" do
     context = build_governed_tool_context!(
       agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry],
-      profile_catalog: governed_profile_catalog.deep_merge(
+      profile_policy: governed_profile_policy.deep_merge(
         "main" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn calculator],
         }

@@ -68,7 +68,7 @@ module ToolBindings
     def allowed_tool_names
       @allowed_tool_names ||= begin
         profile_allowed_names = Array(
-          agent_definition_version.profile_catalog.fetch(current_profile_key, {}).fetch("allowed_tool_names", [])
+          agent_definition_version.profile_policy.fetch(current_profile_key, {}).fetch("allowed_tool_names", [])
         ).uniq
         if profile_allowed_names.present?
           profile_allowed_names

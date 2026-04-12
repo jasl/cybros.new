@@ -19,7 +19,7 @@ module McpTestSupport
     ]
   end
 
-  def governed_mcp_profile_catalog(tool_name: "remote_echo")
+  def governed_mcp_profile_policy(tool_name: "remote_echo")
     {
       "main" => {
         "label" => "Main",
@@ -34,11 +34,11 @@ module McpTestSupport
     capability_snapshot = create_compatible_agent_definition_version!(
       agent_definition_version: context.fetch(:agent_definition_version),
       version: 2,
-      tool_catalog: governed_mcp_tool_catalog(base_url: base_url, tool_name: tool_name, mcp_tool_name: mcp_tool_name),
-      profile_catalog: governed_mcp_profile_catalog(tool_name: tool_name),
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      conversation_override_schema_snapshot: { "type" => "object", "properties" => {} },
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      tool_contract: governed_mcp_tool_catalog(base_url: base_url, tool_name: tool_name, mcp_tool_name: mcp_tool_name),
+      profile_policy: governed_mcp_profile_policy(tool_name: tool_name),
+      canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),
+      conversation_override_schema: { "type" => "object", "properties" => {} },
+      default_canonical_config: default_default_canonical_config(include_selector_slots: true)
     )
     adopt_agent_definition_version!(context, capability_snapshot)
 

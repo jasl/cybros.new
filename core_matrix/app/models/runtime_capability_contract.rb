@@ -19,11 +19,11 @@ class RuntimeCapabilityContract
     execution_runtime_capability_payload: nil,
     execution_runtime_tool_catalog: nil,
     protocol_methods: nil,
-    tool_catalog: nil,
-    profile_catalog: nil,
-    config_schema_snapshot: nil,
-    conversation_override_schema_snapshot: nil,
-    default_config_snapshot: nil,
+    tool_contract: nil,
+    profile_policy: nil,
+    canonical_config_schema: nil,
+    conversation_override_schema: nil,
+    default_canonical_config: nil,
     core_matrix_tool_catalog: []
   )
     @execution_runtime = execution_runtime
@@ -38,20 +38,20 @@ class RuntimeCapabilityContract
     @protocol_methods = normalize_array(
       protocol_methods.nil? ? @agent_definition_version&.protocol_methods : protocol_methods
     )
-    @agent_tool_catalog = normalize_array(
-      tool_catalog.nil? ? @agent_definition_version&.tool_contract : tool_catalog
+    @agent_tool_contract = normalize_array(
+      tool_contract.nil? ? @agent_definition_version&.tool_contract : tool_contract
     )
-    @profile_catalog = normalize_hash(
-      profile_catalog.nil? ? @agent_definition_version&.profile_policy : profile_catalog
+    @profile_policy = normalize_hash(
+      profile_policy.nil? ? @agent_definition_version&.profile_policy : profile_policy
     )
-    @config_schema_snapshot = normalize_hash(
-      config_schema_snapshot.nil? ? @agent_definition_version&.canonical_config_schema : config_schema_snapshot
+    @canonical_config_schema = normalize_hash(
+      canonical_config_schema.nil? ? @agent_definition_version&.canonical_config_schema : canonical_config_schema
     )
-    @conversation_override_schema_snapshot = normalize_hash(
-      conversation_override_schema_snapshot.nil? ? @agent_definition_version&.conversation_override_schema : conversation_override_schema_snapshot
+    @conversation_override_schema = normalize_hash(
+      conversation_override_schema.nil? ? @agent_definition_version&.conversation_override_schema : conversation_override_schema
     )
-    @default_config_snapshot = normalize_hash(
-      default_config_snapshot.nil? ? @agent_definition_version&.default_canonical_config : default_config_snapshot
+    @default_canonical_config = normalize_hash(
+      default_canonical_config.nil? ? @agent_definition_version&.default_canonical_config : default_canonical_config
     )
     @core_matrix_tool_catalog = normalize_array(core_matrix_tool_catalog)
   end
@@ -68,24 +68,24 @@ class RuntimeCapabilityContract
     @protocol_methods.deep_dup
   end
 
-  def agent_tool_catalog
-    normalize_tool_catalog(@agent_tool_catalog)
+  def tool_contract
+    normalize_tool_catalog(@agent_tool_contract)
   end
 
-  def config_schema_snapshot
-    @config_schema_snapshot.deep_dup
+  def canonical_config_schema
+    @canonical_config_schema.deep_dup
   end
 
-  def profile_catalog
-    @profile_catalog.deep_dup
+  def profile_policy
+    @profile_policy.deep_dup
   end
 
-  def conversation_override_schema_snapshot
-    @conversation_override_schema_snapshot.deep_dup
+  def conversation_override_schema
+    @conversation_override_schema.deep_dup
   end
 
-  def default_config_snapshot
-    @default_config_snapshot.deep_dup
+  def default_canonical_config
+    @default_canonical_config.deep_dup
   end
 
   def agent_definition_fingerprint
@@ -105,11 +105,11 @@ class RuntimeCapabilityContract
       "control_plane" => "agent",
       "agent_definition_fingerprint" => agent_definition_fingerprint,
       "protocol_methods" => protocol_methods,
-      "tool_catalog" => agent_tool_catalog,
-      "profile_catalog" => profile_catalog,
-      "config_schema_snapshot" => config_schema_snapshot,
-      "conversation_override_schema_snapshot" => conversation_override_schema_snapshot,
-      "default_config_snapshot" => default_config_snapshot,
+      "tool_contract" => tool_contract,
+      "profile_policy" => profile_policy,
+      "canonical_config_schema" => canonical_config_schema,
+      "conversation_override_schema" => conversation_override_schema,
+      "default_canonical_config" => default_canonical_config,
     }.compact
   end
 
@@ -131,7 +131,7 @@ class RuntimeCapabilityContract
       reserved_order << tool_name
     end
 
-    [execution_runtime_tool_catalog, agent_tool_catalog, @core_matrix_tool_catalog].each do |catalog|
+    [execution_runtime_tool_catalog, tool_contract, @core_matrix_tool_catalog].each do |catalog|
       catalog.each do |entry|
         tool_name = entry.fetch("tool_name")
 
@@ -158,11 +158,11 @@ class RuntimeCapabilityContract
       "method_id" => method_id,
       "agent_definition_fingerprint" => agent_definition_fingerprint,
       "protocol_methods" => protocol_methods,
-      "tool_catalog" => agent_tool_catalog,
-      "profile_catalog" => profile_catalog,
-      "config_schema_snapshot" => config_schema_snapshot,
-      "conversation_override_schema_snapshot" => conversation_override_schema_snapshot,
-      "default_config_snapshot" => default_config_snapshot,
+      "tool_contract" => tool_contract,
+      "profile_policy" => profile_policy,
+      "canonical_config_schema" => canonical_config_schema,
+      "conversation_override_schema" => conversation_override_schema,
+      "default_canonical_config" => default_canonical_config,
       "reconciliation_report" => reconciliation_report,
     }.compact
   end
@@ -213,7 +213,7 @@ class RuntimeCapabilityContract
   end
 
   def tool_policy_overlays
-    Array(@default_config_snapshot["tool_policy_overlays"]).filter_map do |entry|
+    Array(@default_canonical_config["tool_policy_overlays"]).filter_map do |entry|
       entry.is_a?(Hash) ? entry.deep_stringify_keys : nil
     end
   end

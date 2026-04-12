@@ -51,7 +51,7 @@ module ToolGovernanceTestSupport
     ]
   end
 
-  def governed_profile_catalog
+  def governed_profile_policy
     {
       "main" => {
         "label" => "Main",
@@ -64,7 +64,7 @@ module ToolGovernanceTestSupport
   def build_governed_tool_context!(
     execution_runtime_tool_catalog: governed_execution_runtime_tool_catalog,
     agent_tool_catalog: governed_agent_tool_catalog,
-    profile_catalog: governed_profile_catalog
+    profile_policy: governed_profile_policy
   )
     context = build_agent_control_context!
     execution_runtime = context.fetch(:execution_runtime)
@@ -93,10 +93,10 @@ module ToolGovernanceTestSupport
 
     activate_agent_definition_version!(
       context,
-      tool_catalog: agent_tool_catalog,
-      profile_catalog: profile_catalog,
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      tool_contract: agent_tool_catalog,
+      profile_policy: profile_policy,
+      canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),
+      default_canonical_config: default_default_canonical_config(include_selector_slots: true)
     )
     agent_config_state = context.fetch(:agent).agent_config_state
     context.fetch(:turn).update!(

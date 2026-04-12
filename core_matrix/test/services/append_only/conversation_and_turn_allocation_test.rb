@@ -79,8 +79,8 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
 
   test "reuses one authenticated agent definition version across concurrent handshakes" do
     registration = register_agent_runtime!(
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),
+      default_canonical_config: default_default_canonical_config(include_selector_slots: true)
     )
     agent_definition_version_id = registration[:agent_definition_version].id
     definition_package = {
@@ -124,7 +124,7 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
       enabled: true,
       fingerprint: "bundled-fenix-runtime-v2",
       sdk_version: "fenix-0.2.0",
-      tool_catalog: default_tool_catalog("exec_command", "subagent_spawn")
+      tool_contract: default_tool_catalog("exec_command", "subagent_spawn")
     )
 
     results = assert_parallel_success!(

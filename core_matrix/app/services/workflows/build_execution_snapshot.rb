@@ -59,7 +59,7 @@ module Workflows
         "parent_subagent_connection_id" => subagent_connection&.parent_subagent_connection&.public_id,
         "subagent_depth" => subagent_connection&.depth,
         "owner_conversation_id" => subagent_connection&.owner_conversation&.public_id,
-        "subagent_policy" => deep_stringify(capability_contract.default_config_snapshot.fetch("subagents", {})),
+        "subagent_policy" => deep_stringify(capability_contract.default_canonical_config.fetch("subagents", {})),
       }
       fingerprint = "sha256:#{Digest::SHA256.hexdigest(JSON.generate(snapshot_payload))}"
 

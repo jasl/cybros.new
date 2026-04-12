@@ -83,10 +83,6 @@ class WorkspaceTest < ActiveSupport::TestCase
       provisioning_origin: "system",
       kind: "local",
       display_name: "Foreign Runtime",
-      execution_runtime_fingerprint: "foreign-runtime-#{next_test_sequence}",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
       lifecycle_state: "active"
     )
 

@@ -467,7 +467,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "freezes child agent context with profile session lineage and allowed tool names" do
     context = prepare_profile_aware_execution_context!(
-      profile_catalog: profile_catalog_with_allowed_tool_names(
+      profile_policy: profile_policy_with_allowed_tool_names(
         main_tool_names: %w[exec_command compact_context] + RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES,
         researcher_tool_names: %w[exec_command subagent_send subagent_wait subagent_close subagent_list]
       )
@@ -503,15 +503,15 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   private
 
-  def prepare_profile_aware_execution_context!(profile_catalog: default_profile_catalog)
+  def prepare_profile_aware_execution_context!(profile_policy: default_profile_policy)
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     activate_agent_definition_version!(
       context,
-      tool_catalog: default_tool_catalog("exec_command", "compact_context"),
-      profile_catalog: profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot
+      tool_contract: default_tool_catalog("exec_command", "compact_context"),
+      profile_policy: profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
     )
     context
   end
@@ -549,8 +549,8 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     }
   end
 
-  def profile_catalog_with_allowed_tool_names(main_tool_names:, researcher_tool_names:)
-    default_profile_catalog.deep_merge(
+  def profile_policy_with_allowed_tool_names(main_tool_names:, researcher_tool_names:)
+    default_profile_policy.deep_merge(
       "main" => { "allowed_tool_names" => main_tool_names },
       "researcher" => { "allowed_tool_names" => researcher_tool_names }
     )

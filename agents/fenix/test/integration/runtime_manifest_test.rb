@@ -26,11 +26,11 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_equal body.fetch("fingerprint"), definition_package.fetch("program_manifest_fingerprint")
     assert_equal body.fetch("protocol_version"), definition_package.fetch("protocol_version")
     assert_equal body.fetch("sdk_version"), definition_package.fetch("sdk_version")
-    assert_equal body.fetch("tool_catalog"), definition_package.fetch("tool_contract")
-    assert_equal body.fetch("profile_catalog"), definition_package.fetch("profile_policy")
-    assert_equal body.fetch("config_schema_snapshot"), definition_package.fetch("canonical_config_schema")
-    assert_equal body.fetch("conversation_override_schema_snapshot"), definition_package.fetch("conversation_override_schema")
-    assert_equal body.fetch("default_config_snapshot"), definition_package.fetch("default_canonical_config")
+    assert_equal body.fetch("tool_contract"), definition_package.fetch("tool_contract")
+    assert_equal body.fetch("profile_policy"), definition_package.fetch("profile_policy")
+    assert_equal body.fetch("canonical_config_schema"), definition_package.fetch("canonical_config_schema")
+    assert_equal body.fetch("conversation_override_schema"), definition_package.fetch("conversation_override_schema")
+    assert_equal body.fetch("default_canonical_config"), definition_package.fetch("default_canonical_config")
     assert_equal "fenix/default", definition_package.fetch("prompt_pack_ref")
     assert definition_package.fetch("prompt_pack_fingerprint").present?
     assert definition_package.fetch("program_manifest_fingerprint").present?
@@ -49,8 +49,8 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     refute_includes protocol_method_ids, "process_exited"
 
     assert_equal "agent", body.dig("agent_plane", "control_plane")
-    assert_equal body.fetch("tool_catalog"), body.dig("agent_plane", "tool_catalog")
-    assert_equal body.fetch("profile_catalog"), body.dig("agent_plane", "profile_catalog")
+    assert_equal body.fetch("tool_contract"), body.dig("agent_plane", "tool_contract")
+    assert_equal body.fetch("profile_policy"), body.dig("agent_plane", "profile_policy")
     assert_includes agent_tool_names, "compact_context"
     refute_includes agent_tool_names, "exec_command"
 

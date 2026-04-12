@@ -207,7 +207,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     }
     context = build_governed_tool_context!(
       execution_runtime_tool_catalog: [runtime_tool],
-      profile_catalog: {
+      profile_policy: {
         "main" => {
           "label" => "Main",
           "description" => "Primary interactive profile",

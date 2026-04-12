@@ -36,7 +36,7 @@ bundled_configuration = {
       "idempotency_policy" => "best_effort",
     },
   ],
-  config_schema_snapshot: {
+  canonical_config_schema: {
     "type" => "object",
     "properties" => {
       "interactive" => {
@@ -47,8 +47,8 @@ bundled_configuration = {
       },
     },
   },
-  conversation_override_schema_snapshot: { "type" => "object", "properties" => {} },
-  default_config_snapshot: {
+  conversation_override_schema: { "type" => "object", "properties" => {} },
+  default_canonical_config: {
     "sandbox" => "workspace-write",
     "interactive" => { "selector" => "role:main" },
   },

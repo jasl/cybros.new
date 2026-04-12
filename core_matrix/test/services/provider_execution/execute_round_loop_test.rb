@@ -43,7 +43,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
           },
         },
         catalog: catalog,
-        tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+        tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
       )
     end
 
@@ -124,7 +124,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       workflow_run = create_mock_turn_step_workflow_run!(
         resolved_config_snapshot: {},
         catalog: catalog,
-        tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+        tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
       )
     end
 
@@ -195,7 +195,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
 
     with_stubbed_provider_catalog(catalog) do
       context = build_governed_tool_context!(
-        profile_catalog: {
+        profile_policy: {
           "main" => {
             "label" => "Main",
             "description" => "Primary interactive profile",
@@ -257,7 +257,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
 
     with_stubbed_provider_catalog(catalog) do
       context = build_governed_tool_context!(
-        profile_catalog: {
+        profile_policy: {
           "main" => {
             "label" => "Main",
             "description" => "Primary interactive profile",
@@ -332,7 +332,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       workflow_run = create_mock_turn_step_workflow_run!(
         resolved_config_snapshot: {},
         catalog: catalog,
-        tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+        tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
       )
     end
 

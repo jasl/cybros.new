@@ -83,11 +83,11 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     )
     activate_agent_definition_version!(
       context,
-      tool_catalog: fenix_tool_catalog,
-      profile_catalog: fenix_profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot
+      tool_contract: fenix_tool_catalog,
+      profile_policy: fenix_profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
     )
     context[:execution_runtime_connection] = create_execution_runtime_connection!(
       installation: context[:installation],
@@ -216,7 +216,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     end
   end
 
-  def fenix_profile_catalog
+  def fenix_profile_policy
     {
       "main" => {
         "label" => "Main",

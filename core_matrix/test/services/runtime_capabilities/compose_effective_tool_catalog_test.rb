@@ -27,7 +27,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
           "idempotency_policy" => "best_effort",
         },
       ],
-      tool_catalog: default_tool_catalog("exec_command", "compact_context")
+      tool_contract: default_tool_catalog("exec_command", "compact_context")
     )
     contract = RuntimeCapabilityContract.build(
       execution_runtime: registration[:execution_runtime],
@@ -47,7 +47,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
   test "injects reserved subagent tools into the base effective catalog" do
     registration = register_agent_runtime!(
       execution_runtime_tool_catalog: [],
-      tool_catalog: default_tool_catalog("exec_command")
+      tool_contract: default_tool_catalog("exec_command")
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
@@ -65,7 +65,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
   test "exposes conversation_metadata_update in the core matrix catalog" do
     registration = register_agent_runtime!(
       execution_runtime_tool_catalog: [],
-      tool_catalog: default_tool_catalog("exec_command")
+      tool_contract: default_tool_catalog("exec_command")
     )
 
     entry = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
@@ -101,7 +101,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
           "idempotency_policy" => "best_effort",
         },
       ],
-      tool_catalog: default_tool_catalog("subagent_spawn", "exec_command")
+      tool_contract: default_tool_catalog("subagent_spawn", "exec_command")
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
@@ -130,7 +130,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
           "idempotency_policy" => "best_effort",
         },
       ],
-      tool_catalog: default_tool_catalog("exec_command", "compact_context")
+      tool_contract: default_tool_catalog("exec_command", "compact_context")
     )
 
     effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
@@ -147,7 +147,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
   test "keeps mcp tools parallel_safe false by default in the effective catalog" do
     registration = register_agent_runtime!(
-      tool_catalog: [
+      tool_contract: [
         {
           "tool_name" => "remote_echo",
           "tool_kind" => "agent_observation",
@@ -173,7 +173,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
 
   test "applies matching tool policy overlays from the capability snapshot default config" do
     registration = register_agent_runtime!(
-      tool_catalog: [
+      tool_contract: [
         {
           "tool_name" => "remote_echo",
           "tool_kind" => "agent_observation",
@@ -197,7 +197,7 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
           "idempotency_policy" => "best_effort",
         },
       ],
-      default_config_snapshot: default_default_config_snapshot.deep_merge(
+      default_canonical_config: default_default_canonical_config.deep_merge(
         "tool_policy_overlays" => [
           {
             "match" => {

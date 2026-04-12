@@ -881,10 +881,10 @@ The platform model now uses:
 But several higher-level contracts still expose compatibility aliases such as:
 
 - `tool_catalog`
-- `profile_catalog`
-- `config_schema_snapshot`
-- `conversation_override_schema_snapshot`
-- `default_config_snapshot`
+- `profile_policy`
+- `canonical_config_schema`
+- `conversation_override_schema`
+- `default_canonical_config`
 
 These aliases still appear in:
 

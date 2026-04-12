@@ -46,7 +46,7 @@ bundled_configuration = {
       "idempotency_policy" => "best_effort",
     },
   ],
-  profile_catalog: {
+  profile_policy: {
     "main" => {
       "label" => "Main",
       "description" => "Primary interactive profile",
@@ -57,7 +57,7 @@ bundled_configuration = {
       "default_subagent_profile" => true,
     },
   },
-  config_schema_snapshot: {
+  canonical_config_schema: {
     "type" => "object",
     "properties" => {
       "interactive" => {
@@ -77,7 +77,7 @@ bundled_configuration = {
       },
     },
   },
-  conversation_override_schema_snapshot: {
+  conversation_override_schema: {
     "type" => "object",
     "properties" => {
       "subagents" => {
@@ -90,7 +90,7 @@ bundled_configuration = {
       },
     },
   },
-  default_config_snapshot: {
+  default_canonical_config: {
     "sandbox" => "workspace-write",
     "interactive" => {
       "selector" => "role:main",

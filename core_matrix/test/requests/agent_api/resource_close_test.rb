@@ -473,7 +473,7 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
           "idempotency_policy" => "best_effort",
         },
       ],
-      profile_catalog: {
+      profile_policy: {
         "main" => {
           "label" => "Main",
           "description" => "Primary interactive profile",

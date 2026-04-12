@@ -7,7 +7,7 @@ class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
 
   test "updates conversation metadata and returns accepted fields" do
     context = build_governed_tool_context!(
-      profile_catalog: governed_profile_catalog.deep_merge(
+      profile_policy: governed_profile_policy.deep_merge(
         "main" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
         }
@@ -45,7 +45,7 @@ class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
 
   test "returns a structured rejection for locked metadata fields" do
     context = build_governed_tool_context!(
-      profile_catalog: governed_profile_catalog.deep_merge(
+      profile_policy: governed_profile_policy.deep_merge(
         "main" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
         }
@@ -82,7 +82,7 @@ class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
 
   test "reports only actually accepted fields when another submitted field is rejected by metadata policy" do
     context = build_governed_tool_context!(
-      profile_catalog: governed_profile_catalog.deep_merge(
+      profile_policy: governed_profile_policy.deep_merge(
         "main" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
         }

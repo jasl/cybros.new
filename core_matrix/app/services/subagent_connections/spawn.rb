@@ -113,7 +113,7 @@ module SubagentConnections
           if requested == DEFAULT_SUBAGENT_PROFILE_ALIAS
             default_subagent_profile_key(conversation:)
           else
-            raise_invalid!(conversation, :profile_key, "must exist in the runtime profile catalog") unless profile_catalog(conversation:).key?(requested)
+            raise_invalid!(conversation, :profile_key, "must exist in the runtime profile catalog") unless profile_policy(conversation:).key?(requested)
             requested
           end
         else
@@ -123,21 +123,21 @@ module SubagentConnections
     end
 
     def default_subagent_profile_key(conversation:)
-      metadata_default = profile_catalog(conversation:).find do |_key, value|
+      metadata_default = profile_policy(conversation:).find do |_key, value|
         value.is_a?(Hash) && value["default_subagent_profile"] == true
       end&.first
       return metadata_default if metadata_default.present?
 
-      profile_catalog(conversation:).keys.find { |key| key != interactive_profile_key(conversation:) } ||
+      profile_policy(conversation:).keys.find { |key| key != interactive_profile_key(conversation:) } ||
         interactive_profile_key(conversation:)
     end
 
     def interactive_profile_key(conversation:)
-      runtime_contract(conversation:).default_config_snapshot.dig("interactive", "profile") || "main"
+      runtime_contract(conversation:).default_canonical_config.dig("interactive", "profile") || "main"
     end
 
-    def profile_catalog(conversation:)
-      runtime_contract(conversation:).profile_catalog
+    def profile_policy(conversation:)
+      runtime_contract(conversation:).profile_policy
     end
 
     def runtime_contract(conversation:)

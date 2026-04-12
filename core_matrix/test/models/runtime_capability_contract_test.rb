@@ -3,7 +3,7 @@ require "test_helper"
 class RuntimeCapabilityContractTest < ActiveSupport::TestCase
   test "renders executor, agent, and effective projections from one contract" do
     registration = register_agent_runtime!(
-      profile_catalog: default_profile_catalog,
+      profile_policy: default_profile_policy,
       execution_runtime_capability_payload: { shell_access: true },
       execution_runtime_tool_catalog: [
         {
@@ -17,10 +17,10 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
           idempotency_policy: "best_effort",
         },
       ],
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot,
-      tool_catalog: [
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config,
+      tool_contract: [
         {
           tool_name: "exec_command",
           tool_kind: "agent_observation",
@@ -50,16 +50,16 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
 
     assert_equal "execution_runtime", contract.execution_runtime_plane.fetch("control_plane")
     assert_equal "agent", contract.agent_plane.fetch("control_plane")
-    assert_equal default_profile_catalog, contract.agent_plane.fetch("profile_catalog")
-    assert_equal default_profile_catalog, contract.contract_payload.fetch("profile_catalog")
-    assert_equal "main", contract.default_config_snapshot.dig("interactive", "profile")
-    assert_equal 3, contract.default_config_snapshot.dig("subagents", "max_depth")
-    assert_nil contract.conversation_override_schema_snapshot.dig("properties", "interactive")
-    assert_equal "boolean", contract.conversation_override_schema_snapshot.dig("properties", "subagents", "properties", "enabled", "type")
+    assert_equal default_profile_policy, contract.agent_plane.fetch("profile_policy")
+    assert_equal default_profile_policy, contract.contract_payload.fetch("profile_policy")
+    assert_equal "main", contract.default_canonical_config.dig("interactive", "profile")
+    assert_equal 3, contract.default_canonical_config.dig("subagents", "max_depth")
+    assert_nil contract.conversation_override_schema.dig("properties", "interactive")
+    assert_equal "boolean", contract.conversation_override_schema.dig("properties", "subagents", "properties", "enabled", "type")
     assert_equal ["exec_command"], contract.execution_runtime_plane.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert_equal ["exec_command", "compact_context"], contract.effective_tool_catalog.map { |entry| entry.fetch("tool_name") }
     assert contract.execution_runtime_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
-    assert contract.agent_plane.fetch("tool_catalog").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
+    assert contract.agent_plane.fetch("tool_contract").all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
     assert contract.effective_tool_catalog.all? { |entry| entry.dig("execution_policy", "parallel_safe") == false }
     response = contract.capability_response(
       method_id: "capabilities_handshake",

@@ -43,7 +43,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
           "idempotency_policy" => "best_effort",
         },
       ],
-      tool_catalog: [
+      tool_contract: [
         {
           "tool_name" => "exec_command",
           "tool_kind" => "agent_observation",
@@ -82,7 +82,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
 
   test "allow_nested false hides subagent_spawn for child conversations" do
     registration = register_profile_aware_runtime!(
-      default_config_snapshot: profile_aware_default_config_snapshot.deep_merge(
+      default_canonical_config: profile_aware_default_canonical_config.deep_merge(
         "subagents" => { "allow_nested" => false }
       )
     )
@@ -108,7 +108,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
 
   test "depth at max depth hides subagent_spawn while keeping other subagent tools visible" do
     registration = register_profile_aware_runtime!(
-      default_config_snapshot: profile_aware_default_config_snapshot.deep_merge(
+      default_canonical_config: profile_aware_default_canonical_config.deep_merge(
         "subagents" => { "max_depth" => 1 }
       )
     )
@@ -130,11 +130,11 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
 
   test "visible child tools stay a subset of visible parent tools after profile masking" do
     registration = register_profile_aware_runtime!(
-      profile_catalog: profile_catalog_with_allowed_tool_names(
+      profile_policy: profile_policy_with_allowed_tool_names(
         main_tool_names: %w[exec_command compact_context] + SUBAGENT_TOOL_NAMES,
         researcher_tool_names: %w[exec_command subagent_send subagent_wait subagent_close subagent_list]
       ),
-      tool_catalog: default_tool_catalog("exec_command", "compact_context")
+      tool_contract: default_tool_catalog("exec_command", "compact_context")
     )
     root_conversation = create_root_conversation_for!(registration)
     child = create_subagent_conversation_chain!(
@@ -158,11 +158,11 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
 
   test "masked tools reject direct invocation even when the caller guesses the tool name" do
     registration = register_profile_aware_runtime!(
-      profile_catalog: profile_catalog_with_allowed_tool_names(
+      profile_policy: profile_policy_with_allowed_tool_names(
         main_tool_names: %w[exec_command compact_context] + SUBAGENT_TOOL_NAMES,
         researcher_tool_names: %w[exec_command subagent_send subagent_wait subagent_close subagent_list]
       ),
-      tool_catalog: default_tool_catalog("exec_command", "compact_context")
+      tool_contract: default_tool_catalog("exec_command", "compact_context")
     )
     child = create_subagent_conversation_chain!(
       registration: registration,
@@ -229,15 +229,15 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
 
   private
 
-  def register_profile_aware_runtime!(execution_runtime_capability_payload: {}, execution_runtime_tool_catalog: [], tool_catalog: default_tool_catalog("exec_command"), profile_catalog: default_profile_catalog, default_config_snapshot: profile_aware_default_config_snapshot)
+  def register_profile_aware_runtime!(execution_runtime_capability_payload: {}, execution_runtime_tool_catalog: [], tool_contract: default_tool_catalog("exec_command"), profile_policy: default_profile_policy, default_canonical_config: profile_aware_default_canonical_config)
     register_agent_runtime!(
       execution_runtime_capability_payload: execution_runtime_capability_payload,
       execution_runtime_tool_catalog: execution_runtime_tool_catalog,
-      tool_catalog: tool_catalog,
-      profile_catalog: profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: default_config_snapshot
+      tool_contract: tool_contract,
+      profile_policy: profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: default_canonical_config
     )
   end
 
@@ -294,8 +294,8 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     }
   end
 
-  def profile_catalog_with_allowed_tool_names(main_tool_names:, researcher_tool_names:)
-    default_profile_catalog.deep_merge(
+  def profile_policy_with_allowed_tool_names(main_tool_names:, researcher_tool_names:)
+    default_profile_policy.deep_merge(
       "main" => { "allowed_tool_names" => main_tool_names },
       "researcher" => { "allowed_tool_names" => researcher_tool_names }
     )

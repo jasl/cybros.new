@@ -21,11 +21,11 @@ module Installations
       protocol_version: "2026-03-24",
       sdk_version: "fenix-0.1.0",
       protocol_methods: [],
-      tool_catalog: [],
-      profile_catalog: {},
-      config_schema_snapshot: {},
-      conversation_override_schema_snapshot: {},
-      default_config_snapshot: {},
+      tool_contract: [],
+      profile_policy: {},
+      canonical_config_schema: {},
+      conversation_override_schema: {},
+      default_canonical_config: {},
     }.freeze
 
     Result = Struct.new(
@@ -289,11 +289,11 @@ module Installations
         "protocol_version" => @configuration[:protocol_version],
         "sdk_version" => @configuration[:sdk_version],
         "protocol_methods" => @configuration[:protocol_methods],
-        "tool_contract" => @configuration[:tool_catalog],
-        "profile_policy" => @configuration[:profile_catalog],
-        "canonical_config_schema" => @configuration[:config_schema_snapshot],
-        "conversation_override_schema" => @configuration[:conversation_override_schema_snapshot],
-        "default_canonical_config" => @configuration[:default_config_snapshot],
+        "tool_contract" => @configuration[:tool_contract],
+        "profile_policy" => @configuration[:profile_policy],
+        "canonical_config_schema" => @configuration[:canonical_config_schema],
+        "conversation_override_schema" => @configuration[:conversation_override_schema],
+        "default_canonical_config" => @configuration[:default_canonical_config],
         "reflected_surface" => {
           "display_name" => @configuration[:display_name],
           "agent_key" => @configuration[:agent_key]

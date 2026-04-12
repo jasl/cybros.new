@@ -204,9 +204,9 @@ class Workflows::ManualRetryTest < ActiveSupport::TestCase
       agent: agent,
       fingerprint: "replacement-#{next_test_sequence}",
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      tool_contract: default_tool_catalog("exec_command", "workspace_variables_get"),
+      canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),
+      default_canonical_config: default_default_canonical_config(include_selector_slots: true)
     )
     agent.update!(default_execution_runtime: execution_runtime)
     create_agent_connection!(

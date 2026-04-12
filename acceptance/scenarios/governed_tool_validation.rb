@@ -12,14 +12,14 @@ runtime_context = GovernedValidationSupport.bootstrap_runtime!(
   execution_runtime_fingerprint: "acceptance-governed-tool-environment",
   fingerprint: "acceptance-governed-tool-runtime",
   tool_catalog: [],
-  profile_catalog: {
+  profile_policy: {
     "main" => {
       "label" => "Main",
       "description" => "Primary interactive profile",
       "allowed_tool_names" => ["subagent_spawn"],
     },
   },
-  default_config_snapshot: {
+  default_canonical_config: {
     "sandbox" => "workspace-write",
     "interactive" => {
       "selector" => "role:main",

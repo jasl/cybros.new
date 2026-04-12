@@ -231,15 +231,15 @@ module ProviderExecutionTestSupport
     build_test_provider_catalog_from(catalog_definition)
   end
 
-  def create_mock_turn_step_workflow_run!(resolved_config_snapshot:, catalog: build_mock_chat_catalog, tool_catalog: nil, profile_catalog: nil)
+  def create_mock_turn_step_workflow_run!(resolved_config_snapshot:, catalog: build_mock_chat_catalog, tool_contract: nil, profile_policy: nil)
     workflow_run = nil
 
     with_stubbed_provider_catalog(catalog) do
       context = create_workspace_context!
       capability_snapshot = create_compatible_agent_definition_version!(
         agent_definition_version: context[:agent_definition_version],
-        tool_catalog: tool_catalog || default_tool_catalog("exec_command") + [default_agent_observation_tool_entry("calculator")],
-        profile_catalog: profile_catalog || {}
+        tool_contract: tool_contract || default_tool_catalog("exec_command") + [default_agent_observation_tool_entry("calculator")],
+        profile_policy: profile_policy || {}
       )
       adopt_agent_definition_version!(context, capability_snapshot, turn: nil)
       ProviderEntitlement.create!(

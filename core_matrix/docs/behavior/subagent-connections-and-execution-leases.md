@@ -28,7 +28,7 @@ instead of scraping child workflow internals after the fact.
 - `depth` is `0` at the root of a subagent tree and otherwise must equal the
   parent depth plus one
 - `profile_key` is always present and is resolved from the runtime-declared
-  `profile_catalog`
+  `profile_policy`
 
 ## Connection Lifecycle
 

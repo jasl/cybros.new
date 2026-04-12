@@ -3,10 +3,10 @@ require "test_helper"
 class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
   test "capabilities refresh returns separate agent and execution runtime sections" do
     registration = register_agent_runtime!(
-      profile_catalog: default_profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot,
+      profile_policy: default_profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config,
       execution_runtime_tool_catalog: [
         {
           "tool_name" => "exec_command",
@@ -19,7 +19,7 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
           "idempotency_policy" => "best_effort",
         },
       ],
-      tool_catalog: [
+      tool_contract: [
         {
           "tool_name" => "exec_command",
           "tool_kind" => "agent_observation",
@@ -59,14 +59,14 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_equal registration[:execution_runtime].execution_runtime_fingerprint, response_body["execution_runtime_fingerprint"]
     assert_equal registration[:execution_runtime].current_execution_runtime_version.public_id, response_body["execution_runtime_version_id"]
     assert_equal registration[:agent_definition_version].public_id, response_body["agent_definition_version_id"]
-    assert_equal default_profile_catalog, response_body.fetch("profile_catalog")
-    assert_equal default_profile_catalog, response_body.fetch("agent_plane").fetch("profile_catalog")
-    assert_equal "main", response_body.dig("default_config_snapshot", "interactive", "profile")
-    assert_equal 3, response_body.dig("default_config_snapshot", "subagents", "max_depth")
-    assert_nil response_body.dig("conversation_override_schema_snapshot", "properties", "interactive")
-    assert_equal "boolean", response_body.dig("conversation_override_schema_snapshot", "properties", "subagents", "properties", "enabled", "type")
+    assert_equal default_profile_policy, response_body.fetch("profile_policy")
+    assert_equal default_profile_policy, response_body.fetch("agent_plane").fetch("profile_policy")
+    assert_equal "main", response_body.dig("default_canonical_config", "interactive", "profile")
+    assert_equal 3, response_body.dig("default_canonical_config", "subagents", "max_depth")
+    assert_nil response_body.dig("conversation_override_schema", "properties", "interactive")
+    assert_equal "boolean", response_body.dig("conversation_override_schema", "properties", "subagents", "properties", "enabled", "type")
     assert_equal ["agent_health", "capabilities_handshake"], response_body["protocol_methods"].map { |entry| entry.fetch("method_id") }
-    assert_equal ["exec_command", "compact_context"], response_body.fetch("agent_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    assert_equal ["exec_command", "compact_context"], response_body.fetch("agent_plane").fetch("tool_contract").map { |entry| entry.fetch("tool_name") }
     assert_equal ["exec_command"], response_body.fetch("execution_runtime_plane").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
     assert_equal "execution_runtime", shell_entry.fetch("tool_kind")
     assert_equal contract.effective_tool_catalog, response_body.fetch("effective_tool_catalog")
@@ -75,10 +75,10 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
 
   test "capabilities handshake refreshes the frozen agent snapshot contract without mutating the current runtime contract" do
     registration = register_agent_runtime!(
-      profile_catalog: default_profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot
+      profile_policy: default_profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
     )
     previous_runtime_payload = registration[:execution_runtime].capability_payload.deep_dup
 
@@ -111,8 +111,8 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     )
 
     assert_equal registration[:agent_definition_version].definition_fingerprint, response_body.dig("agent_plane", "agent_definition_fingerprint")
-    assert_equal default_profile_catalog, response_body.fetch("profile_catalog")
-    assert_equal default_profile_catalog, response_body.fetch("agent_plane").fetch("profile_catalog")
+    assert_equal default_profile_policy, response_body.fetch("profile_policy")
+    assert_equal default_profile_policy, response_body.fetch("agent_plane").fetch("profile_policy")
     assert_equal contract.effective_tool_catalog, response_body.fetch("effective_tool_catalog")
     assert_equal contract.execution_runtime_plane, response_body.fetch("execution_runtime_plane")
     assert_equal previous_runtime_payload, registration[:execution_runtime].reload.capability_payload
@@ -120,10 +120,10 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
 
   test "capabilities handshake rejects malformed agent contract payloads without changing the runtime contract" do
     registration = register_agent_runtime!(
-      profile_catalog: default_profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot
+      profile_policy: default_profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
     )
     previous_runtime_payload = registration[:execution_runtime].capability_payload.deep_dup
 

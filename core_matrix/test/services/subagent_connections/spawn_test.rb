@@ -163,7 +163,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
   end
 
   test "conversation scoped spawn resolves explicit or default profile for reusable sessions" do
-    profile_catalog = default_profile_catalog.deep_merge(
+    profile_policy = default_profile_policy.deep_merge(
       "researcher" => {
         "default_subagent_profile" => true,
         "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
@@ -174,7 +174,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
         "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
       }
     )
-    context = prepare_profile_aware_execution_context!(profile_catalog: profile_catalog)
+    context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
@@ -214,13 +214,13 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
   end
 
   test "explicit default alias resolves the runtime default subagent profile" do
-    profile_catalog = default_profile_catalog.deep_merge(
+    profile_policy = default_profile_policy.deep_merge(
       "researcher" => {
         "default_subagent_profile" => true,
         "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
       }
     )
-    context = prepare_profile_aware_execution_context!(profile_catalog: profile_catalog)
+    context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
       execution_runtime: context[:execution_runtime],
@@ -347,19 +347,19 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
 
   private
 
-  def prepare_profile_aware_execution_context!(profile_catalog: default_profile_catalog)
+  def prepare_profile_aware_execution_context!(profile_policy: default_profile_policy)
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    allowed_tool_names = profile_catalog.values.flat_map do |profile|
+    allowed_tool_names = profile_policy.values.flat_map do |profile|
       Array(profile["allowed_tool_names"])
     end
     capability_snapshot = create_compatible_agent_definition_version!(
       agent_definition_version: context[:agent_definition_version],
       version: 2,
-      tool_catalog: default_tool_catalog("exec_command", *allowed_tool_names),
-      profile_catalog: profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot
+      tool_contract: default_tool_catalog("exec_command", *allowed_tool_names),
+      profile_policy: profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
     )
     adopt_agent_definition_version!(context, capability_snapshot, turn: nil)
 

@@ -119,7 +119,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
         "temperature" => 0.4,
       },
       catalog: catalog,
-      tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+      tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
     )
     agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
@@ -556,7 +556,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
         },
       },
       catalog: catalog,
-      tool_catalog: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+      tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
     agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(

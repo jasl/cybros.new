@@ -134,10 +134,10 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
 
   def create_profile_aware_conversation!
     registration = register_agent_runtime!(
-      profile_catalog: default_profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot
+      profile_policy: default_profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
     )
     workspace = create_workspace!(
       installation: registration[:installation],

@@ -21,12 +21,12 @@ module Runtime
           "endpoint_metadata" => endpoint_metadata,
           "agent_contract" => agent_contract,
           "protocol_methods" => definition_package.fetch("protocol_methods"),
-          "tool_catalog" => definition_package.fetch("tool_contract"),
-          "profile_catalog" => definition_package.fetch("profile_policy"),
+          "tool_contract" => definition_package.fetch("tool_contract"),
+          "profile_policy" => definition_package.fetch("profile_policy"),
           "agent_plane" => agent_plane(definition_package),
-          "config_schema_snapshot" => definition_package.fetch("canonical_config_schema"),
-          "conversation_override_schema_snapshot" => definition_package.fetch("conversation_override_schema"),
-          "default_config_snapshot" => definition_package.fetch("default_canonical_config"),
+          "canonical_config_schema" => definition_package.fetch("canonical_config_schema"),
+          "conversation_override_schema" => definition_package.fetch("conversation_override_schema"),
+          "default_canonical_config" => definition_package.fetch("default_canonical_config"),
           "definition_package" => definition_package,
         }
       end
@@ -63,11 +63,11 @@ module Runtime
         {
           "control_plane" => "agent",
           "protocol_methods" => definition_package.fetch("protocol_methods"),
-          "tool_catalog" => definition_package.fetch("tool_contract"),
-          "profile_catalog" => definition_package.fetch("profile_policy"),
-          "config_schema_snapshot" => definition_package.fetch("canonical_config_schema"),
-          "conversation_override_schema_snapshot" => definition_package.fetch("conversation_override_schema"),
-          "default_config_snapshot" => definition_package.fetch("default_canonical_config"),
+          "tool_contract" => definition_package.fetch("tool_contract"),
+          "profile_policy" => definition_package.fetch("profile_policy"),
+          "canonical_config_schema" => definition_package.fetch("canonical_config_schema"),
+          "conversation_override_schema" => definition_package.fetch("conversation_override_schema"),
+          "default_canonical_config" => definition_package.fetch("default_canonical_config"),
         }
       end
     end

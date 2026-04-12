@@ -13,54 +13,27 @@ class ExecutionRuntimes::VisibleToUserQueryTest < ActiveSupport::TestCase
       display_name: "Other"
     )
 
-    public_runtime = ExecutionRuntime.create!(
+    public_runtime = create_execution_runtime!(
       installation: installation,
       visibility: "public",
-      provisioning_origin: "system",
-      kind: "local",
-      display_name: "Public Runtime",
-      execution_runtime_fingerprint: "public-runtime",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
-      lifecycle_state: "active"
+      display_name: "Public Runtime"
     )
-    private_runtime = ExecutionRuntime.create!(
+    private_runtime = create_execution_runtime!(
       installation: installation,
       visibility: "private",
-      provisioning_origin: "user_created",
       owner_user: user,
-      kind: "local",
-      display_name: "Private Runtime",
-      execution_runtime_fingerprint: "private-runtime",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
-      lifecycle_state: "active"
+      display_name: "Private Runtime"
     )
-    ExecutionRuntime.create!(
+    create_execution_runtime!(
       installation: installation,
       visibility: "private",
-      provisioning_origin: "user_created",
       owner_user: other_user,
-      kind: "local",
-      display_name: "Other Users Runtime",
-      execution_runtime_fingerprint: "other-users-runtime",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
-      lifecycle_state: "active"
+      display_name: "Other Users Runtime"
     )
-    ExecutionRuntime.create!(
+    create_execution_runtime!(
       installation: installation,
       visibility: "public",
-      provisioning_origin: "system",
-      kind: "local",
       display_name: "Retired Runtime",
-      execution_runtime_fingerprint: "retired-runtime",
-      connection_metadata: {},
-      capability_payload: {},
-      tool_catalog: [],
       lifecycle_state: "retired"
     )
 

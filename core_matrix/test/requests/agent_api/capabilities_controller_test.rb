@@ -23,7 +23,7 @@ class AgentApiCapabilitiesControllerTest < ActionDispatch::IntegrationTest
 
   test "capabilities handshake rejects runtime attempts to use the reserved core_matrix prefix" do
     registration = register_agent_runtime!(
-      tool_catalog: default_tool_catalog("exec_command")
+      tool_contract: default_tool_catalog("exec_command")
     )
 
     post "/agent_api/capabilities",
@@ -47,10 +47,10 @@ class AgentApiCapabilitiesControllerTest < ActionDispatch::IntegrationTest
               "idempotency_policy" => "best_effort",
             },
           ],
-          "profile_policy" => default_profile_catalog,
-          "canonical_config_schema" => default_config_schema_snapshot,
+          "profile_policy" => default_profile_policy,
+          "canonical_config_schema" => default_canonical_config_schema,
           "conversation_override_schema" => { "type" => "object", "properties" => {} },
-          "default_canonical_config" => default_default_config_snapshot,
+          "default_canonical_config" => default_default_canonical_config,
           "reflected_surface" => { "display_name" => "Fenix" },
         },
       },

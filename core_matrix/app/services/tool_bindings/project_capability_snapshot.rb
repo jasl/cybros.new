@@ -46,13 +46,13 @@ module ToolBindings
     end
 
     def profile_allowed_tool_names
-      @profile_allowed_tool_names ||= @agent_definition_version.profile_catalog.values.flat_map do |profile|
+      @profile_allowed_tool_names ||= @agent_definition_version.profile_policy.values.flat_map do |profile|
         Array(profile["allowed_tool_names"])
       end.uniq
     end
 
     def candidates_for(tool_name)
-      [@core_matrix_tool_catalog, @execution_runtime&.tool_catalog, @agent_definition_version.tool_catalog]
+      [@core_matrix_tool_catalog, @execution_runtime&.tool_catalog, @agent_definition_version.tool_contract]
         .flat_map { |catalog| Array(catalog) }
         .select { |entry| entry.fetch("tool_name") == tool_name }
     end

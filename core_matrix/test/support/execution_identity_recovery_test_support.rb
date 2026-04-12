@@ -69,11 +69,11 @@ module ExecutionIdentityRecoveryTestSupport
       agent: agent,
       fingerprint: "replacement-#{next_test_sequence}",
       protocol_methods: current_agent_definition_version&.protocol_methods || default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: current_agent_definition_version&.tool_catalog || default_tool_catalog("exec_command", "workspace_variables_get"),
-      profile_catalog: current_agent_definition_version&.profile_catalog || {},
-      config_schema_snapshot: current_agent_definition_version&.config_schema_snapshot || default_config_schema_snapshot(include_selector_slots: true),
-      conversation_override_schema_snapshot: current_agent_definition_version&.conversation_override_schema_snapshot || {},
-      default_config_snapshot: current_agent_definition_version&.default_config_snapshot || default_default_config_snapshot(include_selector_slots: true)
+      tool_contract: current_agent_definition_version&.tool_contract || default_tool_catalog("exec_command", "workspace_variables_get"),
+      profile_policy: current_agent_definition_version&.profile_policy || {},
+      canonical_config_schema: current_agent_definition_version&.canonical_config_schema || default_canonical_config_schema(include_selector_slots: true),
+      conversation_override_schema: current_agent_definition_version&.conversation_override_schema || {},
+      default_canonical_config: current_agent_definition_version&.default_canonical_config || default_default_canonical_config(include_selector_slots: true)
     )
     agent.update!(default_execution_runtime: execution_runtime)
     AgentConnection.where(agent: agent, lifecycle_state: "active").update_all(

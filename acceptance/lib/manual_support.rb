@@ -861,11 +861,11 @@ module Acceptance
           protocol_version: manifest.fetch('protocol_version'),
           sdk_version: resolved_sdk_version,
           protocol_methods: manifest.fetch('protocol_methods'),
-          tool_catalog: manifest.fetch('tool_catalog'),
-          profile_catalog: manifest.fetch('profile_catalog'),
-          config_schema_snapshot: manifest.fetch('config_schema_snapshot'),
-          conversation_override_schema_snapshot: manifest.fetch('conversation_override_schema_snapshot'),
-          default_config_snapshot: manifest.fetch('default_config_snapshot')
+          tool_contract: manifest.fetch('tool_contract'),
+          profile_policy: manifest.fetch('profile_policy'),
+          canonical_config_schema: manifest.fetch('canonical_config_schema'),
+          conversation_override_schema: manifest.fetch('conversation_override_schema'),
+          default_canonical_config: manifest.fetch('default_canonical_config')
         }
       )
 

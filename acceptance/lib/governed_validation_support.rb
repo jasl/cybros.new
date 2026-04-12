@@ -6,7 +6,7 @@ module GovernedValidationSupport
     { "method_id" => "capabilities_handshake" },
   ].freeze
 
-  def base_config_schema_snapshot
+  def base_canonical_config_schema
     {
       "type" => "object",
       "properties" => {
@@ -34,9 +34,9 @@ module GovernedValidationSupport
     display_name:,
     execution_runtime_fingerprint:,
     fingerprint:,
-    tool_catalog:,
-    profile_catalog:,
-    default_config_snapshot:,
+    tool_contract:,
+    profile_policy:,
+    default_canonical_config:,
     execution_runtime_capability_payload: {},
     execution_runtime_tool_catalog: []
   )
@@ -77,14 +77,14 @@ module GovernedValidationSupport
         protocol_version: "2026-03-24",
         sdk_version: "fenix-0.1.0",
         protocol_methods: DEFAULT_PROTOCOL_METHODS,
-        tool_catalog: tool_catalog,
-        profile_catalog: profile_catalog,
-        config_schema_snapshot: base_config_schema_snapshot,
-        conversation_override_schema_snapshot: {
+        tool_contract: tool_contract,
+        profile_policy: profile_policy,
+        canonical_config_schema: base_canonical_config_schema,
+        conversation_override_schema: {
           "type" => "object",
           "properties" => {},
         },
-        default_config_snapshot: default_config_snapshot,
+        default_canonical_config: default_canonical_config,
       }
     )
 

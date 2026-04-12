@@ -7,7 +7,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       installation: context[:installation],
       agent: context[:agent],
       execution_runtime: context[:execution_runtime],
-      selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      selector_snapshot: default_default_canonical_config(include_selector_slots: true)
     )
     actor = create_user!(installation: context[:installation], role: "admin")
 
@@ -33,8 +33,8 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     assert_nil conversation.interactive_selector_provider_handle
     assert_nil conversation.interactive_selector_model_ref
     assert_equal(
-      default_default_config_snapshot(include_selector_slots: true),
-      replacement.default_config_snapshot
+      default_default_canonical_config(include_selector_slots: true),
+      replacement.default_canonical_config
     )
 
     audit_log = AuditLog.find_by!(action: "workflow.manual_resumed")
@@ -71,7 +71,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       agent: context[:agent],
       execution_runtime: context[:execution_runtime],
       protocol_methods: default_protocol_methods("agent_health"),
-      tool_catalog: default_tool_catalog("exec_command")
+      tool_contract: default_tool_catalog("exec_command")
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
@@ -233,7 +233,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       installation: context[:installation],
       agent: context[:agent],
       execution_runtime: context[:execution_runtime],
-      selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      selector_snapshot: default_default_canonical_config(include_selector_slots: true)
     )
     actor = create_user!(installation: context[:installation], role: "admin")
 
@@ -256,7 +256,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       installation: context[:installation],
       agent: context[:agent],
       execution_runtime: context[:execution_runtime],
-      selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      selector_snapshot: default_default_canonical_config(include_selector_slots: true)
     )
     actor = create_user!(installation: context[:installation], role: "admin")
 
@@ -280,7 +280,7 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       installation: context[:installation],
       agent: context[:agent],
       execution_runtime: context[:execution_runtime],
-      selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      selector_snapshot: default_default_canonical_config(include_selector_slots: true)
     )
     original_rebind_call = nil
     rebind_calls = []
@@ -316,9 +316,9 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       agent_definition_version: context[:agent_definition_version],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      tool_contract: default_tool_catalog("exec_command", "workspace_variables_get"),
+      canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),
+      default_canonical_config: default_default_canonical_config(include_selector_slots: true)
     )
     adopt_agent_definition_version!(context, richer_snapshot, turn: nil)
     conversation = Conversations::CreateRoot.call(
@@ -355,9 +355,9 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       agent_definition_version: context[:agent_definition_version],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      tool_contract: default_tool_catalog("exec_command", "workspace_variables_get"),
+      canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),
+      default_canonical_config: default_default_canonical_config(include_selector_slots: true)
     )
     adopt_agent_definition_version!(context, richer_snapshot, turn: nil)
     conversation = Conversations::CreateRoot.call(
@@ -521,8 +521,8 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     agent:,
     execution_runtime: create_execution_runtime!(installation: installation),
     protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-    tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
-    selector_snapshot: default_default_config_snapshot(include_selector_slots: true)
+    tool_contract: default_tool_catalog("exec_command", "workspace_variables_get"),
+    selector_snapshot: default_default_canonical_config(include_selector_slots: true)
   )
     AgentConnection.where(agent: agent, lifecycle_state: "active").update_all(
       lifecycle_state: "stale",
@@ -533,9 +533,9 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
       agent: agent,
       fingerprint: "replacement-#{next_test_sequence}",
       protocol_methods: protocol_methods,
-      tool_catalog: tool_catalog,
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      default_config_snapshot: selector_snapshot
+      tool_contract: tool_contract,
+      canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),
+      default_canonical_config: selector_snapshot
     )
     agent.update!(default_execution_runtime: execution_runtime)
     create_agent_connection!(

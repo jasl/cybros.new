@@ -78,7 +78,7 @@ module Conversations
     end
 
     def override_schema
-      @override_schema ||= Turns::FreezeExecutionIdentity.call(conversation: @conversation).agent_definition_version.conversation_override_schema_snapshot
+      @override_schema ||= Turns::FreezeExecutionIdentity.call(conversation: @conversation).agent_definition_version.conversation_override_schema
     end
 
     def validate_selector!(conversation)

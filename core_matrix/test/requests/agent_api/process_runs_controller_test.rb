@@ -131,7 +131,7 @@ class AgentApiProcessRunsControllerTest < ActionDispatch::IntegrationTest
     capability_snapshot = create_compatible_agent_definition_version!(
       agent_definition_version: context[:agent_definition_version],
       version: 2,
-      tool_catalog: default_tool_catalog("process_exec")
+      tool_contract: default_tool_catalog("process_exec")
     )
     adopt_agent_definition_version!(context, capability_snapshot)
     context[:turn].update!(

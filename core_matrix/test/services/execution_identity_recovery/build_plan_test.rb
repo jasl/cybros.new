@@ -24,8 +24,8 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
       agent_definition_version: replacement,
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      tool_contract: default_tool_catalog("exec_command", "workspace_variables_get"),
+      default_canonical_config: default_default_canonical_config(include_selector_slots: true)
     )
     AgentConnection.where(agent: context[:agent], lifecycle_state: "active").update_all(
       lifecycle_state: "stale",
@@ -82,7 +82,7 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
       installation: context[:installation],
       agent: context[:agent],
       execution_runtime: context[:execution_runtime],
-      profile_catalog: default_profile_catalog.deep_merge(
+      profile_policy: default_profile_policy.deep_merge(
         "main" => { "allowed_tool_names" => %w[exec_command] }
       )
     )
@@ -110,11 +110,11 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
       agent_definition_version: context[:agent_definition_version],
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
-      profile_catalog: default_profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot
+      tool_contract: default_tool_catalog("exec_command", "workspace_variables_get"),
+      profile_policy: default_profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
     )
     adopt_agent_definition_version!(context, capability_snapshot, turn: nil)
     context[:agent_connection].update!(auto_resume_eligible: true)
@@ -157,7 +157,7 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
     installation:,
     agent:,
     execution_runtime:,
-    profile_catalog:
+    profile_policy:
   )
     agent_definition_version = create_compatible_replacement_agent_definition_version!(
       installation: installation,
@@ -168,11 +168,11 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
       agent_definition_version: agent_definition_version,
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
-      tool_catalog: default_tool_catalog("exec_command", "workspace_variables_get"),
-      profile_catalog: profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot
+      tool_contract: default_tool_catalog("exec_command", "workspace_variables_get"),
+      profile_policy: profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
     )
     agent = agent_definition_version.agent
     AgentConnection.where(agent: agent, lifecycle_state: "active").update_all(

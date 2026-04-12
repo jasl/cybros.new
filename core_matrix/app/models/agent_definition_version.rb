@@ -50,40 +50,20 @@ class AgentDefinitionVersion < ApplicationRecord
     payload_array(tool_contract_document)
   end
 
-  def tool_catalog
-    tool_contract
-  end
-
   def profile_policy
     payload_hash(profile_policy_document)
-  end
-
-  def profile_catalog
-    profile_policy
   end
 
   def canonical_config_schema
     payload_hash(canonical_config_schema_document)
   end
 
-  def config_schema_snapshot
-    canonical_config_schema
-  end
-
   def conversation_override_schema
     payload_hash(conversation_override_schema_document)
   end
 
-  def conversation_override_schema_snapshot
-    conversation_override_schema
-  end
-
   def default_canonical_config
     payload_hash(default_canonical_config_document)
-  end
-
-  def default_config_snapshot
-    default_canonical_config
   end
 
   def reflected_surface
@@ -204,7 +184,7 @@ class AgentDefinitionVersion < ApplicationRecord
       "parent_subagent_connection_id" => turn.conversation.subagent_connection&.parent_subagent_connection&.public_id,
       "subagent_depth" => turn.conversation.subagent_connection&.depth,
       "owner_conversation_id" => turn.conversation.subagent_connection&.owner_conversation&.public_id,
-      "subagent_policy" => deep_stringify(composer.contract.default_config_snapshot.fetch("subagents", {})),
+      "subagent_policy" => deep_stringify(composer.contract.default_canonical_config.fetch("subagents", {})),
     }.compact
   end
 

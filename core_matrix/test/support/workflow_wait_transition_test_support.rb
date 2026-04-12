@@ -25,15 +25,15 @@ module WorkflowWaitTransitionTestSupport
     )
   end
 
-  def promote_subagent_runtime_context!(context, profile_catalog: default_profile_catalog)
+  def promote_subagent_runtime_context!(context, profile_policy: default_profile_policy)
     capability_snapshot = create_compatible_agent_definition_version!(
       agent_definition_version: context.fetch(:agent_definition_version),
       version: 2,
-      tool_catalog: default_tool_catalog("exec_command", "subagent_spawn"),
-      profile_catalog: profile_catalog,
-      config_schema_snapshot: profile_aware_config_schema_snapshot,
-      conversation_override_schema_snapshot: subagent_policy_override_schema_snapshot,
-      default_config_snapshot: profile_aware_default_config_snapshot
+      tool_contract: default_tool_catalog("exec_command", "subagent_spawn"),
+      profile_policy: profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
     )
 
     adopt_agent_definition_version!(context, capability_snapshot)

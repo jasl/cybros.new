@@ -27,8 +27,8 @@ module ConversationSupervisionFixtureBuilder
       )
       capability_snapshot = create_compatible_agent_definition_version!(
         agent_definition_version: context.fetch(:agent_definition_version),
-        config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-        default_config_snapshot: default_default_config_snapshot(include_selector_slots: true).deep_merge(
+        canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),
+        default_canonical_config: default_default_canonical_config(include_selector_slots: true).deep_merge(
           "model_slots" => {
             "summary" => { "selector" => summary_slot_selector },
           }

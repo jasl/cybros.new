@@ -26,7 +26,7 @@ module RuntimeCapabilities
     def current_profile_key
       @current_profile_key ||= begin
         @conversation.subagent_connection&.profile_key ||
-          contract.default_config_snapshot.dig("interactive", "profile") ||
+          contract.default_canonical_config.dig("interactive", "profile") ||
           "main"
       end
     end
@@ -48,13 +48,13 @@ module RuntimeCapabilities
     end
 
     def effective_subagent_policy
-      contract.default_config_snapshot.fetch("subagents", {}).deep_merge(
+      contract.default_canonical_config.fetch("subagents", {}).deep_merge(
         @conversation.override_payload.fetch("subagents", {})
       )
     end
 
     def current_profile
-      contract.profile_catalog.fetch(current_profile_key, {})
+      contract.profile_policy.fetch(current_profile_key, {})
     end
 
     def contextualize_tool_catalog(tool_catalog)
@@ -69,7 +69,7 @@ module RuntimeCapabilities
       schema = entry.fetch("input_schema", {}).deep_dup
       properties = schema.fetch("properties", {}).deep_dup
       profile_key_schema = properties.fetch("profile_key", {}).deep_dup
-      explicit_profile_keys = contract.profile_catalog.keys
+      explicit_profile_keys = contract.profile_policy.keys
 
       properties["profile_key"] = profile_key_schema.merge(
         "type" => "string",

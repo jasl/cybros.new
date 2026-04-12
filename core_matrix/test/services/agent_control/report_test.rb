@@ -1164,7 +1164,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     activate_agent_definition_version!(
       context,
-      tool_catalog: [
+      tool_contract: [
         {
           "tool_name" => "calculator",
           "tool_kind" => "agent_observation",
@@ -1176,15 +1176,15 @@ class AgentControlReportTest < ActiveSupport::TestCase
           "idempotency_policy" => "best_effort",
         },
       ],
-      profile_catalog: {
+      profile_policy: {
         "main" => {
           "label" => "Main",
           "description" => "Primary interactive profile",
           "allowed_tool_names" => ["calculator"],
         },
       },
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),
+      default_canonical_config: default_default_canonical_config(include_selector_slots: true)
     )
     context[:turn].update!(
       agent_definition_version: context[:agent_definition_version],
@@ -1205,7 +1205,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     activate_agent_definition_version!(
       context,
-      tool_catalog: [
+      tool_contract: [
         {
           "tool_name" => "exec_command",
           "tool_kind" => "kernel_primitive",
@@ -1217,15 +1217,15 @@ class AgentControlReportTest < ActiveSupport::TestCase
           "idempotency_policy" => "best_effort",
         },
       ],
-      profile_catalog: {
+      profile_policy: {
         "main" => {
           "label" => "Main",
           "description" => "Primary interactive profile",
           "allowed_tool_names" => ["exec_command"],
         },
       },
-      config_schema_snapshot: default_config_schema_snapshot(include_selector_slots: true),
-      default_config_snapshot: default_default_config_snapshot(include_selector_slots: true)
+      canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),
+      default_canonical_config: default_default_canonical_config(include_selector_slots: true)
     )
     context[:turn].update!(
       agent_definition_version: context[:agent_definition_version],

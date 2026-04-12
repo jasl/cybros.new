@@ -62,9 +62,9 @@ class AgentRuntimeResourceApiTest < ActionDispatch::IntegrationTest
     assert_equal "gold", resolve_body.dig("variables", "support_tier", "typed_value_payload", "value")
     assert_equal "capabilities_refresh", capabilities_body["method_id"]
     assert capabilities_body["protocol_methods"].all? { |entry| entry.fetch("method_id").match?(/\A[a-z0-9_]+\z/) }
-    assert capabilities_body["tool_catalog"].all? { |entry| entry.fetch("tool_name").match?(/\A[a-z0-9_]+\z/) }
+    assert capabilities_body["tool_contract"].all? { |entry| entry.fetch("tool_name").match?(/\A[a-z0-9_]+\z/) }
     refute_equal capabilities_body["protocol_methods"].map { |entry| entry.fetch("method_id") }.sort,
-      capabilities_body["tool_catalog"].map { |entry| entry.fetch("tool_name") }.sort
+      capabilities_body["tool_contract"].map { |entry| entry.fetch("tool_name") }.sort
     assert_equal "human_interactions_request", human_interaction_body["method_id"]
     assert_equal context[:workflow_node].public_id, human_interaction_body["workflow_node_id"]
     assert_equal context[:workflow_run].public_id, human_interaction_body["workflow_run_id"]

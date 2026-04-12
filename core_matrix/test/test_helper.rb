@@ -215,7 +215,7 @@ module ActiveSupport
       end
     end
 
-    def build_agent_definition_version(installation: Installation.first || create_installation!, agent: nil, version: nil, definition_fingerprint: nil, fingerprint: nil, protocol_version: "2026-04-03", sdk_version: "fenix-0.2.0", prompt_pack_ref: "fenix/default", prompt_pack_fingerprint: "prompt-pack-#{next_test_sequence}", program_manifest_fingerprint: "program-manifest-#{next_test_sequence}", protocol_methods_document: nil, protocol_methods: nil, tool_contract_document: nil, tool_catalog: nil, profile_policy_document: nil, profile_catalog: nil, canonical_config_schema_document: nil, config_schema_snapshot: nil, conversation_override_schema_document: nil, conversation_override_schema_snapshot: nil, default_canonical_config_document: nil, default_config_snapshot: nil, reflected_surface_document: nil, reflected_surface: nil, **attrs)
+    def build_agent_definition_version(installation: Installation.first || create_installation!, agent: nil, version: nil, definition_fingerprint: nil, fingerprint: nil, protocol_version: "2026-04-03", sdk_version: "fenix-0.2.0", prompt_pack_ref: "fenix/default", prompt_pack_fingerprint: "prompt-pack-#{next_test_sequence}", program_manifest_fingerprint: "program-manifest-#{next_test_sequence}", protocol_methods_document: nil, protocol_methods: nil, tool_contract_document: nil, tool_contract: nil, profile_policy_document: nil, profile_policy: nil, canonical_config_schema_document: nil, canonical_config_schema: nil, conversation_override_schema_document: nil, conversation_override_schema: nil, default_canonical_config_document: nil, default_canonical_config: nil, reflected_surface_document: nil, reflected_surface: nil, **attrs)
       agent ||= create_agent!(installation: installation)
       version ||= agent.agent_definition_versions.maximum(:version).to_i + 1
       definition_fingerprint ||= fingerprint || "definition-#{next_test_sequence}"
@@ -231,11 +231,11 @@ module ActiveSupport
         prompt_pack_fingerprint: prompt_pack_fingerprint,
         program_manifest_fingerprint: program_manifest_fingerprint,
         protocol_methods_document: protocol_methods_document || create_json_document!(installation: installation, document_kind: "protocol_methods", payload: protocol_methods || default_protocol_methods("agent_health")),
-        tool_contract_document: tool_contract_document || create_json_document!(installation: installation, document_kind: "tool_contract", payload: tool_catalog || default_tool_catalog("exec_command")),
-        profile_policy_document: profile_policy_document || create_json_document!(installation: installation, document_kind: "profile_policy", payload: profile_catalog || default_profile_catalog),
-        canonical_config_schema_document: canonical_config_schema_document || create_json_document!(installation: installation, document_kind: "config_schema", payload: config_schema_snapshot || default_config_schema_snapshot),
-        conversation_override_schema_document: conversation_override_schema_document || create_json_document!(installation: installation, document_kind: "conversation_override_schema", payload: conversation_override_schema_snapshot || { "type" => "object", "properties" => {} }),
-        default_canonical_config_document: default_canonical_config_document || create_json_document!(installation: installation, document_kind: "default_config", payload: default_config_snapshot || default_default_config_snapshot),
+        tool_contract_document: tool_contract_document || create_json_document!(installation: installation, document_kind: "tool_contract", payload: tool_contract || default_tool_catalog("exec_command")),
+        profile_policy_document: profile_policy_document || create_json_document!(installation: installation, document_kind: "profile_policy", payload: profile_policy || default_profile_policy),
+        canonical_config_schema_document: canonical_config_schema_document || create_json_document!(installation: installation, document_kind: "config_schema", payload: canonical_config_schema || default_canonical_config_schema),
+        conversation_override_schema_document: conversation_override_schema_document || create_json_document!(installation: installation, document_kind: "conversation_override_schema", payload: conversation_override_schema || { "type" => "object", "properties" => {} }),
+        default_canonical_config_document: default_canonical_config_document || create_json_document!(installation: installation, document_kind: "default_config", payload: default_canonical_config || default_default_canonical_config),
         reflected_surface_document: reflected_surface_document || create_json_document!(installation: installation, document_kind: "reflected_surface", payload: reflected_surface || { "display_name" => agent.display_name }),
       }.merge(attrs))
     end
@@ -343,17 +343,17 @@ module ActiveSupport
       )
     end
 
-    def create_compatible_agent_definition_version!(agent_definition_version: create_agent_definition_version!, version: 1, protocol_methods: nil, tool_catalog: nil, profile_catalog: {}, config_schema_snapshot: {}, conversation_override_schema_snapshot: {}, default_config_snapshot: {}, **attrs)
+    def create_compatible_agent_definition_version!(agent_definition_version: create_agent_definition_version!, version: 1, protocol_methods: nil, tool_contract: nil, profile_policy: {}, canonical_config_schema: {}, conversation_override_schema: {}, default_canonical_config: {}, **attrs)
       create_agent_definition_version!(**{
         installation: agent_definition_version.installation,
         agent: agent_definition_version.agent,
         definition_fingerprint: "#{agent_definition_version.definition_fingerprint}-compat-v#{version}-#{next_test_sequence}",
         protocol_methods: protocol_methods || default_protocol_methods("agent_health"),
-        tool_catalog: tool_catalog || default_tool_catalog("exec_command"),
-        profile_catalog: profile_catalog,
-        config_schema_snapshot: config_schema_snapshot,
-        conversation_override_schema_snapshot: conversation_override_schema_snapshot,
-        default_config_snapshot: default_config_snapshot,
+        tool_contract: tool_contract || default_tool_catalog("exec_command"),
+        profile_policy: profile_policy,
+        canonical_config_schema: canonical_config_schema,
+        conversation_override_schema: conversation_override_schema,
+        default_canonical_config: default_canonical_config,
       }.merge(attrs))
     end
 
@@ -380,7 +380,7 @@ module ActiveSupport
       end
     end
 
-    def default_config_schema_snapshot(include_selector_slots: false)
+    def default_canonical_config_schema(include_selector_slots: false)
       properties = {}
 
       if include_selector_slots
@@ -407,7 +407,7 @@ module ActiveSupport
       }
     end
 
-    def default_default_config_snapshot(include_selector_slots: false)
+    def default_default_canonical_config(include_selector_slots: false)
       return ({ "sandbox" => "workspace-write" }) unless include_selector_slots
 
       {
@@ -420,7 +420,7 @@ module ActiveSupport
       }
     end
 
-    def default_profile_catalog
+    def default_profile_policy
       {
         "main" => {
           "label" => "Main",
@@ -433,7 +433,7 @@ module ActiveSupport
       }
     end
 
-    def profile_aware_config_schema_snapshot
+    def profile_aware_canonical_config_schema
       {
         "type" => "object",
         "properties" => {
@@ -455,7 +455,7 @@ module ActiveSupport
       }
     end
 
-    def subagent_policy_override_schema_snapshot
+    def subagent_policy_conversation_override_schema
       {
         "type" => "object",
         "properties" => {
@@ -471,7 +471,7 @@ module ActiveSupport
       }
     end
 
-    def profile_aware_default_config_snapshot
+    def profile_aware_default_canonical_config
       {
         "sandbox" => "workspace-write",
         "interactive" => {
@@ -516,12 +516,12 @@ module ActiveSupport
       execution_runtime_capability_payload: execution_runtime&.capability_payload || {},
       execution_runtime_tool_catalog: execution_runtime&.tool_catalog || [],
       protocol_methods: default_protocol_methods,
-      tool_catalog: default_tool_catalog,
+      tool_contract: default_tool_catalog,
       endpoint_metadata: default_fenix_endpoint_metadata,
-      profile_catalog: default_profile_catalog,
-      config_schema_snapshot: default_config_schema_snapshot,
-      conversation_override_schema_snapshot: { "type" => "object", "properties" => {} },
-      default_config_snapshot: default_default_config_snapshot,
+      profile_policy: default_profile_policy,
+      canonical_config_schema: default_canonical_config_schema,
+      conversation_override_schema: { "type" => "object", "properties" => {} },
+      default_canonical_config: default_default_canonical_config,
       reuse_enrollment: false,
       **attrs
     )
@@ -561,11 +561,11 @@ module ActiveSupport
           "protocol_version" => attrs.delete(:protocol_version) || "2026-03-24",
           "sdk_version" => attrs.delete(:sdk_version) || "fenix-0.1.0",
           "protocol_methods" => protocol_methods,
-          "tool_contract" => tool_catalog,
-          "profile_policy" => profile_catalog,
-          "canonical_config_schema" => config_schema_snapshot,
-          "conversation_override_schema" => conversation_override_schema_snapshot,
-          "default_canonical_config" => default_config_snapshot,
+          "tool_contract" => tool_contract,
+          "profile_policy" => profile_policy,
+          "canonical_config_schema" => canonical_config_schema,
+          "conversation_override_schema" => conversation_override_schema,
+          "default_canonical_config" => default_canonical_config,
           "reflected_surface" => attrs.delete(:reflected_surface) || { "display_name" => agent.display_name },
         }
       )
@@ -629,7 +629,7 @@ module ActiveSupport
       agent_definition_version = create_agent_definition_version!(
         installation: installation,
         agent: agent,
-        tool_catalog: default_tool_catalog
+        tool_contract: default_tool_catalog
       )
       agent_connection = create_agent_connection!(
         installation: installation,
@@ -723,21 +723,22 @@ module ActiveSupport
     def activate_agent_definition_version!(
       context,
       protocol_methods: context[:agent_definition_version].protocol_methods,
-      tool_catalog: context[:agent_definition_version].tool_catalog,
-      profile_catalog: context[:agent_definition_version].profile_catalog,
-      config_schema_snapshot: context[:agent_definition_version].config_schema_snapshot,
-      conversation_override_schema_snapshot: context[:agent_definition_version].conversation_override_schema_snapshot,
-      default_config_snapshot: context[:agent_definition_version].default_config_snapshot
+      tool_contract: context[:agent_definition_version].tool_contract,
+      profile_policy: context[:agent_definition_version].profile_policy,
+      canonical_config_schema: context[:agent_definition_version].canonical_config_schema,
+      conversation_override_schema: context[:agent_definition_version].conversation_override_schema,
+      default_canonical_config: context[:agent_definition_version].default_canonical_config,
+      **attrs
     )
       agent_definition_version = create_agent_definition_version!(
         installation: context[:installation],
         agent: context[:agent],
         protocol_methods: protocol_methods,
-        tool_catalog: tool_catalog,
-        profile_catalog: profile_catalog,
-        config_schema_snapshot: config_schema_snapshot,
-        conversation_override_schema_snapshot: conversation_override_schema_snapshot,
-        default_config_snapshot: default_config_snapshot
+        tool_contract: tool_contract,
+        profile_policy: profile_policy,
+        canonical_config_schema: canonical_config_schema,
+        conversation_override_schema: conversation_override_schema,
+        default_canonical_config: default_canonical_config
       )
       context[:agent].update!(published_agent_definition_version: agent_definition_version)
       AgentConfigStates::Reconcile.call(
@@ -823,7 +824,7 @@ module ActiveSupport
           { "method_id" => "agent_health" },
           { "method_id" => "capabilities_handshake" },
         ],
-        tool_catalog: [
+        tool_contract: [
           {
             "tool_name" => "exec_command",
             "tool_kind" => "kernel_primitive",
@@ -835,15 +836,15 @@ module ActiveSupport
             "idempotency_policy" => "best_effort",
           },
         ],
-        config_schema_snapshot: {
+        canonical_config_schema: {
           "type" => "object",
           "properties" => {},
         },
-        conversation_override_schema_snapshot: {
+        conversation_override_schema: {
           "type" => "object",
           "properties" => {},
         },
-        default_config_snapshot: {
+        default_canonical_config: {
           "sandbox" => "workspace-write",
         },
       }.merge(attrs)

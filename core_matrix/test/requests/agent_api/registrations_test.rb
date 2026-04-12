@@ -159,8 +159,8 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
         "main" => { "role_slot" => "main" },
         "researcher" => { "role_slot" => "main", "default_subagent_profile" => true }
       },
-      "canonical_config_schema" => profile_aware_config_schema_snapshot,
-      "conversation_override_schema" => subagent_policy_override_schema_snapshot,
+      "canonical_config_schema" => profile_aware_canonical_config_schema,
+      "conversation_override_schema" => subagent_policy_conversation_override_schema,
       "default_canonical_config" => {
         "interactive" => { "default_profile_key" => "main" },
         "role_slots" => {

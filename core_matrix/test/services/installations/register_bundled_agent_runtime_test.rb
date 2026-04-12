@@ -8,7 +8,7 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     installation = create_installation!
     configuration = bundled_agent_configuration(
       enabled: true,
-      profile_catalog: default_profile_catalog,
+      profile_policy: default_profile_policy,
       execution_runtime_capability_payload: {
         attachment_access: { request_attachment: true },
       },
@@ -16,7 +16,7 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
         { method_id: "agent_health" },
         { method_id: "capabilities_handshake" },
       ],
-      tool_catalog: [
+      tool_contract: [
         {
           tool_name: "exec_command",
           tool_kind: "kernel_primitive",
@@ -28,15 +28,15 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
           idempotency_policy: "best_effort",
         },
       ],
-      config_schema_snapshot: {
+      canonical_config_schema: {
         type: "object",
         properties: {},
       },
-      conversation_override_schema_snapshot: {
+      conversation_override_schema: {
         type: "object",
         properties: {},
       },
-      default_config_snapshot: {
+      default_canonical_config: {
         sandbox: "workspace-write",
       }
     )
@@ -70,8 +70,8 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert first.agent_definition_version.healthy?
     assert_equal first.agent_connection, AgentConnection.find_by_plaintext_connection_credential(first.agent_connection_credential)
     assert_equal first.execution_runtime_connection, ExecutionRuntimeConnection.find_by_plaintext_connection_credential(first.execution_runtime_connection_credential)
-    assert_equal default_profile_catalog, first.agent_definition_version.profile_catalog
-    assert_equal ["exec_command"], first.agent_definition_version.tool_catalog.map { |entry| entry.fetch("tool_name") }
+    assert_equal default_profile_policy, first.agent_definition_version.profile_policy
+    assert_equal ["exec_command"], first.agent_definition_version.tool_contract.map { |entry| entry.fetch("tool_name") }
     assert_equal({ "source" => "bundled_runtime" }, first.agent_connection.health_metadata)
     assert_equal true, first.execution_runtime.capability_payload.dig("attachment_access", "request_attachment")
   end

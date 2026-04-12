@@ -133,7 +133,7 @@ freezes a per-turn execution snapshot that preserves:
   - `subagent_depth`
   - `owner_conversation_id`
   - `subagent_policy`
-- `profile_key` is resolved from the runtime-declared `profile_catalog` before
+- `profile_key` is resolved from the runtime-declared `profile_policy` before
   the turn executes
 - `tool_surface` is the conversation-visible tool catalog for that turn and
   must be treated as an execution-time constraint, not as advisory trace data
