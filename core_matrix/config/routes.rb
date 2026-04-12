@@ -95,9 +95,10 @@ Rails.application.routes.draw do
     end
 
     resources :conversations, only: :create do
-      resource :metadata, only: [:show, :update], controller: "conversations/metadata" do
+      resource :metadata, only: :show, controller: "conversations/metadata" do
         post :regenerate
       end
+      patch :metadata, to: "conversations/metadata#update"
       resources :messages, only: :create, controller: "conversations/messages"
       resource :transcript, only: :show, controller: "conversations/transcript"
       resource :diagnostics, only: :show, controller: "conversations/diagnostics" do

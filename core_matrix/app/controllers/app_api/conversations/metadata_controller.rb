@@ -1,18 +1,16 @@
 module AppAPI
   module Conversations
-    class MetadataController < AppAPI::BaseController
+    class MetadataController < AppAPI::Conversations::BaseController
       def show
-        conversation = find_conversation!(params.fetch(:conversation_id))
         render_method_response(
           method_id: "conversation_metadata_show",
-          metadata: metadata_payload(conversation)
+          metadata: metadata_payload(@conversation)
         )
       end
 
       def update
-        conversation = find_conversation!(params.fetch(:conversation_id))
         updated_conversation = ::Conversations::Metadata::UserEdit.call(
-          conversation: conversation,
+          conversation: @conversation,
           **metadata_update_params
         )
 
@@ -23,9 +21,8 @@ module AppAPI
       end
 
       def regenerate
-        conversation = find_conversation!(params.fetch(:conversation_id))
         updated_conversation = ::Conversations::Metadata::Regenerate.call(
-          conversation: conversation,
+          conversation: @conversation,
           field: params.fetch(:field)
         )
 
