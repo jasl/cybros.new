@@ -2,6 +2,12 @@ class AddCommandRuns < ActiveRecord::Migration[8.2]
   def change
     create_table :command_runs do |t|
       t.references :installation, null: false, foreign_key: true
+      t.references :user, foreign_key: true
+      t.references :workspace, foreign_key: true
+      t.references :agent, foreign_key: true
+      t.references :conversation, foreign_key: true
+      t.references :turn, foreign_key: true
+      t.references :workflow_run, foreign_key: true
       t.references :tool_invocation, null: false, foreign_key: true, index: false
       t.references :agent_task_run, foreign_key: true
       t.references :workflow_node, foreign_key: true

@@ -3,6 +3,11 @@ class CreateWorkflowNodes < ActiveRecord::Migration[8.2]
     create_table :workflow_nodes do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :workflow_run, null: false, foreign_key: true
+      t.references :user, foreign_key: true
+      t.references :workspace, foreign_key: true
+      t.references :conversation, foreign_key: true
+      t.references :turn, foreign_key: true
+      t.references :agent, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.integer :ordinal, null: false
       t.string :node_key, null: false

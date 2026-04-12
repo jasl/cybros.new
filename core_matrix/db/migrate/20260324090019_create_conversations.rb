@@ -2,11 +2,16 @@ class CreateConversations < ActiveRecord::Migration[8.2]
   def change
     create_table :conversations do |t|
       t.references :installation, null: false, foreign_key: true
+      t.references :user, foreign_key: true
       t.references :workspace, null: false, foreign_key: true
       t.references :agent, null: false, foreign_key: true
       t.references :current_execution_runtime, foreign_key: { to_table: :execution_runtimes }
       t.belongs_to :parent_conversation, foreign_key: { to_table: :conversations }
       t.bigint :current_execution_epoch_id
+      t.bigint :latest_active_turn_id
+      t.bigint :latest_turn_id
+      t.bigint :latest_active_workflow_run_id
+      t.bigint :latest_message_id
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :kind, null: false
       t.string :purpose, null: false
@@ -24,13 +29,27 @@ class CreateConversations < ActiveRecord::Migration[8.2]
       t.string :summary_lock_state, null: false, default: "unlocked"
       t.datetime :title_updated_at
       t.datetime :summary_updated_at
+      t.datetime :last_activity_at
 
       t.timestamps
     end
 
     add_index :conversations, [:workspace_id, :purpose, :lifecycle_state], name: "idx_conversations_workspace_purpose_lifecycle"
     add_index :conversations, [:agent_id, :lifecycle_state], name: "idx_conversations_agent_lifecycle"
+    add_index :conversations,
+      [:installation_id, :user_id, :deletion_state, :lifecycle_state, :last_activity_at],
+      name: "idx_conversations_owner_lifecycle_activity"
+    add_index :conversations,
+      [:installation_id, :workspace_id, :deletion_state, :last_activity_at],
+      name: "idx_conversations_workspace_lifecycle_activity"
+    add_index :conversations,
+      [:installation_id, :agent_id, :user_id, :deletion_state, :created_at],
+      name: "idx_conversations_agent_owner_created"
     add_index :conversations, :current_execution_epoch_id
+    add_index :conversations, :latest_active_turn_id
+    add_index :conversations, :latest_turn_id
+    add_index :conversations, :latest_active_workflow_run_id
+    add_index :conversations, :latest_message_id
     add_index :conversations, :public_id, unique: true
     add_check_constraint :conversations,
       "(deletion_state IN ('retained', 'pending_delete', 'deleted'))",

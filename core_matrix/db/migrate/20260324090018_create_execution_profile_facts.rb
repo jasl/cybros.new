@@ -3,9 +3,12 @@ class CreateExecutionProfileFacts < ActiveRecord::Migration[8.2]
     create_table :execution_profile_facts do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :user, foreign_key: true
+      t.references :agent, foreign_key: true
       t.references :workspace, foreign_key: true
+      t.references :execution_runtime, foreign_key: true
       t.bigint :conversation_id
       t.bigint :turn_id
+      t.bigint :workflow_run_id
       t.string :workflow_node_key
       t.bigint :process_run_id
       t.bigint :subagent_connection_id
@@ -33,5 +36,6 @@ class CreateExecutionProfileFacts < ActiveRecord::Migration[8.2]
 
     add_index :execution_profile_facts, [:installation_id, :occurred_at]
     add_index :execution_profile_facts, [:installation_id, :fact_kind, :fact_key], name: "idx_execution_profile_facts_installation_kind_key"
+    add_index :execution_profile_facts, :workflow_run_id
   end
 end

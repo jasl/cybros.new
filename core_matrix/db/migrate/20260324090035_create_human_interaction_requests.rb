@@ -3,6 +3,9 @@ class CreateHumanInteractionRequests < ActiveRecord::Migration[8.2]
     create_table :human_interaction_requests do |t|
       t.string :type, null: false
       t.references :installation, null: false, foreign_key: true
+      t.references :user, foreign_key: true
+      t.references :workspace, foreign_key: true
+      t.references :agent, foreign_key: true
       t.references :workflow_run, null: false, foreign_key: true
       t.references :workflow_node, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
@@ -22,6 +25,12 @@ class CreateHumanInteractionRequests < ActiveRecord::Migration[8.2]
     add_index :human_interaction_requests, [:conversation_id, :lifecycle_state], name: "idx_human_requests_conversation_lifecycle"
     add_index :human_interaction_requests, [:workflow_run_id, :lifecycle_state], name: "idx_human_requests_workflow_lifecycle"
     add_index :human_interaction_requests, [:type, :lifecycle_state], name: "idx_human_requests_type_lifecycle"
+    add_index :human_interaction_requests,
+      [:installation_id, :user_id, :lifecycle_state, :created_at],
+      name: "idx_human_requests_user_lifecycle_created"
+    add_index :human_interaction_requests,
+      [:installation_id, :workspace_id, :lifecycle_state, :created_at],
+      name: "idx_human_requests_workspace_lifecycle_created"
     add_index :human_interaction_requests, :public_id, unique: true
   end
 end

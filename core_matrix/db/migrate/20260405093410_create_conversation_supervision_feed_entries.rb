@@ -2,6 +2,9 @@ class CreateConversationSupervisionFeedEntries < ActiveRecord::Migration[8.2]
   def change
     create_table :conversation_supervision_feed_entries do |t|
       t.references :installation, null: false, foreign_key: true
+      t.references :user, foreign_key: true
+      t.references :workspace, foreign_key: true
+      t.references :agent, foreign_key: true
       t.references :target_conversation,
         null: false,
         foreign_key: { to_table: :conversations }
@@ -16,6 +19,9 @@ class CreateConversationSupervisionFeedEntries < ActiveRecord::Migration[8.2]
     end
 
     add_index :conversation_supervision_feed_entries, :public_id, unique: true
+    add_index :conversation_supervision_feed_entries,
+      [:installation_id, :user_id, :occurred_at],
+      name: "idx_conversation_supervision_feed_entries_user_occurred"
     add_index :conversation_supervision_feed_entries,
       [:target_conversation_id, :sequence],
       unique: true,

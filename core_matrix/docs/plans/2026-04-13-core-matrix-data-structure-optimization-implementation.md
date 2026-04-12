@@ -85,17 +85,22 @@ git commit -m "test: lock data-structure rewrite contracts"
 **Files:**
 - Modify: `db/migrate/20260324090006_create_agents.rb`
 - Modify: `db/migrate/20260324090007_create_execution_runtimes.rb`
+- Modify: `db/migrate/20260324090010_create_agent_versioning_core.rb`
 - Modify: `db/migrate/20260324090011_create_user_agent_bindings.rb`
 - Modify: `db/migrate/20260324090012_create_workspaces.rb`
 - Modify: `db/migrate/20260324090018_create_execution_profile_facts.rb`
 - Modify: `db/migrate/20260324090019_create_conversations.rb`
 - Modify: `db/migrate/20260324090021_create_turns.rb`
+- Modify: `db/migrate/20260324090023_add_turn_message_foreign_keys.rb`
 - Modify: `db/migrate/20260324090028_create_workflow_runs.rb`
 - Modify: `db/migrate/20260324090029_create_workflow_nodes.rb`
+- Modify: `db/migrate/20260324090031_add_wait_state_to_workflow_runs.rb`
 - Modify: `db/migrate/20260324090034_create_process_runs.rb`
 - Modify: `db/migrate/20260324090035_create_human_interaction_requests.rb`
 - Modify: `db/migrate/20260324090038_create_subagent_connections.rb`
+- Modify: `db/migrate/20260326100000_extend_workflow_substrate.rb`
 - Modify: `db/migrate/20260326113000_add_agent_control_contract.rb`
+- Modify: `db/migrate/20260330130000_add_feature_policy_to_conversations_and_work.rb`
 - Modify: `db/migrate/20260330143000_add_tool_governance.rb`
 - Modify: `db/migrate/20260330174000_add_command_runs.rb`
 - Modify: `db/migrate/20260404090000_create_conversation_observation_sessions.rb`
@@ -122,6 +127,15 @@ Make the original create migrations produce:
 - `turns.user_id`, `turns.workspace_id`, `turns.agent_id`
 
 Delete binding-owned default-workspace uniqueness from the schema and replace it with workspace-native uniqueness.
+Where a referenced table does not yet exist, add the raw `*_id` column in the
+earlier migration and move the foreign key creation into the first later
+migration where the target table exists. Convert superseded later
+`add_reference`/`change_table` steps into foreign-key-only patches or explicit
+no-ops so a fresh rebuild does not try to add the same column twice.
+For owner/context columns whose writers are not updated until later tasks, add
+the column, index, and foreign key now but keep the column nullable until the
+writer task lands. Do not introduce `null: false` requirements that would block
+Task 3 through Task 5 before their write paths are rewritten.
 
 **Step 2: Rewrite the runtime/control migrations**
 
@@ -143,6 +157,12 @@ Make the original create migrations also produce owner/context columns for:
 - `execution_profile_facts`
 
 Use `latest_active_*` naming everywhere. Do not create `active_turn_id` or `active_workflow_run_id`.
+If owner/context columns are moved into an earlier create migration, strip the
+duplicate column-addition from the later patch migration and leave only the
+remaining indexes, foreign keys, or unrelated fields that are still required.
+Any new writer-independent invariants may land here, but defer hard nullability
+for denormalized owner/context columns until the corresponding creation service
+is updated and covered by tests in later tasks.
 
 **Step 3: Add or strengthen schema constraints**
 

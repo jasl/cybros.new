@@ -17,6 +17,9 @@ class CreateTurns < ActiveRecord::Migration[8.2]
 
     create_table :turns do |t|
       t.references :installation, null: false, foreign_key: true
+      t.references :user, foreign_key: true
+      t.references :workspace, foreign_key: true
+      t.references :agent, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
       t.references :agent_definition_version, null: false, foreign_key: true
       t.references :execution_epoch, null: false, foreign_key: { to_table: :conversation_execution_epochs }
@@ -31,10 +34,13 @@ class CreateTurns < ActiveRecord::Migration[8.2]
       t.string :source_ref_id
       t.string :idempotency_key
       t.string :external_event_key
+      t.bigint :selected_input_message_id
+      t.bigint :selected_output_message_id
       t.datetime :cancellation_requested_at
       t.string :cancellation_reason_kind
       t.integer :agent_config_version, null: false, default: 1
       t.string :agent_config_content_fingerprint, null: false
+      t.jsonb :feature_policy_snapshot, null: false, default: {}
       t.jsonb :resolved_config_snapshot, null: false, default: {}
       t.jsonb :resolved_model_selection_snapshot, null: false, default: {}
 
@@ -42,6 +48,8 @@ class CreateTurns < ActiveRecord::Migration[8.2]
     end
 
     add_foreign_key :conversations, :conversation_execution_epochs, column: :current_execution_epoch_id
+    add_foreign_key :conversations, :turns, column: :latest_active_turn_id
+    add_foreign_key :conversations, :turns, column: :latest_turn_id
     add_index :conversation_execution_epochs, :public_id, unique: true
     add_index :conversation_execution_epochs, [:conversation_id, :sequence], unique: true
     add_index :conversation_execution_epochs,
@@ -51,9 +59,6 @@ class CreateTurns < ActiveRecord::Migration[8.2]
               name: "idx_conversation_execution_epochs_active"
     add_index :turns, [:conversation_id, :sequence], unique: true
     add_index :turns, :public_id, unique: true
-    add_check_constraint :turns,
-                         "cancellation_reason_kind IS NULL OR (cancellation_reason_kind::text = ANY (ARRAY['conversation_deleted'::character varying::text, 'conversation_archived'::character varying::text, 'turn_interrupted'::character varying::text]))",
-                         name: "chk_turns_cancellation_reason_kind"
     add_check_constraint :turns,
                          "((cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL) OR (cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL))",
                          name: "chk_turns_cancellation_pairing"

@@ -74,6 +74,12 @@ class AddToolGovernance < ActiveRecord::Migration[8.2]
 
     create_table :tool_invocations do |t|
       t.references :installation, null: false, foreign_key: true
+      t.references :user, foreign_key: true
+      t.references :workspace, foreign_key: true
+      t.references :agent, foreign_key: true
+      t.references :conversation, foreign_key: true
+      t.references :turn, foreign_key: true
+      t.references :workflow_run, foreign_key: true
       t.references :tool_binding, null: false, foreign_key: true
       t.references :tool_definition, null: false, foreign_key: true
       t.references :tool_implementation, null: false, foreign_key: true
