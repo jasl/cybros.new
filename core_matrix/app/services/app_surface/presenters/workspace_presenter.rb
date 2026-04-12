@@ -12,7 +12,7 @@ module AppSurface
       def call
         {
           "workspace_id" => @workspace.public_id,
-          "agent_id" => @workspace.user_agent_binding.agent.public_id,
+          "agent_id" => @workspace.agent.public_id,
           "default_execution_runtime_id" => @workspace.default_execution_runtime&.public_id,
           "name" => @workspace.name,
           "privacy" => @workspace.privacy,

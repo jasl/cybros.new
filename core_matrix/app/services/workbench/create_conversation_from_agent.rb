@@ -25,7 +25,7 @@ module Workbench
 
     def call
       binding = UserAgentBindings::Enable.call(user: @user, agent: @agent).binding
-      workspace = resolve_workspace(binding)
+      workspace = resolve_workspace
       conversation = Conversations::CreateRoot.call(
         workspace: workspace,
         agent: @agent,
@@ -61,14 +61,14 @@ module Workbench
 
     private
 
-    def resolve_workspace(binding)
-      return Workspaces::MaterializeDefault.call(user_agent_binding: binding) if @workspace_id.blank?
+    def resolve_workspace
+      return Workspaces::MaterializeDefault.call(user: @user, agent: @agent) if @workspace_id.blank?
 
       Workspace.find_by!(
         public_id: @workspace_id,
         installation: @user.installation,
         user: @user,
-        user_agent_binding: binding
+        agent: @agent
       )
     end
   end

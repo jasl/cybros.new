@@ -25,15 +25,15 @@ class UserBindingWorkspaceFlowTest < ActionDispatch::IntegrationTest
       second_enable = UserAgentBindings::Enable.call(user: second_user, agent: public_agent)
     end
 
-    first_workspace = Workspaces::MaterializeDefault.call(user_agent_binding: first_enable.binding)
-    duplicate_workspace = Workspaces::MaterializeDefault.call(user_agent_binding: duplicate_enable.binding)
-    second_workspace = Workspaces::MaterializeDefault.call(user_agent_binding: second_enable.binding)
+    first_workspace = Workspaces::MaterializeDefault.call(user: first_user, agent: public_agent)
+    duplicate_workspace = Workspaces::MaterializeDefault.call(user: first_user, agent: public_agent)
+    second_workspace = Workspaces::MaterializeDefault.call(user: second_user, agent: public_agent)
 
     assert_equal first_enable.binding, duplicate_enable.binding
     assert_equal "virtual", first_enable.default_workspace_ref.state
     assert_equal "virtual", duplicate_enable.default_workspace_ref.state
     assert_equal 2, UserAgentBinding.where(agent: public_agent).count
-    assert_equal 2, Workspace.where(user_agent_binding: UserAgentBinding.where(agent: public_agent), is_default: true).count
+    assert_equal 2, Workspace.where(agent: public_agent, is_default: true).count
     assert_equal first_workspace, duplicate_workspace
     assert_equal first_user, first_workspace.user
     assert_equal second_user, second_workspace.user

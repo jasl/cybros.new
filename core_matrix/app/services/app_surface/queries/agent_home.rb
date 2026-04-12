@@ -13,27 +13,10 @@ module AppSurface
       end
 
       def call
-        binding = existing_or_virtual_binding
-
         Result.new(
           agent: @agent,
-          default_workspace_ref: Workspaces::BuildDefaultReference.call(user_agent_binding: binding),
+          default_workspace_ref: Workspaces::ResolveDefaultReference.call(user: @user, agent: @agent),
           workspaces: AppSurface::Queries::WorkspacesForAgent.call(user: @user, agent: @agent)
-        )
-      end
-
-      private
-
-      def existing_or_virtual_binding
-        UserAgentBinding.find_by(
-          installation: @user.installation,
-          user: @user,
-          agent: @agent
-        ) || UserAgentBinding.new(
-          installation: @user.installation,
-          user: @user,
-          agent: @agent,
-          preferences: {}
         )
       end
     end

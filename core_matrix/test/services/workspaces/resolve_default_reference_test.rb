@@ -14,7 +14,8 @@ class Workspaces::ResolveDefaultReferenceTest < ActiveSupport::TestCase
 
     assert_equal "virtual", actual.state
     assert_equal expected.state, actual.state
-    assert_equal expected.workspace_id, actual.workspace_id
+    assert_nil expected.workspace_id
+    assert_nil actual.workspace_id
     assert_equal expected.agent_id, actual.agent_id
     assert_equal expected.user_id, actual.user_id
     assert_equal expected.name, actual.name

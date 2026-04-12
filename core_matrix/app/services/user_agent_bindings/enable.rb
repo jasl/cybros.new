@@ -22,7 +22,7 @@ module UserAgentBindings
 
         Result.new(
           binding: binding,
-          default_workspace_ref: Workspaces::BuildDefaultReference.call(user_agent_binding: binding)
+          default_workspace_ref: Workspaces::ResolveDefaultReference.call(user: @user, agent: @agent)
         )
       end
     end

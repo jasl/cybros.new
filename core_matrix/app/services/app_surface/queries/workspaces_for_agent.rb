@@ -11,21 +11,14 @@ module AppSurface
       end
 
       def call
-        binding = UserAgentBinding.find_by(
-          installation: @user.installation,
-          user: @user,
-          agent: @agent
-        )
-        return [] if binding.blank?
-
         Workspace
           .where(
             installation: @user.installation,
             user: @user,
-            user_agent_binding: binding,
+            agent: @agent,
             privacy: "private"
           )
-          .includes(:default_execution_runtime, user_agent_binding: :agent)
+          .includes(:agent, :default_execution_runtime)
           .order(is_default: :desc, name: :asc, id: :asc)
           .to_a
           .select { |workspace| AppSurface::Policies::WorkspaceAccess.call(user: @user, workspace: workspace) }

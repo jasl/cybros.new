@@ -5,7 +5,7 @@ class Workspace < ApplicationRecord
 
   belongs_to :installation
   belongs_to :user
-  belongs_to :user_agent_binding
+  belongs_to :agent
   belongs_to :default_execution_runtime, class_name: "ExecutionRuntime", optional: true
 
   has_many :canonical_variables, dependent: :restrict_with_exception
@@ -14,12 +14,30 @@ class Workspace < ApplicationRecord
   validates :name, presence: true
   validates :privacy, presence: true, inclusion: { in: PRIVACY_VALUES }
   validate :user_installation_match
-  validate :binding_installation_match
-  validate :binding_user_match
+  validate :agent_installation_match
   validate :default_execution_runtime_installation_match
   validate :single_default_workspace
 
   def private_workspace? = privacy == "private"
+
+  def user_agent_binding
+    @user_agent_binding ||= begin
+      return if installation_id.blank? || user_id.blank? || agent_id.blank?
+
+      UserAgentBinding.find_by(
+        installation_id: installation_id,
+        user_id: user_id,
+        agent_id: agent_id
+      )
+    end
+  end
+
+  def user_agent_binding=(binding)
+    @user_agent_binding = binding
+    self.installation ||= binding.installation
+    self.user ||= binding.user
+    self.agent ||= binding.agent
+  end
 
   private
 
@@ -30,18 +48,11 @@ class Workspace < ApplicationRecord
     errors.add(:user, "must belong to the same installation")
   end
 
-  def binding_installation_match
-    return if user_agent_binding.blank?
-    return if user_agent_binding.installation_id == installation_id
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
 
-    errors.add(:user_agent_binding, "must belong to the same installation")
-  end
-
-  def binding_user_match
-    return if user_agent_binding.blank? || user.blank?
-    return if user_agent_binding.user_id == user_id
-
-    errors.add(:user, "must match the binding owner")
+    errors.add(:agent, "must belong to the same installation")
   end
 
   def default_execution_runtime_installation_match
@@ -54,10 +65,15 @@ class Workspace < ApplicationRecord
   def single_default_workspace
     return unless is_default?
 
-    conflicting_scope = self.class.where(user_agent_binding_id: user_agent_binding_id, is_default: true)
+    conflicting_scope = self.class.where(
+      installation_id: installation_id,
+      user_id: user_id,
+      agent_id: agent_id,
+      is_default: true
+    )
     conflicting_scope = conflicting_scope.where.not(id: id) if persisted?
     return unless conflicting_scope.exists?
 
-    errors.add(:user_agent_binding_id, "already has a default workspace")
+    errors.add(:agent_id, "already has a default workspace for this user")
   end
 end

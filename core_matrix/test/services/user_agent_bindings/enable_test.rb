@@ -21,7 +21,7 @@ class UserAgentBindings::EnableTest < ActiveSupport::TestCase
     assert_equal "virtual", first.default_workspace_ref.state
     assert_equal "virtual", second.default_workspace_ref.state
     assert_equal 1, UserAgentBinding.where(user: user, agent: agent).count
-    assert_equal 0, Workspace.where(user_agent_binding: first.binding, is_default: true).count
+    assert_equal 0, Workspace.where(user: user, agent: agent, is_default: true).count
   end
 
   test "rejects enabling another users private agent" do
@@ -56,6 +56,7 @@ class UserAgentBindings::EnableTest < ActiveSupport::TestCase
     existing_workspace = create_workspace!(
       installation: installation,
       user: user,
+      agent: agent,
       user_agent_binding: existing_binding,
       is_default: true
     )

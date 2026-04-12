@@ -8,7 +8,7 @@ module Conversations
 
     def initialize(workspace:, agent: nil, purpose: "interactive", execution_runtime: nil)
       @workspace = workspace
-      @agent = agent || workspace.user_agent_binding.agent
+      @agent = agent || workspace.agent
       @purpose = purpose
       @execution_runtime = execution_runtime
     end

@@ -27,21 +27,11 @@ class WorkspaceTest < ActiveSupport::TestCase
     )
 
     assert workspace.private_workspace?
-
-    invalid = Workspace.new(
-      installation: installation,
-      user: create_user!(installation: installation, identity: create_identity!, display_name: "Other User"),
-      user_agent_binding: binding,
-      name: "Foreign Workspace",
-      privacy: "private",
-      is_default: false
-    )
-
-    assert_not invalid.valid?
-    assert_includes invalid.errors[:user], "must match the binding owner"
+    assert_equal user, workspace.user
+    assert_equal binding.agent, workspace.agent
   end
 
-  test "allows only one default workspace per binding" do
+  test "allows only one default workspace per user and agent" do
     installation = create_installation!
     user = create_user!(installation: installation)
     binding = create_user_agent_binding!(installation: installation, user: user)
@@ -57,14 +47,14 @@ class WorkspaceTest < ActiveSupport::TestCase
     duplicate = Workspace.new(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      agent: binding.agent,
       name: "Another Default",
       privacy: "private",
       is_default: true
     )
 
     assert_not duplicate.valid?
-    assert_includes duplicate.errors[:user_agent_binding_id], "already has a default workspace"
+    assert_includes duplicate.errors[:agent_id], "already has a default workspace for this user"
   end
 
   test "default execution runtime must belong to the same installation" do
@@ -89,7 +79,7 @@ class WorkspaceTest < ActiveSupport::TestCase
     workspace = Workspace.new(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      agent: binding.agent,
       name: "Foreign Runtime Workspace",
       privacy: "private",
       default_execution_runtime: foreign_runtime

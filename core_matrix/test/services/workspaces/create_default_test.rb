@@ -14,15 +14,16 @@ class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
     )
     binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
 
-    first = Workspaces::CreateDefault.call(user_agent_binding: binding)
-    second = Workspaces::CreateDefault.call(user_agent_binding: binding)
+    first = Workspaces::CreateDefault.call(user: user, agent: agent)
+    second = Workspaces::CreateDefault.call(user: user, agent: agent)
 
     assert_equal first, second
     assert_equal installation, first.installation
     assert_equal user, first.user
     assert first.private_workspace?
     assert_equal execution_runtime, first.default_execution_runtime
-    assert_equal 1, Workspace.where(user_agent_binding: binding, is_default: true).count
+    assert_equal agent, first.agent
+    assert_equal 1, Workspace.where(user: user, agent: agent, is_default: true).count
   end
 
   test "allows the default workspace execution runtime to remain nil when the agent has no default" do
@@ -31,7 +32,7 @@ class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
     agent = create_agent!(installation: installation, default_execution_runtime: nil)
     binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
 
-    workspace = Workspaces::CreateDefault.call(user_agent_binding: binding)
+    workspace = Workspaces::CreateDefault.call(user: user, agent: agent)
 
     assert_nil workspace.default_execution_runtime
   end
@@ -43,19 +44,20 @@ class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
     existing_workspace = create_workspace!(
       installation: installation,
       user: user,
+      agent: binding.agent,
       user_agent_binding: binding,
       is_default: true
     )
     invalid_workspace = Workspace.new(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      agent: binding.agent,
       name: "Default Workspace",
       privacy: "private",
       is_default: true
     )
-    invalid_workspace.errors.add(:user_agent_binding_id, "already has a default workspace")
-    create_default = Workspaces::CreateDefault.new(user_agent_binding: binding)
+    invalid_workspace.errors.add(:agent_id, "already has a default workspace for this user")
+    create_default = Workspaces::CreateDefault.new(user: user, agent: binding.agent)
     lookup_calls = 0
 
     create_default.define_singleton_method(:existing_workspace) do

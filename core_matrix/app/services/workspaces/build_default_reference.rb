@@ -20,23 +20,17 @@ module Workspaces
       new(...).call
     end
 
-    def initialize(user_agent_binding:, name: CreateDefault::DEFAULT_NAME)
-      @user_agent_binding = user_agent_binding
+    def initialize(user_agent_binding: nil, user: nil, agent: nil, name: CreateDefault::DEFAULT_NAME)
+      @user = user || user_agent_binding&.user
+      @agent = agent || user_agent_binding&.agent
       @name = name
     end
 
     def call
-      workspace = Workspace.find_by(user_agent_binding: @user_agent_binding, is_default: true)
-
-      Result.new(
-        state: workspace.present? ? "materialized" : "virtual",
-        workspace: workspace,
-        workspace_id: workspace&.public_id,
-        agent_id: @user_agent_binding.agent.public_id,
-        user_id: @user_agent_binding.user.public_id,
-        name: workspace&.name || @name,
-        privacy: workspace&.privacy || "private",
-        default_execution_runtime_id: workspace&.default_execution_runtime&.public_id || @user_agent_binding.agent.default_execution_runtime&.public_id
+      Workspaces::ResolveDefaultReference.call(
+        user: @user,
+        agent: @agent,
+        name: @name
       )
     end
   end

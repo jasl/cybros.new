@@ -15,8 +15,8 @@ class Workspaces::MaterializeDefaultTest < ActiveSupport::TestCase
     second = nil
 
     assert_difference("Workspace.count", +1) do
-      first = Workspaces::MaterializeDefault.call(user_agent_binding: binding)
-      second = Workspaces::MaterializeDefault.call(user_agent_binding: binding)
+      first = Workspaces::MaterializeDefault.call(user: user, agent: agent)
+      second = Workspaces::MaterializeDefault.call(user: user, agent: agent)
     end
 
     assert_equal first, second
@@ -30,9 +30,9 @@ class Workspaces::MaterializeDefaultTest < ActiveSupport::TestCase
     agent = create_agent!(installation: installation, default_execution_runtime: nil)
     binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
 
-    virtual_ref = Workspaces::BuildDefaultReference.call(user_agent_binding: binding)
-    workspace = Workspaces::MaterializeDefault.call(user_agent_binding: binding)
-    materialized_ref = Workspaces::BuildDefaultReference.call(user_agent_binding: binding)
+    virtual_ref = Workspaces::ResolveDefaultReference.call(user: user, agent: agent)
+    workspace = Workspaces::MaterializeDefault.call(user: user, agent: agent)
+    materialized_ref = Workspaces::ResolveDefaultReference.call(user: user, agent: agent)
 
     assert_equal "virtual", virtual_ref.state
     assert_nil virtual_ref.workspace

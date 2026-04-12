@@ -20,6 +20,8 @@
 - Modify: `test/requests/app_api/agents_test.rb`
 - Modify: `test/requests/app_api/agent_homes_test.rb`
 - Modify: `test/requests/app_api/workspaces_test.rb`
+- Modify: `test/models/workspace_test.rb`
+- Modify: `test/integration/user_binding_workspace_flow_test.rb`
 - Modify: `test/requests/app_api/conversations_test.rb`
 - Create: `test/services/conversation_control/resolve_target_runtime_test.rb`
 - Modify: `test/services/conversation_supervision/build_activity_feed_test.rb`
@@ -209,14 +211,19 @@ git commit -m "db: rewrite center and runtime schema"
 - Modify: `app/services/user_agent_bindings/enable.rb`
 - Modify: `app/services/app_surface/queries/agent_home.rb`
 - Modify: `app/services/app_surface/queries/workspaces_for_agent.rb`
+- Modify: `app/services/app_surface/presenters/workspace_presenter.rb`
+- Modify: `app/services/conversations/create_root.rb`
 - Modify: `app/services/workbench/create_conversation_from_agent.rb`
 - Modify: `app/controllers/app_api/agents/homes_controller.rb`
 - Modify: `app/controllers/app_api/agents/workspaces_controller.rb`
+- Modify: `test/test_helper.rb`
 - Modify: `test/services/workspaces/create_default_test.rb`
 - Modify: `test/services/workspaces/materialize_default_test.rb`
 - Modify: `test/services/user_agent_bindings/enable_test.rb`
 - Modify: `test/services/workbench/create_conversation_from_agent_test.rb`
 - Modify: `test/requests/app_api/agents_test.rb`
+- Modify: `test/requests/app_api/agent_homes_test.rb`
+- Modify: `test/requests/app_api/workspaces_test.rb`
 
 **Step 1: Write the failing resolver implementation test**
 
@@ -258,7 +265,11 @@ bin/rails test \
   test/services/workspaces/materialize_default_test.rb \
   test/services/user_agent_bindings/enable_test.rb \
   test/services/workbench/create_conversation_from_agent_test.rb \
-  test/requests/app_api/agents_test.rb
+  test/requests/app_api/agents_test.rb \
+  test/requests/app_api/agent_homes_test.rb \
+  test/requests/app_api/workspaces_test.rb \
+  test/models/workspace_test.rb \
+  test/integration/user_binding_workspace_flow_test.rb
 ```
 
 Expected: all default-workspace tests pass without depending on `user_agent_binding_id`.
@@ -274,15 +285,22 @@ git add app/models/workspace.rb \
   app/services/user_agent_bindings/enable.rb \
   app/services/app_surface/queries/agent_home.rb \
   app/services/app_surface/queries/workspaces_for_agent.rb \
+  app/services/app_surface/presenters/workspace_presenter.rb \
+  app/services/conversations/create_root.rb \
   app/services/workbench/create_conversation_from_agent.rb \
   app/controllers/app_api/agents/homes_controller.rb \
   app/controllers/app_api/agents/workspaces_controller.rb \
+  test/test_helper.rb \
   test/services/workspaces/resolve_default_reference_test.rb \
   test/services/workspaces/create_default_test.rb \
   test/services/workspaces/materialize_default_test.rb \
   test/services/user_agent_bindings/enable_test.rb \
   test/services/workbench/create_conversation_from_agent_test.rb \
-  test/requests/app_api/agents_test.rb
+  test/requests/app_api/agents_test.rb \
+  test/requests/app_api/agent_homes_test.rb \
+  test/requests/app_api/workspaces_test.rb \
+  test/models/workspace_test.rb \
+  test/integration/user_binding_workspace_flow_test.rb
 git commit -m "refactor: move default workspace resolution off bindings"
 ```
 
