@@ -19,6 +19,20 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
     refute_includes body.fetch("items").map { |entry| entry.fetch("event_kind") }, "progress_recorded"
   end
 
+  test "does not recreate supervision state inside the feed request" do
+    fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
+    registration = register_machine_api_for_context!(fixture)
+    fixture.fetch(:conversation).conversation_supervision_state.destroy!
+
+    assert_no_difference("ConversationSupervisionState.count") do
+      get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/feed",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+    assert_includes response.parsed_body.fetch("items").map { |entry| entry.fetch("event_kind") }, "turn_todo_item_started"
+  end
+
   test "lists the canonical turn feed within twenty-seven SQL queries" do
     fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
     registration = register_machine_api_for_context!(fixture)
@@ -77,5 +91,21 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
     assert_equal "queued", state.overall_state
     assert_equal "turn", state.current_owner_kind
     assert_equal turn.public_id, state.current_owner_public_id
+  end
+
+  test "returns an empty feed when anchors are missing without repairing supervision in request" do
+    fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
+    registration = register_machine_api_for_context!(fixture)
+    conversation = fixture.fetch(:conversation)
+    conversation.update!(latest_active_turn_id: nil, latest_turn_id: nil)
+    conversation.conversation_supervision_state.destroy!
+
+    assert_no_difference("ConversationSupervisionState.count") do
+      get "/app_api/conversations/#{conversation.public_id}/feed",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+    assert_equal [], response.parsed_body.fetch("items")
   end
 end

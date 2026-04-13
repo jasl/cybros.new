@@ -25,9 +25,7 @@ module ConversationSupervision
 
     def feed_turn_id
       @feed_turn_id ||= @conversation.latest_active_turn_id ||
-        @conversation.latest_turn_id ||
-        @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).limit(1).pick(:id) ||
-        @conversation.turns.order(sequence: :desc).limit(1).pick(:id)
+        @conversation.latest_turn_id
     end
 
     def serialize_entry(entry)

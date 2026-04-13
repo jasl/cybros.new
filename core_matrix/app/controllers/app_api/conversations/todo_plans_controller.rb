@@ -4,8 +4,6 @@ module AppAPI
       ACTIVE_SUBAGENT_OBSERVED_STATUSES = %w[running waiting].freeze
 
       def show
-        ::Conversations::UpdateSupervisionState.call(conversation: @conversation, occurred_at: Time.current)
-
         render_method_response(
           method_id: "conversation_turn_todo_plan_list",
           conversation_id: @conversation.public_id,
@@ -18,8 +16,7 @@ module AppAPI
 
       def primary_turn_todo_plan_view
         ConversationSupervision::BuildCurrentTurnTodo.call(
-          conversation: @conversation,
-          active_agent_task_run: latest_active_task_runs_by_conversation_id.fetch(@conversation.id, nil)
+          conversation: @conversation
         ).fetch("plan_view")
       end
 

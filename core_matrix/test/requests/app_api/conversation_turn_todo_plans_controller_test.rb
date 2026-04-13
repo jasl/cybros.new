@@ -6,6 +6,10 @@ class AppApiConversationTurnTodoPlansControllerTest < ActionDispatch::Integratio
   test "lists the current turn todo plan view for a supervised conversation" do
     fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
     registration = register_machine_api_for_context!(fixture)
+    fixture.fetch(:conversation).conversation_supervision_state.update!(
+      current_owner_kind: "agent_task_run",
+      current_owner_public_id: fixture.fetch(:agent_task_run).public_id
+    )
 
     get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/todo_plan",
       headers: app_api_headers(registration[:session_token])
@@ -19,6 +23,20 @@ class AppApiConversationTurnTodoPlansControllerTest < ActionDispatch::Integratio
     assert_equal ["check-hard-gate"],
       body.fetch("active_subagent_turn_todo_plans").map { |entry| entry.fetch("current_item_key") }
     refute_includes response.body, %("#{fixture.fetch(:conversation).id}")
+  end
+
+  test "does not recreate supervision state inside the todo plan request" do
+    fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
+    registration = register_machine_api_for_context!(fixture)
+    fixture.fetch(:conversation).conversation_supervision_state.destroy!
+
+    assert_no_difference("ConversationSupervisionState.count") do
+      get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/todo_plan",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+    refute response.parsed_body.key?("primary_turn_todo_plan")
   end
 
   test "lists the current turn todo plan view within thirty-two SQL queries" do
@@ -81,5 +99,19 @@ class AppApiConversationTurnTodoPlansControllerTest < ActionDispatch::Integratio
     assert_equal "queued", state.overall_state
     assert_equal "turn", state.current_owner_kind
     assert_equal turn.public_id, state.current_owner_public_id
+  end
+
+  test "returns no primary todo plan when supervision state is missing" do
+    fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
+    registration = register_machine_api_for_context!(fixture)
+    fixture.fetch(:conversation).conversation_supervision_state&.destroy!
+
+    assert_no_difference("ConversationSupervisionState.count") do
+      get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/todo_plan",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+    refute response.parsed_body.key?("primary_turn_todo_plan")
   end
 end

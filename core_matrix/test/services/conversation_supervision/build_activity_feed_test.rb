@@ -82,6 +82,26 @@ class ConversationSupervision::BuildActivityFeedTest < ActiveSupport::TestCase
     refute_match(/provider round|command_run_wait|exec_command|React app|game files/i, feed.to_json)
   end
 
+  test "returns an empty feed when persisted turn anchors are missing" do
+    context = build_agent_control_context!
+    create_feed_entry!(context:, turn: context[:turn], sequence: 1, event_kind: "turn_started", summary: "Started the board projection.")
+    context[:conversation].update!(latest_active_turn_id: nil, latest_turn_id: nil)
+
+    feed = ConversationSupervision::BuildActivityFeed.call(conversation: context[:conversation])
+
+    assert_equal [], feed
+  end
+
+  test "does not scan turns when anchors are missing" do
+    context = build_agent_control_context!
+    create_feed_entry!(context:, turn: context[:turn], sequence: 1, event_kind: "turn_started", summary: "Started the board projection.")
+    context[:conversation].update!(latest_active_turn_id: nil, latest_turn_id: nil)
+
+    assert_sql_query_count_at_most(0) do
+      assert_equal [], ConversationSupervision::BuildActivityFeed.call(conversation: context[:conversation])
+    end
+  end
+
   private
 
   def create_feed_entry!(context:, turn:, sequence:, event_kind:, summary:)
