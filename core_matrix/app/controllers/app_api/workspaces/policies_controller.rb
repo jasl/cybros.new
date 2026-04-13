@@ -15,7 +15,7 @@ module AppAPI
           workspace: @workspace,
           disabled_capabilities: params.fetch(:disabled_capabilities, []),
           default_execution_runtime: runtime,
-          metadata: resolve_metadata
+          features: resolve_features
         )
 
         render_method_response(
@@ -40,10 +40,10 @@ module AppAPI
         find_accessible_execution_runtime!(params.fetch(:default_execution_runtime_id))
       end
 
-      def resolve_metadata
-        return :__preserve__ unless params.key?(:metadata)
+      def resolve_features
+        return :__preserve__ unless params.key?(:features)
 
-        params[:metadata]
+        params[:features]
       end
     end
   end

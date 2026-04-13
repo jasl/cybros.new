@@ -135,6 +135,32 @@ class Conversations::Metadata::BootstrapTitleJobTest < ActiveSupport::TestCase
     Conversations::Metadata::GenerateBootstrapTitle.singleton_class.send(:define_method, :call, original_call)
   end
 
+  test "live workspace feature changes can disable title bootstrap before the job runs" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn, = create_manual_user_turn!(
+      context: context,
+      conversation: conversation,
+      content: "This title should remain a placeholder."
+    )
+    context[:workspace].update!(
+      config: {
+        "features" => {
+          "title_bootstrap" => {
+            "enabled" => false,
+            "mode" => "embedded_only",
+          },
+        },
+      }
+    )
+
+    Conversations::Metadata::BootstrapTitleJob.perform_now(conversation.public_id, turn.public_id)
+
+    conversation.reload
+    assert_equal I18n.t("conversations.defaults.untitled_title"), conversation.title
+    assert_equal "none", conversation.title_source
+  end
+
   private
 
   def create_manual_user_turn!(context:, conversation:, content:)

@@ -105,6 +105,7 @@ module Workflows
         "budget_hints" => budget_hints,
         "provider_execution" => provider_execution,
         "model_context" => model_context,
+        "feature_policies" => feature_policies,
       }
     end
 
@@ -135,6 +136,15 @@ module Workflows
         "wire_api" => provider_definition.fetch(:wire_api),
         "execution_settings" => execution_settings,
         "loop_policy" => provider_loop_policy,
+      }
+    end
+
+    def feature_policies
+      {
+        "prompt_compaction" => ProviderExecution::PromptCompactionPolicy.call(
+          workspace: @turn.conversation.workspace,
+          agent_definition_version: @turn.agent_definition_version
+        ),
       }
     end
 

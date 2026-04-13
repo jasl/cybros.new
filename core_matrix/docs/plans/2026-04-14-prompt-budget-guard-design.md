@@ -354,15 +354,15 @@ This preserves safety while preventing infinite loops.
 
 ### 11. Resolve Prompt-Compaction Policy From Workspace Config Over Agent Defaults
 
-V1 should add a structured JSONB `config` field to `workspaces` and reserve it
-for workspace-owned policy. Prompt compaction should live under:
+V1 should use the structured `workspaces.config.features` policy container.
+Prompt compaction should live under:
 
-- `workspace.config.prompt_compaction.enabled`
-- `workspace.config.prompt_compaction.mode`
+- `workspace.config.features.prompt_compaction.enabled`
+- `workspace.config.features.prompt_compaction.mode`
 
 The effective policy should resolve in this order:
 
-1. workspace override from `workspace.config.prompt_compaction`
+1. workspace override from `workspace.config.features.prompt_compaction`
 2. default from the effective agent canonical config
 3. compatibility fallback for older registered runtimes missing the new config
 
@@ -377,11 +377,10 @@ changes while a workflow is already running.
 Fenix canonical config should define the default prompt-compaction shape and
 baseline values:
 
-- `prompt_compaction.enabled`
-- `prompt_compaction.mode`
+- `features.prompt_compaction.enabled`
+- `features.prompt_compaction.mode`
   - `runtime_first`
   - `embedded_only`
-  - `disabled`
 
 Default behavior should be enabled and runtime-first in:
 
@@ -400,8 +399,8 @@ override payloads or ad hoc runtime overrides.
 V1 should extend the existing workspace policy show/update path so it can
 project and accept:
 
-- `workspace_policy.prompt_compaction.enabled`
-- `workspace_policy.prompt_compaction.mode`
+- `workspace_policy.features.prompt_compaction.enabled`
+- `workspace_policy.features.prompt_compaction.mode`
 
 This keeps prompt-compaction policy in the same ownership boundary as other
 workspace-level execution settings such as disabled capabilities and default

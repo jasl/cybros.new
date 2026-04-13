@@ -5,7 +5,7 @@ class Conversations::Metadata::TitleBootstrapPolicyTest < ActiveSupport::TestCas
     context = create_workspace_context!
     context[:workspace].update!(
       config: {
-        "metadata" => {
+        "features" => {
           "title_bootstrap" => {
             "enabled" => true,
             "mode" => "embedded_only",
@@ -17,7 +17,7 @@ class Conversations::Metadata::TitleBootstrapPolicyTest < ActiveSupport::TestCas
       installation: context[:installation],
       agent: context[:agent],
       default_canonical_config: {
-        "metadata" => {
+        "features" => {
           "title_bootstrap" => {
             "enabled" => true,
             "mode" => "runtime_first",
@@ -42,7 +42,7 @@ class Conversations::Metadata::TitleBootstrapPolicyTest < ActiveSupport::TestCas
       installation: context[:installation],
       agent: context[:agent],
       default_canonical_config: {
-        "metadata" => {
+        "features" => {
           "title_bootstrap" => {
             "enabled" => false,
             "mode" => "embedded_only",

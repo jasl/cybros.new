@@ -929,8 +929,12 @@ module ActiveSupport
         },
         default_canonical_config: {
           "sandbox" => "workspace-write",
-          "metadata" => {
+          "features" => {
             "title_bootstrap" => {
+              "enabled" => true,
+              "mode" => "runtime_first",
+            },
+            "prompt_compaction" => {
               "enabled" => true,
               "mode" => "runtime_first",
             },

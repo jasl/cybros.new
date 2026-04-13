@@ -40,9 +40,9 @@
       },
       "required": ["main", "researcher"]
     },
-    "metadata": {
+    "features": {
       "type": "object",
-      "title": "Metadata Defaults",
+      "title": "Feature Defaults",
       "additionalProperties": false,
       "properties": {
         "title_bootstrap": {
@@ -60,6 +60,25 @@
               "enum": ["runtime_first", "embedded_only"],
               "default": "runtime_first",
               "title": "Title Bootstrap Mode"
+            }
+          },
+          "required": ["enabled", "mode"]
+        },
+        "prompt_compaction": {
+          "type": "object",
+          "title": "Prompt Compaction",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "title": "Enable Prompt Compaction"
+            },
+            "mode": {
+              "type": "string",
+              "enum": ["runtime_first", "embedded_only"],
+              "default": "runtime_first",
+              "title": "Prompt Compaction Mode"
             }
           },
           "required": ["enabled", "mode"]
@@ -115,7 +134,7 @@
     "interactive",
     "role_slots",
     "profile_runtime_overrides",
-    "metadata",
+    "features",
     "subagents",
     "tool_policy_overlays",
     "behavior"

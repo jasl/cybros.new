@@ -1,6 +1,74 @@
 require "test_helper"
 
 class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
+  test "freezes effective prompt compaction policy into provider context" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    context[:workspace].update!(
+      config: {
+        "features" => {
+          "prompt_compaction" => {
+            "enabled" => true,
+            "mode" => "embedded_only",
+          },
+        },
+      }
+    )
+    agent_definition_version = create_agent_definition_version!(
+      installation: context[:installation],
+      agent: context[:agent],
+      tool_contract: default_tool_catalog,
+      default_canonical_config: {
+        "features" => {
+          "prompt_compaction" => {
+            "enabled" => true,
+            "mode" => "runtime_first",
+          },
+        },
+      }
+    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Current input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    turn.update!(
+      agent_definition_version: agent_definition_version,
+      pinned_agent_definition_fingerprint: agent_definition_version.definition_fingerprint,
+      agent_config_content_fingerprint: agent_definition_version.definition_fingerprint
+    )
+
+    snapshot = build_execution_snapshot_for!(turn: turn)
+
+    assert_equal(
+      {
+        "enabled" => true,
+        "mode" => "embedded_only",
+      },
+      snapshot.provider_context.dig("feature_policies", "prompt_compaction")
+    )
+
+    context[:workspace].update!(
+      config: {
+        "features" => {
+          "prompt_compaction" => {
+            "enabled" => true,
+            "mode" => "runtime_first",
+          },
+        },
+      }
+    )
+
+    assert_equal(
+      {
+        "enabled" => true,
+        "mode" => "embedded_only",
+      },
+      snapshot.provider_context.dig("feature_policies", "prompt_compaction")
+    )
+  end
+
   test "builds an execution snapshot from visible transcript messages imports and canonical attachments" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])

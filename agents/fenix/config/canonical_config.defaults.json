@@ -20,8 +20,12 @@
       "role_slot": "main"
     }
   },
-  "metadata": {
+  "features": {
     "title_bootstrap": {
+      "enabled": true,
+      "mode": "runtime_first"
+    },
+    "prompt_compaction": {
       "enabled": true,
       "mode": "runtime_first"
     }

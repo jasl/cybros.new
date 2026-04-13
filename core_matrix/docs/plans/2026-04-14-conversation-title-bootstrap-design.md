@@ -241,12 +241,12 @@ This prevents the job from racing with:
 - summary/title regeneration
 - future turns that should not re-bootstrap the title
 
-### 5. Resolve Title-Bootstrap Policy From Workspace Config First
+### 5. Resolve Title-Bootstrap Policy From Workspace Feature Config First
 
 Add structured workspace config under:
 
-- `workspace.config.metadata.title_bootstrap.enabled`
-- `workspace.config.metadata.title_bootstrap.mode`
+- `workspace.config.features.title_bootstrap.enabled`
+- `workspace.config.features.title_bootstrap.mode`
 
 The initial supported modes should be:
 
@@ -260,7 +260,7 @@ Recommended defaults:
 
 Resolution precedence should be:
 
-1. workspace override from `workspace.config.metadata.title_bootstrap`
+1. workspace override from `workspace.config.features.title_bootstrap`
 2. agent/runtime canonical config default
 3. built-in fallback default of `enabled = true`, `mode = runtime_first`
 
@@ -275,8 +275,8 @@ bootstrap, but the actual summary-title capability is optional in this pass.
 That means:
 
 - `agents/fenix` may expose default config like
-  `metadata.title_bootstrap.enabled` and
-  `metadata.title_bootstrap.mode`
+  `features.title_bootstrap.enabled` and
+  `features.title_bootstrap.mode`
 - `core_matrix` should not require a runtime implementation to ship this pass
 
 When `mode = runtime_first`, `core_matrix` may attempt the runtime path first.

@@ -123,13 +123,13 @@ git commit -m "test: lock prompt budget guard contracts"
 
 Extend Fenix manifest tests so they expect canonical config to include:
 
-- `prompt_compaction.enabled`
-- `prompt_compaction.mode`
+- `features.prompt_compaction.enabled`
+- `features.prompt_compaction.mode`
 
 Extend workspace policy request/model tests so they expect:
 
-- `workspace_policy.prompt_compaction.enabled`
-- `workspace_policy.prompt_compaction.mode`
+- `workspace_policy.features.prompt_compaction.enabled`
+- `workspace_policy.features.prompt_compaction.mode`
 - invalid prompt-compaction values to be rejected
 
 Also extend bundled runtime registration tests so the packaged definition/config
@@ -139,8 +139,8 @@ shape round-trips with prompt-compaction defaults.
 
 Update the Fenix canonical config files so they define:
 
-- `prompt_compaction.enabled`
-- `prompt_compaction.mode`
+- `features.prompt_compaction.enabled`
+- `features.prompt_compaction.mode`
 
 Keep the default aligned with the design:
 
@@ -158,7 +158,7 @@ Update:
 
 - `Workspace` validations so `config` is always a hash
 - `WorkspacePolicies::Upsert` to accept and validate nested
-  `prompt_compaction`
+  `features.prompt_compaction`
 - `WorkspacePolicyPresenter` to project prompt-compaction policy
 - `AppAPI::Workspaces::PoliciesController` to accept prompt-compaction updates
 
@@ -258,8 +258,9 @@ Use named constants for fallback defaults and reject invalid mode values early.
 **Step 3: Freeze the policy during snapshot build**
 
 Update `BuildExecutionSnapshot` so `provider_context` includes the resolved
-prompt-compaction policy for the turn. The round loop should later consume this
-frozen value, not query `workspace` live.
+prompt-compaction policy for the turn under
+`provider_context.feature_policies.prompt_compaction`. The round loop should
+later consume this frozen value, not query `workspace` live.
 
 **Step 4: Run the targeted tests and make them green**
 

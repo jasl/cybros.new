@@ -74,7 +74,7 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     context = create_workspace_context!
     context[:workspace].update!(
       config: {
-        "metadata" => {
+        "features" => {
           "title_bootstrap" => {
             "enabled" => false,
             "mode" => "embedded_only",

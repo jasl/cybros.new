@@ -13,12 +13,13 @@ module AppSurface
         available = WorkspacePolicies::Capabilities.available_for(agent: @workspace.agent)
         disabled = WorkspacePolicies::Capabilities.disabled_for(workspace: @workspace) & available
         effective = WorkspacePolicies::Capabilities.effective_for(workspace: @workspace)
+        features = WorkspaceFeatures::Resolver.call(workspace: @workspace)
 
         {
           "workspace_id" => @workspace.public_id,
           "agent_id" => @workspace.agent.public_id,
           "default_execution_runtime_id" => @workspace.default_execution_runtime&.public_id,
-          "metadata" => @workspace.config_metadata,
+          "features" => features,
           "available_capabilities" => available,
           "disabled_capabilities" => disabled,
           "effective_capabilities" => effective,

@@ -29,14 +29,17 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     assert_equal "workspace_policy_show", response.parsed_body.fetch("method_id")
     assert_equal workspace.public_id, response.parsed_body.fetch("workspace_id")
     assert_equal runtime.public_id, response.parsed_body.dig("workspace_policy", "default_execution_runtime_id")
-    assert_equal true, response.parsed_body.dig("workspace_policy", "metadata", "title_bootstrap", "enabled")
-    assert_equal "runtime_first", response.parsed_body.dig("workspace_policy", "metadata", "title_bootstrap", "mode")
+    assert_equal true, response.parsed_body.dig("workspace_policy", "features", "title_bootstrap", "enabled")
+    assert_equal "runtime_first", response.parsed_body.dig("workspace_policy", "features", "title_bootstrap", "mode")
+    assert_equal true, response.parsed_body.dig("workspace_policy", "features", "prompt_compaction", "enabled")
+    assert_equal "runtime_first", response.parsed_body.dig("workspace_policy", "features", "prompt_compaction", "mode")
+    refute response.parsed_body.fetch("workspace_policy").key?("metadata")
     assert_includes response.parsed_body.dig("workspace_policy", "available_capabilities"), "supervision"
     refute_includes response.parsed_body.dig("workspace_policy", "available_capabilities"), "regenerate"
     refute_includes response.parsed_body.dig("workspace_policy", "available_capabilities"), "swipe"
   end
 
-  test "updates disabled capabilities, default runtime, and workspace metadata with partial merge semantics" do
+  test "updates disabled capabilities, default runtime, and resolved workspace features with partial merge semantics" do
     installation = create_installation!
     user = create_user!(installation: installation)
     session = create_session!(user: user)
@@ -76,8 +79,12 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
       agent: agent,
       default_execution_runtime: runtime_a,
       config: {
-        "metadata" => {
+        "features" => {
           "title_bootstrap" => {
+            "enabled" => false,
+            "mode" => "embedded_only",
+          },
+          "prompt_compaction" => {
             "enabled" => false,
             "mode" => "embedded_only",
           },
@@ -91,8 +98,11 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
       params: {
         disabled_capabilities: ["side_chat"],
         default_execution_runtime_id: runtime_b.public_id,
-        metadata: {
+        features: {
           title_bootstrap: {
+            enabled: true,
+          },
+          prompt_compaction: {
             enabled: true,
           },
         },
@@ -103,14 +113,18 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "workspace_policy_update", response.parsed_body.fetch("method_id")
     assert_equal ["side_chat"], response.parsed_body.dig("workspace_policy", "disabled_capabilities")
-    assert_equal true, response.parsed_body.dig("workspace_policy", "metadata", "title_bootstrap", "enabled")
-    assert_equal "embedded_only", response.parsed_body.dig("workspace_policy", "metadata", "title_bootstrap", "mode")
+    assert_equal true, response.parsed_body.dig("workspace_policy", "features", "title_bootstrap", "enabled")
+    assert_equal "embedded_only", response.parsed_body.dig("workspace_policy", "features", "title_bootstrap", "mode")
+    assert_equal true, response.parsed_body.dig("workspace_policy", "features", "prompt_compaction", "enabled")
+    assert_equal "embedded_only", response.parsed_body.dig("workspace_policy", "features", "prompt_compaction", "mode")
     refute_includes response.parsed_body.dig("workspace_policy", "effective_capabilities"), "side_chat"
     refute_includes response.parsed_body.dig("workspace_policy", "effective_capabilities"), "control"
     assert_equal runtime_b.public_id, response.parsed_body.dig("workspace_policy", "default_execution_runtime_id")
     assert_equal ["side_chat"], workspace.reload.disabled_capabilities
-    assert_equal true, workspace.reload.title_bootstrap_config.fetch("enabled")
-    assert_equal "embedded_only", workspace.reload.title_bootstrap_config.fetch("mode")
+    assert_equal true, workspace.reload.feature_config("title_bootstrap").fetch("enabled")
+    assert_equal "embedded_only", workspace.reload.feature_config("title_bootstrap").fetch("mode")
+    assert_equal true, workspace.reload.feature_config("prompt_compaction").fetch("enabled")
+    assert_equal "embedded_only", workspace.reload.feature_config("prompt_compaction").fetch("mode")
 
     post "/app_api/conversations",
       params: {
@@ -143,7 +157,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
 
     patch "/app_api/workspaces/#{context[:workspace].public_id}/policy",
       params: {
-        metadata: {
+        features: {
           title_bootstrap: {
             mode: "manual_only",
           },
@@ -153,7 +167,26 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
       as: :json
 
     assert_response :unprocessable_entity
-    assert_equal "metadata.title_bootstrap.mode must be runtime_first or embedded_only", response.parsed_body.fetch("error")
+    assert_equal "features.title_bootstrap.mode must be runtime_first or embedded_only", response.parsed_body.fetch("error")
+  end
+
+  test "rejects invalid prompt compaction modes" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+
+    patch "/app_api/workspaces/#{context[:workspace].public_id}/policy",
+      params: {
+        features: {
+          prompt_compaction: {
+            mode: "manual_only",
+          },
+        },
+      },
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal "features.prompt_compaction.mode must be runtime_first or embedded_only", response.parsed_body.fetch("error")
   end
 
   test "rejects unknown capabilities" do
@@ -198,8 +231,10 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     assert_equal agent.public_id, response.parsed_body.dig("workspace_policy", "agent_id")
     assert_equal runtime.public_id, response.parsed_body.dig("workspace_policy", "default_execution_runtime_id")
     assert_equal ["side_chat"], response.parsed_body.dig("workspace_policy", "disabled_capabilities")
-    assert_equal true, response.parsed_body.dig("workspace_policy", "metadata", "title_bootstrap", "enabled")
-    assert_equal "runtime_first", response.parsed_body.dig("workspace_policy", "metadata", "title_bootstrap", "mode")
+    assert_equal true, response.parsed_body.dig("workspace_policy", "features", "title_bootstrap", "enabled")
+    assert_equal "runtime_first", response.parsed_body.dig("workspace_policy", "features", "title_bootstrap", "mode")
+    assert_equal true, response.parsed_body.dig("workspace_policy", "features", "prompt_compaction", "enabled")
+    assert_equal "runtime_first", response.parsed_body.dig("workspace_policy", "features", "prompt_compaction", "mode")
   end
 
   test "rejects default runtime updates that target an inaccessible runtime" do

@@ -26,8 +26,12 @@ module Installations
       canonical_config_schema: {},
       conversation_override_schema: {},
       default_canonical_config: {
-        "metadata" => {
+        "features" => {
           "title_bootstrap" => {
+            "enabled" => true,
+            "mode" => "runtime_first",
+          },
+          "prompt_compaction" => {
             "enabled" => true,
             "mode" => "runtime_first",
           },

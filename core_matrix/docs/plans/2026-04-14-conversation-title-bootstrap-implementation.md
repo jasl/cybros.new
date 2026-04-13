@@ -147,8 +147,8 @@ git commit -m "feat: add placeholder conversation title"
 Extend workspace model and request tests so they expect:
 
 - `workspaces.config` exists and is a hash
-- `workspace_policy.metadata.title_bootstrap.enabled`
-- `workspace_policy.metadata.title_bootstrap.mode`
+- `workspace_policy.features.title_bootstrap.enabled`
+- `workspace_policy.features.title_bootstrap.mode`
 - invalid title-bootstrap modes are rejected
 
 Use the existing workspace policy endpoint instead of inventing a new API
@@ -236,8 +236,8 @@ git commit -m "feat: add workspace title bootstrap policy"
 Extend the Fenix manifest test and bundled runtime registration test so they
 expect:
 
-- `metadata.title_bootstrap.enabled`
-- `metadata.title_bootstrap.mode`
+- `features.title_bootstrap.enabled`
+- `features.title_bootstrap.mode`
 
 to exist in the canonical config defaults and round-trip through bundled agent
 registration.
@@ -246,8 +246,8 @@ registration.
 
 Update the Fenix schema/defaults to include:
 
-- `metadata.title_bootstrap.enabled`
-- `metadata.title_bootstrap.mode`
+- `features.title_bootstrap.enabled`
+- `features.title_bootstrap.mode`
 
 with defaults aligned to the product direction:
 
@@ -318,7 +318,7 @@ Add tests that expect:
 
 Add `TitleBootstrapPolicy` that resolves:
 
-1. `workspace.config.metadata.title_bootstrap`
+1. `workspace.config.features.title_bootstrap`
 2. runtime canonical config default
 3. built-in fallback
 

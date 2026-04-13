@@ -106,6 +106,12 @@
           "owner_scope": "installation"
         },
         "model_metadata": {}
+      },
+      "feature_policies": {
+        "prompt_compaction": {
+          "enabled": true,
+          "mode": "runtime_first"
+        }
       }
     },
     "runtime_context": {
