@@ -6,6 +6,7 @@ class CreateProcessRuns < ActiveRecord::Migration[8.2]
       t.references :workspace, foreign_key: true
       t.references :agent, foreign_key: true
       t.references :workflow_node, null: false, foreign_key: true
+      t.references :workflow_run, null: false, foreign_key: true
       t.references :execution_epoch, null: false, foreign_key: { to_table: :conversation_execution_epochs }
       t.references :execution_runtime, null: false, foreign_key: true
       t.references :conversation, null: false, foreign_key: true
@@ -38,7 +39,12 @@ class CreateProcessRuns < ActiveRecord::Migration[8.2]
               where: "idempotency_key IS NOT NULL",
               name: "idx_process_runs_workflow_node_idempotency"
     add_index :process_runs, [:workflow_node_id, :lifecycle_state]
+    add_index :process_runs, [:workflow_run_id, :lifecycle_state], name: "idx_process_runs_workflow_run_lifecycle"
     add_index :process_runs, [:execution_runtime_id, :lifecycle_state], name: "idx_process_runs_executor_lifecycle"
     add_index :process_runs, [:conversation_id, :lifecycle_state], name: "idx_process_runs_conversation_lifecycle"
+    add_foreign_key :process_runs, :workflow_nodes,
+                    column: [:workflow_node_id, :workflow_run_id],
+                    primary_key: [:id, :workflow_run_id],
+                    name: "fk_process_runs_workflow_node_workflow_run"
   end
 end

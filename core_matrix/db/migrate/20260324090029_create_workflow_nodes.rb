@@ -29,6 +29,7 @@ class CreateWorkflowNodes < ActiveRecord::Migration[8.2]
 
     add_index :workflow_nodes, [:workflow_run_id, :ordinal], unique: true
     add_index :workflow_nodes, [:workflow_run_id, :node_key], unique: true
+    add_index :workflow_nodes, [:id, :workflow_run_id], unique: true, name: "idx_workflow_nodes_run_alignment"
     add_index :workflow_nodes,
       [:workflow_run_id, :lifecycle_state, :ordinal],
       name: "index_workflow_nodes_on_run_state_order"

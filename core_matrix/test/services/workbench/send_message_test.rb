@@ -42,8 +42,11 @@ class Workbench::SendMessageTest < ActiveSupport::TestCase
       execution_runtime: override_runtime
     )
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace], agent: context[:agent])
-    initialize_current_execution_epoch!(conversation).update!(execution_runtime: override_runtime)
-    conversation.update!(current_execution_runtime: override_runtime)
+    initialize_current_execution_epoch!(conversation)
+    ConversationExecutionEpochs::RetargetCurrent.call(
+      conversation: conversation,
+      execution_runtime: override_runtime
+    )
 
     result = nil
 

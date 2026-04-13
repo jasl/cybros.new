@@ -58,8 +58,11 @@ class AppApiConversationMessagesTest < ActionDispatch::IntegrationTest
     alternate_runtime = create_execution_runtime!(installation: context[:installation])
     create_execution_runtime_connection!(installation: context[:installation], execution_runtime: alternate_runtime)
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace], agent: context[:agent])
-    initialize_current_execution_epoch!(conversation).update!(execution_runtime: alternate_runtime)
-    conversation.update!(current_execution_runtime: alternate_runtime)
+    initialize_current_execution_epoch!(conversation)
+    ConversationExecutionEpochs::RetargetCurrent.call(
+      conversation: conversation,
+      execution_runtime: alternate_runtime
+    )
 
     post "/app_api/conversations/#{conversation.public_id}/messages",
       params: {
