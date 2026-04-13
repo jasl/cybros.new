@@ -175,6 +175,35 @@ class ConversationTest < ActiveSupport::TestCase
     assert_equal({ "status" => "exact" }, conversation.conversation_detail.override_reconciliation_report)
   end
 
+  test "rejects ready continuity without a current execution epoch" do
+    context = conversation_context
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace], agent: context[:agent])
+    conversation.execution_continuity_state = "ready"
+
+    assert_not conversation.valid?
+    assert_includes conversation.errors[:execution_continuity_state], "must be not_started when no current execution epoch exists"
+  end
+
+  test "rejects handoff continuity without a current execution epoch" do
+    conversation = build_conversation(execution_continuity_state: "handoff_pending")
+
+    assert_not conversation.valid?
+    assert_includes conversation.errors[:execution_continuity_state], "must be not_started when no current execution epoch exists"
+  end
+
+  test "rejects not_started continuity once a current execution epoch exists" do
+    context = conversation_context
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace], agent: context[:agent])
+    epoch = initialize_current_execution_epoch!(conversation)
+
+    conversation.current_execution_epoch = epoch
+    conversation.current_execution_runtime = epoch.execution_runtime
+    conversation.execution_continuity_state = "not_started"
+
+    assert_not conversation.valid?
+    assert_includes conversation.errors[:execution_continuity_state], "must not remain not_started after execution continuity is materialized"
+  end
+
   private
 
   def build_conversation(attributes = {})

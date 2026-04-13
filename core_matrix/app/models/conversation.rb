@@ -203,6 +203,7 @@ class Conversation < ApplicationRecord
   validate :current_execution_epoch_conversation_match
   validate :current_execution_runtime_installation_match
   validate :current_execution_cache_matches_epoch
+  validate :execution_continuity_state_matches_epoch_presence
   validate :automation_rules
   validate :override_payload_must_be_hash
   validate :override_reconciliation_report_must_be_hash
@@ -439,6 +440,19 @@ class Conversation < ApplicationRecord
     return if current_execution_epoch.execution_runtime_id == current_execution_runtime_id
 
     errors.add(:current_execution_runtime, "must match the current execution epoch runtime")
+  end
+
+  def execution_continuity_state_matches_epoch_presence
+    if current_execution_epoch.blank?
+      return if not_started?
+
+      errors.add(:execution_continuity_state, "must be not_started when no current execution epoch exists")
+      return
+    end
+
+    return unless not_started?
+
+    errors.add(:execution_continuity_state, "must not remain not_started after execution continuity is materialized")
   end
 
   def default_execution_continuity_state

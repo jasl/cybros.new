@@ -268,6 +268,7 @@ module Conversations
       Conversation.where(id: @owned_conversation_ids).update_all(
         current_execution_epoch_id: nil,
         current_execution_runtime_id: nil,
+        execution_continuity_state: "not_started",
         latest_active_turn_id: nil,
         latest_turn_id: nil,
         latest_active_workflow_run_id: nil,

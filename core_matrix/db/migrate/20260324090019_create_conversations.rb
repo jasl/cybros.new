@@ -80,5 +80,8 @@ class CreateConversations < ActiveRecord::Migration[8.2]
     add_check_constraint :conversations,
       "((deletion_state = 'retained' AND deleted_at IS NULL) OR (deletion_state IN ('pending_delete', 'deleted') AND deleted_at IS NOT NULL))",
       name: "chk_conversations_deleted_at_consistency"
+    add_check_constraint :conversations,
+      "((current_execution_epoch_id IS NULL AND execution_continuity_state = 'not_started') OR (current_execution_epoch_id IS NOT NULL AND execution_continuity_state IN ('ready', 'handoff_pending', 'handoff_blocked')))",
+      name: "chk_conversations_execution_continuity_state"
   end
 end

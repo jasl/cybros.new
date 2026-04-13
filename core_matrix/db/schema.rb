@@ -909,6 +909,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.index ["user_id"], name: "index_conversations_on_user_id"
     t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
+    t.check_constraint "current_execution_epoch_id IS NULL AND execution_continuity_state::text = 'not_started'::text OR current_execution_epoch_id IS NOT NULL AND (execution_continuity_state::text = ANY (ARRAY['ready'::character varying, 'handoff_pending'::character varying, 'handoff_blocked'::character varying]::text[]))", name: "chk_conversations_execution_continuity_state"
     t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying, 'deleted'::character varying]::text[])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
     t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying, 'pending_delete'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_deletion_state"
     t.check_constraint "summary_lock_state::text = ANY (ARRAY['unlocked'::character varying, 'user_locked'::character varying]::text[])", name: "chk_conversations_summary_lock_state"
