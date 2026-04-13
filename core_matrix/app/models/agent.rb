@@ -27,6 +27,18 @@ class Agent < ApplicationRecord
   validate :owner_user_installation_match
   validate :default_execution_runtime_installation_match
 
+  def self.visible_to_user(user)
+    return none if user.blank?
+
+    where(installation_id: user.installation_id, lifecycle_state: "active")
+      .where(
+        "visibility = :public_visibility OR (visibility = :private_visibility AND owner_user_id = :user_id)",
+        public_visibility: visibilities[:public],
+        private_visibility: visibilities[:private],
+        user_id: user.id
+      )
+  end
+
   def current_agent_definition_version
     active_agent_connection&.agent_definition_version || published_agent_definition_version
   end

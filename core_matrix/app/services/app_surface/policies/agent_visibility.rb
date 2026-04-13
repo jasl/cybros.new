@@ -11,10 +11,9 @@ module AppSurface
       end
 
       def call
-        ResourceVisibility::Usability.agent_usable_by_user?(
-          user: @user,
-          agent: @agent
-        )
+        return false if @user.blank? || @agent.blank?
+
+        Agent.visible_to_user(@user).where(id: @agent.id).exists?
       end
     end
   end

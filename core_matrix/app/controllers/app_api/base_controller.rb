@@ -30,33 +30,12 @@ module AppAPI
       current_user.installation_id
     end
 
-    def find_workspace!(workspace_id)
-      workspace = super
-      authorize_workspace_usability!(workspace)
-    end
-
-    def find_agent!(agent_id)
-      agent = super
-      raise ActiveRecord::RecordNotFound, "Couldn't find Agent" unless resource_visibility_user_can_access_agent?(agent)
-
-      agent
-    end
-
-    def find_conversation!(conversation_id, workspace: nil)
-      conversation = super
-      authorize_conversation_usability!(conversation)
-    end
-
     def find_accessible_execution_runtime!(execution_runtime_id)
-      execution_runtime = find_execution_runtime!(execution_runtime_id)
-      authorize_execution_runtime_usability!(execution_runtime)
+      find_execution_runtime!(execution_runtime_id)
     end
 
     def find_launchable_agent!(agent_id, execution_runtime: AppSurface::Policies::AgentLaunchability::DEFAULT_RUNTIME)
-      agent = Agent.find_by!(
-        public_id: agent_id,
-        installation_id: current_installation_id
-      )
+      agent = find_agent!(agent_id)
       raise ActiveRecord::RecordNotFound, "Couldn't find Agent" unless AppSurface::Policies::AgentLaunchability.call(
         user: current_user,
         agent: agent,
@@ -66,38 +45,22 @@ module AppAPI
       agent
     end
 
-    def authorize_workspace_usability!(workspace)
-      raise ActiveRecord::RecordNotFound, "Couldn't find Workspace" unless resource_visibility_user_can_access_workspace?(workspace)
-
-      workspace
+    def workspace_lookup_scope
+      Workspace.accessible_to_user(current_user)
     end
 
-    def authorize_conversation_usability!(conversation)
-      raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" unless resource_visibility_user_can_access_conversation?(conversation)
-
-      conversation
+    def agent_lookup_scope
+      Agent.visible_to_user(current_user)
     end
 
-    def authorize_execution_runtime_usability!(execution_runtime)
-      raise ActiveRecord::RecordNotFound, "Couldn't find ExecutionRuntime" unless resource_visibility_user_can_access_execution_runtime?(execution_runtime)
-
-      execution_runtime
+    def execution_runtime_lookup_scope
+      ExecutionRuntime.visible_to_user(current_user)
     end
 
-    def resource_visibility_user_can_access_workspace?(workspace)
-      AppSurface::Policies::WorkspaceAccess.call(user: current_user, workspace: workspace)
-    end
-
-    def resource_visibility_user_can_access_agent?(agent)
-      AppSurface::Policies::AgentVisibility.call(user: current_user, agent: agent)
-    end
-
-    def resource_visibility_user_can_access_conversation?(conversation)
-      AppSurface::Policies::ConversationAccess.call(user: current_user, conversation: conversation)
-    end
-
-    def resource_visibility_user_can_access_execution_runtime?(execution_runtime)
-      AppSurface::Policies::ExecutionRuntimeAccess.call(user: current_user, execution_runtime: execution_runtime)
+    def conversation_lookup_scope(workspace: nil)
+      scope = Conversation.accessible_to_user(current_user)
+      scope = scope.where(workspace_id: workspace.id) if workspace.present?
+      scope
     end
 
     def method_response(method_id:, **payload)

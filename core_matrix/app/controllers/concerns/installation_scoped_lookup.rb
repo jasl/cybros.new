@@ -8,35 +8,19 @@ module InstallationScopedLookup
   end
 
   def find_workspace!(workspace_id)
-    Workspace.find_by!(
-      public_id: workspace_id,
-      installation_id: current_installation_id
-    )
+    workspace_lookup_scope.find_by!(public_id: workspace_id)
   end
 
   def find_agent!(agent_id)
-    Agent.find_by!(
-      public_id: agent_id,
-      installation_id: current_installation_id
-    )
+    agent_lookup_scope.find_by!(public_id: agent_id)
   end
 
   def find_execution_runtime!(execution_runtime_id)
-    ExecutionRuntime.find_by!(
-      public_id: execution_runtime_id,
-      installation_id: current_installation_id
-    )
+    execution_runtime_lookup_scope.find_by!(public_id: execution_runtime_id)
   end
 
   def find_conversation!(conversation_id, workspace: nil)
-    scope = {
-      public_id: conversation_id,
-      installation_id: current_installation_id,
-      deletion_state: "retained",
-    }
-    scope[:workspace_id] = workspace.id if workspace.present?
-
-    Conversation.find_by!(scope)
+    conversation_lookup_scope(workspace: workspace).find_by!(public_id: conversation_id)
   end
 
   def find_turn!(turn_id)
@@ -86,5 +70,26 @@ module InstallationScopedLookup
       public_id: attachment_id,
       installation_id: current_installation_id
     )
+  end
+
+  def workspace_lookup_scope
+    Workspace.where(installation_id: current_installation_id)
+  end
+
+  def agent_lookup_scope
+    Agent.where(installation_id: current_installation_id)
+  end
+
+  def execution_runtime_lookup_scope
+    ExecutionRuntime.where(installation_id: current_installation_id)
+  end
+
+  def conversation_lookup_scope(workspace: nil)
+    scope = Conversation.where(
+      installation_id: current_installation_id,
+      deletion_state: "retained"
+    )
+    scope = scope.where(workspace_id: workspace.id) if workspace.present?
+    scope
   end
 end

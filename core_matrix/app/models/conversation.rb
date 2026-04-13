@@ -95,6 +95,7 @@ class Conversation < ApplicationRecord
   data_lifecycle_kind! :owner_bound
 
   belongs_to :installation
+  belongs_to :user, optional: true
   belongs_to :workspace
   belongs_to :agent
   belongs_to :current_execution_epoch, class_name: "ConversationExecutionEpoch", optional: true
@@ -169,8 +170,21 @@ class Conversation < ApplicationRecord
     dependent: :restrict_with_exception,
     inverse_of: :ancestor_conversation
 
+  def self.accessible_to_user(user)
+    return none if user.blank?
+
+    where(
+      installation_id: user.installation_id,
+      deletion_state: "retained"
+    )
+      .where(workspace_id: Workspace.accessible_to_user(user).select(:id))
+      .where(agent_id: Agent.visible_to_user(user).select(:id))
+  end
+
   validate :workspace_installation_match
+  validate :user_installation_match
   validate :agent_installation_match
+  validate :workspace_user_match
   validate :workspace_agent_match
   validate :parent_lineage_rules
   validate :parent_workspace_match
@@ -278,6 +292,13 @@ class Conversation < ApplicationRecord
     errors.add(:workspace, "must belong to the same installation")
   end
 
+  def user_installation_match
+    return if user.blank?
+    return if user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
   def agent_installation_match
     return if agent.blank?
     return if agent.installation_id == installation_id
@@ -285,9 +306,16 @@ class Conversation < ApplicationRecord
     errors.add(:agent, "must belong to the same installation")
   end
 
+  def workspace_user_match
+    return if workspace.blank? || user.blank?
+    return if workspace.user_id == user_id
+
+    errors.add(:user, "must match the workspace owner")
+  end
+
   def workspace_agent_match
     return if workspace.blank? || agent.blank?
-    return if workspace.user_agent_binding.agent_id == agent_id
+    return if workspace.agent_id == agent_id
 
     errors.add(:agent, "must match the workspace agent")
   end

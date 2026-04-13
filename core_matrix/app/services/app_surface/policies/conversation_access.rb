@@ -11,10 +11,9 @@ module AppSurface
       end
 
       def call
-        ResourceVisibility::Usability.conversation_accessible_by_user?(
-          user: @user,
-          conversation: @conversation
-        )
+        return false if @user.blank? || @conversation.blank?
+
+        Conversation.accessible_to_user(@user).where(id: @conversation.id).exists?
       end
     end
   end

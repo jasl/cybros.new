@@ -116,6 +116,54 @@ class ConversationTest < ActiveSupport::TestCase
     assert_equal "unlocked", conversation.summary_lock_state
   end
 
+  test "accessible_to_user keeps owner conversations while hiding deleted and hidden-agent rows" do
+    context = conversation_context
+    visible_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    deleted_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    deleted_conversation.update!(
+      deletion_state: "deleted",
+      deleted_at: Time.current
+    )
+
+    hidden_owner = create_user!(
+      installation: context[:installation],
+      identity: create_identity!,
+      display_name: "Hidden Owner"
+    )
+    hidden_agent = create_agent!(
+      installation: context[:installation],
+      key: "hidden-agent"
+    )
+    hidden_binding = create_user_agent_binding!(
+      installation: context[:installation],
+      user: context[:workspace].user,
+      agent: hidden_agent
+    )
+    hidden_workspace = create_workspace!(
+      installation: context[:installation],
+      user: context[:workspace].user,
+      user_agent_binding: hidden_binding,
+      name: "Hidden Agent Workspace"
+    )
+    Conversations::CreateRoot.call(
+      workspace: hidden_workspace,
+      agent: hidden_agent
+    )
+    hidden_agent.update!(
+      visibility: "private",
+      provisioning_origin: "user_created",
+      owner_user: hidden_owner
+    )
+
+    assert_equal [visible_conversation], Conversation.accessible_to_user(context[:workspace].user).order(:id).to_a
+  end
+
   private
 
   def build_conversation(attributes = {})

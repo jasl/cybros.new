@@ -18,6 +18,16 @@ class Workspace < ApplicationRecord
   validate :default_execution_runtime_installation_match
   validate :single_default_workspace
 
+  def self.accessible_to_user(user)
+    return none if user.blank?
+
+    where(
+      installation_id: user.installation_id,
+      user_id: user.id,
+      privacy: "private"
+    ).where(agent_id: Agent.visible_to_user(user).select(:id))
+  end
+
   def private_workspace? = privacy == "private"
 
   def user_agent_binding

@@ -15,11 +15,14 @@
 **Files:**
 - Create: `test/services/workspaces/resolve_default_reference_test.rb`
 - Modify: `test/queries/workspaces/for_user_query_test.rb`
+- Modify: `test/models/workspace_test.rb`
+- Modify: `test/models/conversation_test.rb`
 - Modify: `test/services/app_surface/policies/workspace_access_test.rb`
 - Modify: `test/services/app_surface/policies/conversation_access_test.rb`
 - Modify: `test/requests/app_api/agents_test.rb`
 - Modify: `test/requests/app_api/agent_homes_test.rb`
 - Modify: `test/requests/app_api/workspaces_test.rb`
+- Modify: `test/requests/app_api/agent_homes_test.rb`
 - Modify: `test/models/workspace_test.rb`
 - Modify: `test/integration/user_binding_workspace_flow_test.rb`
 - Modify: `test/requests/app_api/conversations_test.rb`
@@ -53,6 +56,10 @@ Run from `/Users/jasl/Workspaces/Ruby/cybros/core_matrix`:
 ```bash
 bin/rails test \
   test/queries/workspaces/for_user_query_test.rb \
+  test/models/workspace_test.rb \
+  test/models/conversation_test.rb \
+  test/models/workspace_test.rb \
+  test/models/conversation_test.rb \
   test/services/app_surface/policies/workspace_access_test.rb \
   test/services/app_surface/policies/conversation_access_test.rb \
   test/requests/app_api/agents_test.rb \
@@ -224,6 +231,7 @@ git commit -m "db: rewrite center and runtime schema"
 - Modify: `test/requests/app_api/agents_test.rb`
 - Modify: `test/requests/app_api/agent_homes_test.rb`
 - Modify: `test/requests/app_api/workspaces_test.rb`
+- Modify: `test/requests/app_api/agent_homes_test.rb`
 
 **Step 1: Write the failing resolver implementation test**
 
@@ -322,16 +330,20 @@ git commit -m "refactor: move default workspace resolution off bindings"
 - Modify: `app/queries/execution_runtimes/visible_to_user_query.rb`
 - Modify: `app/queries/workspaces/for_user_query.rb`
 - Modify: `app/queries/human_interactions/open_for_user_query.rb`
+- Modify: `app/services/app_surface/queries/workspaces_for_agent.rb`
 - Modify: `test/queries/agents/visible_to_user_query_test.rb`
 - Modify: `test/queries/execution_runtimes/visible_to_user_query_test.rb`
 - Modify: `test/services/app_surface/policies/agent_visibility_test.rb`
 - Modify: `test/services/app_surface/policies/execution_runtime_access_test.rb`
 - Modify: `test/queries/workspaces/for_user_query_test.rb`
+- Modify: `test/models/workspace_test.rb`
+- Modify: `test/models/conversation_test.rb`
 - Modify: `test/services/app_surface/policies/workspace_access_test.rb`
 - Modify: `test/services/resource_visibility/usability_test.rb`
 - Modify: `test/services/app_surface/policies/conversation_access_test.rb`
 - Modify: `test/queries/human_interactions/open_for_user_query_test.rb`
 - Modify: `test/requests/app_api/workspaces_test.rb`
+- Modify: `test/requests/app_api/agent_homes_test.rb`
 - Modify: `test/requests/app_api/conversations_test.rb`
 
 **Step 1: Add accessible scopes on center models**
@@ -369,11 +381,14 @@ bin/rails test \
   test/services/app_surface/policies/agent_visibility_test.rb \
   test/services/app_surface/policies/execution_runtime_access_test.rb \
   test/queries/workspaces/for_user_query_test.rb \
+  test/models/workspace_test.rb \
+  test/models/conversation_test.rb \
   test/services/app_surface/policies/workspace_access_test.rb \
   test/services/resource_visibility/usability_test.rb \
   test/services/app_surface/policies/conversation_access_test.rb \
   test/queries/human_interactions/open_for_user_query_test.rb \
   test/requests/app_api/workspaces_test.rb \
+  test/requests/app_api/agent_homes_test.rb \
   test/requests/app_api/conversations_test.rb
 ```
 
@@ -397,16 +412,20 @@ git add app/models/agent.rb \
   app/queries/execution_runtimes/visible_to_user_query.rb \
   app/queries/workspaces/for_user_query.rb \
   app/queries/human_interactions/open_for_user_query.rb \
+  app/services/app_surface/queries/workspaces_for_agent.rb \
   test/queries/agents/visible_to_user_query_test.rb \
   test/queries/execution_runtimes/visible_to_user_query_test.rb \
   test/services/app_surface/policies/agent_visibility_test.rb \
   test/services/app_surface/policies/execution_runtime_access_test.rb \
   test/queries/workspaces/for_user_query_test.rb \
+  test/models/workspace_test.rb \
+  test/models/conversation_test.rb \
   test/services/app_surface/policies/workspace_access_test.rb \
   test/services/resource_visibility/usability_test.rb \
   test/services/app_surface/policies/conversation_access_test.rb \
   test/queries/human_interactions/open_for_user_query_test.rb \
   test/requests/app_api/workspaces_test.rb \
+  test/requests/app_api/agent_homes_test.rb \
   test/requests/app_api/conversations_test.rb
 git commit -m "refactor: move app access checks into sql boundaries"
 ```
@@ -595,6 +614,7 @@ git commit -m "refactor: add latest-active conversation anchors"
 - Modify: `app/services/command_runs/provision.rb`
 - Modify: `app/services/execution_profiling/record_fact.rb`
 - Modify: `app/queries/human_interactions/open_for_user_query.rb`
+- Modify: `app/services/app_surface/queries/workspaces_for_agent.rb`
 - Modify: `test/models/human_interaction_request_test.rb`
 - Modify: `test/models/agent_task_run_test.rb` 
 - Modify: `test/models/workflow_run_test.rb`
@@ -729,6 +749,7 @@ git add app/models/workflow_run.rb \
   app/services/command_runs/provision.rb \
   app/services/execution_profiling/record_fact.rb \
   app/queries/human_interactions/open_for_user_query.rb \
+  app/services/app_surface/queries/workspaces_for_agent.rb \
   test/models/human_interaction_request_test.rb \
   test/models/agent_task_run_test.rb \
   test/models/workflow_run_test.rb \

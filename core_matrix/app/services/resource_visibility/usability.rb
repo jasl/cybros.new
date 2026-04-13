@@ -37,57 +37,36 @@ module ResourceVisibility
     end
 
     def agent_usable?
-      usable_record?(@agent)
+      accessible_record?(@agent, Agent.visible_to_user(@user))
     end
 
     def execution_runtime_usable?
-      usable_record?(@execution_runtime)
+      accessible_record?(@execution_runtime, ExecutionRuntime.visible_to_user(@user))
     end
 
     def workspace_accessible?
-      workspace = fresh_record(@workspace)
-      return false if @user.blank? || workspace.blank?
-      return false unless workspace.installation_id == @user.installation_id
-      return false unless workspace.user_id == @user.id
-
-      binding = fresh_record(workspace.user_agent_binding)
-      return false if binding.blank?
-      return false unless binding.installation_id == @user.installation_id
-      return false unless binding.user_id == @user.id
-
-      agent = fresh_record(binding.agent)
-      usable_record?(agent)
+      accessible_record?(@workspace, Workspace.accessible_to_user(@user))
     end
 
     def conversation_accessible?
-      conversation = @conversation
-      return false if conversation.blank?
-      return false unless workspace_accessible_for?(conversation.workspace)
-
-      usable_record?(fresh_record(conversation.agent))
+      accessible_record?(@conversation, Conversation.accessible_to_user(@user))
     end
 
     private
 
-    def workspace_accessible_for?(workspace)
-      self.class.workspace_accessible_by_user?(user: @user, workspace: workspace)
-    end
-
-    def usable_record?(record)
+    def accessible_record?(record, relation)
       record = fresh_record(record)
       return true if record.blank?
       return false if @user.blank?
-      return false unless record.respond_to?(:installation_id) && record.installation_id == @user.installation_id
-      return false unless record.respond_to?(:lifecycle_state) && record.lifecycle_state == "active"
+      return false unless relation.present?
 
-      if record.respond_to?(:visibility_public?) && record.visibility_public?
-        return true
+      if record.is_a?(ApplicationRecord) && record.id.present?
+        return relation.where(id: record.id).exists?
       end
 
-      record.respond_to?(:visibility_private?) &&
-        record.visibility_private? &&
-        record.respond_to?(:owner_user_id) &&
-        record.owner_user_id == @user.id
+      return relation.where(public_id: record.public_id).exists? if record.respond_to?(:public_id) && record.public_id.present?
+
+      false
     end
 
     def fresh_record(record)

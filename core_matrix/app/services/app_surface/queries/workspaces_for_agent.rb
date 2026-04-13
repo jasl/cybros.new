@@ -12,16 +12,11 @@ module AppSurface
 
       def call
         Workspace
-          .where(
-            installation: @user.installation,
-            user: @user,
-            agent: @agent,
-            privacy: "private"
-          )
+          .accessible_to_user(@user)
+          .where(agent: @agent)
           .includes(:agent, :default_execution_runtime)
           .order(is_default: :desc, name: :asc, id: :asc)
           .to_a
-          .select { |workspace| AppSurface::Policies::WorkspaceAccess.call(user: @user, workspace: workspace) }
       end
     end
   end

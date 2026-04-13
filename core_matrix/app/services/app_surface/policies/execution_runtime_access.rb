@@ -11,10 +11,9 @@ module AppSurface
       end
 
       def call
-        ResourceVisibility::Usability.execution_runtime_usable_by_user?(
-          user: @user,
-          execution_runtime: @execution_runtime
-        )
+        return false if @user.blank? || @execution_runtime.blank?
+
+        ExecutionRuntime.visible_to_user(@user).where(id: @execution_runtime.id).exists?
       end
     end
   end

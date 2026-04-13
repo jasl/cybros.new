@@ -88,4 +88,48 @@ class WorkspaceTest < ActiveSupport::TestCase
     assert_not workspace.valid?
     assert_includes workspace.errors[:default_execution_runtime], "must belong to the same installation"
   end
+
+  test "accessible_to_user returns only owned workspaces whose agent remains visible" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    other_user = create_user!(
+      installation: installation,
+      identity: create_identity!,
+      display_name: "Other User"
+    )
+    visible_agent = create_agent!(installation: installation, key: "visible-agent")
+    hidden_agent = create_agent!(
+      installation: installation,
+      key: "hidden-agent"
+    )
+    visible_binding = create_user_agent_binding!(
+      installation: installation,
+      user: user,
+      agent: visible_agent
+    )
+    hidden_binding = create_user_agent_binding!(
+      installation: installation,
+      user: user,
+      agent: hidden_agent
+    )
+    visible_workspace = create_workspace!(
+      installation: installation,
+      user: user,
+      user_agent_binding: visible_binding,
+      name: "Visible Workspace"
+    )
+    create_workspace!(
+      installation: installation,
+      user: user,
+      user_agent_binding: hidden_binding,
+      name: "Hidden Workspace"
+    )
+    hidden_agent.update!(
+      visibility: "private",
+      provisioning_origin: "user_created",
+      owner_user: other_user
+    )
+
+    assert_equal [visible_workspace], Workspace.accessible_to_user(user).order(:id).to_a
+  end
 end

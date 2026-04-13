@@ -11,10 +11,9 @@ module AppSurface
       end
 
       def call
-        ResourceVisibility::Usability.workspace_accessible_by_user?(
-          user: @user,
-          workspace: @workspace
-        )
+        return false if @user.blank? || @workspace.blank?
+
+        Workspace.accessible_to_user(@user).where(id: @workspace.id).exists?
       end
     end
   end
