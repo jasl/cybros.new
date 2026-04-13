@@ -3,13 +3,13 @@ require "test_helper"
 class Workflows::ExecuteRunTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
-  test "rejects unknown keywords instead of silently ignoring legacy execute-run inputs" do
+  test "rejects unknown keywords instead of silently ignoring extra execute-run inputs" do
     workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
 
     error = assert_raises(ArgumentError) do
       Workflows::ExecuteRun.call(
         workflow_run: workflow_run,
-        messages: [{ "role" => "user", "content" => "legacy" }]
+        messages: [{ "role" => "user", "content" => "unexpected" }]
       )
     end
 

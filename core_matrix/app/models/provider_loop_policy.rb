@@ -61,10 +61,16 @@ class ProviderLoopPolicy
     explicit_policy = candidate["loop_policy"]
     top_level = candidate.slice(*KNOWN_KEYS)
 
-    return top_level unless explicit_policy.present?
-    raise InvalidPolicy, "runtime_override loop_policy must be a hash" unless explicit_policy.is_a?(Hash)
+    unless explicit_policy.present?
+      raise InvalidPolicy, "runtime_override loop policy overrides must be nested under loop_policy" if top_level.present?
 
-    top_level.merge(explicit_policy.deep_stringify_keys.slice(*KNOWN_KEYS))
+      return {}
+    end
+
+    raise InvalidPolicy, "runtime_override loop_policy must be a hash" unless explicit_policy.is_a?(Hash)
+    raise InvalidPolicy, "runtime_override loop policy overrides must be nested under loop_policy" if top_level.present?
+
+    explicit_policy.deep_stringify_keys.slice(*KNOWN_KEYS)
   end
 
   def merged_runtime_overrides

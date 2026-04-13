@@ -40,14 +40,16 @@ class ProviderLoopPolicyTest < ActiveSupport::TestCase
     )
   end
 
-  test "supports legacy top-level max_rounds as a shorthand override" do
-    policy = ProviderLoopPolicy.build(
-      runtime_overrides: {
-        "max_rounds" => 24,
-      }
-    )
+  test "rejects top-level loop policy overrides outside loop_policy" do
+    error = assert_raises(ProviderLoopPolicy::InvalidPolicy) do
+      ProviderLoopPolicy.build(
+        runtime_overrides: {
+          "max_rounds" => 24,
+        }
+      )
+    end
 
-    assert_equal 24, policy.fetch("max_rounds")
+    assert_includes error.message, "must be nested under loop_policy"
   end
 
   test "rejects invalid max_rounds overrides" do

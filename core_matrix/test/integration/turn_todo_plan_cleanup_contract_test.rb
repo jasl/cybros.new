@@ -1,7 +1,7 @@
 require "test_helper"
 
 class TurnTodoPlanCleanupContractTest < ActionDispatch::IntegrationTest
-  test "rejects legacy plan updates and old feed semantics" do
+  test "rejects stale plan updates and old feed semantics" do
     context = build_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
@@ -26,8 +26,8 @@ class TurnTodoPlanCleanupContractTest < ActionDispatch::IntegrationTest
             "supervision_update" => {
               "plan_items" => [
                 {
-                  "item_key" => "legacy",
-                  "title" => "Legacy path",
+                  "item_key" => "stale-path",
+                  "title" => "Stale path",
                   "status" => "pending",
                   "position" => 0,
                 },
@@ -49,12 +49,12 @@ class TurnTodoPlanCleanupContractTest < ActionDispatch::IntegrationTest
         "attempt_no" => agent_task_run.attempt_no,
         "progress_payload" => {
           "turn_todo_plan_update" => {
-            "goal_summary" => "Remove the legacy supervision plan path",
+            "goal_summary" => "Remove the stale supervision plan path",
             "current_item_key" => "cleanup",
             "items" => [
               {
                 "item_key" => "cleanup",
-                "title" => "Clean up the legacy plan path",
+                "title" => "Clean up the stale plan path",
                 "status" => "in_progress",
                 "position" => 0,
                 "kind" => "implementation",

@@ -204,12 +204,12 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     refute_includes byo_integration_test, "fetch(:agent_snapshot)"
   end
 
-  test "core matrix removes the legacy execution runtime registration substrate" do
+  test "core matrix removes the obsolete execution runtime registration substrate" do
     refute Rails.root.join("app/services/execution_runtimes/register.rb").exist?
     refute Rails.root.join("app/services/execution_runtimes/record_capabilities.rb").exist?
     refute Rails.root.join("test/services/execution_runtimes/record_capabilities_test.rb").exist?
 
-    legacy_runtime_constants = [
+    removed_runtime_constants = [
       "ExecutionRuntimes::" + "Register",
       "ExecutionRuntimes::" + "RecordCapabilities",
     ]
@@ -217,7 +217,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
       next if path.end_with?("/test/lib/fresh_start_stack_contract_test.rb")
 
       source = File.read(path)
-      next if legacy_runtime_constants.none? { |constant_name| source.include?(constant_name) }
+      next if removed_runtime_constants.none? { |constant_name| source.include?(constant_name) }
 
       path.delete_prefix("#{Rails.root}/")
     end
@@ -225,8 +225,8 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_empty runtime_sources
   end
 
-  test "core matrix removes the legacy agent snapshot registration substrate" do
-    legacy_service_paths = %w[
+  test "core matrix removes the obsolete agent snapshot registration substrate" do
+    removed_service_paths = %w[
       app/services/agent_snapshots/register.rb
       app/services/agent_snapshots/handshake.rb
       app/services/agent_snapshots/reconcile_config.rb
@@ -237,11 +237,11 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
       test/services/agent_snapshots/reconcile_config_test.rb
     ]
 
-    legacy_service_paths.each do |relative_path|
+    removed_service_paths.each do |relative_path|
       refute Rails.root.join(relative_path).exist?, "expected #{relative_path} to be removed"
     end
 
-    legacy_agent_snapshot_constants = [
+    removed_agent_snapshot_constants = [
       "AgentSnapshots::" + "Register",
       "AgentSnapshots::" + "Handshake",
       "AgentSnapshots::" + "ReconcileConfig",
@@ -253,7 +253,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
       next if path.end_with?("/test/lib/fresh_start_stack_contract_test.rb")
 
       source = File.read(path)
-      next if legacy_agent_snapshot_constants.none? { |constant_name| source.include?(constant_name) }
+      next if removed_agent_snapshot_constants.none? { |constant_name| source.include?(constant_name) }
 
       path.delete_prefix("#{Rails.root}/")
     end
@@ -261,12 +261,12 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
     assert_empty lingering_sources
   end
 
-  test "core matrix removes the legacy agent enrollment compatibility layer" do
+  test "core matrix removes the obsolete agent enrollment layer" do
     refute Rails.root.join("app/models/agent_enrollment.rb").exist?
     refute Rails.root.join("app/services/agent_enrollments/issue.rb").exist?
     refute Rails.root.join("test/services/agent_enrollments/issue_test.rb").exist?
 
-    legacy_agent_enrollment_constants = [
+    removed_agent_enrollment_constants = [
       "AgentEnrollment",
       "AgentEnrollments::" + "Issue",
       "agent_enrollment.issued",
@@ -275,7 +275,7 @@ class FreshStartStackContractTest < ActiveSupport::TestCase
       next if path.end_with?("/test/lib/fresh_start_stack_contract_test.rb")
 
       source = File.read(path)
-      next if legacy_agent_enrollment_constants.none? { |constant_name| source.include?(constant_name) }
+      next if removed_agent_enrollment_constants.none? { |constant_name| source.include?(constant_name) }
 
       path.delete_prefix("#{Rails.root}/")
     end

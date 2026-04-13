@@ -5,7 +5,7 @@ module TurnTodoPlans
     test "builds canonical feed entries from old and new plan snapshots" do
       changeset = TurnTodoPlans::BuildFeedChangeset.call(
         previous_plan: {
-          "goal_summary" => "Replace legacy plan paths",
+          "goal_summary" => "Replace stale plan paths",
           "current_item_key" => "define-domain",
           "items" => [
             {
@@ -17,7 +17,7 @@ module TurnTodoPlans
           ],
         },
         current_plan: {
-          "goal_summary" => "Replace legacy plan paths",
+          "goal_summary" => "Replace stale plan paths",
           "current_item_key" => "wire-supervision",
           "items" => [
             {

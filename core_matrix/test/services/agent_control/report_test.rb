@@ -15,7 +15,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
         agent_definition_version: context[:agent_definition_version],
         payload: {},
         method_id: "execution_progress",
-        protocol_message_id: "legacy-#{next_test_sequence}",
+        protocol_message_id: "unexpected-#{next_test_sequence}",
         mailbox_item_id: mailbox_item.public_id,
         agent_task_run_id: agent_task_run.public_id
       )

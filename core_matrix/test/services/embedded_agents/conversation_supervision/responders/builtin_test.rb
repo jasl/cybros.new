@@ -273,7 +273,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     refute_match(/\bprovider_round|tool_|runtime\.workflow_node|subagent_barrier\b/, response.dig("human_sidechat", "content"))
   end
 
-  test "answers from frozen turn todo plan views instead of legacy plan item payloads" do
+  test "answers from frozen turn todo plan views instead of stale plan item payloads" do
     fixture = fresh_turn_todo_plan_fixture!(waiting: false)
     session = create_conversation_supervision_session!(fixture)
     snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(

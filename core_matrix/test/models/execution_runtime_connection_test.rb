@@ -33,7 +33,7 @@ class ExecutionRuntimeConnectionTest < ActiveSupport::TestCase
     assert_includes conflicting.errors[:execution_runtime_id], "already has an active connection"
   end
 
-  test "legacy execution helpers create executor-backed records" do
+  test "runtime helpers create executor-backed records" do
     installation = create_installation!
     execution_runtime = create_execution_runtime!(installation: installation)
     execution_runtime_version = create_execution_runtime_version!(

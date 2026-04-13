@@ -875,19 +875,19 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     end
   end
 
-  test "manual support exposes bring-your-own registration helpers instead of legacy external helper names" do
-    legacy_create_helper = ("create_" + "external_" + "agent!").to_sym
-    legacy_register_runtime_helper = ("register_" + "external_" + "runtime!").to_sym
-    legacy_register_execution_runtime_helper = ("register_" + "external_" + "execution_" + "runtime!").to_sym
+  test "manual support exposes bring-your-own registration helpers instead of removed external helper names" do
+    removed_create_helper = ("create_" + "external_" + "agent!").to_sym
+    removed_register_runtime_helper = ("register_" + "external_" + "runtime!").to_sym
+    removed_register_execution_runtime_helper = ("register_" + "external_" + "execution_" + "runtime!").to_sym
 
     assert_respond_to Acceptance::ManualSupport, :create_bring_your_own_agent!
     assert_respond_to Acceptance::ManualSupport, :create_bring_your_own_execution_runtime!
     assert_respond_to Acceptance::ManualSupport, :register_bring_your_own_runtime!
     assert_respond_to Acceptance::ManualSupport, :register_bring_your_own_agent_from_manifest!
     assert_respond_to Acceptance::ManualSupport, :register_bring_your_own_execution_runtime!
-    refute_respond_to Acceptance::ManualSupport, legacy_create_helper
-    refute_respond_to Acceptance::ManualSupport, legacy_register_runtime_helper
-    refute_respond_to Acceptance::ManualSupport, legacy_register_execution_runtime_helper
+    refute_respond_to Acceptance::ManualSupport, removed_create_helper
+    refute_respond_to Acceptance::ManualSupport, removed_register_runtime_helper
+    refute_respond_to Acceptance::ManualSupport, removed_register_execution_runtime_helper
   end
 
   test "create_bring_your_own_execution_runtime! issues onboarding through the admin app api" do

@@ -388,7 +388,7 @@ module ActiveSupport
       create_agent_definition_version!(**{
         installation: agent_definition_version.installation,
         agent: agent_definition_version.agent,
-        definition_fingerprint: "#{agent_definition_version.definition_fingerprint}-compat-v#{version}-#{next_test_sequence}",
+        definition_fingerprint: "#{agent_definition_version.definition_fingerprint}-variant-v#{version}-#{next_test_sequence}",
         protocol_methods: protocol_methods || default_protocol_methods("agent_health"),
         tool_contract: tool_contract || default_tool_catalog("exec_command"),
         profile_policy: profile_policy,
