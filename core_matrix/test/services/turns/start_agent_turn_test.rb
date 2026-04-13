@@ -92,6 +92,31 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
     end
   end
 
+  test "starts an agent turn within twenty-four SQL queries" do
+    context = create_workspace_context!
+    owner_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace]
+    )
+    child_conversation = create_agent_addressable_child_conversation!(
+      context: context,
+      owner_conversation: owner_conversation,
+      profile_key: "researcher"
+    )
+
+    assert_sql_query_count_at_most(24) do
+      turn = Turns::StartAgentTurn.call(
+        conversation: child_conversation,
+        content: "Investigate this",
+        sender_kind: "owner_agent",
+        sender_conversation: owner_conversation,
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+
+      assert_equal owner_conversation.public_id, turn.source_ref_id
+    end
+  end
+
   private
 
   def create_agent_addressable_child_conversation!(context:, owner_conversation:, profile_key:)

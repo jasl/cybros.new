@@ -214,6 +214,30 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     assert_equal 1, conversation.reload.turns.count
   end
 
+  test "queues a follow up turn within twenty-six SQL queries" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace]
+    )
+    Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "First input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_sql_query_count_at_most(26) do
+      queued = Turns::QueueFollowUp.call(
+        conversation: conversation,
+        content: "Follow up input",
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+
+      assert_equal context[:user].public_id, queued.source_ref_id
+    end
+  end
+
   private
 
   def archive_during_lock!(conversation)
