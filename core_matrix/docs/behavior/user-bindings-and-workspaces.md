@@ -60,14 +60,6 @@ The current landed shape is:
 - Seeds the workspace default execution runtime from the bound agent's current
   `default_execution_runtime`.
 
-### `Workspaces::BuildDefaultReference`
-
-- Remains the app-facing wrapper that returns the default workspace reference
-  value object.
-- Delegates actual lookup to `Workspaces::ResolveDefaultReference`.
-- Requires an explicit `user` + `agent` pair at the call site.
-- Does not retain a binding-backed compatibility mode.
-
 ### `Workspaces::ResolveDefaultReference`
 
 - Resolves the app-facing default workspace reference from

@@ -1,18 +1,10 @@
 require "test_helper"
 
 class Workspaces::ResolveDefaultReferenceTest < ActiveSupport::TestCase
-  test "requires explicit user and agent when building the default reference" do
-    context = create_workspace_context!
-
-    assert_raises(ArgumentError) do
-      Workspaces::BuildDefaultReference.call(user_agent_binding: context[:user_agent_binding])
-    end
-  end
-
   test "returns the virtual reference contract through explicit workspace ownership" do
     context = create_workspace_context!
 
-    actual = Workspaces::BuildDefaultReference.call(
+    actual = Workspaces::ResolveDefaultReference.call(
       user: context[:user],
       agent: context[:agent]
     )
@@ -37,7 +29,7 @@ class Workspaces::ResolveDefaultReferenceTest < ActiveSupport::TestCase
       is_default: true
     )
 
-    actual = Workspaces::BuildDefaultReference.call(
+    actual = Workspaces::ResolveDefaultReference.call(
       user: context[:user],
       agent: context[:agent]
     )

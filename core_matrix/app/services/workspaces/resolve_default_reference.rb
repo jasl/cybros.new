@@ -1,5 +1,21 @@
 module Workspaces
   class ResolveDefaultReference
+    Result = Struct.new(
+      :state,
+      :workspace,
+      :workspace_id,
+      :agent_id,
+      :user_id,
+      :name,
+      :privacy,
+      :default_execution_runtime_id,
+      keyword_init: true
+    ) do
+      def materialized? = state == "materialized"
+
+      def virtual? = state == "virtual"
+    end
+
     def self.call(...)
       new(...).call
     end
@@ -19,7 +35,7 @@ module Workspaces
         is_default: true
       )
 
-      BuildDefaultReference::Result.new(
+      Result.new(
         state: workspace.present? ? "materialized" : "virtual",
         workspace: workspace,
         workspace_id: workspace&.public_id,

@@ -20,7 +20,7 @@ class BundledDefaultAgentBootstrapFlowTest < ActionDispatch::IntegrationTest
 
     bundled_agent = Agent.find_by!(key: "fenix")
     binding = UserAgentBinding.find_by!(user: result.user)
-    default_workspace_ref = Workspaces::BuildDefaultReference.call(user: result.user, agent: bundled_agent)
+    default_workspace_ref = Workspaces::ResolveDefaultReference.call(user: result.user, agent: bundled_agent)
     bundled_runtime = ExecutionRuntime.first
 
     assert_equal bundled_agent, binding.agent
