@@ -156,4 +156,25 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:selected_output_message], "must carry source input provenance"
   end
+
+  test "reruns a finished tail output without a full conversation anchor rescan" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+      ),
+      content: "Input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(turn, content: "Original output")
+    turn.update!(lifecycle_state: "completed")
+
+    assert_sql_query_count_at_most(17) do
+      Turns::RerunOutput.call(
+        message: output,
+        content: "Rerun output"
+      )
+    end
+  end
 end

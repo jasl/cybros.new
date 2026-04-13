@@ -96,4 +96,21 @@ class Turns::EditTailInputTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:base], "cannot rewrite a fork-point input"
   end
+
+  test "edits the tail input without a full conversation anchor rescan" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+      ),
+      content: "Original input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    attach_selected_output!(turn, content: "Old output")
+
+    assert_sql_query_count_at_most(16) do
+      Turns::EditTailInput.call(turn: turn, content: "Edited input")
+    end
+  end
 end

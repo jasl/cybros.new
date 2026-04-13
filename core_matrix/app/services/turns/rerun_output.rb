@@ -19,28 +19,29 @@ module Turns
         closing_message: "must not rewrite output while close is in progress",
         interrupted_message: "must not rewrite output after turn interruption"
       ) do |locked_turn|
+        target_message = Message.includes(:source_input_message).find(@message.id)
+        target_is_tail = locked_turn.tail_in_active_timeline?
+
         raise_invalid!(locked_turn, :lifecycle_state, "must be completed to rerun output") unless locked_turn.completed?
-        if locked_turn.tail_in_active_timeline? && locked_turn.selected_output_message_id == @message.id && @message.reload.fork_point?
+        if target_is_tail && locked_turn.selected_output_message_id == @message.id && target_message.fork_point?
           raise_invalid!(locked_turn, :base, "cannot rewrite a fork-point output")
         end
 
-        if locked_turn.tail_in_active_timeline? && locked_turn.selected_output_message_id == @message.id
-          return rerun_in_place(locked_turn)
+        if target_is_tail && locked_turn.selected_output_message_id == @message.id
+          return rerun_in_place(locked_turn, target_message)
         end
 
-        rerun_in_branch(locked_turn)
+        rerun_in_branch(locked_turn, target_message)
       end
     end
 
     private
 
-    def rerun_in_place(turn)
+    def rerun_in_place(turn, target_message)
       raise_invalid!(turn, :lifecycle_state, "must be completed to rerun output") unless turn.completed?
       raise_invalid!(turn, :selected_output_message, "must match the rerun target") unless turn.selected_output_message_id == @message.id
-      raise_invalid!(turn, :base, "must target the selected tail output") unless turn.tail_in_active_timeline?
-      raise_invalid!(turn, :base, "cannot rewrite a fork-point output") if @message.reload.fork_point?
 
-      source_input_message = source_input_message_for_replay!(turn)
+      source_input_message = source_input_message_for_replay!(turn, target_message)
       rerun_output = Turns::CreateOutputVariant.call(
         turn: turn,
         content: @content,
@@ -61,8 +62,8 @@ module Turns
       turn
     end
 
-    def rerun_in_branch(turn)
-      source_input_message = source_input_message_for_replay!(turn)
+    def rerun_in_branch(turn, target_message)
+      source_input_message = source_input_message_for_replay!(turn, target_message)
       branch = Conversations::CreateBranch.call(
         parent: turn.conversation,
         historical_anchor_message_id: @message.id
@@ -94,8 +95,8 @@ module Turns
       raise ActiveRecord::RecordInvalid, record
     end
 
-    def source_input_message_for_replay!(turn)
-      @message.reload.source_input_message ||
+    def source_input_message_for_replay!(turn, target_message)
+      target_message.source_input_message ||
         raise_invalid!(turn, :selected_output_message, "must carry source input provenance")
     end
   end

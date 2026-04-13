@@ -116,4 +116,25 @@ class Turns::RetryOutputTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:selected_output_message], "must carry source input provenance"
   end
+
+  test "retries output without a full conversation anchor rescan" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+      ),
+      content: "Input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(turn, content: "Failed output")
+    turn.update!(lifecycle_state: "failed")
+
+    assert_sql_query_count_at_most(18) do
+      Turns::RetryOutput.call(
+        message: output,
+        content: "Retried output"
+      )
+    end
+  end
 end
