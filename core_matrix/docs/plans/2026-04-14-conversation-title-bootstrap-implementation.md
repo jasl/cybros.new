@@ -489,23 +489,34 @@ git commit -m "feat: bootstrap conversation titles asynchronously"
 Add tests that expect:
 
 - `runtime_first` mode tries the runtime path first
+- mailbox work is attempted only when the frozen capability snapshot advertises
+  the runtime title tool
 - missing runtime support does not fail the overall title bootstrap
+- `unsupported_tool` from the agent request path does not fail the overall
+  title bootstrap
 - runtime failure falls back to embedded generation
 
 Keep these tests narrowly scoped so this pass does not force any concrete Fenix
 implementation.
 
-**Step 2: Implement a capability probe plus graceful fallback**
+**Step 2: Implement a capability probe plus graceful fallback over the existing mailbox contract**
 
 Add a small runtime strategy service that can:
 
-- inspect the current conversation execution/runtime context
-- decide whether runtime title bootstrap is supported
-- return `nil` or a failure result without raising when it is unsupported
+- inspect the frozen agent capability snapshot / tool surface for the current
+  turn or conversation context
+- decide whether runtime title bootstrap is supported by checking for a
+  dedicated agent-owned title tool in that frozen surface
+- use the existing `execute_tool` mailbox path when the tool is present
+- return `nil` or a failure result without raising when the capability is
+  absent
+- treat `unsupported_tool`, timeout, and request failure as graceful fallback
+  cases rather than terminal errors
 
-Do not require this pass to invent a durable runtime mailbox contract if the
-runtime surface is not ready. The core requirement is that the orchestration
-path stays runtime-first when possible and safely falls back otherwise.
+Do not invent a second feature-support protocol for this pass. The runtime
+path should reuse the existing manifest/tool-contract + `execute_tool`
+contract. The core requirement is that the orchestration path stays
+runtime-first when possible and safely falls back otherwise.
 
 **Step 3: Run the targeted tests and verify they pass**
 
@@ -606,9 +617,16 @@ If runtime summary-title is not implemented yet, stop after Task 8.
 
 If desired, implement a very small Fenix-side title-summary capability that:
 
+- is advertised explicitly in the Fenix `tool_contract`
+- is executed through `Requests::ExecuteTool`
 - accepts first user message / light transcript context
 - returns a candidate title only
 - follows the canonical config defaults already added in Task 4
+
+If the capability is declared but not actually implemented, Fenix should return
+the normal agent-tool failure payload such as `unsupported_tool`; `core_matrix`
+should already interpret that as a fallback signal rather than a fatal title
+bootstrap failure.
 
 **Step 3: Re-run cross-repo verification**
 

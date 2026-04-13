@@ -283,6 +283,29 @@ When `mode = runtime_first`, `core_matrix` may attempt the runtime path first.
 If the runtime does not expose the capability yet, the call should gracefully
 fall back to the embedded path.
 
+This should follow the same split used by prompt compaction:
+
+- `features.title_bootstrap.*` expresses policy
+- the frozen agent capability surface expresses actual implementation support
+
+V1 does not need a separate feature-support manifest. If Fenix eventually
+implements runtime title generation, it should advertise that through the
+existing agent `tool_contract` and handle it through the existing
+`execute_tool` mailbox path.
+
+That implies two distinct fallback checks:
+
+1. static capability check
+   - if the frozen capability snapshot does not include the title-bootstrap
+     tool, do not send mailbox work and fall back immediately
+2. dynamic execution check
+   - if the tool is advertised but Fenix returns `unsupported_tool`, times out,
+     or otherwise fails the agent request, fall back to the embedded path
+
+This keeps policy and capability orthogonal and avoids introducing a second
+"does the runtime support this?" contract alongside the existing manifest and
+tool-binding system.
+
 ### 7. Add An Embedded Title Agent In `core_matrix`
 
 Add a dedicated embedded agent entry under `app/services/embedded_agents`, for
@@ -316,7 +339,8 @@ is unavailable."
 
 The fallback order should be:
 
-1. runtime summary-title capability, when enabled and available
+1. runtime summary-title capability, when enabled and present in the frozen
+   capability snapshot
 2. embedded title agent
 3. deterministic first-line heuristic
 
@@ -386,6 +410,12 @@ guard can reuse it instead of reworking it.
 The runtime-first path must be optional and failure-tolerant. Embedded fallback
 must remain the product safety net.
 
+Capability drift should be handled in two layers:
+
+- missing capability in the frozen manifest/tool snapshot means "skip runtime"
+- runtime-side `unsupported_tool` or equivalent mailbox failure means "fall
+  back", not "fail title bootstrap"
+
 ## Testing Strategy
 
 The implementation should lock five classes of behavior:
@@ -405,7 +435,11 @@ Specific regression coverage should include:
 - first manual turn enqueues the title-bootstrap job
 - later turns do not overwrite existing titles
 - user-locked titles are never replaced
+- runtime-first mode only attempts mailbox work when the frozen capability
+  snapshot advertises the title tool
 - runtime-first mode gracefully falls back when runtime support is unavailable
+- runtime-first mode gracefully falls back when the agent returns
+  `unsupported_tool`
 - blank or low-signal input still lands on the deterministic fallback
 
 ## Success Criteria
