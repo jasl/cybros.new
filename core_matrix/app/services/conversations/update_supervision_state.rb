@@ -1,14 +1,8 @@
 module Conversations
   class UpdateSupervisionState
-    ACTIVE_TASK_LIFECYCLE_STATES = %w[queued running].freeze
     TERMINAL_TASK_LIFECYCLE_STATES = %w[completed failed interrupted canceled].freeze
     ACTIVE_SUBAGENT_OBSERVED_STATUSES = %w[running waiting].freeze
-    TODO_PLAN_INCLUDES = [
-      :conversation,
-      :turn,
-      :agent_task_run,
-      { turn_todo_plan_items: :delegated_subagent_connection },
-    ].freeze
+    TODO_PLAN_INCLUDES = ConversationSupervision::LoadLatestActiveTaskRuns::TODO_PLAN_INCLUDES
 
     def self.call(...)
       new(...).call
@@ -488,11 +482,7 @@ module Conversations
     def current_task_run
       return @current_task_run if instance_variable_defined?(:@current_task_run)
 
-      @current_task_run = AgentTaskRun
-        .includes(:agent_task_progress_entries, turn_todo_plan: TODO_PLAN_INCLUDES)
-        .where(conversation: @conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
-        .order(created_at: :desc)
-        .first
+      @current_task_run = latest_active_task_runs_by_conversation_id.fetch(@conversation.id, nil)
     end
 
     def latest_task_run
@@ -643,11 +633,7 @@ module Conversations
       return @active_subagent_turn_plan_summaries_by_session_id if instance_variable_defined?(:@active_subagent_turn_plan_summaries_by_session_id)
 
       @active_subagent_turn_plan_summaries_by_session_id = active_owned_subagent_connections.each_with_object({}) do |session, summaries|
-        agent_task_run = AgentTaskRun
-          .where(conversation: session.conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
-          .includes(turn_todo_plan: TODO_PLAN_INCLUDES)
-          .order(created_at: :desc)
-          .first
+        agent_task_run = latest_active_task_runs_by_conversation_id.fetch(session.conversation_id, nil)
         next if agent_task_run&.turn_todo_plan.blank?
 
         summaries[session.id] = TurnTodoPlans::BuildCompactView.call(turn_todo_plan: agent_task_run.turn_todo_plan).merge(
@@ -657,6 +643,15 @@ module Conversations
           "supervision_state" => session.supervision_state,
         )
       end
+    end
+
+    def latest_active_task_runs_by_conversation_id
+      return @latest_active_task_runs_by_conversation_id if instance_variable_defined?(:@latest_active_task_runs_by_conversation_id)
+
+      @latest_active_task_runs_by_conversation_id = ConversationSupervision::LoadLatestActiveTaskRuns.call(
+        conversation_ids: [@conversation.id] + active_owned_subagent_connections.map(&:conversation_id),
+        include_progress_entries: true
+      )
     end
 
     def active_subagent_connection?(session)

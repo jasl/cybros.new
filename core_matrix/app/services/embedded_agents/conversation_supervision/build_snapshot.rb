@@ -2,7 +2,6 @@ module EmbeddedAgents
   module ConversationSupervision
     class BuildSnapshot
       CONTEXT_MESSAGE_LIMIT = 8
-      ACTIVE_TASK_LIFECYCLE_STATES = %w[queued running].freeze
       ACTIVE_SUBAGENT_OBSERVED_STATUSES = %w[running waiting].freeze
 
       def self.call(...)
@@ -161,11 +160,7 @@ module EmbeddedAgents
       end
 
       def active_subagent_turn_todo_plan_view_for(session)
-        agent_task_run = AgentTaskRun
-          .where(conversation: session.conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
-          .includes(turn_todo_plan: :turn_todo_plan_items)
-          .order(created_at: :desc)
-          .first
+        agent_task_run = latest_active_task_runs_by_conversation_id.fetch(session.conversation_id, nil)
 
         view =
           if agent_task_run&.turn_todo_plan.present?
@@ -199,11 +194,7 @@ module EmbeddedAgents
       def current_agent_task_run
         return @current_agent_task_run if instance_variable_defined?(:@current_agent_task_run)
 
-        @current_agent_task_run = AgentTaskRun
-          .where(conversation: @conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
-          .includes(turn_todo_plan: :turn_todo_plan_items)
-          .order(created_at: :desc)
-          .first
+        @current_agent_task_run = latest_active_task_runs_by_conversation_id.fetch(@conversation.id, nil)
       end
 
       def current_turn_todo_projection
@@ -224,6 +215,14 @@ module EmbeddedAgents
           .where(observed_status: ACTIVE_SUBAGENT_OBSERVED_STATUSES)
           .order(:created_at)
           .to_a
+      end
+
+      def latest_active_task_runs_by_conversation_id
+        return @latest_active_task_runs_by_conversation_id if instance_variable_defined?(:@latest_active_task_runs_by_conversation_id)
+
+        @latest_active_task_runs_by_conversation_id = ::ConversationSupervision::LoadLatestActiveTaskRuns.call(
+          conversation_ids: [@conversation.id] + active_subagent_connections.map(&:conversation_id)
+        )
       end
 
       def anchor_turn

@@ -21,11 +21,11 @@ class AppApiConversationTurnTodoPlansControllerTest < ActionDispatch::Integratio
     refute_includes response.body, %("#{fixture.fetch(:conversation).id}")
   end
 
-  test "lists the current turn todo plan view within forty-five SQL queries" do
+  test "lists the current turn todo plan view within thirty-two SQL queries" do
     fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
     registration = register_machine_api_for_context!(fixture)
 
-    assert_sql_query_count_at_most(45) do
+    assert_sql_query_count_at_most(32) do
       get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/todo_plan",
         headers: app_api_headers(registration[:session_token])
     end
