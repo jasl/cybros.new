@@ -85,7 +85,8 @@ module Turns
     def resolve_execution_runtime_version(execution_runtime)
       return nil if execution_runtime.blank?
 
-      execution_runtime.current_execution_runtime_version || begin
+      execution_runtime.current_execution_runtime_version ||
+        ExecutionRuntime.find_by(id: execution_runtime.id)&.current_execution_runtime_version || begin
         @conversation.errors.add(:execution_runtime, "must have an active execution runtime version for turn entry")
         raise ActiveRecord::RecordInvalid, @conversation unless @allow_unavailable_execution_runtime
       end
