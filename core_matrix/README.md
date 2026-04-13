@@ -72,6 +72,23 @@ claims real loop behavior, validation must include:
 - a real LLM API
 - the current active acceptance suite from `../acceptance/README.md`
 
+Changes that touch conversation/turn/workflow bootstrap, runtime event streams,
+or app-facing roundtrip behavior must satisfy an even stricter gate before they
+are considered done:
+
+- the full local `core_matrix` verification suite
+- `ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash ../acceptance/bin/run_active_suite.sh`
+- inspection of the produced acceptance artifacts
+- inspection of the resulting database records so state shapes, anchors, and
+  transitions are confirmed against the business contract rather than inferred
+  only from exit codes
+
+When a branch intentionally uses destructive schema refactors and rewrites
+original migrations in place, the standard rebuild flow from the
+`core_matrix` root is:
+
+- `rails db:drop && rm db/schema.rb && rails db:create && rails db:migrate && rails db:reset`
+
 ## Acceptance Baseline
 
 - Acceptance runs use the top-level harness in `../acceptance/`.
@@ -94,6 +111,8 @@ bin/rubocop -f github
 bun run lint:js
 bin/rails db:test:prepare test
 bin/rails db:test:prepare test:system
+ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash ../acceptance/bin/run_active_suite.sh
+rails db:drop && rm db/schema.rb && rails db:create && rails db:migrate && rails db:reset
 ../acceptance/bin/run_active_suite.sh
 bin/rails runner ../acceptance/scenarios/provider_backed_turn_validation.rb
 bundle exec ruby script/manual/workflow_proof_export.rb export ...
