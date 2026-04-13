@@ -32,22 +32,22 @@ module Turns
     end
 
     def call
-      agent_connection = AgentConnection.find_by(agent: @conversation.agent, lifecycle_state: "active")
+      agent_connection = AgentConnection.find_by(agent_id: @conversation.agent_id, lifecycle_state: "active")
       unless agent_connection.present?
         @conversation.errors.add(:agent, "must have an active agent connection for turn entry")
         raise ActiveRecord::RecordInvalid, @conversation
       end
 
       execution_runtime = resolve_execution_runtime
-      execution_runtime = ExecutionRuntime.find_by(id: execution_runtime.id) || execution_runtime if execution_runtime.present?
       execution_runtime_version = resolve_execution_runtime_version(execution_runtime)
+      agent_config_state = AgentConfigState.find_by(agent_id: @conversation.agent_id)
 
       ExecutionIdentity.new(
         agent_definition_version: agent_connection.agent_definition_version,
         execution_epoch: @conversation.current_execution_epoch,
         execution_runtime: execution_runtime,
         execution_runtime_version: execution_runtime_version,
-        agent_config_state: @conversation.agent.agent_config_state
+        agent_config_state: agent_config_state
       )
     end
 

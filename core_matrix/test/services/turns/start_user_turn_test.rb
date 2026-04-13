@@ -45,13 +45,13 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal turn.selected_input_message.created_at.to_i, conversation.last_activity_at.to_i
   end
 
-  test "starts a user turn within twenty-four SQL queries" do
+  test "starts a user turn within twenty-two SQL queries" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
     )
 
-    assert_sql_query_count_at_most(24) do
+    assert_sql_query_count_at_most(22) do
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Hello world",
