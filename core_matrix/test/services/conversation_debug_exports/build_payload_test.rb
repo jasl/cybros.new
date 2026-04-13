@@ -63,6 +63,44 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     assert_operator queries.length, :<=, 120, "Expected debug export payload to stay under 120 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
   end
 
+  test "recomputes diagnostics before serializing when stored snapshots are stale" do
+    fixture = build_debug_export_fixture!
+    conversation = fixture.fetch(:conversation)
+    turn = fixture.fetch(:turn)
+    context = fixture.fetch(:context)
+
+    ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: conversation)
+
+    UsageEvent.create!(
+      installation: context[:installation],
+      conversation_id: conversation.id,
+      turn_id: turn.id,
+      user: context[:user],
+      workspace: context[:workspace],
+      agent: context[:agent_definition_version].agent,
+      agent_definition_version: context[:agent_definition_version],
+      provider_handle: "openrouter",
+      model_ref: "openai-gpt-5.4",
+      operation_kind: "text_generation",
+      success: true,
+      input_tokens: 30,
+      output_tokens: 10,
+      prompt_cache_status: "unknown",
+      latency_ms: 600,
+      occurred_at: Time.current + 1.minute
+    )
+
+    payload = ConversationDebugExports::BuildPayload.call(conversation: conversation)
+
+    assert_equal 2, payload.dig("diagnostics", "conversation", "usage_event_count")
+    assert_equal 150, payload.dig("diagnostics", "conversation", "input_tokens_total")
+    assert_equal 55, payload.dig("diagnostics", "conversation", "output_tokens_total")
+    assert_equal 1, payload.fetch("diagnostics").fetch("turns").length
+    assert_equal 2, payload.dig("diagnostics", "turns", 0, "usage_event_count")
+    assert_equal 150, payload.dig("diagnostics", "turns", 0, "input_tokens_total")
+    assert_equal 55, payload.dig("diagnostics", "turns", 0, "output_tokens_total")
+  end
+
   private
 
   def build_debug_export_fixture!

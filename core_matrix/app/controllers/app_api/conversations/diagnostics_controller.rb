@@ -2,36 +2,35 @@ module AppAPI
   module Conversations
     class DiagnosticsController < AppAPI::Conversations::BaseController
       def show
-        snapshot = ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: @conversation)
+        status = diagnostics_status_result
+        enqueue_recompute_if_needed(status)
+        snapshot = status.pending? ? nil : status.conversation_snapshot
         render_method_response(
           method_id: "conversation_diagnostics_show",
           conversation_id: @conversation.public_id,
+          diagnostics_status: status.status,
           snapshot: serialize_conversation_diagnostics_snapshot(
             snapshot,
             conversation_public_id: @conversation.public_id,
-            attributed_user_public_id: attributed_user_public_id,
-            available_prompt_cache_input_tokens_total: snapshot.metadata.fetch("prompt_cache_available_input_tokens_total", 0)
+            attributed_user_public_id: attributed_user_public_id
           ),
         )
       end
 
       def turns
-        ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: @conversation)
-        snapshots = TurnDiagnosticsSnapshot
-          .where(conversation: @conversation)
-          .includes(:turn)
-          .joins(:turn)
-          .order("turns.sequence ASC")
+        status = diagnostics_status_result
+        enqueue_recompute_if_needed(status)
+        snapshots = status.pending? ? [] : stored_turn_snapshots
 
         render_method_response(
           method_id: "conversation_diagnostics_turns",
           conversation_id: @conversation.public_id,
+          diagnostics_status: status.status,
           items: snapshots.map do |snapshot|
             serialize_turn_diagnostics_snapshot(
               snapshot,
               conversation_public_id: @conversation.public_id,
-              attributed_user_public_id: attributed_user_public_id,
-              available_prompt_cache_input_tokens_total: snapshot.metadata.fetch("prompt_cache_available_input_tokens_total", 0)
+              attributed_user_public_id: attributed_user_public_id
             )
           end,
         )
@@ -39,7 +38,27 @@ module AppAPI
 
       private
 
-      def serialize_conversation_diagnostics_snapshot(snapshot, conversation_public_id:, attributed_user_public_id:, available_prompt_cache_input_tokens_total:)
+      def diagnostics_status_result
+        @diagnostics_status_result ||= ConversationDiagnostics::ResolveSnapshotStatus.call(conversation: @conversation)
+      end
+
+      def enqueue_recompute_if_needed(status)
+        return if status.ready?
+
+        ConversationDiagnostics::RecomputeConversationSnapshotJob.perform_later(@conversation.id)
+      end
+
+      def stored_turn_snapshots
+        TurnDiagnosticsSnapshot
+          .where(conversation: @conversation)
+          .includes(:turn)
+          .joins(:turn)
+          .order("turns.sequence ASC")
+      end
+
+      def serialize_conversation_diagnostics_snapshot(snapshot, conversation_public_id:, attributed_user_public_id:)
+        return nil if snapshot.blank?
+
         {
           "conversation_id" => conversation_public_id,
           "lifecycle_state" => snapshot.lifecycle_state,
@@ -59,7 +78,7 @@ module AppAPI
           "prompt_cache_hit_rate" => prompt_cache_hit_rate(
             cached_input_tokens_total: snapshot.cached_input_tokens_total,
             available_event_count: snapshot.prompt_cache_available_event_count,
-            available_input_tokens_total: available_prompt_cache_input_tokens_total
+            available_input_tokens_total: snapshot.metadata.fetch("prompt_cache_available_input_tokens_total", 0)
           ),
           "estimated_cost_total" => snapshot.estimated_cost_total.to_s("F"),
           "estimated_cost_event_count" => snapshot.estimated_cost_event_count,
@@ -95,7 +114,7 @@ module AppAPI
         }
       end
 
-      def serialize_turn_diagnostics_snapshot(snapshot, conversation_public_id:, attributed_user_public_id:, available_prompt_cache_input_tokens_total:)
+      def serialize_turn_diagnostics_snapshot(snapshot, conversation_public_id:, attributed_user_public_id:)
         {
           "conversation_id" => conversation_public_id,
           "turn_id" => snapshot.turn.public_id,
@@ -111,7 +130,7 @@ module AppAPI
           "prompt_cache_hit_rate" => prompt_cache_hit_rate(
             cached_input_tokens_total: snapshot.cached_input_tokens_total,
             available_event_count: snapshot.prompt_cache_available_event_count,
-            available_input_tokens_total: available_prompt_cache_input_tokens_total
+            available_input_tokens_total: snapshot.metadata.fetch("prompt_cache_available_input_tokens_total", 0)
           ),
           "estimated_cost_total" => snapshot.estimated_cost_total.to_s("F"),
           "estimated_cost_event_count" => snapshot.estimated_cost_event_count,

@@ -1,43 +1,27 @@
 require "test_helper"
 
 class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
-  test "shows conversation diagnostics and turn diagnostics through the app api" do
+  include ActiveJob::TestHelper
+
+  test "returns ready conversation diagnostics and turn diagnostics from persisted snapshots" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
 
-    ProviderUsage::RecordEvent.call(
-      installation: context[:installation],
-      user: context[:user],
-      workspace: context[:workspace],
-      conversation_id: context[:conversation].id,
-      turn_id: context[:turn].id,
-      workflow_node_key: "turn_step",
-      agent: context[:agent],
-      agent_definition_version: context[:agent_definition_version],
-      provider_handle: "openrouter",
-      model_ref: "openai-gpt-5.4",
-      operation_kind: "text_generation",
-      input_tokens: 120,
-      output_tokens: 40,
-      prompt_cache_status: "available",
-      cached_input_tokens: 60,
-      latency_ms: 1_200,
-      estimated_cost: 0.010,
-      success: true,
-      occurred_at: Time.utc(2026, 4, 2, 9, 0, 0)
-    )
+    record_usage_event(context, input_tokens: 120, output_tokens: 40, cached_input_tokens: 60)
+    ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: context[:conversation])
+    clear_enqueued_jobs
 
-    ConversationDiagnosticsSnapshot.where(conversation: context[:conversation]).delete_all
-    TurnDiagnosticsSnapshot.where(conversation: context[:conversation]).delete_all
-
-    get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics",
-      headers: app_api_headers(registration[:session_token])
+    assert_no_enqueued_jobs only: ConversationDiagnostics::RecomputeConversationSnapshotJob do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics",
+        headers: app_api_headers(registration[:session_token])
+    end
 
     assert_response :success
 
     response_body = JSON.parse(response.body)
     assert_equal "conversation_diagnostics_show", response_body["method_id"]
     assert_equal context[:conversation].public_id, response_body["conversation_id"]
+    assert_equal "ready", response_body["diagnostics_status"]
     assert_equal context[:conversation].public_id, response_body.dig("snapshot", "conversation_id")
     assert_equal 1, response_body.dig("snapshot", "usage_event_count")
     assert_equal 120, response_body.dig("snapshot", "input_tokens_total")
@@ -62,14 +46,17 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     refute_includes response.body, %("#{context[:conversation].id}")
     refute_includes response.body, %("#{context[:turn].id}")
 
-    get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics/turns",
-      headers: app_api_headers(registration[:session_token])
+    assert_no_enqueued_jobs only: ConversationDiagnostics::RecomputeConversationSnapshotJob do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics/turns",
+        headers: app_api_headers(registration[:session_token])
+    end
 
     assert_response :success
 
     response_body = JSON.parse(response.body)
     assert_equal "conversation_diagnostics_turns", response_body["method_id"]
     assert_equal context[:conversation].public_id, response_body["conversation_id"]
+    assert_equal "ready", response_body["diagnostics_status"]
     assert_equal 1, response_body["items"].length
     assert_equal context[:turn].public_id, response_body["items"].first.fetch("turn_id")
     assert_equal context[:conversation].public_id, response_body["items"].first.fetch("conversation_id")
@@ -92,35 +79,151 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     assert_equal 1, TurnDiagnosticsSnapshot.where(conversation: context[:conversation]).count
   end
 
-  test "returns null prompt cache hit rate when no available usage events exist" do
+  test "returns pending conversation diagnostics and enqueues recompute when no snapshot exists" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+    ConversationDiagnosticsSnapshot.where(conversation: context[:conversation]).delete_all
+    TurnDiagnosticsSnapshot.where(conversation: context[:conversation]).delete_all
+    clear_enqueued_jobs
+
+    assert_enqueued_with(job: ConversationDiagnostics::RecomputeConversationSnapshotJob, args: [context[:conversation].id]) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+
+    response_body = JSON.parse(response.body)
+    assert_equal "conversation_diagnostics_show", response_body["method_id"]
+    assert_equal context[:conversation].public_id, response_body["conversation_id"]
+    assert_equal "pending", response_body["diagnostics_status"]
+    assert_nil response_body["snapshot"]
+    assert_equal 0, ConversationDiagnosticsSnapshot.where(conversation: context[:conversation]).count
+    assert_equal 0, TurnDiagnosticsSnapshot.where(conversation: context[:conversation]).count
+  end
+
+  test "returns pending turn diagnostics and enqueues recompute when no snapshots exist" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+    ConversationDiagnosticsSnapshot.where(conversation: context[:conversation]).delete_all
+    TurnDiagnosticsSnapshot.where(conversation: context[:conversation]).delete_all
+    clear_enqueued_jobs
+
+    assert_enqueued_with(job: ConversationDiagnostics::RecomputeConversationSnapshotJob, args: [context[:conversation].id]) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics/turns",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+
+    response_body = JSON.parse(response.body)
+    assert_equal "conversation_diagnostics_turns", response_body["method_id"]
+    assert_equal context[:conversation].public_id, response_body["conversation_id"]
+    assert_equal "pending", response_body["diagnostics_status"]
+    assert_equal [], response_body["items"]
+    assert_equal 0, ConversationDiagnosticsSnapshot.where(conversation: context[:conversation]).count
+    assert_equal 0, TurnDiagnosticsSnapshot.where(conversation: context[:conversation]).count
+  end
+
+  test "returns stale conversation diagnostics and enqueues recompute when newer facts exist" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
 
-    ProviderUsage::RecordEvent.call(
-      installation: context[:installation],
-      user: context[:user],
-      workspace: context[:workspace],
-      conversation_id: context[:conversation].id,
-      turn_id: context[:turn].id,
-      workflow_node_key: "turn_step",
-      agent: context[:agent],
-      agent_definition_version: context[:agent_definition_version],
-      provider_handle: "openrouter",
-      model_ref: "openai-gpt-5.4",
-      operation_kind: "text_generation",
+    travel_to 5.minutes.ago do
+      record_usage_event(
+        context,
+        input_tokens: 120,
+        output_tokens: 40,
+        cached_input_tokens: 60,
+        occurred_at: Time.current
+      )
+      ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: context[:conversation])
+    end
+    clear_enqueued_jobs
+    record_usage_event(
+      context,
+      input_tokens: 30,
+      output_tokens: 10,
+      cached_input_tokens: 0,
+      prompt_cache_status: "unknown",
+      occurred_at: Time.current
+    )
+
+    assert_enqueued_with(job: ConversationDiagnostics::RecomputeConversationSnapshotJob, args: [context[:conversation].id]) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+
+    response_body = JSON.parse(response.body)
+    assert_equal "stale", response_body["diagnostics_status"]
+    assert_equal 1, response_body.dig("snapshot", "usage_event_count")
+    assert_equal 120, response_body.dig("snapshot", "input_tokens_total")
+    assert_equal 40, response_body.dig("snapshot", "output_tokens_total")
+    assert_equal 1, response_body.dig("snapshot", "prompt_cache_available_event_count")
+    assert_equal 0, response_body.dig("snapshot", "prompt_cache_unknown_event_count")
+  end
+
+  test "returns stale turn diagnostics and enqueues recompute when newer facts exist" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+
+    travel_to 5.minutes.ago do
+      record_usage_event(
+        context,
+        input_tokens: 120,
+        output_tokens: 40,
+        cached_input_tokens: 60,
+        occurred_at: Time.current
+      )
+      ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: context[:conversation])
+    end
+    clear_enqueued_jobs
+    record_usage_event(
+      context,
+      input_tokens: 30,
+      output_tokens: 10,
+      cached_input_tokens: 0,
+      prompt_cache_status: "unknown",
+      occurred_at: Time.current
+    )
+
+    assert_enqueued_with(job: ConversationDiagnostics::RecomputeConversationSnapshotJob, args: [context[:conversation].id]) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics/turns",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+
+    response_body = JSON.parse(response.body)
+    assert_equal "stale", response_body["diagnostics_status"]
+    assert_equal 1, response_body["items"].length
+    assert_equal 1, response_body.dig("items", 0, "usage_event_count")
+    assert_equal 120, response_body.dig("items", 0, "input_tokens_total")
+    assert_equal 40, response_body.dig("items", 0, "output_tokens_total")
+    assert_equal 1, response_body.dig("items", 0, "prompt_cache_available_event_count")
+    assert_equal 0, response_body.dig("items", 0, "prompt_cache_unknown_event_count")
+  end
+
+  test "returns null prompt cache hit rate when ready diagnostics have no available usage events" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+
+    record_usage_event(
+      context,
       input_tokens: 120,
       output_tokens: 40,
-      prompt_cache_status: "unsupported",
-      latency_ms: 1_200,
-      estimated_cost: 0.010,
-      success: true,
-      occurred_at: Time.utc(2026, 4, 2, 9, 0, 0)
+      cached_input_tokens: 0,
+      prompt_cache_status: "unsupported"
     )
+    ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: context[:conversation])
 
     get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics",
       headers: app_api_headers(registration[:session_token])
 
     assert_response :success
+    assert_equal "ready", JSON.parse(response.body)["diagnostics_status"]
     assert_nil JSON.parse(response.body).dig("snapshot", "prompt_cache_hit_rate")
   end
 
@@ -143,27 +246,8 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
 
-    ProviderUsage::RecordEvent.call(
-      installation: context[:installation],
-      user: context[:user],
-      workspace: context[:workspace],
-      conversation_id: context[:conversation].id,
-      turn_id: context[:turn].id,
-      workflow_node_key: "turn_step",
-      agent: context[:agent],
-      agent_definition_version: context[:agent_definition_version],
-      provider_handle: "openrouter",
-      model_ref: "openai-gpt-5.4",
-      operation_kind: "text_generation",
-      input_tokens: 80,
-      output_tokens: 20,
-      prompt_cache_status: "available",
-      cached_input_tokens: 40,
-      latency_ms: 700,
-      estimated_cost: 0.006,
-      success: true,
-      occurred_at: Time.utc(2026, 4, 2, 9, 10, 0)
-    )
+    record_usage_event(context, input_tokens: 80, output_tokens: 20, cached_input_tokens: 40)
+    ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: context[:conversation])
 
     assert_sql_query_count_at_most(24) do
       get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics",
@@ -171,12 +255,28 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
+    assert_equal "ready", response.parsed_body.fetch("diagnostics_status")
   end
 
   test "lists turn diagnostics within twenty-six SQL queries" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
 
+    record_usage_event(context, input_tokens: 80, output_tokens: 20, cached_input_tokens: 40)
+    ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: context[:conversation])
+
+    assert_sql_query_count_at_most(26) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics/turns",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+    assert_equal "ready", response.parsed_body.fetch("diagnostics_status")
+  end
+
+  private
+
+  def record_usage_event(context, input_tokens:, output_tokens:, cached_input_tokens:, prompt_cache_status: "available", occurred_at: Time.utc(2026, 4, 2, 9, 0, 0))
     ProviderUsage::RecordEvent.call(
       installation: context[:installation],
       user: context[:user],
@@ -189,21 +289,14 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
       provider_handle: "openrouter",
       model_ref: "openai-gpt-5.4",
       operation_kind: "text_generation",
-      input_tokens: 80,
-      output_tokens: 20,
-      prompt_cache_status: "available",
-      cached_input_tokens: 40,
-      latency_ms: 700,
-      estimated_cost: 0.006,
+      input_tokens: input_tokens,
+      output_tokens: output_tokens,
+      prompt_cache_status: prompt_cache_status,
+      cached_input_tokens: prompt_cache_status == "available" ? cached_input_tokens : nil,
+      latency_ms: 1_200,
+      estimated_cost: 0.010,
       success: true,
-      occurred_at: Time.utc(2026, 4, 2, 9, 10, 0)
+      occurred_at: occurred_at
     )
-
-    assert_sql_query_count_at_most(26) do
-      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics/turns",
-        headers: app_api_headers(registration[:session_token])
-    end
-
-    assert_response :success
   end
 end

@@ -12,7 +12,7 @@ module ConversationDebugExports
     end
 
     def call
-      ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: @conversation)
+      conversation_snapshot = ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: @conversation)
       turn_snapshots = TurnDiagnosticsSnapshot
         .where(conversation: @conversation)
         .joins(:turn)
@@ -24,11 +24,7 @@ module ConversationDebugExports
         "bundle_version" => BUNDLE_VERSION,
         "conversation_payload" => ConversationExports::BuildConversationPayload.call(conversation: @conversation),
         "diagnostics" => {
-          "conversation" => serialize_conversation_snapshot(
-            ConversationDiagnosticsSnapshot
-              .includes(:conversation, :most_expensive_turn, :most_rounds_turn)
-              .find_by(conversation: @conversation)
-          ),
+          "conversation" => serialize_conversation_snapshot(conversation_snapshot),
           "turns" => turn_snapshots.map { |snapshot| serialize_turn_snapshot(snapshot) },
         },
         "workflow_runs" => workflow_runs.map { |workflow_run| serialize_workflow_run(workflow_run) },
