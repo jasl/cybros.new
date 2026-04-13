@@ -61,7 +61,7 @@ module ConversationRuntime
     def process_runs
       @process_runs ||= ProcessRun
         .where(conversation: @conversation, turn: @turn)
-        .includes(:workflow_node)
+        .includes(:workflow_node, :workflow_run, :origin_message)
         .order(:created_at, :id)
     end
 
@@ -80,6 +80,7 @@ module ConversationRuntime
       @subagent_connections ||= SubagentConnection
         .where(owner_conversation: @conversation, origin_turn: @turn)
         .or(SubagentConnection.where(conversation: @conversation, origin_turn: @turn))
+        .includes(:owner_conversation, :conversation, :origin_turn)
         .order(:created_at, :id)
     end
 
@@ -154,8 +155,8 @@ module ConversationRuntime
         "workflow_node_id" => process_run.workflow_node.public_id,
         "workflow_node_key" => process_run.workflow_node.node_key,
         "workflow_run_id" => process_run.workflow_run&.public_id,
-        "conversation_id" => process_run.conversation.public_id,
-        "turn_id" => process_run.turn.public_id,
+        "conversation_id" => @conversation.public_id,
+        "turn_id" => @turn.public_id,
         "origin_message_id" => process_run.origin_message&.public_id,
         "kind" => process_run.kind,
         "lifecycle_state" => process_run.lifecycle_state,
@@ -188,8 +189,8 @@ module ConversationRuntime
         "agent_task_run_id" => task_run.public_id,
         "workflow_run_id" => task_run.workflow_run.public_id,
         "workflow_node_id" => task_run.workflow_node.public_id,
-        "conversation_id" => task_run.conversation.public_id,
-        "turn_id" => task_run.turn.public_id,
+        "conversation_id" => @conversation.public_id,
+        "turn_id" => @turn.public_id,
         "subagent_connection_id" => task_run.subagent_connection&.public_id,
         "origin_turn_id" => task_run.origin_turn&.public_id,
         "kind" => task_run.kind,

@@ -62,4 +62,16 @@ class AppApiConversationTurnRuntimeEventsControllerTest < ActionDispatch::Integr
 
     assert_response :not_found
   end
+
+  test "lists turn runtime events within eighteen SQL queries" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+
+    assert_sql_query_count_at_most(18) do
+      get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/turns/#{fixture.fetch(:turn).public_id}/runtime_events",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+  end
 end
