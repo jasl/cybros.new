@@ -62,7 +62,11 @@ module Workflows
         )
 
         create_initial_task_run!(workflow_run: workflow_run, workflow_node: workflow_node, execution_snapshot: execution_snapshot)
-        @turn.conversation.refresh_latest_anchors!(activity_at: workflow_run.created_at)
+        Conversations::RefreshLatestWorkflowAnchor.call(
+          conversation: @turn.conversation,
+          workflow_run: workflow_run,
+          activity_at: workflow_run.created_at
+        )
 
         workflow_run
       end

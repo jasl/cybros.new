@@ -52,7 +52,7 @@ module Turns
           origin_kind: "manual_user",
           origin_payload: {},
           source_ref_type: "User",
-          source_ref_id: conversation.workspace.user.public_id,
+          source_ref_id: conversation.user.public_id,
           pinned_agent_definition_fingerprint: execution_identity.pinned_agent_definition_fingerprint,
           agent_config_version: execution_identity.agent_config_version,
           agent_config_content_fingerprint: execution_identity.agent_config_content_fingerprint,

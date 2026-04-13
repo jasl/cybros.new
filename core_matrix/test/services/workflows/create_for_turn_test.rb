@@ -49,8 +49,37 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert turn.execution_contract.present?
     assert turn.execution_contract.execution_capability_snapshot.present?
     assert turn.execution_contract.execution_context_snapshot.present?
-    assert_equal workflow_run, conversation.reload.latest_active_workflow_run
+    reloaded_conversation = conversation.reload
+    assert_equal turn, reloaded_conversation.latest_turn
+    assert_equal turn, reloaded_conversation.latest_active_turn
+    assert_equal turn.selected_input_message, reloaded_conversation.latest_message
+    assert_equal workflow_run, reloaded_conversation.latest_active_workflow_run
     refute Rails.root.join("app/services/workflows/context_assembler.rb").exist?
+  end
+
+  test "creates the workflow anchor within fifty SQL queries" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    workflow_run = nil
+
+    assert_sql_query_count_at_most(50) do
+      workflow_run = Workflows::CreateForTurn.call(
+        turn: turn,
+        root_node_key: "root",
+        root_node_type: "turn_root",
+        decision_source: "system",
+        metadata: {}
+      )
+    end
+
+    assert_equal workflow_run, conversation.reload.latest_active_workflow_run
   end
 
   test "rejects a second active workflow in the same conversation" do
