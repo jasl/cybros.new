@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_14_182000) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_14_182010) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -2173,20 +2173,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_182000) do
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_workflow_runs_cancellation_pairing"
   end
 
-  create_table "workspace_policies", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.jsonb "disabled_capabilities", default: [], null: false
-    t.bigint "installation_id", null: false
-    t.datetime "updated_at", null: false
-    t.bigint "workspace_id", null: false
-    t.index ["installation_id"], name: "index_workspace_policies_on_installation_id"
-    t.index ["workspace_id"], name: "index_workspace_policies_on_workspace_id", unique: true
-  end
-
   create_table "workspaces", force: :cascade do |t|
     t.bigint "agent_id", null: false
     t.datetime "created_at", null: false
     t.bigint "default_execution_runtime_id"
+    t.jsonb "disabled_capabilities", default: [], null: false
     t.bigint "installation_id", null: false
     t.boolean "is_default", default: false, null: false
     t.string "name", null: false
@@ -2582,8 +2573,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_182000) do
   add_foreign_key "workflow_runs", "turns"
   add_foreign_key "workflow_runs", "users"
   add_foreign_key "workflow_runs", "workspaces"
-  add_foreign_key "workspace_policies", "installations"
-  add_foreign_key "workspace_policies", "workspaces"
   add_foreign_key "workspaces", "agents"
   add_foreign_key "workspaces", "execution_runtimes", column: "default_execution_runtime_id"
   add_foreign_key "workspaces", "installations"

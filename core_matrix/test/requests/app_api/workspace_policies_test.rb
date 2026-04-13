@@ -86,6 +86,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     refute_includes response.parsed_body.dig("workspace_policy", "effective_capabilities"), "side_chat"
     refute_includes response.parsed_body.dig("workspace_policy", "effective_capabilities"), "control"
     assert_equal runtime_b.public_id, response.parsed_body.dig("workspace_policy", "default_execution_runtime_id")
+    assert_equal ["side_chat"], workspace.reload.disabled_capabilities
 
     post "/app_api/conversations",
       params: {
@@ -127,7 +128,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     assert_equal "disabled_capabilities must be a subset of the available capabilities", response.parsed_body.fetch("error")
   end
 
-  test "shows workspace policy when the workspace no longer has a matching binding row" do
+  test "shows workspace policy from workspace-owned attributes" do
     installation = create_installation!
     user = create_user!(installation: installation)
     session = create_session!(user: user)
@@ -142,6 +143,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
       user: user,
       agent: agent,
       default_execution_runtime: runtime,
+      disabled_capabilities: ["side_chat"],
       name: "Detached Workspace",
       privacy: "private"
     )
@@ -152,6 +154,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal agent.public_id, response.parsed_body.dig("workspace_policy", "agent_id")
     assert_equal runtime.public_id, response.parsed_body.dig("workspace_policy", "default_execution_runtime_id")
+    assert_equal ["side_chat"], response.parsed_body.dig("workspace_policy", "disabled_capabilities")
   end
 
   test "rejects default runtime updates that target an inaccessible runtime" do

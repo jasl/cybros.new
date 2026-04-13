@@ -32,7 +32,7 @@ module WorkspacePolicies
     end
 
     def disabled_for(workspace:)
-      normalize_capabilities(workspace.workspace_policy&.disabled_capabilities)
+      normalize_capabilities(workspace.disabled_capabilities)
     end
 
     def effective_for(workspace:)

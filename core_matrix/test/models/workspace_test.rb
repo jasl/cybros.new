@@ -88,6 +88,35 @@ class WorkspaceTest < ActiveSupport::TestCase
     assert_includes workspace.errors[:default_execution_runtime], "must belong to the same installation"
   end
 
+  test "stores disabled capabilities directly on the workspace as an array" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    agent = create_agent!(installation: installation)
+
+    workspace = Workspace.create!(
+      installation: installation,
+      user: user,
+      agent: agent,
+      name: "Scoped Workspace",
+      privacy: "private",
+      disabled_capabilities: ["control"]
+    )
+
+    assert_equal ["control"], workspace.disabled_capabilities
+
+    invalid = Workspace.new(
+      installation: installation,
+      user: user,
+      agent: agent,
+      name: "Invalid Capability Workspace",
+      privacy: "private",
+      disabled_capabilities: {}
+    )
+
+    assert_not invalid.valid?
+    assert_includes invalid.errors[:disabled_capabilities], "must be an array"
+  end
+
   test "accessible_to_user returns only owned workspaces whose agent remains visible" do
     installation = create_installation!
     user = create_user!(installation: installation)

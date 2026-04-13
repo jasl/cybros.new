@@ -17,17 +17,10 @@ module WorkspacePolicies
       end
 
       ApplicationRecord.transaction do
-        if @default_execution_runtime != :__preserve__
-          @workspace.update!(default_execution_runtime: @default_execution_runtime)
-        end
-
-        policy = WorkspacePolicy.find_or_initialize_by(
-          installation: @workspace.installation,
-          workspace: @workspace
-        )
-        policy.disabled_capabilities = @disabled_capabilities
-        policy.save!
-        policy
+        updates = { disabled_capabilities: @disabled_capabilities }
+        updates[:default_execution_runtime] = @default_execution_runtime if @default_execution_runtime != :__preserve__
+        @workspace.update!(updates)
+        @workspace
       end
     end
   end

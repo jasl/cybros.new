@@ -9,13 +9,13 @@ class Workspace < ApplicationRecord
   belongs_to :default_execution_runtime, class_name: "ExecutionRuntime", optional: true
 
   has_many :canonical_variables, dependent: :restrict_with_exception
-  has_one :workspace_policy, dependent: :restrict_with_exception
 
   validates :name, presence: true
   validates :privacy, presence: true, inclusion: { in: PRIVACY_VALUES }
   validate :user_installation_match
   validate :agent_installation_match
   validate :default_execution_runtime_installation_match
+  validate :disabled_capabilities_must_be_array
   validate :single_default_workspace
 
   def self.accessible_to_user(user)
@@ -51,6 +51,10 @@ class Workspace < ApplicationRecord
     return if default_execution_runtime.installation_id == installation_id
 
     errors.add(:default_execution_runtime, "must belong to the same installation")
+  end
+
+  def disabled_capabilities_must_be_array
+    errors.add(:disabled_capabilities, "must be an array") unless disabled_capabilities.is_a?(Array)
   end
 
   def single_default_workspace
