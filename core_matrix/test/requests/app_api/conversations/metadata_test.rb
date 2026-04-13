@@ -32,6 +32,19 @@ class AppApiConversationsMetadataTest < ActionDispatch::IntegrationTest
     refute_includes response.body, %("#{conversation.id}")
   end
 
+  test "shows canonical conversation metadata within four SQL queries" do
+    context = fresh_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+    conversation = context[:conversation]
+
+    assert_sql_query_count_at_most(4) do
+      get "/app_api/conversations/#{conversation.public_id}/metadata",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+  end
+
   test "patch edits metadata through user edit service" do
     context = fresh_canonical_variable_context!
     registration = register_machine_api_for_context!(context)

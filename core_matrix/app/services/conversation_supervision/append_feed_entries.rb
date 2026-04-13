@@ -15,20 +15,15 @@ module ConversationSupervision
       target_turn = self.target_turn
       return [] if target_turn.blank?
 
-      installation = @conversation.installation
-      user = @conversation.user
-      workspace = @conversation.workspace
-      agent = @conversation.agent
-
       entries = @conversation.with_lock do
         next_sequence = next_sequence_start
 
         normalized_changeset.map do |change|
           entry = ConversationSupervisionFeedEntry.create!(
-            installation: installation,
-            user: user,
-            workspace: workspace,
-            agent: agent,
+            installation_id: @conversation.installation_id,
+            user_id: @conversation.user_id,
+            workspace_id: @conversation.workspace_id,
+            agent_id: @conversation.agent_id,
             target_conversation: @conversation,
             target_turn: target_turn,
             sequence: next_sequence,

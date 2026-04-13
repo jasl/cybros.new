@@ -19,6 +19,18 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
     refute_includes body.fetch("items").map { |entry| entry.fetch("event_kind") }, "progress_recorded"
   end
 
+  test "lists the canonical turn feed within thirty-five SQL queries" do
+    fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
+    registration = register_machine_api_for_context!(fixture)
+
+    assert_sql_query_count_at_most(35) do
+      get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/feed",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+  end
+
   test "rejects raw bigint conversation identifiers" do
     fixture = prepare_conversation_supervision_context_with_turn_todo_plan!
     registration = register_machine_api_for_context!(fixture)

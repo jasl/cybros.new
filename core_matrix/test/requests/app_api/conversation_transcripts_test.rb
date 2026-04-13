@@ -40,6 +40,28 @@ class AppApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
     refute_includes response.body, %("#{context[:conversation].id}")
   end
 
+  test "lists the canonical visible transcript within eight SQL queries" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+    first_turn = context[:turn]
+    attach_selected_output!(first_turn, content: "First answer")
+    second_turn = Turns::StartUserTurn.call(
+      conversation: context[:conversation],
+      content: "Second question",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    attach_selected_output!(second_turn, content: "Second answer")
+
+    assert_sql_query_count_at_most(8) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/transcript",
+        params: { limit: 2 },
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+  end
+
   test "rejects raw bigint identifiers for conversation and cursor lookups" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)

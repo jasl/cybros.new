@@ -37,7 +37,9 @@ module Conversations
 
     def selected_messages_for_own_turns
       @conversation.turns.includes(:selected_input_message, :selected_output_message).order(:sequence).flat_map do |turn|
-        [turn.selected_input_message, turn.selected_output_message].compact
+        [turn.selected_input_message, turn.selected_output_message].compact.map do |message|
+          hydrate_message!(message, conversation: @conversation, turn:)
+        end
       end
     end
 
@@ -82,6 +84,12 @@ module Conversations
       end
 
       nil
+    end
+
+    def hydrate_message!(message, conversation:, turn:)
+      message.association(:conversation).target = conversation
+      message.association(:turn).target = turn
+      message
     end
   end
 end

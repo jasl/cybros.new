@@ -11,10 +11,12 @@ module ConversationSupervision
     def call
       return [] if feed_turn.blank?
 
-      ConversationSupervisionFeedEntry
+      entries = ConversationSupervisionFeedEntry
         .where(target_conversation: @conversation, target_turn: feed_turn)
         .order(:sequence)
-        .map { |entry| serialize_entry(entry) }
+        .to_a
+
+      entries.map { |entry| serialize_entry(entry) }
     end
 
     private
@@ -27,8 +29,8 @@ module ConversationSupervision
 
     def serialize_entry(entry)
       {
-        "conversation_id" => entry.target_conversation.public_id,
-        "turn_id" => entry.target_turn&.public_id,
+        "conversation_id" => @conversation.public_id,
+        "turn_id" => entry.target_turn_id.present? ? feed_turn.public_id : nil,
         "conversation_supervision_feed_entry_id" => entry.public_id,
         "sequence" => entry.sequence,
         "event_kind" => entry.event_kind,

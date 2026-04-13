@@ -71,11 +71,11 @@ module AppAPI
       render json: method_response(method_id: method_id, **payload), status: status
     end
 
-    def serialize_message(message)
+    def serialize_message(message, conversation_public_id: nil, turn_public_id: nil)
       {
         "id" => message.public_id,
-        "conversation_id" => message.conversation.public_id,
-        "turn_id" => message.turn.public_id,
+        "conversation_id" => conversation_public_id || message.conversation.public_id,
+        "turn_id" => turn_public_id || message.turn.public_id,
         "role" => message.role,
         "slot" => message.slot,
         "variant_index" => message.variant_index,

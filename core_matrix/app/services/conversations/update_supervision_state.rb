@@ -17,10 +17,10 @@ module Conversations
     def call
       state = @conversation.conversation_supervision_state ||
         @conversation.build_conversation_supervision_state(
-          installation: @conversation.installation,
-          user: @conversation.user,
-          workspace: @conversation.workspace,
-          agent: @conversation.agent
+          installation_id: @conversation.installation_id,
+          user_id: @conversation.user_id,
+          workspace_id: @conversation.workspace_id,
+          agent_id: @conversation.agent_id
         )
       previous_attributes = state.new_record? ? {} : comparable_attributes(state)
       next_attributes = projection_attributes(state:).deep_stringify_keys
@@ -483,6 +483,7 @@ module Conversations
       return @current_task_run if instance_variable_defined?(:@current_task_run)
 
       @current_task_run = AgentTaskRun
+        .includes(:agent_task_progress_entries, turn_todo_plan: :turn_todo_plan_items)
         .where(conversation: @conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
         .order(created_at: :desc)
         .first
@@ -492,7 +493,11 @@ module Conversations
       return @latest_task_run if instance_variable_defined?(:@latest_task_run)
 
       @latest_task_run = current_task_run ||
-        AgentTaskRun.where(conversation: @conversation).order(created_at: :desc).first
+        AgentTaskRun
+          .includes(:agent_task_progress_entries, turn_todo_plan: :turn_todo_plan_items)
+          .where(conversation: @conversation)
+          .order(created_at: :desc)
+          .first
     end
 
     def latest_terminal_task_run
