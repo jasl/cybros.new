@@ -11,7 +11,6 @@ module AppSurface
 
       def call
         Agents::VisibleToUserQuery.call(user: @user)
-          .select { |agent| AppSurface::Policies::AgentVisibility.call(user: @user, agent: agent) }
       end
     end
   end

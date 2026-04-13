@@ -11,6 +11,7 @@ module Agents
     def call
       Agent
         .visible_to_user(@user)
+        .includes(:default_execution_runtime)
         .order(Arel.sql("CASE visibility WHEN 'public' THEN 0 ELSE 1 END"), :display_name, :id)
         .to_a
     end
