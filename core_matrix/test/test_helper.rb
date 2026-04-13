@@ -5,6 +5,7 @@ require_relative "./simplecov_helper"
 require "active_support/testing/time_helpers"
 require "action_controller"
 require "digest"
+require "etc"
 require "stringio"
 
 require_relative "../config/environment"
@@ -13,10 +14,15 @@ Dir[File.expand_path("support/**/*.rb", __dir__)].sort.each { |file| require fil
 
 module ActiveSupport
   class TestCase
+    DEFAULT_PARALLEL_WORKER_CAP = 6
+
     class_attribute :uses_real_provider_catalog, default: false
 
     # Run tests in parallel with specified workers
-    parallelize(workers: :number_of_processors)
+    parallelize(workers: begin
+      configured_workers = ENV["PARALLEL_WORKERS"].to_i
+      configured_workers.positive? ? configured_workers : [Etc.nprocessors, DEFAULT_PARALLEL_WORKER_CAP].min
+    end)
     parallelize_setup do |worker|
       CoreMatrixSimpleCov.configure_parallel_worker!(worker)
     end
@@ -331,7 +337,14 @@ module ActiveSupport
         connection_token_digest: connection_token_digest,
         endpoint_metadata: endpoint_metadata,
         lifecycle_state: lifecycle_state,
-      }.merge(attrs))
+      }.merge(attrs)).tap do |connection|
+        next unless connection.lifecycle_state == "active"
+
+        agent.update!(
+          current_agent_definition_version: agent_definition_version,
+          published_agent_definition_version: agent_definition_version
+        )
+      end
     end
 
     def create_execution_runtime_connection!(installation: create_installation!, execution_runtime: create_execution_runtime!(installation: installation), execution_runtime_version: create_execution_runtime_version!(installation: installation, execution_runtime: execution_runtime), connection_credential_digest: ::Digest::SHA256.hexdigest("execution-connection-credential-#{next_test_sequence}"), connection_token_digest: ::Digest::SHA256.hexdigest("execution-connection-token-#{next_test_sequence}"), endpoint_metadata: {}, lifecycle_state: "active", **attrs)
@@ -343,7 +356,14 @@ module ActiveSupport
         connection_token_digest: connection_token_digest,
         endpoint_metadata: endpoint_metadata,
         lifecycle_state: lifecycle_state,
-      }.merge(attrs))
+      }.merge(attrs)).tap do |connection|
+        next unless connection.lifecycle_state == "active"
+
+        execution_runtime.update!(
+          current_execution_runtime_version: execution_runtime_version,
+          published_execution_runtime_version: execution_runtime_version
+        )
+      end
     end
 
     def default_execution_runtime_connection_metadata(base_url: "https://agents.example.test")
@@ -795,7 +815,10 @@ module ActiveSupport
         conversation_override_schema: conversation_override_schema,
         default_canonical_config: default_canonical_config
       )
-      context[:agent].update!(published_agent_definition_version: agent_definition_version)
+      context[:agent].update!(
+        current_agent_definition_version: agent_definition_version,
+        published_agent_definition_version: agent_definition_version
+      )
       AgentConfigStates::Reconcile.call(
         agent: context[:agent],
         agent_definition_version: agent_definition_version
@@ -815,7 +838,10 @@ module ActiveSupport
     end
 
     def adopt_agent_definition_version!(context, agent_definition_version, turn: context[:turn])
-      context[:agent].update!(published_agent_definition_version: agent_definition_version)
+      context[:agent].update!(
+        current_agent_definition_version: agent_definition_version,
+        published_agent_definition_version: agent_definition_version
+      )
       agent_config_state = AgentConfigStates::Reconcile.call(
         agent: context[:agent],
         agent_definition_version: agent_definition_version
@@ -1125,7 +1151,7 @@ module ActiveSupport
     def create_conversation_record!(workspace:, installation: workspace.installation, kind: "root", purpose: "interactive", lifecycle_state: "active", parent_conversation: nil, execution_runtime: nil, agent: nil, agent_definition_version: nil, historical_anchor_message_id: nil, interactive_selector_mode: "auto", override_payload: {}, override_reconciliation_report: {}, deletion_state: "retained", **attrs)
       agent ||= parent_conversation&.agent
       agent ||= agent_definition_version&.agent
-      agent ||= workspace.user_agent_binding&.agent
+      agent ||= workspace.agent
       agent ||= create_agent!(installation: installation, default_execution_runtime: execution_runtime)
       execution_runtime ||= parent_conversation&.current_execution_runtime
       execution_runtime ||= workspace.default_execution_runtime

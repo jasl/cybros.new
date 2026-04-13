@@ -113,11 +113,11 @@ registry = Installations::RegisterBundledAgentRuntime.call(
   configuration: bundled_configuration
 )
 execution_runtime_connection = registry.execution_runtime_connection
-binding = UserAgentBindings::Enable.call(
+UserAgentBindings::Enable.call(
   user: bootstrap.user,
   agent: registry.agent
-).binding
-workspace = binding.workspaces.find_by!(is_default: true)
+)
+workspace = Workspaces::MaterializeDefault.call(user: bootstrap.user, agent: registry.agent)
 
 conversation = Conversations::CreateRoot.call(
   workspace: workspace,
@@ -154,11 +154,14 @@ Workflows::Mutate.call(
 workflow_node = workflow_run.reload.workflow_nodes.find_by!(node_key: "agent_turn_step")
 agent_task_run = AgentTaskRun.create!(
   installation: workflow_run.installation,
-  agent: registry.agent,
+  user: workflow_run.user,
+  workspace: workflow_run.workspace,
+  agent: workflow_run.agent,
   workflow_run: workflow_run,
   workflow_node: workflow_node,
   conversation: conversation,
   turn: turn,
+  execution_runtime: workflow_run.execution_runtime,
   kind: "turn_step",
   lifecycle_state: "queued",
   logical_work_id: "turn-step:#{turn.public_id}:agent_turn_step",

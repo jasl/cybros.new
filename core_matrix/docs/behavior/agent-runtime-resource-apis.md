@@ -51,6 +51,10 @@ orchestration are still defined in:
   agent-facing transcript and variable endpoints
 - control-plane resources such as `AgentTaskRun`, `ProcessRun`, and
   `SubagentConnection` also resolve by `public_id`
+- those runtime resources also redundantly persist `user_id`, `workspace_id`,
+  `agent_id`, `conversation_id`, and `turn_id` wherever the resource type has
+  that context, so control-plane filters do not need to reconstruct ownership
+  from nested joins
 - capability refresh also exposes governed tool metadata by `public_id`; the
   agent-facing boundary does not expose internal numeric ids for
   `ToolDefinition` or `ToolImplementation`

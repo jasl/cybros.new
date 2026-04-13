@@ -156,7 +156,7 @@ class AgentTest < ActiveSupport::TestCase
     assert_includes invalid_runtime.errors[:default_execution_runtime], "must belong to the same installation"
   end
 
-  test "tracks the current definition version through the active connection or published version ref" do
+  test "tracks the persisted current definition version and falls back for older rows" do
     installation = create_installation!
     agent = create_agent!(installation: installation)
     definition_version = create_agent_definition_version!(installation: installation, agent: agent)
@@ -167,10 +167,16 @@ class AgentTest < ActiveSupport::TestCase
       lifecycle_state: "active"
     )
 
-    agent.update!(published_agent_definition_version: definition_version)
+    agent.update!(
+      current_agent_definition_version: definition_version,
+      published_agent_definition_version: definition_version
+    )
 
     assert_equal definition_version, agent.published_agent_definition_version
     assert_equal definition_version, agent.current_agent_definition_version
     assert_equal agent_connection, agent.active_agent_connection
+
+    agent.update_columns(current_agent_definition_version_id: nil)
+    assert_equal definition_version, agent.reload.current_agent_definition_version
   end
 end

@@ -134,6 +134,7 @@ module Installations
         version_package: bundled_runtime_version_package
       )
       execution_runtime.update!(
+        current_execution_runtime_version: upsert_result.execution_runtime_version,
         published_execution_runtime_version: upsert_result.execution_runtime_version
       )
       execution_runtime
@@ -144,7 +145,10 @@ module Installations
         agent: agent,
         definition_package: bundled_definition_package
       )
-      agent.update!(published_agent_definition_version: upsert_result.agent_definition_version)
+      agent.update!(
+        current_agent_definition_version: upsert_result.agent_definition_version,
+        published_agent_definition_version: upsert_result.agent_definition_version
+      )
       upsert_result.agent_definition_version
     rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
       agent.agent_definition_versions.find_by!(

@@ -40,7 +40,10 @@ module AgentDefinitionVersions
           agent_definition_version: agent_definition_version
         )
 
-        agent.update!(published_agent_definition_version: agent_definition_version)
+        agent.update!(
+          current_agent_definition_version: agent_definition_version,
+          published_agent_definition_version: agent_definition_version
+        )
 
         AgentConnection.where(agent: agent, lifecycle_state: "active").update_all(
           lifecycle_state: "stale",

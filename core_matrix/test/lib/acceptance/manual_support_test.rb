@@ -881,12 +881,50 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     legacy_register_execution_runtime_helper = ("register_" + "external_" + "execution_" + "runtime!").to_sym
 
     assert_respond_to Acceptance::ManualSupport, :create_bring_your_own_agent!
+    assert_respond_to Acceptance::ManualSupport, :create_bring_your_own_execution_runtime!
     assert_respond_to Acceptance::ManualSupport, :register_bring_your_own_runtime!
     assert_respond_to Acceptance::ManualSupport, :register_bring_your_own_agent_from_manifest!
     assert_respond_to Acceptance::ManualSupport, :register_bring_your_own_execution_runtime!
     refute_respond_to Acceptance::ManualSupport, legacy_create_helper
     refute_respond_to Acceptance::ManualSupport, legacy_register_runtime_helper
     refute_respond_to Acceptance::ManualSupport, legacy_register_execution_runtime_helper
+  end
+
+  test "create_bring_your_own_execution_runtime! issues onboarding through the admin app api" do
+    test_case = self
+    created_payload = {
+      "onboarding_session" => {
+        "onboarding_session_id" => "ons_runtime_123",
+      },
+      "onboarding_token" => "runtime-onboarding-secret",
+    }
+    onboarding_session = Struct.new(:public_id).new("ons_runtime_123")
+
+    with_redefined_singleton_method(Acceptance::ManualSupport, :issue_app_api_session_token!, ->(user:, expires_at: 30.days.from_now) { "session-secret" }) do
+      with_redefined_singleton_method(
+        Acceptance::ManualSupport,
+        :app_api_admin_create_onboarding_session!,
+        lambda do |target_kind:, session_token:, agent_key: nil, display_name: nil|
+          test_case.assert_equal "execution_runtime", target_kind
+          test_case.assert_equal "session-secret", session_token
+          test_case.assert_nil agent_key
+          test_case.assert_nil display_name
+          created_payload
+        end
+      ) do
+        with_redefined_singleton_method(OnboardingSession, :find_by_public_id!, lambda { |public_id|
+          public_id == "ons_runtime_123" ? onboarding_session : nil
+        }) do
+          result = Acceptance::ManualSupport.create_bring_your_own_execution_runtime!(
+            installation: "installation",
+            actor: "actor"
+          )
+
+          assert_equal onboarding_session, result.fetch(:onboarding_session)
+          assert_equal "runtime-onboarding-secret", result.fetch(:onboarding_token)
+        end
+      end
+    end
   end
 
   test "create_bring_your_own_agent! issues onboarding through the admin app api" do

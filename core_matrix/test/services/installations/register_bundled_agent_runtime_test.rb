@@ -60,6 +60,8 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal 1, ExecutionRuntimeConnection.count
     assert_equal 0, UserAgentBinding.count
     assert_equal first.execution_runtime, first.agent.default_execution_runtime
+    assert_equal first.agent_definition_version, first.agent.current_agent_definition_version
+    assert_equal first.execution_runtime.current_execution_runtime_version, first.execution_runtime.published_execution_runtime_version
     assert first.agent.visibility_public?
     assert first.agent.provisioning_origin_system?
     assert_nil first.agent.owner_user_id
@@ -108,6 +110,8 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal first.agent, second.agent
     assert_equal first.execution_runtime, second.execution_runtime
     refute_equal first.agent_definition_version, second.agent_definition_version
+    assert_equal second.agent_definition_version, second.agent.reload.current_agent_definition_version
+    assert_equal second.execution_runtime_connection.execution_runtime_version, second.execution_runtime.reload.current_execution_runtime_version
     assert_equal "superseded", first.agent_definition_version.reload.bootstrap_state
     assert_equal "active", second.agent_definition_version.bootstrap_state
     assert second.agent_definition_version.healthy?

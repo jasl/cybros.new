@@ -21,6 +21,9 @@ instead of scraping child workflow internals after the fact.
 - `SubagentConnection` is the durable subagent control aggregate
 - every connection belongs to:
   - one installation
+  - one user
+  - one workspace
+  - one agent
   - one owner conversation
   - one child conversation
 - turn-scoped connections also point to one `origin_turn`
@@ -29,6 +32,9 @@ instead of scraping child workflow internals after the fact.
   parent depth plus one
 - `profile_key` is always present and is resolved from the runtime-declared
   `profile_policy`
+- the persisted `user_id`, `workspace_id`, and `agent_id` must match the owner
+  conversation so supervision and barrier reads can filter connections without
+  reconstructing owner context from child graphs
 
 ## Connection Lifecycle
 

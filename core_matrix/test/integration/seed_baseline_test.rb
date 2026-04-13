@@ -34,6 +34,10 @@ class SeedBaselineTest < ActiveSupport::TestCase
     assert_equal initial_workspace_count, Workspace.count
     assert_equal 1, ProviderPolicy.where(installation: installation, provider_handle: "dev").count
     assert_equal 1, ProviderEntitlement.where(installation: installation, provider_handle: "dev").count
+    bundled_agent = Agent.find_by!(installation: installation, key: bundled_agent_configuration(enabled: true).fetch(:agent_key))
+    bundled_runtime = ExecutionRuntime.find_by!(installation: installation, published_execution_runtime_version_id: bundled_agent.default_execution_runtime.published_execution_runtime_version_id)
+    assert_equal bundled_agent.published_agent_definition_version, bundled_agent.current_agent_definition_version
+    assert_equal bundled_runtime.published_execution_runtime_version, bundled_runtime.current_execution_runtime_version
     assert ProviderPolicy.find_by!(installation: installation, provider_handle: "dev").enabled
     assert ProviderEntitlement.find_by!(installation: installation, provider_handle: "dev").active?
     assert_equal 1, AuditLog.where(installation: installation, action: "provider_policy.upserted").count

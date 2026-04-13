@@ -850,6 +850,22 @@ module Acceptance
       }
     end
 
+    def create_bring_your_own_execution_runtime!(installation:, actor:)
+      session_token = issue_app_api_session_token!(user: actor)
+      created = app_api_admin_create_onboarding_session!(
+        target_kind: "execution_runtime",
+        session_token: session_token
+      )
+      onboarding_session = OnboardingSession.find_by_public_id!(
+        created.dig("onboarding_session", "onboarding_session_id")
+      )
+
+      {
+        onboarding_session: onboarding_session,
+        onboarding_token: created.fetch("onboarding_token")
+      }
+    end
+
     def register_bring_your_own_runtime!(
       onboarding_token:,
       runtime_base_url:,
@@ -1024,12 +1040,12 @@ module Acceptance
 
     def enable_default_workspace!(agent_definition_version:)
       user = User.find_by!(installation: agent_definition_version.installation, role: 'admin')
-      user_binding = UserAgentBindings::Enable.call(
+      UserAgentBindings::Enable.call(
         user: user,
         agent: agent_definition_version.agent
-      ).binding
+      )
 
-      Workspaces::MaterializeDefault.call(user_agent_binding: user_binding)
+      Workspaces::MaterializeDefault.call(user: user, agent: agent_definition_version.agent)
     end
 
     def create_conversation!(agent_definition_version:)

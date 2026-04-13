@@ -175,7 +175,7 @@ module Conversations
     end
 
     def active_agent_connection_for(conversation)
-      AgentConnection.find_by(
+      AgentConnection.eager_load(:agent, :agent_definition_version).find_by(
         agent_id: conversation.agent_id,
         lifecycle_state: "active"
       )

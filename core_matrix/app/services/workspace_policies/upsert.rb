@@ -11,7 +11,7 @@ module WorkspacePolicies
     end
 
     def call
-      available_capabilities = WorkspacePolicies::Capabilities.available_for(agent: @workspace.user_agent_binding.agent)
+      available_capabilities = WorkspacePolicies::Capabilities.available_for(agent: @workspace.agent)
       unless (@disabled_capabilities - available_capabilities).empty?
         raise ArgumentError, "disabled_capabilities must be a subset of the available capabilities"
       end

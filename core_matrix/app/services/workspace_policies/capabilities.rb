@@ -29,13 +29,13 @@ module WorkspacePolicies
     end
 
     def effective_for(workspace:)
-      available = available_for(agent: workspace.user_agent_binding.agent)
+      available = available_for(agent: workspace.agent)
       disabled = disabled_for(workspace:) & available
       normalize_dependencies(available - disabled)
     end
 
     def projection_attributes_for(workspace:)
-      available = available_for(agent: workspace.user_agent_binding.agent)
+      available = available_for(agent: workspace.agent)
       disabled = disabled_for(workspace:) & available
       effective = normalize_dependencies(available - disabled)
 

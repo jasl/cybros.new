@@ -29,6 +29,7 @@ class ExecutionRuntimeVersions::RegisterTest < ActiveSupport::TestCase
     assert onboarding_session.runtime_registered_at.present?
     assert onboarding_session.last_used_at.present?
     assert_equal result.execution_runtime, onboarding_session.target_execution_runtime
+    assert_equal result.execution_runtime_version, result.execution_runtime.current_execution_runtime_version
     assert_equal result.execution_runtime_version, result.execution_runtime.published_execution_runtime_version
     assert_equal result.execution_runtime_version, result.execution_runtime_connection.execution_runtime_version
     assert result.execution_runtime_connection.active?

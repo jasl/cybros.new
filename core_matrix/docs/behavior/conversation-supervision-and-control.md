@@ -20,6 +20,13 @@ It also powers:
 
 `ConversationSupervisionState` is the canonical read model.
 
+The state row is intentionally split into:
+
+- a hot header row for board lanes, summaries, counts, timestamps, and
+  ownership fields
+- a one-to-one `ConversationSupervisionStateDetail` row for the cold
+  machine-oriented `status_payload`
+
 Important fields:
 
 - `overall_state`
@@ -53,8 +60,11 @@ already stopped and the conversation is merely idle.
 It is not an audit log.
 
 - feeds are derived from explicit projector changes, not free-form callbacks
-- feeds are scoped to the active turn, or the most recent turn when no newer
-  turn has started yet
+- feeds anchor to `Conversation.latest_active_turn_id` and fall back to
+  `Conversation.latest_turn_id` when no active turn remains
+- feed entries redundantly persist `installation_id`, `user_id`,
+  `workspace_id`, `agent_id`, and `target_conversation_id` so board and feed
+  reads do not need ownership reconstruction joins
 - human-visible summaries must not leak internal runtime vocabulary
 
 `ConversationSupervisionSnapshot` freezes:
@@ -66,8 +76,17 @@ It is not an audit log.
 - capability and control authority state
 - proof/debug refs kept out of human-visible side chat prose
 
-`ConversationSupervisionSession` and `ConversationSupervisionMessage` remain an
-ephemeral side-channel and must not mutate the target transcript.
+`ConversationSupervisionSession`, `ConversationSupervisionSnapshot`, and
+`ConversationSupervisionMessage` remain an ephemeral side-channel and must not
+mutate the target transcript.
+
+Those observability rows also redundantly persist:
+
+- `installation_id`
+- `user_id`
+- `workspace_id`
+- `agent_id`
+- `target_conversation_id`
 
 Clients are expected to close supervision sessions when the side chat is no
 longer needed. Closed sessions remain readable only through their already
@@ -88,6 +107,10 @@ Side chat is a human interaction surface over frozen supervision snapshots.
 
 Conversation control is conversation-scoped, bounded, and audited through
 `ConversationControlRequest`.
+
+`ConversationControlRequest` also persists `user_id`, `workspace_id`, and
+`agent_id` directly so dispatch and audit lookup stay on the control aggregate
+instead of re-deriving owner context from the supervision session.
 
 Current bounded request kinds include:
 

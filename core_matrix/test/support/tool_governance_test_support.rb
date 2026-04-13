@@ -88,7 +88,10 @@ module ToolGovernanceTestSupport
         payload: execution_runtime.current_execution_runtime_version&.reflected_host_metadata || {}
       )
     )
-    execution_runtime.update!(published_execution_runtime_version: execution_runtime_version)
+    execution_runtime.update!(
+      current_execution_runtime_version: execution_runtime_version,
+      published_execution_runtime_version: execution_runtime_version
+    )
     context.fetch(:execution_runtime_connection).update!(execution_runtime_version: execution_runtime_version)
 
     activate_agent_definition_version!(
@@ -99,16 +102,20 @@ module ToolGovernanceTestSupport
       default_canonical_config: default_default_canonical_config(include_selector_slots: true)
     )
     agent_config_state = context.fetch(:agent).agent_config_state
-    context.fetch(:turn).update!(
+    turn = context.fetch(:turn)
+    turn.update!(
       agent_definition_version: context.fetch(:agent_definition_version),
       execution_runtime_version: execution_runtime_version,
       agent_config_version: agent_config_state.version,
       agent_config_content_fingerprint: agent_config_state.content_fingerprint
     )
-    Workflows::BuildExecutionSnapshot.call(turn: context.fetch(:turn))
+    turn = turn.reload
+    turn.association(:execution_runtime).reset
+    turn.association(:execution_runtime_version).reset
+    Workflows::BuildExecutionSnapshot.call(turn: turn)
 
     context.merge(
-      turn: context.fetch(:turn).reload,
+      turn: turn.reload,
       workflow_node: context.fetch(:workflow_node).reload
     )
   end

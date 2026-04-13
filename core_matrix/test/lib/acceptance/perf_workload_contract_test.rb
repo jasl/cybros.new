@@ -220,6 +220,70 @@ class Acceptance::PerfWorkloadContractTest < ActiveSupport::TestCase
     handler.singleton_class.define_method(:clear_active_connections!, original_clear_active_connections) if original_clear_active_connections
   end
 
+  test "runtime registration matrix provisions each runtime slot with a dedicated runtime onboarding token" do
+    slot = Struct.new(:label, :runtime_base_url, :event_output_path, :home_root).new(
+      "nexus-01",
+      "http://127.0.0.1:3301",
+      Pathname("/tmp/nexus-01-events.ndjson"),
+      Pathname("/tmp/nexus-01-home")
+    )
+    topology = Struct.new(:runtime_slots, :runtime_count, :artifact_root).new(
+      [slot],
+      1,
+      Pathname("/tmp/acceptance-artifacts")
+    )
+    agent = Struct.new(:public_id).new("agt_123")
+    agent_definition_version = Struct.new(:public_id).new("adv_123")
+    execution_runtime = Struct.new(:public_id).new("rt_123")
+    runtime_onboarding_calls = []
+    runtime_calls = []
+
+    matrix = Acceptance::Perf::RuntimeRegistrationMatrix.build(
+      installation: :installation,
+      actor: :actor,
+      topology: topology,
+      agent_count: 1,
+      agent_base_url: "http://127.0.0.1:3101",
+      create_bring_your_own_agent: lambda do |**|
+        {
+          onboarding_session: :onboarding_session,
+          onboarding_token: "agent-onboarding-token",
+          agent: agent,
+        }
+      end,
+      register_bring_your_own_agent: lambda do |**|
+        {
+          agent_definition_version: agent_definition_version,
+          agent_connection_credential: "agent-credential",
+        }
+      end,
+      create_bring_your_own_execution_runtime: lambda do |installation:, actor:|
+        runtime_onboarding_calls << [installation, actor]
+        {
+          onboarding_token: "runtime-onboarding-token",
+        }
+      end,
+      register_bring_your_own_execution_runtime: lambda do |onboarding_token:, runtime_base_url:, execution_runtime_fingerprint:, **|
+        runtime_calls << [onboarding_token, runtime_base_url, execution_runtime_fingerprint]
+        {
+          execution_runtime_connection_credential: "runtime-credential",
+          execution_runtime: execution_runtime,
+        }
+      end
+    )
+
+    assert_equal(
+      [[:installation, :actor]],
+      runtime_onboarding_calls
+    )
+    assert_equal(
+      [["runtime-onboarding-token", "http://127.0.0.1:3301", "nexus-01-execution-runtime"]],
+      runtime_calls
+    )
+    assert_equal execution_runtime, matrix.runtime_registrations.first.execution_runtime
+    assert_equal "runtime-credential", matrix.runtime_registrations.first.execution_runtime_connection_credential
+  end
+
   private
 
   def perf_registration(slot_label, agent_definition_version, event_output_path)

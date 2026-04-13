@@ -39,7 +39,7 @@ module AgentControl
       target_connection = delivery_endpoint
       target_agent =
         if target_connection.is_a?(AgentConnection)
-          target_connection.agent
+          @resource.respond_to?(:agent) ? @resource.agent : target_connection.agent
         else
           ClosableResourceRouting.owning_agent_for(@resource)
         end
@@ -97,7 +97,9 @@ module AgentControl
       return target_connection.agent_definition_version if target_connection.is_a?(AgentConnection)
       return if target_agent.blank?
 
-      target_agent.current_agent_definition_version ||
+      Agent.where(id: target_agent.id).pick(:current_agent_definition_version_id)&.yield_self do |agent_definition_version_id|
+        AgentDefinitionVersion.find_by(id: agent_definition_version_id)
+      end ||
         AgentConnection.where(agent: target_agent).order(created_at: :desc, id: :desc).limit(1).pick(:agent_definition_version_id)&.yield_self do |agent_definition_version_id|
           AgentDefinitionVersion.find_by(id: agent_definition_version_id)
         end
@@ -115,6 +117,16 @@ module AgentControl
         return if execution_runtime.blank?
 
         return ExecutionRuntimeConnections::ResolveActiveConnection.call(execution_runtime: execution_runtime)
+      end
+
+      if @publish_delivery_endpoint.is_a?(AgentConnection)
+        owning_agent_id =
+          if @resource.respond_to?(:agent_id)
+            @resource.agent_id
+          else
+            ClosableResourceRouting.owning_agent_for(@resource)&.id
+          end
+        return @publish_delivery_endpoint if owning_agent_id.present? && @publish_delivery_endpoint.agent_id == owning_agent_id
       end
 
       return @resource.holder_agent_connection if @resource.respond_to?(:holder_agent_connection)

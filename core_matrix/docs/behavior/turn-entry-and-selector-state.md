@@ -25,10 +25,15 @@ execution-snapshot persistence on the turn row.
   write boundary through `Conversations::UpdateOverride`, not by the model
   itself
 - `Conversation` also persists:
-  - `override_payload`
+  - `override_payload` through `ConversationDetail`
   - `override_last_schema_fingerprint`
-  - `override_reconciliation_report`
+  - `override_reconciliation_report` through `ConversationDetail`
   - `override_updated_at`
+  - `latest_active_turn_id`
+  - `latest_turn_id`
+  - `latest_active_workflow_run_id`
+  - `latest_message_id`
+  - `last_activity_at`
 - override persistence is execution state, not unsent draft state
 - `Conversations::UpdateOverride` updates override state and interactive
   selector state together
@@ -106,6 +111,9 @@ execution-snapshot persistence on the turn row.
 - root conversation creation seeds the current execution runtime from the
   workspace default, falling back to the agent default unless an explicit
   initial runtime override is supplied
+- current feed and control surfaces resolve “current work” through the
+  conversation's `latest_active_*` anchors, not by assuming there is only one
+  active turn or workflow row
 - when a conversation still has no turn history, an explicit first-turn runtime
   override may retarget the current execution epoch before the first turn is
   frozen

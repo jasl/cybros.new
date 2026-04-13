@@ -8,6 +8,7 @@ class Agent < ApplicationRecord
   belongs_to :installation
   belongs_to :owner_user, class_name: "User", optional: true, inverse_of: :owned_agents
   belongs_to :default_execution_runtime, class_name: "ExecutionRuntime", optional: true
+  belongs_to :current_agent_definition_version, class_name: "AgentDefinitionVersion", optional: true
   belongs_to :published_agent_definition_version, class_name: "AgentDefinitionVersion", optional: true
 
   has_many :onboarding_sessions, foreign_key: :target_agent_id, dependent: :restrict_with_exception
@@ -26,6 +27,8 @@ class Agent < ApplicationRecord
   validate :owner_user_requirements
   validate :owner_user_installation_match
   validate :default_execution_runtime_installation_match
+  validate :current_agent_definition_version_installation_match
+  validate :current_agent_definition_version_agent_match
 
   def self.visible_to_user(user)
     return none if user.blank?
@@ -40,7 +43,9 @@ class Agent < ApplicationRecord
   end
 
   def current_agent_definition_version
-    active_agent_connection&.agent_definition_version || published_agent_definition_version
+    association(:current_agent_definition_version).reader ||
+      active_agent_connection&.agent_definition_version ||
+      published_agent_definition_version
   end
 
   private
@@ -72,5 +77,20 @@ class Agent < ApplicationRecord
     return if default_execution_runtime.installation_id == installation_id
 
     errors.add(:default_execution_runtime, "must belong to the same installation")
+  end
+
+  def current_agent_definition_version_installation_match
+    return if self[:current_agent_definition_version_id].blank? || association(:current_agent_definition_version).reader.blank?
+    return if association(:current_agent_definition_version).reader.installation_id == installation_id
+
+    errors.add(:current_agent_definition_version, "must belong to the same installation")
+  end
+
+  def current_agent_definition_version_agent_match
+    version = association(:current_agent_definition_version).reader
+    return if version.blank?
+    return if version.agent_id == id
+
+    errors.add(:current_agent_definition_version, "must belong to this agent")
   end
 end

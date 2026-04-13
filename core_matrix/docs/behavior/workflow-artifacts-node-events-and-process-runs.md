@@ -99,6 +99,9 @@ runtime resources that later tasks now build on are:
 - `ProcessRun` is `ExecutionRuntime`-owned, not `AgentDefinitionVersion`-owned.
 - Every process run belongs to:
   - one installation
+  - one user
+  - one workspace
+  - one agent
   - one workflow node
   - one execution epoch
   - one execution runtime
@@ -179,6 +182,13 @@ runtime resources that later tasks now build on are:
   - `WorkflowNode` models scheduler-visible DAG progress and does not use
     `interrupted`
 - progress and terminal summaries are persisted directly on the task run
+- cold execution payloads are split into the one-to-one
+  `AgentTaskRunDetail` row:
+  - `task_payload`
+  - `progress_payload`
+  - `supervision_payload`
+  - `terminal_payload`
+  - `close_outcome_payload`
 - mailbox-driven execution may also emit temporary runtime-stream events such
   as:
   - `runtime.agent_task.*`

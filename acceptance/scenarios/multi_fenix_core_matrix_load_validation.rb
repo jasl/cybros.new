@@ -216,6 +216,7 @@ registration_matrix = Acceptance::Perf::RuntimeRegistrationMatrix.call(
   agent_base_url: agent_base_url,
   create_bring_your_own_agent: Acceptance::ManualSupport.method(:create_bring_your_own_agent!),
   register_bring_your_own_agent: Acceptance::ManualSupport.method(:register_bring_your_own_agent_from_manifest!),
+  create_bring_your_own_execution_runtime: Acceptance::ManualSupport.method(:create_bring_your_own_execution_runtime!),
   register_bring_your_own_execution_runtime: Acceptance::ManualSupport.method(:register_bring_your_own_execution_runtime!)
 )
 registration_matrix = decorate_boot_states(registration_matrix, topology)

@@ -10,13 +10,13 @@ module AppSurface
       end
 
       def call
-        available = WorkspacePolicies::Capabilities.available_for(agent: @workspace.user_agent_binding.agent)
+        available = WorkspacePolicies::Capabilities.available_for(agent: @workspace.agent)
         disabled = WorkspacePolicies::Capabilities.disabled_for(workspace: @workspace) & available
         effective = WorkspacePolicies::Capabilities.effective_for(workspace: @workspace)
 
         {
           "workspace_id" => @workspace.public_id,
-          "agent_id" => @workspace.user_agent_binding.agent.public_id,
+          "agent_id" => @workspace.agent.public_id,
           "default_execution_runtime_id" => @workspace.default_execution_runtime&.public_id,
           "available_capabilities" => available,
           "disabled_capabilities" => disabled,

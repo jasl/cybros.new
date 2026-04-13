@@ -8,6 +8,7 @@ class ExecutionRuntime < ApplicationRecord
 
   belongs_to :installation
   belongs_to :owner_user, class_name: "User", optional: true, inverse_of: :owned_execution_runtimes
+  belongs_to :current_execution_runtime_version, class_name: "ExecutionRuntimeVersion", optional: true
   belongs_to :published_execution_runtime_version, class_name: "ExecutionRuntimeVersion", optional: true
 
   has_many :agents, foreign_key: :default_execution_runtime_id, dependent: :restrict_with_exception
@@ -30,6 +31,8 @@ class ExecutionRuntime < ApplicationRecord
   validates :display_name, presence: true
   validate :owner_user_requirements
   validate :owner_user_installation_match
+  validate :current_execution_runtime_version_installation_match
+  validate :current_execution_runtime_version_runtime_match
 
   def self.visible_to_user(user)
     return none if user.blank?
@@ -44,7 +47,9 @@ class ExecutionRuntime < ApplicationRecord
   end
 
   def current_execution_runtime_version
-    active_execution_runtime_connection&.execution_runtime_version || published_execution_runtime_version
+    association(:current_execution_runtime_version).reader ||
+      active_execution_runtime_connection&.execution_runtime_version ||
+      published_execution_runtime_version
   end
 
   def execution_runtime_fingerprint
@@ -85,5 +90,21 @@ class ExecutionRuntime < ApplicationRecord
     return if owner_user.installation_id == installation_id
 
     errors.add(:owner_user, "must belong to the same installation")
+  end
+
+  def current_execution_runtime_version_installation_match
+    version = association(:current_execution_runtime_version).reader
+    return if version.blank?
+    return if version.installation_id == installation_id
+
+    errors.add(:current_execution_runtime_version, "must belong to the same installation")
+  end
+
+  def current_execution_runtime_version_runtime_match
+    version = association(:current_execution_runtime_version).reader
+    return if version.blank?
+    return if version.execution_runtime_id == id
+
+    errors.add(:current_execution_runtime_version, "must belong to this execution runtime")
   end
 end

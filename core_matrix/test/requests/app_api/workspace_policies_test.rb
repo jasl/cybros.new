@@ -126,6 +126,33 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     assert_equal "disabled_capabilities must be a subset of the available capabilities", response.parsed_body.fetch("error")
   end
 
+  test "shows workspace policy when the workspace no longer has a matching binding row" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    session = create_session!(user: user)
+    runtime = create_execution_runtime!(installation: installation)
+    agent = create_agent!(
+      installation: installation,
+      key: "builder",
+      default_execution_runtime: runtime
+    )
+    workspace = Workspace.create!(
+      installation: installation,
+      user: user,
+      agent: agent,
+      default_execution_runtime: runtime,
+      name: "Detached Workspace",
+      privacy: "private"
+    )
+
+    get "/app_api/workspaces/#{workspace.public_id}/policy",
+      headers: app_api_headers(session.plaintext_token)
+
+    assert_response :success
+    assert_equal agent.public_id, response.parsed_body.dig("workspace_policy", "agent_id")
+    assert_equal runtime.public_id, response.parsed_body.dig("workspace_policy", "default_execution_runtime_id")
+  end
+
   test "rejects default runtime updates that target an inaccessible runtime" do
     context = create_workspace_context!
     session = create_session!(user: context[:user])

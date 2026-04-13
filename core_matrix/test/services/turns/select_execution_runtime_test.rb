@@ -73,6 +73,9 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
     Turn.create!(
       installation: installation,
       conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       agent_definition_version: agent_definition_version,
       execution_runtime: previous_turn_runtime,
       execution_runtime_version: previous_turn_runtime_connection.execution_runtime_version,

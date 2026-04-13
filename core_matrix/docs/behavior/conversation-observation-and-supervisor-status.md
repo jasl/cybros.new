@@ -22,3 +22,7 @@ Use those documents for:
 `observation` remains only as a historical migration term. New product,
 service, controller, acceptance, and artifact work should use supervision
 naming directly.
+
+The landed supervision tables also carry explicit owner/context columns
+(`user_id`, `workspace_id`, `agent_id`) and use `Conversation.latest_active_*`
+anchors for current-turn and current-workflow feed selection.

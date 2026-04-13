@@ -29,6 +29,8 @@ for the living supervision and control contract.
   - `HumanTaskRequest`
 - Every request belongs to one installation, workflow run, workflow node,
   conversation, and turn.
+- Requests also redundantly persist `user_id`, `workspace_id`, and `agent_id`
+  on the header row.
 - `conversation_id` and `turn_id` are redundantly persisted on the request row
   for direct querying, but they must still match the owning workflow run.
 - The base lifecycle is explicit and validated:
@@ -36,8 +38,10 @@ for the living supervision and control contract.
   - `resolved`
   - `canceled`
   - `timed_out`
-- Structured request input lives in `request_payload`.
-- Structured outcome data lives in `result_payload`.
+- Structured request input lives in the one-to-one
+  `HumanInteractionRequestDetail.request_payload`.
+- Structured outcome data lives in the one-to-one
+  `HumanInteractionRequestDetail.result_payload`.
 - Outcome kind is explicit through `resolution_kind` rather than being inferred
   from free-form payloads.
 

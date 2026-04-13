@@ -50,6 +50,10 @@ Related design note:
   - promotes it to `bootstrap_state = "active"`
   - supersedes any previously active agent definition version for the same logical
     `Agent`
+- registration and handshake flows keep both
+  `Agent.published_agent_definition_version_id` and
+  `Agent.current_agent_definition_version_id` aligned with the newly active
+  version
 - upgrade and downgrade follow the same kernel-facing rule
 - the superseded agent definition version may still be referenced by paused turns or old
   audits, but it is no longer eligible for new scheduling
@@ -67,7 +71,7 @@ Related design note:
   - agent definition version moves to `health_status = "degraded"`
   - active workflows move to `wait_state = "waiting"`
   - `wait_reason_kind = "agent_unavailable"`
-  - `wait_reason_payload["recovery_state"] = "transient_outage"`
+  - `WorkflowRun.wait_reason_payload["recovery_state"] = "transient_outage"`
   - `blocking_resource_type = "AgentDefinitionVersion"`
   - `blocking_resource_id = <agent definition version public_id>`
   - audit action `agent_definition_version.degraded`
@@ -76,7 +80,7 @@ Related design note:
   - `auto_resume_eligible = false`
   - active workflows remain `waiting` but move to
     `wait_reason_kind = "manual_recovery_required"`
-  - `wait_reason_payload["recovery_state"] = "paused_agent_unavailable"`
+  - `WorkflowRun.wait_reason_payload["recovery_state"] = "paused_agent_unavailable"`
   - audit action `agent_definition_version.paused_agent_unavailable`
 - the wait payload freezes the agent definition version fingerprint and capability version
   that were pinned when the workflow last ran safely
@@ -136,7 +140,7 @@ Related design note:
 - if the agent definition version comes back healthy but runtime identity drifted, the kernel
   does not continue silently; it escalates the workflow to
   `manual_recovery_required` with
-  `wait_reason_payload["recovery_state"] = "paused_agent_unavailable"`
+  `WorkflowRun.wait_reason_payload["recovery_state"] = "paused_agent_unavailable"`
 - if rotation preserves logical agent identity but no longer preserves the
   capability contract, auto-resume is denied and explicit recovery is required
 

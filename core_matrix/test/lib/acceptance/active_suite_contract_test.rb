@@ -1,5 +1,6 @@
 require "test_helper"
 require Rails.root.join("../acceptance/lib/active_suite")
+require Rails.root.join("../acceptance/lib/governed_validation_support")
 
 class Acceptance::ActiveSuiteContractTest < ActiveSupport::TestCase
   FORBIDDEN_OBSOLETE_SHORTCUTS = [
@@ -7,7 +8,7 @@ class Acceptance::ActiveSuiteContractTest < ActiveSupport::TestCase
     "ConversationDebugExports::BuildPayload.call",
     "workflow_node_keys(",
     "workflow_state_hash(",
-    "wait_for_turn_workflow_terminal!"
+    "wait_for_turn_workflow_terminal!",
   ].freeze
 
   test "active acceptance suite only references existing entrypoints" do
@@ -102,5 +103,21 @@ class Acceptance::ActiveSuiteContractTest < ActiveSupport::TestCase
     refute_includes support, "capability_snapshot:"
     refute_includes mcp_scenario, ".capability_snapshot"
     refute_includes tool_scenario, ".capability_snapshot"
+  end
+
+  test "governed acceptance support builds task context with the agent definition selector snapshot" do
+    context = create_workspace_context!
+
+    task_context = GovernedValidationSupport.create_task_context!(
+      workspace: context.fetch(:workspace),
+      agent_definition_version: context.fetch(:agent_definition_version),
+      content: "Test governed selector snapshot",
+      allowed_tool_names: ["shell.exec"]
+    )
+
+    assert_equal(
+      context.fetch(:agent_definition_version).public_id,
+      task_context.fetch(:turn).resolved_model_selection_snapshot.fetch("agent_definition_version_id")
+    )
   end
 end

@@ -25,8 +25,11 @@ inventing demo users or UI state.
 
 - Reads open `HumanInteractionRequest` rows for one user without mutating
   workflow or request state.
-- Ownership is derived from the private workspace chain:
-  `HumanInteractionRequest -> Conversation -> Workspace -> User`.
+- Ownership is read directly from the request header row:
+  `installation_id`, `user_id`, `workspace_id`, and `agent_id`.
+- `conversation_id` and `turn_id` stay redundantly persisted for direct
+  filtering, but open-inbox access no longer reconstructs ownership by joining
+  back through conversation and workspace.
 - The query returns open requests from both:
   - interactive conversations
   - automation conversations
@@ -42,7 +45,7 @@ inventing demo users or UI state.
 - The query does not widen access for admins or other users.
 - Default workspaces are ordered first so a user-agent binding presents an
   immediately usable primary workspace before secondary ones.
-- Workspaces disappear from the list when their bound `Agent` is no longer
+- Workspaces disappear from the list when their owning `Agent` is no longer
   usable by the owning user under the current `public/private` visibility
   rules.
 - Workspaces do not disappear merely because a default `ExecutionRuntime`
@@ -72,8 +75,8 @@ inventing demo users or UI state.
 - Reads `ExecutionProfileFact` rows without touching provider usage tables.
 - Aggregates facts by `fact_kind` and `fact_key`.
 - Supports time-window filtering through `started_at` and `ended_at`.
-- Supports optional narrowing by user or workspace when a later read surface
-  needs a scoped summary.
+- Supports optional narrowing by user, workspace, agent, execution runtime, or
+  workflow run when a later read surface needs a scoped summary.
 - Summary entries expose:
   - event count
   - total `count_value`
@@ -136,6 +139,9 @@ of carrying separate counter families and close-summary logic in parallel.
   - workspaces
 - When an installation already exists, seeds still reconcile the optional
   bundled runtime through `Installations::RegisterBundledAgentRuntime`.
+- Bundled-runtime reconciliation now keeps both the published version pointer
+  and the persisted current-version pointer aligned on the reconciled
+  `Agent` and `ExecutionRuntime`.
 - In environments where the shipped `dev` provider is visible, seeds create the
   minimal governance baseline needed for `dev` to be usable:
   - one enabled `ProviderPolicy`, only when no policy row exists for `dev`

@@ -26,10 +26,13 @@ job. No automatic retention policy is implemented here yet.
 - `WorkflowRun` persists:
   - `wait_state`
   - `wait_reason_kind`
-  - `wait_reason_payload`
+  - `wait_reason_payload` through `WorkflowRunWaitDetail`
   - `waiting_since_at`
   - `blocking_resource_type`
   - `blocking_resource_id`
+- the header row also redundantly persists `user_id`, `workspace_id`,
+  `agent_id`, `conversation_id`, and `turn_id` for direct supervision and
+  recovery filtering
 - `blocking_resource_id` stores durable external-style identifiers only:
   - `AgentDefinitionVersion.public_id` for `agent_unavailable`
   - barrier artifact keys for `subagent_barrier`
@@ -202,7 +205,7 @@ job. No automatic retention policy is implemented here yet.
   - `max_auto_retries`
   - `next_retry_at`
   - `last_error_summary`
-  in `wait_reason_payload`
+  in `WorkflowRun.wait_reason_payload`
 - `Workflows::StepRetry` remains the explicit same-step retry boundary:
   - for `AgentTaskRun` blockers it creates a new `AgentTaskRun` inside the
     same turn and workflow and delivers it through the mailbox as a priority-2

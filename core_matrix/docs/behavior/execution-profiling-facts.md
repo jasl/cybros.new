@@ -17,7 +17,8 @@ questions about how work executed, not how providers billed for it.
   - approval wait intervals
   - process failures
 - Facts can attach to installation-owned dimensions already present in this
-  phase, including user and workspace.
+  phase, including user, workspace, agent, execution runtime, and workflow
+  run.
 - Facts also preserve nullable generic runtime references for later milestone
   roots:
   - `conversation_id`
@@ -26,9 +27,10 @@ questions about how work executed, not how providers billed for it.
   - `process_run_id`
   - `subagent_connection_id`
   - `human_interaction_request_id`
-- Runtime reference columns are stored as loose scalar identifiers instead of
-  future foreign keys so later runtime tables can land without forcing a schema
-  redesign in this phase.
+- `agent_id`, `execution_runtime_id`, and `workflow_run_id` now use explicit
+  foreign keys. The remaining runtime reference columns stay as loose scalar
+  identifiers where the runtime aggregate is not modeled as a strict foreign
+  key here.
 - `fact_key` keeps the concrete discriminator inside a generic fact kind, such
   as a tool identifier, subagent role, approval gate key, or process label.
 - provider-backed `turn_step` execution records `fact_kind = provider_request`
@@ -74,7 +76,8 @@ questions about how work executed, not how providers billed for it.
   not duplicated into `ExecutionProfileFact`
 - this task does not hard-couple to future runtime-resource tables from
   Milestone 3
-- cross-installation user and workspace references are rejected
+- cross-installation user, workspace, agent, execution runtime, and workflow
+  references are rejected
 
 ## Failure Modes
 

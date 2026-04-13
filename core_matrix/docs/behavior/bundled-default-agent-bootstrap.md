@@ -24,6 +24,8 @@ existing binding and workspace services.
 - Uses `execution_runtime_connection_metadata` for the execution-runtime
   connection surface and `endpoint_metadata` for the agent connection surface;
   the config names intentionally mirror the two distinct planes.
+- Keeps both the published-version pointer and the persisted current-version
+  pointer aligned on the reconciled `Agent` and `ExecutionRuntime`.
 - Does not create user bindings or workspaces.
 - Returns `nil` when bundled bootstrap is not enabled in configuration.
 
@@ -33,6 +35,9 @@ existing binding and workspace services.
 - Calls bundled runtime reconciliation before any user binding is created.
 - Composes `UserAgentBindings::Enable` so the binding is created and the
   default workspace reference remains virtual until first real use.
+- The returned default workspace reference is resolved from
+  `(installation_id, user_id, agent_id)`, not from a binding-owned workspace
+  row.
 
 ### `Installations::BootstrapFirstAdmin`
 

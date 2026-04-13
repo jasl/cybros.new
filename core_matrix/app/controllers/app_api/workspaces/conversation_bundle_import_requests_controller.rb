@@ -2,7 +2,7 @@ module AppAPI
   module Workspaces
     class ConversationBundleImportRequestsController < AppAPI::Workspaces::BaseController
       def create
-        agent_definition_version = @workspace.user_agent_binding.agent.current_agent_definition_version
+        agent_definition_version = @workspace.agent.current_agent_definition_version
         raise ActiveRecord::RecordNotFound, "Couldn't find AgentDefinitionVersion" if agent_definition_version.blank?
 
         request = ConversationBundleImports::CreateRequest.call(

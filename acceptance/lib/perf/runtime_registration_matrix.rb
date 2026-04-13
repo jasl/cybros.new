@@ -55,7 +55,7 @@ module Acceptance
           build(...)
         end
 
-        def build(installation:, actor:, topology:, agent_count:, agent_base_url:, create_bring_your_own_agent:, register_bring_your_own_agent:, register_bring_your_own_execution_runtime:)
+        def build(installation:, actor:, topology:, agent_count:, agent_base_url:, create_bring_your_own_agent:, register_bring_your_own_agent:, create_bring_your_own_execution_runtime:, register_bring_your_own_execution_runtime:)
           agent_registrations = Array.new(agent_count) do |index|
             build_agent_registration(
               installation: installation,
@@ -70,9 +70,11 @@ module Acceptance
           runtime_registrations = topology.runtime_slots.each_with_index.map do |slot, index|
             agent_registration = agent_registrations.fetch(index % agent_registrations.length)
             build_runtime_registration(
-              onboarding_token: agent_registration.fetch(:onboarding_token),
+              installation: installation,
+              actor: actor,
               agent_registration: agent_registration,
               slot: slot,
+              create_bring_your_own_execution_runtime: create_bring_your_own_execution_runtime,
               register_bring_your_own_execution_runtime: register_bring_your_own_execution_runtime
             )
           end.freeze
@@ -109,9 +111,13 @@ module Acceptance
           ).freeze
         end
 
-        def build_runtime_registration(onboarding_token:, agent_registration:, slot:, register_bring_your_own_execution_runtime:)
+        def build_runtime_registration(installation:, actor:, agent_registration:, slot:, create_bring_your_own_execution_runtime:, register_bring_your_own_execution_runtime:)
+          runtime_onboarding = create_bring_your_own_execution_runtime.call(
+            installation: installation,
+            actor: actor
+          )
           runtime_registration = register_bring_your_own_execution_runtime.call(
-            onboarding_token: onboarding_token,
+            onboarding_token: runtime_onboarding.fetch(:onboarding_token),
             runtime_base_url: slot.runtime_base_url,
             execution_runtime_fingerprint: "#{slot.label}-execution-runtime"
           )

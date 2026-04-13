@@ -88,10 +88,10 @@ module GovernedValidationSupport
       }
     )
 
-    user_binding = UserAgentBindings::Enable.call(
+    UserAgentBindings::Enable.call(
       user: bootstrap.user,
       agent: runtime.agent
-    ).binding
+    )
 
     ProviderEntitlement.find_or_create_by!(
       installation: bootstrap.installation,
@@ -108,7 +108,10 @@ module GovernedValidationSupport
     {
       bootstrap: bootstrap,
       runtime: runtime,
-      workspace: user_binding.workspaces.find_by!(is_default: true),
+      workspace: Workspaces::MaterializeDefault.call(
+        user: bootstrap.user,
+        agent: runtime.agent
+      ),
     }
   end
 
@@ -132,23 +135,34 @@ module GovernedValidationSupport
       execution_runtime: agent_definition_version.agent.default_execution_runtime,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: resolved_model_selection_snapshot(
+        agent_definition_version: agent_definition_version,
         normalized_selector: normalized_selector
       )
     )
 
     workflow_run = WorkflowRun.create!(
       installation: conversation.installation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       conversation: conversation,
       turn: turn,
+      execution_runtime: turn.execution_runtime,
       lifecycle_state: "active"
     )
 
     root_node = WorkflowNode.create!(
       installation: workflow_run.installation,
       workflow_run: workflow_run,
+      user: workflow_run.user,
+      workspace: workflow_run.workspace,
+      agent: workflow_run.agent,
+      conversation: workflow_run.conversation,
+      turn: workflow_run.turn,
       ordinal: 0,
       node_key: "root",
       node_type: "turn_root",
+      lifecycle_state: "pending",
       presentation_policy: "internal_only",
       decision_source: "system",
       metadata: {}
@@ -157,9 +171,15 @@ module GovernedValidationSupport
     workflow_node = WorkflowNode.create!(
       installation: workflow_run.installation,
       workflow_run: workflow_run,
+      user: workflow_run.user,
+      workspace: workflow_run.workspace,
+      agent: workflow_run.agent,
+      conversation: workflow_run.conversation,
+      turn: workflow_run.turn,
       ordinal: 1,
       node_key: node_key,
       node_type: node_type,
+      lifecycle_state: "pending",
       presentation_policy: "internal_only",
       decision_source: "agent",
       metadata: {}
@@ -175,11 +195,14 @@ module GovernedValidationSupport
 
     agent_task_run = AgentTaskRun.create!(
       installation: workflow_run.installation,
+      user: workflow_run.user,
+      workspace: workflow_run.workspace,
       agent: agent_definition_version.agent,
       workflow_run: workflow_run,
       workflow_node: workflow_node,
       conversation: conversation,
       turn: turn,
+      execution_runtime: workflow_run.execution_runtime,
       kind: "turn_step",
       lifecycle_state: "queued",
       logical_work_id: "turn-step:#{turn.public_id}:#{node_key}",

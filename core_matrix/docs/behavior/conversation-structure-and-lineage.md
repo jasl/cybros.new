@@ -7,6 +7,7 @@ Core Matrix conversations now carry these independent concerns:
 - lineage shape
 - addressability
 - agent binding and turn execution snapshots
+- owner and current-state anchors
 - conversation feature policy
 - user-visible lifecycle state
 - deletion state and lineage-store ownership
@@ -41,6 +42,17 @@ and safe deletion support.
 - feature policy:
   - `enabled_feature_ids`
   - `during_generation_input_policy`
+- owner and current-state anchors:
+  - `user_id`
+  - `workspace_id`
+  - `agent_id`
+  - `current_execution_runtime_id`
+  - `current_execution_epoch_id`
+  - `latest_active_turn_id`
+  - `latest_turn_id`
+  - `latest_active_workflow_run_id`
+  - `latest_message_id`
+  - `last_activity_at`
 
 `addressability`, `lifecycle_state`, and `deletion_state` are separate axes. A
 conversation can be agent-addressable yet active, owner-addressable yet
@@ -55,6 +67,11 @@ identity is frozen per turn: each turn captures the active
 Feature policy is conversation-owned durable execution state. It is not a UI
 hint and it is not recomputed from controller parameters when live work is
 already in flight.
+
+The current-state anchor columns are conversation-owned cache truth for
+read-side boundaries. They let feed, diagnostics, and app-surface lookups stay
+on the conversation row rather than reconstructing the latest turn, workflow,
+or transcript activity through follow-up queries.
 
 ## Conversation Feature Policy
 

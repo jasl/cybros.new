@@ -3,14 +3,25 @@ class UserAgentBinding < ApplicationRecord
   belongs_to :user
   belongs_to :agent
 
-  has_many :workspaces, dependent: :restrict_with_exception
-  has_one :default_workspace, -> { where(is_default: true) }, class_name: "Workspace"
-
   validates :user_id, uniqueness: { scope: :agent_id }
   validate :preferences_must_be_hash
   validate :user_installation_match
   validate :agent_installation_match
   validate :private_agent_ownership
+
+  def workspaces
+    return Workspace.none if installation_id.blank? || user_id.blank? || agent_id.blank?
+
+    Workspace.where(
+      installation_id: installation_id,
+      user_id: user_id,
+      agent_id: agent_id
+    )
+  end
+
+  def default_workspace
+    workspaces.find_by(is_default: true)
+  end
 
   private
 

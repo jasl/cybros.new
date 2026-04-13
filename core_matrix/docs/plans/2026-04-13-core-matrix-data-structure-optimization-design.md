@@ -393,6 +393,12 @@ Recommended indexes:
 - `(installation_id, lifecycle_state, visibility, owner_user_id)`
 - `(installation_id, current_agent_definition_version_id)`
 
+Landed implementation rule:
+
+- registration, handshake, and bundled-runtime reconcile flows must keep
+  `current_agent_definition_version_id` aligned with the newly active version
+  instead of treating it as a write-only schema placeholder
+
 #### `execution_runtimes`
 
 Add:
@@ -403,6 +409,12 @@ Recommended indexes:
 
 - `(installation_id, lifecycle_state, visibility, owner_user_id)`
 - `(installation_id, current_execution_runtime_version_id)`
+
+Landed implementation rule:
+
+- runtime registration, refresh, and bundled-runtime reconcile flows must keep
+  `current_execution_runtime_version_id` aligned with the newly active version
+  instead of leaving the column as an unused cache candidate
 
 #### `workspaces`
 

@@ -89,4 +89,40 @@ class AgentControl::CreateResourceCloseRequestTest < ActiveSupport::TestCase
     assert_equal context[:agent_definition_version], mailbox_item.target_agent_definition_version
     assert_equal context[:agent], mailbox_item.target_agent
   end
+
+  test "resolves the latest current agent definition version even when the passed agent object is stale" do
+    context = build_rotated_runtime_context!
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: context[:conversation],
+      kind: "fork",
+      agent: context[:agent],
+      addressability: "agent_addressable"
+    )
+    subagent_connection = SubagentConnection.create!(
+      installation: context[:installation],
+      owner_conversation: context[:conversation],
+      conversation: child_conversation,
+      user: child_conversation.user,
+      workspace: child_conversation.workspace,
+      agent: child_conversation.agent,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0,
+      observed_status: "running"
+    )
+
+    mailbox_item = AgentControl::CreateResourceCloseRequest.call(
+      resource: subagent_connection,
+      request_kind: "turn_interrupt",
+      reason_kind: "operator_stop",
+      strictness: "graceful",
+      grace_deadline_at: 30.seconds.from_now,
+      force_deadline_at: 60.seconds.from_now
+    )
+
+    assert_equal context[:replacement_agent_definition_version], mailbox_item.target_agent_definition_version
+    refute_equal context[:previous_agent_definition_version], mailbox_item.target_agent_definition_version
+  end
 end
