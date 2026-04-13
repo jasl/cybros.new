@@ -90,6 +90,8 @@ turn_id = nil
 terminal = nil
 turn_runtime_events = nil
 turn_feed = nil
+supervision_session = nil
+supervision_probe = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker!(
   agent_connection_credential: bundled_registration.agent_connection_credential,
@@ -128,6 +130,17 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
   end
 end
 
+supervision_session = Acceptance::ManualSupport.create_conversation_supervision_session!(
+  conversation_id: conversation_id,
+  actor: bootstrap.user,
+  responder_strategy: "builtin"
+)
+supervision_probe = Acceptance::ManualSupport.append_conversation_supervision_message!(
+  supervision_session_id: supervision_session.dig("conversation_supervision_session", "supervision_session_id"),
+  actor: bootstrap.user,
+  content: "What changed most recently in this conversation?"
+)
+
 debug_export_download = Acceptance::ManualSupport.app_api_debug_export_conversation!(
   conversation_id: conversation_id,
   session_token: app_api_session_token,
@@ -158,6 +171,8 @@ export_download = Acceptance::ManualSupport.app_api_export_conversation!(
 write_json(artifact_dir.join("evidence", "conversation-debug-export.json"), debug_payload)
 write_json(artifact_dir.join("evidence", "conversation-turn-runtime-events.json"), turn_runtime_events)
 write_json(artifact_dir.join("evidence", "conversation-turn-feed.json"), turn_feed)
+write_json(artifact_dir.join("evidence", "conversation-supervision-session.json"), supervision_session)
+write_json(artifact_dir.join("evidence", "conversation-supervision-probe.json"), supervision_probe)
 write_json(artifact_dir.join("evidence", "runtime-validation.json"), runtime_validation)
 write_json(artifact_dir.join("evidence", "conversation-debug-export-download.json"), debug_export_download)
 write_json(artifact_dir.join("evidence", "conversation-export-download.json"), export_download)
@@ -237,6 +252,7 @@ write_text(
     - diagnostics summary review: `#{artifact_dir.join("review", "diagnostics-summary.md")}`
     - runtime events review: `#{artifact_dir.join("review", "runtime-events.md")}`
     - supervision feed review: `#{artifact_dir.join("review", "supervision-feed.md")}`
+    - supervision sidechat review: `#{artifact_dir.join("review", "supervision-sidechat.md")}`
   MD
 )
 

@@ -127,12 +127,16 @@ expected_conversation_state = {
   "turn_lifecycle_state" => "active",
   "agent_task_run_state" => "completed",
 }
-observed_conversation_state = Acceptance::ManualSupport.workflow_state_hash(
-  conversation: run.fetch(:conversation),
-  workflow_run: run.fetch(:workflow_run),
-  turn: run.fetch(:turn),
-  agent_task_run: run.fetch(:agent_task_run)
-)
+selected_output_message = run.fetch(:turn).reload.selected_output_message
+observed_conversation_state = {
+  "conversation_state" => run.fetch(:conversation).reload.lifecycle_state,
+  "workflow_lifecycle_state" => workflow_run.fetch("lifecycle_state"),
+  "workflow_wait_state" => workflow_run.fetch("wait_state"),
+  "turn_lifecycle_state" => run.fetch(:turn).reload.lifecycle_state,
+  "agent_task_run_state" => run.fetch(:agent_task_run).reload.lifecycle_state,
+  "selected_output_message_id" => selected_output_message&.public_id,
+  "selected_output_content" => selected_output_message&.content,
+}.compact
 diagnostics_contract_passed =
   %w[pending ready stale].include?(diagnostics.fetch("diagnostics_status")) &&
   %w[pending ready stale].include?(turns_payload.fetch("diagnostics_status")) &&

@@ -1507,6 +1507,10 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         zip.write(JSON.generate([{ "tool_invocation_id" => "tool_123" }]))
         zip.put_next_entry("diagnostics.json")
         zip.write(JSON.generate({ "turn_count" => 1 }))
+        zip.put_next_entry("conversation_supervision_sessions.json")
+        zip.write(JSON.generate([{ "supervision_session_id" => "session_123" }]))
+        zip.put_next_entry("conversation_supervision_messages.json")
+        zip.write(JSON.generate([{ "supervision_message_id" => "message_123" }]))
         zip.put_next_entry("manifest.json")
         zip.write(JSON.generate({ "bundle_kind" => "conversation_debug_export" }))
       end
@@ -1515,6 +1519,8 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
 
       assert_equal [{ "tool_invocation_id" => "tool_123" }], payload.fetch("tool_invocations")
       assert_equal({ "turn_count" => 1 }, payload.fetch("diagnostics"))
+      assert_equal [{ "supervision_session_id" => "session_123" }], payload.fetch("conversation_supervision_sessions")
+      assert_equal [{ "supervision_message_id" => "message_123" }], payload.fetch("conversation_supervision_messages")
       assert_equal({ "bundle_kind" => "conversation_debug_export" }, payload.fetch("manifest"))
     end
   end

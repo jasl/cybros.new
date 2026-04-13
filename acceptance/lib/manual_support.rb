@@ -467,6 +467,8 @@ module Acceptance
           'command_runs' => 'command_runs.json',
           'process_runs' => 'process_runs.json',
           'subagent_connections' => 'subagent_connections.json',
+          'conversation_supervision_sessions' => 'conversation_supervision_sessions.json',
+          'conversation_supervision_messages' => 'conversation_supervision_messages.json',
           'usage_events' => 'usage_events.json',
         }.each do |payload_key, entry_name|
           entry = zip_file.find_entry(entry_name)
@@ -1288,22 +1290,6 @@ module Acceptance
                   .includes(:from_node, :to_node)
                   .sort_by { |edge| [edge.from_node.ordinal, edge.to_node.ordinal] }
                   .map { |edge|                     "#{edge.from_node.node_key}->#{edge.to_node.node_key}" }
-    end
-
-    def workflow_state_hash(conversation:, workflow_run:, turn:, agent_task_run: nil, extra: {})
-      {
-        'conversation_state' => conversation.reload.lifecycle_state,
-        'workflow_lifecycle_state' => workflow_run.reload.lifecycle_state,
-        'workflow_wait_state' => workflow_run.wait_state,
-        'turn_lifecycle_state' => turn.reload.lifecycle_state
-      }.tap do |state|
-        if agent_task_run.present?
-          state['agent_task_run_state'] = agent_task_run.reload.lifecycle_state
-          state['selected_output_message_id'] = turn.selected_output_message&.public_id
-          state['selected_output_content'] = turn.selected_output_message&.content
-        end
-        extra.each { |key, value| state[key] = value }
-      end
     end
 
     def scenario_result(scenario:, expected_dag_shape:, observed_dag_shape:, expected_conversation_state:,

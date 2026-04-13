@@ -32,6 +32,8 @@ module ConversationDebugExports
         write_json_entry(zip, "command_runs.json", payload.fetch("command_runs"))
         write_json_entry(zip, "process_runs.json", payload.fetch("process_runs"))
         write_json_entry(zip, "subagent_connections.json", payload.fetch("subagent_connections"))
+        write_json_entry(zip, "conversation_supervision_sessions.json", payload.fetch("conversation_supervision_sessions"))
+        write_json_entry(zip, "conversation_supervision_messages.json", payload.fetch("conversation_supervision_messages"))
         write_json_entry(zip, "usage_events.json", payload.fetch("usage_events"))
 
         attachment_entries(payload.fetch("conversation_payload")).each do |entry|

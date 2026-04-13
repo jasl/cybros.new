@@ -35,6 +35,8 @@ module ConversationDebugExports
         "command_runs" => command_runs.map { |command_run| serialize_command_run(command_run) },
         "process_runs" => process_runs.map { |process_run| serialize_process_run(process_run) },
         "subagent_connections" => subagent_connections.map { |session| serialize_subagent_connection(session) },
+        "conversation_supervision_sessions" => conversation_supervision_sessions.map { |session| serialize_conversation_supervision_session(session) },
+        "conversation_supervision_messages" => conversation_supervision_messages.map { |message| serialize_conversation_supervision_message(message) },
         "usage_events" => usage_events.map { |event| serialize_usage_event(event) },
       }
     end
@@ -127,6 +129,19 @@ module ConversationDebugExports
         .where(owner_conversation: @conversation)
         .or(SubagentConnection.where(conversation: @conversation))
         .preload(:owner_conversation, :conversation, :origin_turn, :parent_subagent_connection)
+        .order(:created_at, :id)
+    end
+
+    def conversation_supervision_sessions
+      @conversation_supervision_sessions ||= @conversation.conversation_supervision_sessions
+        .preload(:target_conversation, :initiator)
+        .order(:created_at, :id)
+    end
+
+    def conversation_supervision_messages
+      @conversation_supervision_messages ||= ConversationSupervisionMessage
+        .where(conversation_supervision_session: conversation_supervision_sessions)
+        .preload(:conversation_supervision_session, :conversation_supervision_snapshot, :target_conversation)
         .order(:created_at, :id)
     end
 
@@ -432,6 +447,36 @@ module ConversationDebugExports
       }.compact
     end
 
+    def serialize_conversation_supervision_session(session)
+      {
+        "supervision_session_id" => session.public_id,
+        "target_conversation_id" => session.target_conversation.public_id,
+        "initiator_type" => session.initiator_type,
+        "initiator_id" => supervision_initiator_public_id(session),
+        "lifecycle_state" => session.lifecycle_state,
+        "responder_strategy" => session.responder_strategy,
+        "capability_policy_snapshot" => session.capability_policy_snapshot,
+        "last_snapshot_at" => session.last_snapshot_at&.iso8601(6),
+        "closed_at" => session.closed_at&.iso8601(6),
+        "created_at" => session.created_at&.iso8601(6),
+      }.compact
+    end
+
+    def serialize_conversation_supervision_message(message)
+      snapshot = message.conversation_supervision_snapshot
+      return {} if snapshot.blank?
+
+      {
+        "supervision_message_id" => message.public_id,
+        "supervision_session_id" => message.conversation_supervision_session.public_id,
+        "supervision_snapshot_id" => snapshot.public_id,
+        "target_conversation_id" => message.target_conversation.public_id,
+        "role" => message.role,
+        "content" => message.content,
+        "created_at" => message.created_at&.iso8601(6),
+      }
+    end
+
     def serialize_usage_event(event)
       {
         "conversation_id" => @conversation.public_id,
@@ -481,6 +526,12 @@ module ConversationDebugExports
 
     def public_snapshot_metadata(metadata)
       metadata.except("prompt_cache_available_input_tokens_total")
+    end
+
+    def supervision_initiator_public_id(session)
+      return session.initiator.public_id if session.initiator.respond_to?(:public_id)
+
+      nil
     end
   end
 end

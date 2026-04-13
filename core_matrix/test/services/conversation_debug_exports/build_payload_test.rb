@@ -1,6 +1,8 @@
 require "test_helper"
 
 class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
+  include ConversationSupervisionFixtureBuilder
+
   setup do
     truncate_all_tables!
   end
@@ -99,6 +101,25 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     assert_equal 2, payload.dig("diagnostics", "turns", 0, "usage_event_count")
     assert_equal 150, payload.dig("diagnostics", "turns", 0, "input_tokens_total")
     assert_equal 55, payload.dig("diagnostics", "turns", 0, "output_tokens_total")
+  end
+
+  test "includes supervision sessions and transcript messages in the debug payload" do
+    fixture = prepare_conversation_supervision_context!
+    session = create_conversation_supervision_session!(fixture)
+    result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      content: "What changed most recently?"
+    )
+
+    payload = ConversationDebugExports::BuildPayload.call(conversation: fixture.fetch(:conversation))
+
+    assert_equal 1, payload.fetch("conversation_supervision_sessions").length
+    assert_equal session.public_id, payload.fetch("conversation_supervision_sessions").first.fetch("supervision_session_id")
+    assert_equal 2, payload.fetch("conversation_supervision_messages").length
+    assert_equal %w[user supervisor_agent], payload.fetch("conversation_supervision_messages").map { |message| message.fetch("role") }
+    assert_equal result.dig("human_sidechat", "content"), payload.fetch("conversation_supervision_messages").last.fetch("content")
+    refute_includes JSON.generate(payload), %("#{session.id}")
   end
 
   private

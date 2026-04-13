@@ -102,12 +102,15 @@ def observe_run_via_app_api(run:, session_token:, artifact_dir:)
     .fetch('messages')
     .reverse
     .find { |message| message.fetch('turn_public_id') == turn_id && message.fetch('role') == 'assistant' }
-  truth_state = Acceptance::ManualSupport.workflow_state_hash(
-    conversation: run.fetch(:conversation),
-    workflow_run: run.fetch(:workflow_run),
-    turn: run.fetch(:turn),
-    agent_task_run: run.fetch(:agent_task_run)
-  )
+  truth_state = {
+    'conversation_state' => run.fetch(:conversation).reload.lifecycle_state,
+    'workflow_lifecycle_state' => workflow_run.fetch('lifecycle_state'),
+    'workflow_wait_state' => workflow_run.fetch('wait_state'),
+    'turn_lifecycle_state' => run.fetch(:turn).reload.lifecycle_state,
+    'agent_task_run_state' => run.fetch(:agent_task_run).reload.lifecycle_state,
+    'selected_output_message_id' => selected_output_message&.fetch('message_public_id', nil),
+    'selected_output_content' => selected_output_message&.fetch('content', nil)
+  }.compact
   diagnostics_contract_passed =
     %w[pending ready stale].include?(diagnostics.fetch('diagnostics_status')) &&
     %w[pending ready stale].include?(turns_payload.fetch('diagnostics_status')) &&

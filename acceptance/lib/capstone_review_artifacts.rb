@@ -25,6 +25,10 @@ module Acceptance
         build_supervision_feed_summary(turn_feed:, debug_payload:)
       )
       write_text(
+        review_dir.join("supervision-sidechat.md"),
+        build_supervision_sidechat_transcript(debug_payload:)
+      )
+      write_text(
         review_dir.join("index.md"),
         build_review_index(
           transcript_present: !transcript_md.to_s.empty?,
@@ -43,7 +47,8 @@ module Acceptance
         "",
         "- [Diagnostics Summary](diagnostics-summary.md)",
         "- [Runtime Events](runtime-events.md)",
-        "- [Supervision Feed](supervision-feed.md)"
+        "- [Supervision Feed](supervision-feed.md)",
+        "- [Supervision Sidechat](supervision-sidechat.md)"
       ]
       lines << "- [Conversation Transcript](conversation-transcript.md)" if transcript_present
       lines << "- [Conversation Transcript HTML](conversation-transcript.html)" if transcript_html_present
@@ -168,8 +173,60 @@ module Acceptance
       lines.join("\n")
     end
 
+    def build_supervision_sidechat_transcript(debug_payload:)
+      sessions = Array(debug_payload["conversation_supervision_sessions"])
+      messages = Array(debug_payload["conversation_supervision_messages"])
+      messages_by_session = messages.group_by { |message| message.fetch("supervision_session_id", nil) }
+
+      lines = [
+        "# Supervision Sidechat",
+        "",
+        "- sessions: `#{sessions.length}`",
+        "- transcript messages: `#{messages.length}`",
+        ""
+      ]
+
+      if messages.empty?
+        lines << "No supervision sidechat was captured in this run."
+        lines << ""
+        return lines.join("\n")
+      end
+
+      sessions.each do |session|
+        session_id = session.fetch("supervision_session_id", "unknown")
+        lines << "## Session `#{session_id}`"
+        lines << ""
+        lines << "- responder strategy: `#{session.fetch("responder_strategy", "unknown")}`"
+        lines << "- lifecycle: `#{session.fetch("lifecycle_state", "unknown")}`"
+        lines << "- created at: `#{session.fetch("created_at", "unknown")}`"
+        lines << ""
+
+        Array(messages_by_session[session_id]).each do |message|
+          lines << "### #{message.fetch("role", "message")} `#{message.fetch("created_at", "unknown")}`"
+          lines << ""
+          lines << message.fetch("content", "")
+          lines << ""
+        end
+      end
+
+      orphan_messages = messages.reject { |message| sessions.any? { |session| session.fetch("supervision_session_id", nil) == message.fetch("supervision_session_id", nil) } }
+      unless orphan_messages.empty?
+        lines << "## Orphan Messages"
+        lines << ""
+        orphan_messages.each do |message|
+          lines << "### #{message.fetch("role", "message")} `#{message.fetch("created_at", "unknown")}`"
+          lines << ""
+          lines << message.fetch("content", "")
+          lines << ""
+        end
+      end
+
+      lines.join("\n")
+    end
+
     def supervision_sidechat_present?(turn_feed:, debug_payload:)
       return true if Array(debug_payload["subagent_connections"]).any?
+      return true if Array(debug_payload["conversation_supervision_messages"]).any?
 
       Array(turn_feed.fetch("items", [])).any? do |entry|
         entry.fetch("event_kind", "").match?(/sidechat/i) ||
