@@ -1,95 +1,139 @@
-# Prompt Budget Guard Implementation Plan
+# Prompt Compaction Feature Slice Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add authoritative prompt-budget protection for `core_matrix`
-provider turns so oversized requests are compacted or rejected predictably,
-workspace policy can control prompt-compaction behavior, and provider overflow
-surfaces as a user-recoverable prompt-size failure instead of
-`internal_unexpected_error`.
+## Status
 
-**Architecture:** `ProviderExecution::ExecuteRoundLoop` will call a new
-`PromptBudgetGuard` after the final provider message list is assembled and
-before dispatch. The guard will consume a frozen prompt-compaction policy
-resolved from workspace config over agent defaults, estimate tokens with a
-deterministic fallback chain, explicitly orchestrate runtime-first compaction
-with an embedded fallback, and emit structured overflow failures and
-remediation metadata when the request still cannot fit.
+This document now describes the `prompt_compaction` feature slice on top of
+the shared platform defined in:
 
-**Tech Stack:** Ruby on Rails, Active Record, Minitest, `tiktoken_ruby`,
-`tokenizers`, `SimpleInference`, embedded agents, Fenix canonical config,
-workspace policy API.
+- [runtime-feature-platform-design.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-14-runtime-feature-platform-design.md)
+- [runtime-feature-platform-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-14-runtime-feature-platform-implementation.md)
+
+If the platform is being implemented in the same stream, complete platform
+Tasks 1 through 6 first. This slice should not reintroduce feature-specific
+policy resolution, manifest parsing, or `execute_tool`-shaped runtime calls.
+
+## Goal
+
+Add authoritative prompt-budget protection for provider turns by implementing
+`prompt_compaction` as an execution-critical feature slice:
+
+- token budgets are checked before dispatch
+- compaction policy is frozen per turn
+- runtime compaction is attempted only through the feature platform
+- missing or failing runtime support falls back to embedded compaction when the
+  frozen strategy allows it
+- provider overflow becomes a typed, user-recoverable failure instead of
+  `internal_unexpected_error`
+
+## Architecture
+
+`ProviderExecution::ExecuteRoundLoop` remains the final authority before
+provider dispatch. The slice-specific pieces are:
+
+- `ProviderExecution::TokenEstimator`
+- `ProviderExecution::PromptBudgetGuard`
+- integration with `RuntimeFeatures::Invoke` for `prompt_compaction`
+- provider-overflow recovery and failure classification
+
+The shared platform owns:
+
+- policy schema under `features.prompt_compaction`
+- capability resolution from `feature_contract`
+- runtime invocation through `execute_feature`
+- runtime failure normalization
+
+## Target Outcome
+
+At the end of this plan:
+
+- oversized turns are caught before provider dispatch whenever possible
+- the newest selected user input is never compacted away
+- `runtime_first` prefers runtime compaction but cleanly falls back to embedded
+- `runtime_required` fails explicitly when runtime capability is missing or the
+  runtime compaction request fails
+- prompt-size failures persist structured remediation metadata that the app can
+  use to guide retry
+
+## Task Boundaries
+
+This slice owns:
+
+- token estimation
+- guard decisions
+- compaction integration into round execution
+- bounded overflow recovery
+- prompt-size failure payloads
+
+This slice does not own:
+
+- policy schema infrastructure
+- feature registry or capability registry
+- Fenix `feature_contract` transport
+- generic feature orchestration semantics
 
 ---
 
-## Current Baseline
-
-This plan starts from the current code state, where the shared feature-policy
-foundation already exists:
-
-- `workspace.config.features.*` is the structured workspace policy container
-- `WorkspaceFeatures::Schema` and `WorkspaceFeatures::Resolver` own feature
-  normalization and effective resolution
-- workspace policy show/update already exposes resolved `features.*`
-- Fenix canonical config already ships `features.title_bootstrap` and
-  `features.prompt_compaction`
-- `ProviderExecution::PromptCompactionPolicy` already resolves the effective
-  prompt-compaction policy
-- `BuildExecutionSnapshot` already freezes
-  `provider_context.feature_policies.prompt_compaction`
-- `Conversations::Metadata::TitleBootstrapPolicy` intentionally remains a
-  live-read feature on top of the same shared resolver
-
-This implementation plan therefore covers only the remaining prompt-budget
-guard work on top of that baseline.
-
----
-
-### Task 1: Lock Prompt-Budget Contracts Before Wiring New Surfaces
+### Task 1: Lock Slice Contracts Before Wiring Round Execution
 
 **Files:**
 - Modify: `core_matrix/test/services/provider_execution/failure_classification_test.rb`
 - Modify: `core_matrix/test/services/provider_execution/execute_turn_step_test.rb`
 - Create: `core_matrix/test/services/provider_execution/prompt_budget_guard_test.rb`
 - Create: `core_matrix/test/services/provider_execution/token_estimator_test.rb`
+- Modify: `core_matrix/test/services/provider_execution/execute_round_loop_test.rb`
 
 **Step 1: Write failing `TokenEstimator` tests**
 
-Create `token_estimator_test.rb` with cases that expect:
+Cover the estimator fallback chain:
 
-- exact local tokenizer path wins when an asset is available
-- `tiktoken` fallback is used when no exact tokenizer asset exists
+- exact local tokenizer asset wins when available
+- `tiktoken` is used when no exact asset exists
 - heuristic fallback is used when neither tokenizer path is available
 - heuristic fallback intentionally over-estimates instead of under-estimating
 
 **Step 2: Write failing `PromptBudgetGuard` tests**
 
-Create `prompt_budget_guard_test.rb` with cases for:
+Cover the three decision states:
 
-- `allow` when the final message list is below the soft threshold
-- `compact` when the final message list crosses the soft threshold
+- `allow` below the soft threshold
+- `compact` when the request crosses the soft threshold
 - `reject` when the newest selected user input alone exceeds the remaining hard
   budget
-- retry metadata for `current_message` vs `full_context`
 
-Stub compaction so these tests fail on missing guard logic, not on unrelated
-runtime plumbing.
+Also assert remediation metadata for:
 
-**Step 3: Write failing overflow-classification tests**
+- `failure_scope = "current_message"`
+- `failure_scope = "full_context"`
+- `retry_mode`
+
+**Step 3: Write failing round-loop integration tests**
+
+Extend `execute_round_loop_test.rb` so it expects:
+
+- dispatch proceeds when the guard returns `allow`
+- the round calls `RuntimeFeatures::Invoke` with
+  `feature_key = "prompt_compaction"` when the guard returns `compact`
+- the round raises a typed local failure when the guard returns `reject`
+
+Stub the platform invocation boundary. Do not duplicate platform fallback
+tests here.
+
+**Step 4: Write failing overflow-classification tests**
 
 Extend `failure_classification_test.rb` so it expects:
 
-- HTTP `413` to map to `prompt_too_large_for_retry` or
-  `context_window_exceeded_after_compaction`
+- HTTP `413` maps to a prompt-size failure
 - HTTP `400` / `422` bodies containing `prompt too long`, `context length`,
-  `maximum context length`, or `request too large` to map to explicit
-  prompt-size failures
-- these failures to use manual retry instead of terminal implementation error
+  `maximum context length`, or `request too large` also map to prompt-size
+  failures
+- these failures are retryable by user action, not generic implementation
+  failures
 
-**Step 4: Write failing failure-persistence tests**
+**Step 5: Write failing failure-persistence tests**
 
-Extend `execute_turn_step_test.rb` so it expects persisted failure payloads to
-include:
+Extend `execute_turn_step_test.rb` so persisted failure payloads include:
 
 - `retry_mode`
 - `editable_tail_input`
@@ -97,32 +141,22 @@ include:
 - `turn_id`
 - `selected_input_message_id`
 
-**Step 5: Run the targeted tests and verify they fail for the right reasons**
+**Step 6: Run the targeted tests and verify they fail**
 
-Run from `/Users/jasl/Workspaces/Ruby/cybros/core_matrix`:
+From `/Users/jasl/Workspaces/Ruby/cybros/core_matrix`:
 
 ```bash
 PARALLEL_WORKERS=1 bin/rails test \
   test/services/provider_execution/token_estimator_test.rb \
   test/services/provider_execution/prompt_budget_guard_test.rb \
+  test/services/provider_execution/execute_round_loop_test.rb \
   test/services/provider_execution/failure_classification_test.rb \
   test/services/provider_execution/execute_turn_step_test.rb
 ```
 
-Expected: failures showing the new estimator/guard classes do not exist yet and
-overflow is still classified generically with no structured remediation
-metadata.
-
-**Step 6: Commit**
-
-```bash
-git add \
-  test/services/provider_execution/token_estimator_test.rb \
-  test/services/provider_execution/prompt_budget_guard_test.rb \
-  test/services/provider_execution/failure_classification_test.rb \
-  test/services/provider_execution/execute_turn_step_test.rb
-git commit -m "test: lock prompt budget guard contracts"
-```
+Expected: failures show the estimator and guard do not exist yet, round
+execution does not invoke the feature platform, and overflow is still
+classified generically.
 
 ### Task 2: Implement Token Estimation And Guard Decisions
 
@@ -134,41 +168,36 @@ git commit -m "test: lock prompt budget guard contracts"
 - Modify: `core_matrix/test/services/provider_execution/prompt_budget_guard_test.rb`
 - Modify: `core_matrix/test/services/provider_execution/execute_round_loop_test.rb`
 
-**Step 1: Write failing round-loop guard tests for non-compaction outcomes**
+**Step 1: Implement `TokenEstimator`**
 
-Extend `execute_round_loop_test.rb` with cases that expect:
+The estimator should accept:
 
-- dispatch proceeds when the guard returns `allow`
-- dispatch is blocked with a typed local error when the guard returns `reject`
+- final provider-visible messages
+- model or tokenizer hints
+- the relevant hard-budget context
 
-Do not add compaction-orchestration expectations yet. Those belong to Task 3.
+It should return:
 
-**Step 2: Implement `TokenEstimator` minimally to satisfy the tests**
+- `estimated_tokens`
+- `strategy`
+- any useful diagnostics for logging
 
-Add `TokenEstimator` with an API that accepts:
+Fallback order:
 
-- message list
-- `tokenizer_hint`
-- hard budget context
+1. exact local tokenizer asset
+2. `tiktoken`
+3. heuristic estimate
 
-Implement the fallback chain in order:
+**Step 2: Implement `PromptBudgetGuard`**
 
-- exact local tokenizer
-- `tiktoken`
-- heuristic estimate
-
-Return both the estimated token count and the estimator strategy used.
-
-**Step 3: Implement `PromptBudgetGuard` decision logic**
-
-Add `PromptBudgetGuard` with named constants for:
+Add explicit constants, not inline magic numbers, for:
 
 - soft-budget reserve behavior
-- heuristic safety behavior
+- heuristic safety multiplier or buffer
 - max compaction attempts
-- max overflow recovery attempts
+- max overflow-recovery attempts
 
-The guard should expose a result object or hash that includes:
+The guard result should expose at least:
 
 - `decision`
 - `estimated_tokens`
@@ -176,25 +205,20 @@ The guard should expose a result object or hash that includes:
 - `failure_scope`
 - `retry_mode`
 
-For this task, a `compact` decision only blocks direct dispatch. The actual
-compaction orchestration is added in Task 3.
-
-**Step 4: Wire the guard into `ExecuteRoundLoop` before dispatch**
+**Step 3: Gate round execution before dispatch**
 
 Update `ExecuteRoundLoop` so it:
 
-- assembles final provider messages
-- calls `PromptBudgetGuard`
-- dispatches only when the guard returns `allow`
-- raises a typed local error when the guard returns `reject`
-- raises a separate typed local error for `compact` until Task 3 implements the
-  orchestration path
+- assembles the final provider-visible message list
+- runs `PromptBudgetGuard`
+- dispatches only on `allow`
+- routes `compact` into the feature-platform path
+- raises a typed local rejection on `reject`
 
-This keeps the test boundary explicit and avoids hiding red tests across tasks.
+At this stage, keep the compaction integration minimal and deterministic. The
+platform should be treated as a dependency boundary, not reimplemented here.
 
-**Step 5: Run the targeted test set and make it green**
-
-Run:
+**Step 4: Run the targeted test set and make it green**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
@@ -204,232 +228,120 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/provider_execution/execute_round_loop_test.rb
 ```
 
-Expected: estimator and guard tests pass, and round-loop dispatch is now gated
-for `allow` vs `reject` without compaction orchestration yet.
+Expected: estimation and guard decisions are now authoritative before provider
+dispatch.
 
-**Step 6: Commit**
-
-```bash
-git add \
-  app/services/provider_execution/token_estimator.rb \
-  app/services/provider_execution/prompt_budget_guard.rb \
-  app/services/provider_execution/execute_round_loop.rb \
-  test/services/provider_execution/token_estimator_test.rb \
-  test/services/provider_execution/prompt_budget_guard_test.rb \
-  test/services/provider_execution/execute_round_loop_test.rb
-git commit -m "feat: add provider prompt budget guard"
-```
-
-### Task 3: Add Runtime-First Compaction And Embedded Fallback
+### Task 3: Integrate Platform-Driven Compaction And Bounded Recovery
 
 **Files:**
-- Create: `core_matrix/app/services/provider_execution/prompt_compaction.rb`
-- Create: `core_matrix/app/services/provider_execution/prompt_compaction/agent_runtime_strategy.rb`
-- Create: `core_matrix/app/services/provider_execution/prompt_compaction/embedded_strategy.rb`
-- Create: `core_matrix/app/services/embedded_agents/prompt_compaction/invoke.rb`
-- Modify: `core_matrix/app/services/embedded_agents/registry.rb`
 - Modify: `core_matrix/app/services/provider_execution/execute_round_loop.rb`
+- Modify: `core_matrix/app/services/provider_execution/prompt_budget_guard.rb`
 - Modify: `core_matrix/test/services/provider_execution/execute_round_loop_test.rb`
-- Create: `core_matrix/test/services/embedded_agents/prompt_compaction/invoke_test.rb`
+- Modify: `core_matrix/test/services/provider_execution/prompt_budget_guard_test.rb`
 
-**Step 1: Write failing compaction-orchestration tests**
+**Step 1: Add failing compaction-integration tests**
 
 Extend `execute_round_loop_test.rb` so it expects:
 
-- a soft-threshold crossing triggers compaction before provider dispatch
-- runtime compaction may fall back to embedded compaction
-- runtime-disabled or embedded-only policy modes honor the frozen prompt
-  compaction policy from the execution snapshot
+- `RuntimeFeatures::Invoke` is called with `feature_key = "prompt_compaction"`
+- the frozen policy and frozen capability snapshot are used
+- runtime-first compaction may fall back through the platform to embedded
+  compaction when the normalized platform result allows it
+- the compacted message list is re-estimated before dispatch
 
-Create `embedded_agents/prompt_compaction/invoke_test.rb` with cases that
-expect:
+These tests should stub the platform result shape instead of retesting platform
+internals.
 
-- the newest selected user message is preserved verbatim
-- older transcript entries may be replaced by a bounded summary form
-- the returned message list is suitable for the current round only
+**Step 2: Wire the slice to the platform**
 
-**Step 2: Implement the embedded fallback compactor**
+Update `ExecuteRoundLoop` so the `compact` path:
 
-Add `EmbeddedAgents::PromptCompaction::Invoke` and register it in
-`EmbeddedAgents::Registry`.
+- invokes `RuntimeFeatures::Invoke`
+- passes the final provider-visible messages plus budget context
+- replaces only the current round payload
+- preserves the newest selected input message verbatim
 
-Keep the implementation intentionally small:
+**Step 3: Add bounded provider-overflow recovery**
 
-- no durable transcript writes
-- no new persistence models
-- no recursive provider calls
+Allow one explicit recovery loop when the provider still returns overflow:
 
-**Step 3: Implement runtime-first compaction orchestration**
+1. classify the provider error as prompt-size overflow
+2. re-enter compaction mode
+3. invoke `prompt_compaction` again
+4. retry provider dispatch once
 
-Add `ProviderExecution::PromptCompaction` that:
+Stop after the hard attempt limit. Do not allow open-ended compaction cycles.
 
-- prefers an agent-runtime `compact_context` execution through
-  `AgentRequestExchange`
-- falls back to the embedded compactor when runtime compaction is disabled,
-  unavailable, or fails
-- returns the replacement message list plus metadata about which strategy won
-
-Use named constants for max attempts and never inline the retry counts.
-
-**Step 4: Re-run the compaction-focused tests and make them green**
-
-Run:
+**Step 4: Run the targeted tests and make them green**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
-  test/services/embedded_agents/prompt_compaction/invoke_test.rb \
+  test/services/provider_execution/prompt_budget_guard_test.rb \
   test/services/provider_execution/execute_round_loop_test.rb
 ```
 
-Expected: the preflight compaction and embedded fallback cases now pass.
+Expected: prompt compaction now flows through the shared feature platform with
+bounded retry behavior.
 
-**Step 5: Commit**
-
-```bash
-git add \
-  app/services/provider_execution/prompt_compaction.rb \
-  app/services/provider_execution/prompt_compaction/agent_runtime_strategy.rb \
-  app/services/provider_execution/prompt_compaction/embedded_strategy.rb \
-  app/services/embedded_agents/prompt_compaction/invoke.rb \
-  app/services/embedded_agents/registry.rb \
-  app/services/provider_execution/execute_round_loop.rb \
-  test/services/embedded_agents/prompt_compaction/invoke_test.rb \
-  test/services/provider_execution/execute_round_loop_test.rb
-git commit -m "feat: add prompt compaction fallback flow"
-```
-
-### Task 4: Classify Provider Overflow Explicitly And Persist User Recovery Metadata
+### Task 4: Persist Explicit Prompt-Size Failures And Remediation Metadata
 
 **Files:**
 - Modify: `core_matrix/app/services/provider_execution/failure_classification.rb`
+- Modify: `core_matrix/app/services/provider_execution/execute_turn_step.rb`
 - Modify: `core_matrix/app/services/provider_execution/persist_turn_step_failure.rb`
-- Modify: `core_matrix/app/services/workflows/block_node_for_failure.rb`
-- Modify: `core_matrix/app/services/provider_execution/execute_round_loop.rb`
 - Modify: `core_matrix/test/services/provider_execution/failure_classification_test.rb`
 - Modify: `core_matrix/test/services/provider_execution/execute_turn_step_test.rb`
-- Modify: `core_matrix/test/services/provider_execution/execute_round_loop_test.rb`
 
-**Step 1: Write failing overflow-recovery tests**
+**Step 1: Classify prompt-size failures explicitly**
 
-Extend `execute_round_loop_test.rb` so it expects:
-
-- provider overflow triggers exactly one bounded re-entry through prompt
-  compaction
-- a second overflow fails with explicit prompt-size metadata instead of another
-  retry loop
-
-**Step 2: Implement explicit overflow detection in `FailureClassification`**
-
-Add constants for known provider-overflow phrases and map matching HTTP errors
-to:
+Map local and provider-side overflow signals into dedicated failure kinds such
+as:
 
 - `prompt_too_large_for_retry`
 - `context_window_exceeded_after_compaction`
 
-These should be manual-retry failures, not implementation errors.
+Do not route these failures through `internal_unexpected_error`.
 
-**Step 3: Carry structured remediation metadata through failure persistence**
+**Step 2: Persist remediation metadata**
 
-Extend failure persistence so the blocked workflow metadata includes:
+Persist enough information for the app surface to drive retry UX:
 
-- `retry_mode`
-- `editable_tail_input`
-- `failure_scope`
-- `turn_id`
-- `selected_input_message_id`
+- whether the tail input is editable
+- whether the user must send a new message
+- whether the failure is caused by the current message alone or full context
+- the selected input message identity
 
-Use `Turns::EditTailInput` semantics to determine whether `edit_tail_input` is
-valid for the failed turn.
-
-**Step 4: Add one bounded provider-overflow recovery attempt**
-
-Update `ExecuteRoundLoop` so a provider overflow may trigger exactly one
-re-entry through prompt compaction before final failure.
-
-Do not allow unlimited retry loops.
-
-**Step 5: Run the targeted tests and make them green**
-
-Run:
+**Step 3: Run the targeted tests and make them green**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
   test/services/provider_execution/failure_classification_test.rb \
-  test/services/provider_execution/execute_round_loop_test.rb \
   test/services/provider_execution/execute_turn_step_test.rb
 ```
 
-Expected: overflow is classified explicitly, workflow failures persist
-structured remediation payloads, and the bounded overflow-recovery path passes.
+Expected: prompt-size failures are explicit, recoverable, and app-readable.
 
-**Step 6: Commit**
-
-```bash
-git add \
-  app/services/provider_execution/failure_classification.rb \
-  app/services/provider_execution/persist_turn_step_failure.rb \
-  app/services/workflows/block_node_for_failure.rb \
-  app/services/provider_execution/execute_round_loop.rb \
-  test/services/provider_execution/failure_classification_test.rb \
-  test/services/provider_execution/execute_turn_step_test.rb \
-  test/services/provider_execution/execute_round_loop_test.rb
-git commit -m "feat: classify prompt overflow explicitly"
-```
-
-### Task 5: Run Verification And Close The Slice
+### Task 5: Verify The Slice End To End
 
 **Files:**
-- Modify: `core_matrix/docs/plans/2026-04-14-prompt-budget-guard-design.md`
-- Modify: `core_matrix/docs/plans/2026-04-14-prompt-budget-guard-implementation.md`
+- Modify as needed: prompt-compaction docs or tests discovered during cleanup
 
-**Step 1: Run the focused `core_matrix` verification suite**
+**Step 1: Run focused slice verification**
 
-Run:
+From `/Users/jasl/Workspaces/Ruby/cybros/core_matrix`:
 
 ```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rubocop -f github
-bin/rails db:test:prepare
 PARALLEL_WORKERS=1 bin/rails test \
-  test/models/workspace_test.rb \
-  test/requests/app_api/workspace_policies_test.rb \
-  test/services/conversations/metadata/title_bootstrap_policy_test.rb \
-  test/jobs/conversations/metadata/bootstrap_title_job_test.rb \
-  test/services/installations/register_bundled_agent_runtime_test.rb \
-  test/services/workflows/build_execution_snapshot_test.rb \
   test/services/provider_execution/token_estimator_test.rb \
   test/services/provider_execution/prompt_budget_guard_test.rb \
-  test/services/provider_execution/failure_classification_test.rb \
   test/services/provider_execution/execute_round_loop_test.rb \
-  test/services/provider_execution/execute_turn_step_test.rb \
-  test/services/embedded_agents/prompt_compaction/invoke_test.rb
+  test/services/provider_execution/failure_classification_test.rb \
+  test/services/provider_execution/execute_turn_step_test.rb
 ```
 
-Expected:
-
-- green focused verification for the new prompt-budget protection slice
-- shared `features.*` regressions stay green
-- title bootstrap retains its live-read behavior while prompt compaction stays
-  snapshot-frozen
-
-**Step 2: Re-run the Fenix manifest regression if any local implementation touched runtime config contracts**
-
-Run only if the prompt-budget implementation changes `agents/fenix` config,
-manifest packaging, or bundled-runtime defaults:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
-bin/rails test test/integration/runtime_manifest_test.rb
-```
-
-Expected: the Fenix manifest still exposes the shared `features.*` contract
-used by `core_matrix`.
-
-**Step 3: Run the broader `core_matrix` verification commands required by repo policy**
-
-Run:
+**Step 2: Run full `core_matrix` verification required by repo policy**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
@@ -442,36 +354,17 @@ bin/rails test
 bin/rails test:system
 ```
 
-Expected: full `core_matrix` verification passes or any residual unrelated
-failures are documented before merge.
-
-**Step 4: Run the acceptance suite required for acceptance-critical loop changes**
-
-Run from the monorepo root:
+**Step 3: Run acceptance verification because this touches acceptance-critical turn behavior**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
 ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash acceptance/bin/run_active_suite.sh
 ```
 
-Expected:
+Inspect both:
 
-- the acceptance suite passes
-- relevant artifacts for provider-turn failure/recovery behavior are inspected
-- resulting database state is checked to confirm prompt-size failures and wait
-  states have the expected shapes
+- acceptance artifacts relevant to provider-turn failure handling
+- resulting database state for failure payload shape and turn-step transitions
 
-**Step 5: Update the docs only if implementation drifted from plan**
-
-If file names, failure kinds, config keys, or workspace policy payload shape
-changed during implementation, update both plan docs to match the shipped code
-before handing off.
-
-**Step 6: Commit**
-
-```bash
-git add \
-  core_matrix/docs/plans/2026-04-14-prompt-budget-guard-design.md \
-  core_matrix/docs/plans/2026-04-14-prompt-budget-guard-implementation.md
-git commit -m "docs: finalize prompt budget guard plans"
-```
+Expected: prompt compaction behaves as a feature slice on top of the platform,
+and acceptance-critical loop behavior remains correct.
