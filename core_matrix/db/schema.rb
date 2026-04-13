@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_14_153000) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_14_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -597,6 +597,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_153000) do
     t.jsonb "continuity_payload", default: {}, null: false
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
+    t.virtual "execution_runtime_alignment_id", type: :bigint, as: "COALESCE(execution_runtime_id, (0)::bigint)", stored: true
     t.bigint "execution_runtime_id"
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", default: "active", null: false
@@ -609,6 +610,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_153000) do
     t.index ["conversation_id"], name: "idx_conversation_execution_epochs_active", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
     t.index ["conversation_id"], name: "index_conversation_execution_epochs_on_conversation_id"
     t.index ["execution_runtime_id"], name: "index_conversation_execution_epochs_on_execution_runtime_id"
+    t.index ["id", "execution_runtime_alignment_id"], name: "idx_conversation_execution_epochs_runtime_alignment", unique: true
     t.index ["installation_id"], name: "index_conversation_execution_epochs_on_installation_id"
     t.index ["public_id"], name: "index_conversation_execution_epochs_on_public_id", unique: true
     t.index ["source_execution_epoch_id"], name: "idx_on_source_execution_epoch_id_9c5f89d7b2"
@@ -842,6 +844,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_153000) do
     t.boolean "control_enabled", default: false, null: false
     t.datetime "created_at", null: false
     t.bigint "current_execution_epoch_id"
+    t.virtual "current_execution_runtime_alignment_id", type: :bigint, as: "COALESCE(current_execution_runtime_id, (0)::bigint)", stored: true
     t.bigint "current_execution_runtime_id"
     t.datetime "deleted_at"
     t.string "deletion_state", default: "retained", null: false
@@ -881,6 +884,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_153000) do
     t.bigint "workspace_id", null: false
     t.index ["agent_id", "lifecycle_state"], name: "idx_conversations_agent_lifecycle"
     t.index ["agent_id"], name: "index_conversations_on_agent_id"
+    t.index ["current_execution_epoch_id", "current_execution_runtime_alignment_id"], name: "idx_conversations_current_execution_context_alignment"
     t.index ["current_execution_epoch_id"], name: "index_conversations_on_current_execution_epoch_id"
     t.index ["current_execution_runtime_id"], name: "index_conversations_on_current_execution_runtime_id"
     t.index ["installation_id", "agent_id", "user_id", "deletion_state", "created_at"], name: "idx_conversations_agent_owner_created"
@@ -1870,7 +1874,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_153000) do
     t.index ["user_id"], name: "index_turns_on_user_id"
     t.index ["workflow_bootstrap_state", "workflow_bootstrap_started_at"], name: "idx_turns_workflow_bootstrap_backlog"
     t.index ["workspace_id"], name: "index_turns_on_workspace_id"
+    t.check_constraint "(workflow_bootstrap_state::text = ANY (ARRAY['not_requested'::character varying, 'pending'::character varying, 'materializing'::character varying, 'ready'::character varying]::text[])) AND workflow_bootstrap_failure_payload = '{}'::jsonb OR workflow_bootstrap_state::text = 'failed'::text AND jsonb_typeof(workflow_bootstrap_failure_payload) = 'object'::text AND workflow_bootstrap_failure_payload ?& ARRAY['error_class'::text, 'error_message'::text, 'retryable'::text] AND (workflow_bootstrap_failure_payload - ARRAY['error_class'::text, 'error_message'::text, 'retryable'::text]) = '{}'::jsonb AND jsonb_typeof(workflow_bootstrap_failure_payload -> 'retryable'::text) = 'boolean'::text", name: "chk_turns_workflow_bootstrap_failure_contract"
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_turns_cancellation_pairing"
+    t.check_constraint "workflow_bootstrap_state::text = 'not_requested'::text AND workflow_bootstrap_payload = '{}'::jsonb OR (workflow_bootstrap_state::text = ANY (ARRAY['pending'::character varying, 'materializing'::character varying, 'ready'::character varying, 'failed'::character varying]::text[])) AND jsonb_typeof(workflow_bootstrap_payload) = 'object'::text AND workflow_bootstrap_payload ?& ARRAY['selector_source'::text, 'selector'::text, 'root_node_key'::text, 'root_node_type'::text, 'decision_source'::text, 'metadata'::text] AND (workflow_bootstrap_payload - ARRAY['selector_source'::text, 'selector'::text, 'root_node_key'::text, 'root_node_type'::text, 'decision_source'::text, 'metadata'::text]) = '{}'::jsonb AND jsonb_typeof(workflow_bootstrap_payload -> 'metadata'::text) = 'object'::text", name: "chk_turns_workflow_bootstrap_payload_contract"
+    t.check_constraint "workflow_bootstrap_state::text = 'not_requested'::text AND workflow_bootstrap_requested_at IS NULL AND workflow_bootstrap_started_at IS NULL AND workflow_bootstrap_finished_at IS NULL OR workflow_bootstrap_state::text = 'pending'::text AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NULL AND workflow_bootstrap_finished_at IS NULL OR workflow_bootstrap_state::text = 'materializing'::text AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NOT NULL AND workflow_bootstrap_finished_at IS NULL OR (workflow_bootstrap_state::text = ANY (ARRAY['ready'::character varying, 'failed'::character varying]::text[])) AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NOT NULL AND workflow_bootstrap_finished_at IS NOT NULL", name: "chk_turns_workflow_bootstrap_timestamps"
+    t.check_constraint "workflow_bootstrap_state::text = ANY (ARRAY['not_requested'::character varying, 'pending'::character varying, 'materializing'::character varying, 'ready'::character varying, 'failed'::character varying]::text[])", name: "chk_turns_workflow_bootstrap_state"
   end
 
   create_table "usage_events", force: :cascade do |t|
@@ -2347,6 +2355,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_153000) do
   add_foreign_key "conversation_supervision_states", "workspaces"
   add_foreign_key "conversations", "agents"
   add_foreign_key "conversations", "conversation_execution_epochs", column: "current_execution_epoch_id"
+  add_foreign_key "conversations", "conversation_execution_epochs", column: ["current_execution_epoch_id", "current_execution_runtime_alignment_id"], primary_key: ["id", "execution_runtime_alignment_id"], name: "fk_conversations_current_execution_context_alignment"
   add_foreign_key "conversations", "conversations", column: "parent_conversation_id"
   add_foreign_key "conversations", "execution_runtimes", column: "current_execution_runtime_id"
   add_foreign_key "conversations", "installations"
