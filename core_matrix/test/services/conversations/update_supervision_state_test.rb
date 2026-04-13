@@ -405,6 +405,44 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "selector resolution blew up", state.recent_progress_summary
   end
 
+  test "preserves failed turn-owned state when workflow bootstrap fails after workflow substrate exists" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    turn = Turns::AcceptPendingUserTurn.call(
+      conversation: conversation,
+      content: "Build a complete browser-playable React 2048 game and add automated tests.",
+      selector_source: "app_api",
+      selector: "candidate:codex_subscription/gpt-5.3-codex"
+    )
+
+    original_call = Workflows::ExecuteRun.method(:call)
+    Workflows::ExecuteRun.singleton_class.define_method(:call) do |**|
+      raise RuntimeError, "dispatch blew up"
+    end
+
+    assert_nil Turns::MaterializeWorkflowBootstrap.call(turn: turn)
+
+    turn.reload
+    assert_equal "failed", turn.workflow_bootstrap_state
+    assert turn.workflow_run.present?
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: conversation.reload,
+      occurred_at: Time.current
+    )
+
+    assert_equal "failed", state.overall_state
+    assert_equal "failed", state.board_lane
+    assert_equal "turn", state.current_owner_kind
+    assert_equal turn.public_id, state.current_owner_public_id
+    assert_equal "dispatch blew up", state.recent_progress_summary
+  ensure
+    Workflows::ExecuteRun.singleton_class.define_method(:call, original_call) if original_call
+  end
+
   test "leaves contextual focus summary for lazy sidechat rendering when no task summary exists yet" do
     context = build_agent_control_context!
     context[:turn].selected_input_message.update!(

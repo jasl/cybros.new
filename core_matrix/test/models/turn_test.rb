@@ -144,6 +144,14 @@ class TurnTest < ActiveSupport::TestCase
     assert Turn.reflect_on_association(:execution_runtime_version).options[:optional]
   end
 
+  test "has a workflow bootstrap backlog recovery index" do
+    indexes = ActiveRecord::Base.connection.indexes(:turns)
+
+    assert indexes.any? { |index|
+      index.columns == %w[workflow_bootstrap_state workflow_bootstrap_started_at]
+    }
+  end
+
   test "treats waiting as a non terminal lifecycle state" do
     installation = create_installation!
     agent = create_agent!(installation: installation)

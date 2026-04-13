@@ -728,11 +728,12 @@ module Conversations
       return nil if current_task_run.present?
       return nil if active_conversation_subagent_connection.present?
       return nil if active_owned_subagent_connections.any?
-      return nil if active_workflow? || workflow_run&.waiting? || workflow_run&.blocked?
 
       turn = @conversation.latest_active_turn || @conversation.latest_turn
       return nil if turn.blank?
-      return nil unless turn.workflow_run.blank?
+      return turn if turn.workflow_bootstrap_failed? && turn.workflow_run.present?
+
+      return nil if active_workflow? || workflow_run&.waiting? || workflow_run&.blocked?
       return nil unless %w[pending materializing failed].include?(turn.workflow_bootstrap_state)
 
       turn

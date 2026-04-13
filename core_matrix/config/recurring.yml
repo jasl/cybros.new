@@ -17,3 +17,7 @@ production:
     class: DataRetention::RunMaintenanceJob
     queue: maintenance
     schedule: every day at 3:24am
+  workflow_bootstrap_backlog_recovery:
+    class: Turns::RecoverWorkflowBootstrapBacklogJob
+    queue: maintenance
+    schedule: every 5 minutes
