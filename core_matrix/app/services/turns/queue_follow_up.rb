@@ -68,7 +68,7 @@ module Turns
           content: @content
         )
 
-        turn.update!(selected_input_message: message)
+        Turns::PersistSelectionState.call(turn: turn, selected_input_message: message)
         Conversations::RefreshLatestTurnAnchors.call(
           conversation: conversation,
           turn: turn,

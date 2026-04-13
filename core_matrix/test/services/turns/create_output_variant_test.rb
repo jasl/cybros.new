@@ -52,4 +52,20 @@ class Turns::CreateOutputVariantTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:selected_input_message], "must be an input message from the same turn"
   end
+
+  test "updates output anchors without a full conversation anchor rescan" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+      ),
+      content: "Input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_sql_query_count_at_most(5) do
+      Turns::CreateOutputVariant.call(turn: turn, content: "Anchored output")
+    end
+  end
 end

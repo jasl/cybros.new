@@ -39,8 +39,13 @@ module Turns
           content: @content
         )
 
-        turn.update!(selected_input_message: message)
-        turn.conversation.refresh_latest_anchors!(activity_at: message.created_at)
+        Turns::PersistSelectionState.call(turn: turn, selected_input_message: message)
+        Conversations::RefreshLatestTurnAnchors.call(
+          conversation: turn.conversation,
+          turn: turn,
+          message: message,
+          activity_at: message.created_at
+        )
         turn
       end
     end

@@ -31,11 +31,17 @@ module Turns
           content: @content
         )
 
-        turn.update!(
+        Turns::PersistSelectionState.call(
+          turn: turn,
           selected_input_message: message,
-          selected_output_message: nil
+          selected_output_message: nil,
         )
-        turn.conversation.refresh_latest_anchors!(activity_at: message.created_at)
+        Conversations::RefreshLatestTurnAnchors.call(
+          conversation: turn.conversation,
+          turn: turn,
+          message: message,
+          activity_at: message.created_at
+        )
         turn
       end
     end

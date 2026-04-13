@@ -304,4 +304,23 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
     refute steered.queued?
     assert_equal "Paused steering after boundary", steered.selected_input_message.content
   end
+
+  test "steers an active turn without a full conversation anchor rescan" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+      ),
+      content: "Original input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    assert_sql_query_count_at_most(13) do
+      Turns::SteerCurrentInput.call(
+        turn: turn,
+        content: "Revised input"
+      )
+    end
+  end
 end

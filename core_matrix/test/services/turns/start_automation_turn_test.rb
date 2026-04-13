@@ -140,6 +140,27 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
     assert_equal 0, conversation.reload.turns.count
   end
 
+  test "starts an automation turn without a full conversation anchor rescan" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateAutomationRoot.call(
+      workspace: context[:workspace]
+    )
+
+    assert_sql_query_count_at_most(17) do
+      Turns::StartAutomationTurn.call(
+        conversation: conversation,
+        origin_kind: "automation_schedule",
+        origin_payload: { "cron" => "0 9 * * *" },
+        source_ref_type: "AutomationSchedule",
+        source_ref_id: "schedule-budget",
+        idempotency_key: "idemp-budget",
+        external_event_key: "evt-budget",
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
+  end
+
   private
 
   def archive_during_lock!(conversation)

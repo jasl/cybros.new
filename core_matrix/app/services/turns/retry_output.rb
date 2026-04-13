@@ -32,11 +32,17 @@ module Turns
           source_input_message: source_input_message
         )
 
-        locked_turn.update!(
+        Turns::PersistSelectionState.call(
+          turn: locked_turn,
           selected_output_message: retry_output,
-          lifecycle_state: "active"
+          lifecycle_state: "active",
         )
-        locked_turn.conversation.refresh_latest_anchors!(activity_at: retry_output.created_at)
+        Conversations::RefreshLatestTurnAnchors.call(
+          conversation: locked_turn.conversation,
+          turn: locked_turn,
+          message: retry_output,
+          activity_at: retry_output.created_at
+        )
         locked_turn
       end
     end

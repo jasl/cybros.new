@@ -64,8 +64,13 @@ module SubagentConnections
           content: @content
         )
 
-        turn.update!(selected_output_message: message)
-        conversation.refresh_latest_anchors!(activity_at: message.created_at)
+        Turns::PersistSelectionState.call(turn: turn, selected_output_message: message)
+        Conversations::RefreshLatestTurnAnchors.call(
+          conversation: conversation,
+          turn: turn,
+          message: message,
+          activity_at: message.created_at
+        )
 
         ConversationEvents::Project.call(
           conversation: conversation,

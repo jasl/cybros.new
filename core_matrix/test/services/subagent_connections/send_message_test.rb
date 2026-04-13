@@ -85,6 +85,25 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     assert_equal system_message.created_at.to_i, child_conversation.last_activity_at.to_i
   end
 
+  test "successful sends avoid a full conversation anchor rescan" do
+    context = create_workspace_context!
+    root_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+    child_conversation = create_agent_addressable_child_conversation!(
+      context: context,
+      owner_conversation: root_conversation
+    )
+
+    assert_sql_query_count_at_most(26) do
+      SubagentConnections::SendMessage.call(
+        conversation: child_conversation,
+        content: "System note",
+        sender_kind: "system"
+      )
+    end
+  end
+
   private
 
   def create_agent_addressable_child_conversation!(context:, owner_conversation:)

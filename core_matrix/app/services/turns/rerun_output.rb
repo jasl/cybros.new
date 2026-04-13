@@ -47,11 +47,17 @@ module Turns
         source_input_message: source_input_message
       )
 
-      turn.update!(
+      Turns::PersistSelectionState.call(
+        turn: turn,
         selected_output_message: rerun_output,
-        lifecycle_state: "active"
+        lifecycle_state: "active",
       )
-      turn.conversation.refresh_latest_anchors!(activity_at: rerun_output.created_at)
+      Conversations::RefreshLatestTurnAnchors.call(
+        conversation: turn.conversation,
+        turn: turn,
+        message: rerun_output,
+        activity_at: rerun_output.created_at
+      )
       turn
     end
 
@@ -73,8 +79,13 @@ module Turns
         source_input_message: rerun_turn.selected_input_message
       )
 
-      rerun_turn.update!(selected_output_message: rerun_output)
-      rerun_turn.conversation.refresh_latest_anchors!(activity_at: rerun_output.created_at)
+      Turns::PersistSelectionState.call(turn: rerun_turn, selected_output_message: rerun_output)
+      Conversations::RefreshLatestTurnAnchors.call(
+        conversation: rerun_turn.conversation,
+        turn: rerun_turn,
+        message: rerun_output,
+        activity_at: rerun_output.created_at
+      )
       rerun_turn
     end
 

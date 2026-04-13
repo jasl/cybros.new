@@ -24,7 +24,12 @@ module Turns
         source_input_message: @source_input_message
       )
 
-      @turn.conversation.refresh_latest_anchors!(activity_at: output.created_at)
+      Conversations::RefreshLatestTurnAnchors.call(
+        conversation: @turn.conversation,
+        turn: @turn,
+        message: output,
+        activity_at: output.created_at
+      )
       output
     end
 

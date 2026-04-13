@@ -56,7 +56,11 @@ module Turns
           resolved_model_selection_snapshot: @resolved_model_selection_snapshot
         )
 
-        conversation.refresh_latest_anchors!(activity_at: turn.created_at)
+        Conversations::RefreshLatestTurnAnchors.call(
+          conversation: conversation,
+          turn: turn,
+          activity_at: turn.created_at
+        )
         turn
       end
     end
