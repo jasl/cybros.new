@@ -57,7 +57,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     refute Rails.root.join("app/services/workflows/context_assembler.rb").exist?
   end
 
-  test "creates the workflow anchor within fifty SQL queries" do
+  test "creates the workflow anchor within forty-nine SQL queries" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
@@ -69,7 +69,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
 
     workflow_run = nil
 
-    assert_sql_query_count_at_most(50) do
+    assert_sql_query_count_at_most(49) do
       workflow_run = Workflows::CreateForTurn.call(
         turn: turn,
         root_node_key: "root",

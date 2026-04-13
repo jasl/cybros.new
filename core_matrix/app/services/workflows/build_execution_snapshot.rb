@@ -36,9 +36,12 @@ module Workflows
       execution_contract.attachment_diagnostics = build_attachment_diagnostics(raw_attachment_manifest, attachment_manifest)
       execution_contract.save!
 
-      @turn.update!(execution_contract: execution_contract) unless @turn.execution_contract_id == execution_contract.id
+      unless @turn.execution_contract_id == execution_contract.id
+        @turn.update!(execution_contract: execution_contract)
+      end
+      @turn.execution_contract = execution_contract
 
-      TurnExecutionSnapshot.new(turn: @turn.reload)
+      TurnExecutionSnapshot.new(turn: @turn)
     end
 
     private
