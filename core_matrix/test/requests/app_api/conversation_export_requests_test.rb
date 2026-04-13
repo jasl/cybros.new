@@ -172,4 +172,25 @@ class AppApiConversationExportRequestsTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  test "show loads a queued export request within six SQL queries" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+    request = ConversationExportRequest.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      conversation: context[:conversation],
+      user: context[:user],
+      lifecycle_state: "queued",
+      expires_at: 2.hours.from_now,
+      request_payload: { "bundle_kind" => "conversation_export" }
+    )
+
+    assert_sql_query_count_at_most(6) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/export_requests/#{request.public_id}",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+  end
 end

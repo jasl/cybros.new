@@ -43,7 +43,9 @@ module AppAPI
       private
 
       def find_export_request!(request_id)
-        ConversationExportRequest.find_by!(
+        ConversationExportRequest
+          .eager_load(:workspace, :user, bundle_file_attachment: :blob)
+          .find_by!(
           public_id: request_id,
           installation_id: current_installation_id,
           conversation_id: @conversation.id
@@ -54,7 +56,7 @@ module AppAPI
         {
           "request_id" => request.public_id,
           "workspace_id" => request.workspace.public_id,
-          "conversation_id" => request.conversation.public_id,
+          "conversation_id" => @conversation.public_id,
           "user_id" => request.user.public_id,
           "lifecycle_state" => request.lifecycle_state,
           "created_at" => request.created_at&.iso8601(6),
