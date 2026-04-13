@@ -100,6 +100,14 @@ class Workflows::ExecuteRunTest < ActiveSupport::TestCase
     end
   end
 
+  test "dispatches a single runnable turn step within ten SQL queries" do
+    workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+
+    assert_sql_query_count_at_most(10) do
+      Workflows::ExecuteRun.call(workflow_run: workflow_run)
+    end
+  end
+
   test "executes a provider-backed turn step and persists durable usage and execution facts" do
     catalog_definition = test_provider_catalog_definition.deep_dup
     catalog_definition[:providers][:dev][:models]["mock-model"] = test_model_definition(

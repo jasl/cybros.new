@@ -68,4 +68,21 @@ class AppApiConversationMessagesTest < ActionDispatch::IntegrationTest
     assert_equal alternate_runtime, turn.execution_runtime
     assert_equal conversation.current_execution_epoch, turn.execution_epoch
   end
+
+  test "appends a user message through the app api within eighty-four SQL queries" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    session = create_session!(user: context[:user])
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+
+    assert_sql_query_count_at_most(84) do
+      post "/app_api/conversations/#{conversation.public_id}/messages",
+        params: {
+          content: "Follow up",
+        },
+        headers: app_api_headers(session.plaintext_token),
+        as: :json
+
+      assert_response :created
+    end
+  end
 end
