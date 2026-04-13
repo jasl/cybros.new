@@ -29,7 +29,14 @@ module ConversationSupervision
 
       @active_agent_task_run = AgentTaskRun
         .where(conversation: @conversation, lifecycle_state: ACTIVE_TASK_LIFECYCLE_STATES)
-        .includes(turn_todo_plan: :turn_todo_plan_items)
+        .includes(
+          turn_todo_plan: [
+            :conversation,
+            :turn,
+            :agent_task_run,
+            { turn_todo_plan_items: :delegated_subagent_connection },
+          ]
+        )
         .order(created_at: :desc)
         .first
     end
