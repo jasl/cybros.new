@@ -30,7 +30,9 @@ Minitest, `db/schema.rb`, behavior docs under `docs/behavior`.
 - Modify: `test/services/conversations/create_fork_test.rb`
 - Modify: `test/services/app_surface/policies/conversation_supervision_access_test.rb`
 - Modify: `test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb`
+- Modify: `test/services/embedded_agents/invoke_test.rb`
 - Modify: `test/services/conversation_control/authorize_request_test.rb`
+- Modify: `test/services/conversation_control/create_request_test.rb`
 - Modify: `test/services/conversations/update_supervision_state_test.rb`
 - Modify: `test/services/lineage_stores/bootstrap_for_conversation_test.rb`
 - Modify: `test/services/lineage_stores/set_test.rb`
@@ -41,7 +43,9 @@ Minitest, `db/schema.rb`, behavior docs under `docs/behavior`.
 - Modify: `test/queries/lineage_stores/list_keys_query_test.rb`
 - Modify: `test/queries/lineage_stores/multi_get_query_test.rb`
 - Modify: `test/requests/app_api/workspace_policies_test.rb`
+- Modify: `test/models/conversation_supervision_message_test.rb`
 - Modify: `test/models/conversation_supervision_snapshot_test.rb`
+- Modify: `test/models/lineage_store_test.rb`
 - Modify: `test/services/conversations/purge_deleted_test.rb`
 - Modify: `test/services/conversations/purge_plan_test.rb`
 - Modify: `test/test_helper.rb`
@@ -56,6 +60,7 @@ Lock the Phase A end state:
   and `ConversationControl::AuthorizeRequest` no longer expose an AR policy row
 - supervision snapshots stop recording
   `conversation_capability_policy_public_id`
+- supervision message and invoke flows no longer require policy-row setup
 
 Keep the current business rule:
 
@@ -71,6 +76,7 @@ Lock:
 - child creation copies a lineage reference only when the parent already has one
 - lineage queries tolerate missing references by returning empty or nil results
 - the first lineage write materializes the store/snapshot/reference exactly once
+- lineage model/helpers use `owner_conversation` naming consistently
 
 **Step 3: Add failing weight tests**
 
@@ -97,7 +103,9 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/conversations/child_lineage_bootstrap_weight_test.rb \
   test/services/app_surface/policies/conversation_supervision_access_test.rb \
   test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb \
+  test/services/embedded_agents/invoke_test.rb \
   test/services/conversation_control/authorize_request_test.rb \
+  test/services/conversation_control/create_request_test.rb \
   test/services/conversations/update_supervision_state_test.rb \
   test/services/lineage_stores/bootstrap_for_conversation_test.rb \
   test/services/lineage_stores/set_test.rb \
@@ -108,7 +116,9 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/queries/lineage_stores/list_keys_query_test.rb \
   test/queries/lineage_stores/multi_get_query_test.rb \
   test/requests/app_api/workspace_policies_test.rb \
+  test/models/conversation_supervision_message_test.rb \
   test/models/conversation_supervision_snapshot_test.rb \
+  test/models/lineage_store_test.rb \
   test/services/conversations/purge_deleted_test.rb \
   test/services/conversations/purge_plan_test.rb
 ```
@@ -126,7 +136,9 @@ git add \
   test/services/conversations/create_fork_test.rb \
   test/services/app_surface/policies/conversation_supervision_access_test.rb \
   test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb \
+  test/services/embedded_agents/invoke_test.rb \
   test/services/conversation_control/authorize_request_test.rb \
+  test/services/conversation_control/create_request_test.rb \
   test/services/conversations/update_supervision_state_test.rb \
   test/services/lineage_stores/bootstrap_for_conversation_test.rb \
   test/services/lineage_stores/set_test.rb \
@@ -137,7 +149,9 @@ git add \
   test/queries/lineage_stores/list_keys_query_test.rb \
   test/queries/lineage_stores/multi_get_query_test.rb \
   test/requests/app_api/workspace_policies_test.rb \
+  test/models/conversation_supervision_message_test.rb \
   test/models/conversation_supervision_snapshot_test.rb \
+  test/models/lineage_store_test.rb \
   test/services/conversations/purge_deleted_test.rb \
   test/services/conversations/purge_plan_test.rb \
   test/test_helper.rb
@@ -209,8 +223,12 @@ git commit -m "db: rewrite phase-a conversation bootstrap schema"
 - Modify: `app/services/conversations/purge_plan.rb`
 - Modify: `test/support/conversation_supervision_fixture_builder.rb`
 - Modify: `test/models/data_lifecycle_test.rb`
+- Modify: `test/models/conversation_supervision_message_test.rb`
 - Modify: `test/services/embedded_agents/conversation_supervision/create_session_test.rb`
+- Modify: `test/services/embedded_agents/invoke_test.rb`
+- Modify: `test/services/conversation_control/create_request_test.rb`
 - Modify: `test/requests/app_api/conversation_supervision_sessions_test.rb`
+- Modify: `test/test_helper.rb`
 
 **Step 1: Make `Conversation` the authority owner**
 
@@ -242,8 +260,11 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/app_surface/policies/conversation_supervision_access_test.rb \
   test/services/embedded_agents/conversation_supervision/create_session_test.rb \
   test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb \
+  test/services/embedded_agents/invoke_test.rb \
   test/services/conversation_control/authorize_request_test.rb \
+  test/services/conversation_control/create_request_test.rb \
   test/services/conversations/update_supervision_state_test.rb \
+  test/models/conversation_supervision_message_test.rb \
   test/requests/app_api/workspace_policies_test.rb \
   test/services/conversations/purge_deleted_test.rb \
   test/services/conversations/purge_plan_test.rb
@@ -265,8 +286,12 @@ git add \
   app/services/conversations/purge_plan.rb \
   test/support/conversation_supervision_fixture_builder.rb \
   test/models/data_lifecycle_test.rb \
+  test/models/conversation_supervision_message_test.rb \
   test/services/embedded_agents/conversation_supervision/create_session_test.rb \
-  test/requests/app_api/conversation_supervision_sessions_test.rb
+  test/services/embedded_agents/invoke_test.rb \
+  test/services/conversation_control/create_request_test.rb \
+  test/requests/app_api/conversation_supervision_sessions_test.rb \
+  test/test_helper.rb
 git add -u app/models/conversation_capability_policy.rb test/models/conversation_capability_policy_test.rb
 git commit -m "refactor: collapse conversation capability authority"
 ```
@@ -301,6 +326,8 @@ git commit -m "refactor: collapse conversation capability authority"
 - Modify: `test/queries/lineage_stores/get_query_test.rb`
 - Modify: `test/queries/lineage_stores/list_keys_query_test.rb`
 - Modify: `test/queries/lineage_stores/multi_get_query_test.rb`
+- Modify: `test/models/lineage_store_test.rb`
+- Modify: `test/test_helper.rb`
 
 **Step 1: Stop root creation from preallocating lineage**
 
@@ -338,7 +365,8 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/lineage_stores/garbage_collect_test.rb \
   test/queries/lineage_stores/get_query_test.rb \
   test/queries/lineage_stores/list_keys_query_test.rb \
-  test/queries/lineage_stores/multi_get_query_test.rb
+  test/queries/lineage_stores/multi_get_query_test.rb \
+  test/models/lineage_store_test.rb
 ```
 
 Then record the real before/after numbers in the design doc before starting
@@ -375,6 +403,8 @@ git add \
   test/queries/lineage_stores/get_query_test.rb \
   test/queries/lineage_stores/list_keys_query_test.rb \
   test/queries/lineage_stores/multi_get_query_test.rb \
+  test/models/lineage_store_test.rb \
+  test/test_helper.rb \
   docs/plans/2026-04-13-conversation-bootstrap-phase-two-design.md
 git commit -m "refactor: make conversation lineage bootstrap lazy"
 ```
@@ -427,12 +457,15 @@ Lock the new end state:
 
 - only app-facing manual user entry returns `execution_status = "pending"`
 - synchronous request success no longer requires `WorkflowRun.count +1`
+- first-turn acceptance failure does not leave a committed bare conversation
+  behind
 - a pending projector writes queued supervision state immediately
 - a bootstrap job is enqueued instead of immediate workflow execution
 - if that immediate enqueue is skipped or fails, the pending turn still remains
   durable backlog recoverable by the backlog-recovery boundary
 - the maintenance recovery job can reclaim both lost-enqueue `pending` turns and
   stale `materializing` turns
+- workbench result objects stop promising a synchronous `workflow_run`
 
 **Step 3: Add model and DB constraint failures**
 
@@ -637,9 +670,18 @@ must live at this higher boundary. `Workbench::CreateConversationFromAgent` and
 `Workbench::SendMessage` should call it instead of open-coding multiple
 post-turn writes.
 
+For `Workbench::CreateConversationFromAgent`, wrap root-conversation creation
+and pending acceptance in one outer transaction. Reusing
+`Conversations::CreateRoot` inside that transaction is fine, but the first-turn
+path must not commit a bare conversation before the pending turn is accepted.
+
 The service may request an immediate post-commit enqueue, but that enqueue is an
 acceleration path only. A failed enqueue must not change the committed `pending`
 truth.
+
+Under the destructive-refactor rule, remove `workflow_run` from the workbench
+`Result` structs instead of leaving a misleading synchronous substrate field
+behind.
 
 **Step 3: Project queued supervision state before returning**
 
@@ -771,9 +813,8 @@ wire it into the existing maintenance cadence used by the app. The per-turn
 post-commit enqueue remains the fast path; the maintenance job is the durable
 backstop.
 
-In this phase, make that cadence explicit in `config/recurring.yml` at a short
-interval suitable for user-visible recovery, not the once-per-day data
-retention schedule.
+In this phase, make that cadence explicit in `config/recurring.yml` as
+`every 5 minutes`, not the once-per-day data retention schedule.
 
 Cover both cases in tests:
 

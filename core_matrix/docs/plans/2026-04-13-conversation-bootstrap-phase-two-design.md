@@ -209,6 +209,14 @@ enter the new deferred workflow-bootstrap contract.
 Everything else stays on its current substrate lifecycle unless Phase B needs a
 small no-op compatibility value on `Turn`.
 
+`Workbench`-level synchronous return values should also follow that boundary.
+Once workflow substrate is deferred, app-facing manual entry should no longer
+promise a synchronous `workflow_run` result. Under the destructive-refactor
+rule, the preferred end state is to remove `workflow_run` from the
+`Workbench::CreateConversationFromAgent::Result` and
+`Workbench::SendMessage::Result` structs entirely rather than leaving a
+misleading always-`nil` field around.
+
 ### Use explicit workflow-bootstrap columns on `Turn`
 
 To avoid colliding with unrelated bootstrap state elsewhere in the app, the
@@ -259,6 +267,10 @@ not depend on any one enqueue succeeding.
 
 The plan must not split accepted-turn truth across multiple later writes after
 the turn row is already committed.
+
+For first-turn entry, that means the root conversation and the accepted turn
+must share one outer transaction. The system must not commit a bare
+conversation first and only then attempt to persist the pending turn.
 
 ### Pending must be a durable backlog, not just a hopeful enqueue
 
