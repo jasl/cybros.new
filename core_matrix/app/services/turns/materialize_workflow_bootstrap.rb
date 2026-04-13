@@ -34,6 +34,7 @@ module Turns
         rescue StandardError => error
           mark_failed!(error)
           failed_turn = @turn.reload
+          workflow_run = nil
         end
       end
 

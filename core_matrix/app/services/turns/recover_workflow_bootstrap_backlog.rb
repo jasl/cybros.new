@@ -1,13 +1,13 @@
 module Turns
   class RecoverWorkflowBootstrapBacklog
-    DEFAULT_STALE_BEFORE = 5.minutes.ago
+    DEFAULT_STALE_WINDOW = 5.minutes
 
     def self.call(...)
       new(...).call
     end
 
-    def initialize(stale_before: DEFAULT_STALE_BEFORE)
-      @stale_before = stale_before
+    def initialize(stale_before: nil)
+      @stale_before = stale_before || DEFAULT_STALE_WINDOW.ago
     end
 
     def call

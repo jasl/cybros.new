@@ -87,4 +87,39 @@ class Turns::MaterializeWorkflowBootstrapTest < ActiveSupport::TestCase
   ensure
     Workflows::CreateForTurn.singleton_class.define_method(:call, original_call) if original_call
   end
+
+  test "returns nil when dispatch fails after workflow substrate is created" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    turn = Turns::AcceptPendingUserTurn.call(
+      conversation: conversation,
+      content: "Follow up",
+      selector_source: "app_api",
+      selector: "candidate:codex_subscription/gpt-5.3-codex"
+    )
+
+    original_call = Workflows::ExecuteRun.method(:call)
+    Workflows::ExecuteRun.singleton_class.define_method(:call) do |**|
+      raise RuntimeError, "dispatch blew up"
+    end
+
+    workflow_run = nil
+
+    assert_difference("WorkflowRun.count", +1) do
+      workflow_run = Turns::MaterializeWorkflowBootstrap.call(turn: turn)
+    end
+
+    assert_nil workflow_run
+
+    turn.reload
+    assert_equal "failed", turn.workflow_bootstrap_state
+    assert_equal "RuntimeError", turn.workflow_bootstrap_failure_payload.fetch("error_class")
+    assert_equal "dispatch blew up", turn.workflow_bootstrap_failure_payload.fetch("error_message")
+    assert turn.workflow_run.present?
+  ensure
+    Workflows::ExecuteRun.singleton_class.define_method(:call, original_call) if original_call
+  end
 end

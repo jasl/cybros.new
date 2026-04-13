@@ -74,4 +74,32 @@ class AppApiConversationTurnRuntimeEventsControllerTest < ActionDispatch::Integr
 
     assert_response :success
   end
+
+  test "lists process runs without raising when the turn has runtime process activity" do
+    fixture = prepare_provider_backed_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    process_run = create_process_run!(
+      workflow_node: fixture.fetch(:planning_node),
+      execution_runtime: fixture.fetch(:execution_runtime),
+      conversation: fixture.fetch(:conversation),
+      turn: fixture.fetch(:turn),
+      origin_message: fixture.fetch(:turn).selected_input_message,
+      lifecycle_state: "running",
+      command_line: "npm run dev -- --host 0.0.0.0"
+    )
+
+    get "/app_api/conversations/#{fixture.fetch(:conversation).public_id}/turns/#{fixture.fetch(:turn).public_id}/runtime_events",
+      headers: app_api_headers(registration[:session_token])
+
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    process_entry = body.fetch("items").find do |entry|
+      entry["process_run_public_id"] == process_run.public_id
+    end
+
+    assert process_entry.present?, "expected process run event in runtime stream"
+    assert_equal "process_started", process_entry.fetch("kind")
+    assert_equal "started", process_entry.fetch("status")
+  end
 end
