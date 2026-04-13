@@ -79,6 +79,10 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     assert_equal %w[owner_agent subagent_self system],
       ConversationEvent.where(conversation: child_conversation).order(:projection_sequence).map { |event| event.payload.fetch("sender_kind") }
     assert_equal owner_message, ConversationEvent.where(conversation: child_conversation).order(:projection_sequence).first.source
+    assert_equal system_message, child_conversation.reload.latest_message
+    assert_equal system_message.turn, child_conversation.latest_turn
+    assert_nil child_conversation.latest_active_turn
+    assert_equal system_message.created_at.to_i, child_conversation.last_activity_at.to_i
   end
 
   private

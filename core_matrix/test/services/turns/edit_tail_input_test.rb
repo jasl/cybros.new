@@ -24,6 +24,8 @@ class Turns::EditTailInputTest < ActiveSupport::TestCase
     assert_nil edited.selected_output_message
     assert_equal ["Original input", "Edited input"],
       UserMessage.where(turn: turn).order(:variant_index).pluck(:content)
+    assert_equal edited.selected_input_message, turn.conversation.reload.latest_message
+    assert_equal edited.selected_input_message.created_at.to_i, turn.conversation.last_activity_at.to_i
   end
 
   test "rejects editing a non tail input without rollback or fork semantics" do

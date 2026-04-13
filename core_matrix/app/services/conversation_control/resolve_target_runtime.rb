@@ -111,11 +111,25 @@ module ConversationControl
     end
 
     def active_turn
-      @active_turn ||= @conversation.turns.where(lifecycle_state: "active").order(:created_at, :id).last
+      @active_turn ||= begin
+        anchored_turn = @conversation.latest_active_turn
+        if anchored_turn&.active?
+          anchored_turn
+        else
+          @conversation.turns.where(lifecycle_state: "active").order(:created_at, :id).last
+        end
+      end
     end
 
     def active_workflow_run
-      @active_workflow_run ||= @conversation.workflow_runs.where(lifecycle_state: "active").order(:created_at, :id).last
+      @active_workflow_run ||= begin
+        anchored_workflow_run = @conversation.latest_active_workflow_run
+        if anchored_workflow_run&.active?
+          anchored_workflow_run
+        else
+          @conversation.workflow_runs.where(lifecycle_state: "active").order(:created_at, :id).last
+        end
+      end
     end
 
     def requested_subagent_connection
@@ -130,6 +144,7 @@ module ConversationControl
       active_agent_connection&.agent_definition_version ||
         active_turn&.agent_definition_version ||
         active_workflow_run&.turn&.agent_definition_version ||
+        @conversation.latest_turn&.agent_definition_version ||
         @conversation.turns.order(:created_at, :id).last&.agent_definition_version
     end
 

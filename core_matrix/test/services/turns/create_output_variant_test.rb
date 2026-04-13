@@ -19,6 +19,8 @@ class Turns::CreateOutputVariantTest < ActiveSupport::TestCase
     assert_equal 1, second_output.variant_index
     assert_equal turn.selected_input_message, first_output.source_input_message
     assert_equal turn.selected_input_message, second_output.source_input_message
+    assert_equal second_output, turn.conversation.reload.latest_message
+    assert_equal second_output.created_at.to_i, turn.conversation.last_activity_at.to_i
   end
 
   test "rejects source messages that are not input variants from the same turn" do

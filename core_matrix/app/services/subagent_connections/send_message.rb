@@ -61,6 +61,7 @@ module SubagentConnections
         )
 
         turn.update!(selected_output_message: message)
+        conversation.refresh_latest_anchors!(activity_at: message.created_at)
 
         ConversationEvents::Project.call(
           conversation: conversation,

@@ -434,38 +434,39 @@ git commit -m "refactor: move app access checks into sql boundaries"
 
 **Files:**
 - Modify: `app/models/conversation.rb`
-- Modify: `app/models/message.rb`
-- Modify: `app/models/turn.rb`
-- Modify: `app/models/workflow_run.rb`
-- Modify: `app/services/conversations/create_root.rb`
+- Create: `app/services/conversations/refresh_latest_anchors.rb`
 - Modify: `app/services/conversations/creation_support.rb`
 - Modify: `app/services/conversation_bundle_imports/rehydrate_conversation.rb`
-- Modify: `app/services/workbench/send_message.rb`
-- Modify: `app/services/subagent_connections/send_message.rb`
 - Modify: `app/services/turns/start_user_turn.rb`
 - Modify: `app/services/turns/start_agent_turn.rb`
 - Modify: `app/services/turns/start_automation_turn.rb`
+- Modify: `app/services/subagent_connections/send_message.rb`
 - Modify: `app/services/turns/queue_follow_up.rb`
+- Modify: `app/services/turns/retry_output.rb`
+- Modify: `app/services/turns/rerun_output.rb`
 - Modify: `app/services/turns/edit_tail_input.rb`
 - Modify: `app/services/turns/steer_current_input.rb`
 - Modify: `app/services/turns/create_output_variant.rb`
-- Modify: `app/services/turns/retry_output.rb`
-- Modify: `app/services/turns/rerun_output.rb`
 - Modify: `app/services/workflows/create_for_turn.rb`
-- Modify: `app/services/conversation_supervision/append_feed_entries.rb`
 - Modify: `app/services/conversation_control/resolve_target_runtime.rb`
+- Modify: `app/services/conversation_supervision/append_feed_entries.rb`
 - Modify: `app/services/conversation_supervision/build_activity_feed.rb`
+- Modify: `app/services/conversation_supervision/build_runtime_evidence.rb`
 - Modify: `app/services/conversations/update_supervision_state.rb`
 - Modify: `app/services/embedded_agents/conversation_supervision/build_snapshot.rb`
-- Modify: `test/services/conversations/create_root_test.rb`
-- Modify: `test/models/message_test.rb`
 - Modify: `test/services/conversation_bundle_imports/rehydrate_conversation_test.rb`
 - Modify: `test/services/workbench/send_message_test.rb`
+- Modify: `test/services/turns/start_user_turn_test.rb`
+- Modify: `test/services/turns/start_agent_turn_test.rb`
+- Modify: `test/services/turns/start_automation_turn_test.rb`
 - Modify: `test/services/subagent_connections/send_message_test.rb`
 - Modify: `test/services/turns/queue_follow_up_test.rb`
 - Modify: `test/services/turns/edit_tail_input_test.rb`
 - Modify: `test/services/turns/steer_current_input_test.rb`
 - Modify: `test/services/turns/create_output_variant_test.rb`
+- Modify: `test/services/turns/retry_output_test.rb`
+- Modify: `test/services/turns/rerun_output_test.rb`
+- Modify: `test/services/workflows/create_for_turn_test.rb`
 - Modify: `test/services/conversation_control/resolve_target_runtime_test.rb`
 - Modify: `test/services/conversation_supervision/append_feed_entries_test.rb`
 - Modify: `test/services/conversation_supervision/build_activity_feed_test.rb`
@@ -497,6 +498,8 @@ the current codebase:
 - `Turns::EditTailInput`
 - `Turns::SteerCurrentInput`
 - `Turns::CreateOutputVariant`
+- `Turns::RetryOutput`
+- `Turns::RerunOutput`
 - `SubagentConnections::SendMessage`
 - `ConversationBundleImports::RehydrateConversation`
 
@@ -509,6 +512,7 @@ Update:
 - `ConversationControl::ResolveTargetRuntime`
 - `ConversationSupervision::AppendFeedEntries`
 - `ConversationSupervision::BuildActivityFeed`
+- `ConversationSupervision::BuildRuntimeEvidence`
 - `EmbeddedAgents::ConversationSupervision::BuildSnapshot`
 - any nearby read helper touched by the tests
 
@@ -518,15 +522,19 @@ to prefer conversation anchor columns first and fall back only where the transit
 
 ```bash
 bin/rails test \
-  test/services/conversations/create_root_test.rb \
-  test/models/message_test.rb \
   test/services/conversation_bundle_imports/rehydrate_conversation_test.rb \
   test/services/workbench/send_message_test.rb \
+  test/services/turns/start_user_turn_test.rb \
+  test/services/turns/start_agent_turn_test.rb \
+  test/services/turns/start_automation_turn_test.rb \
   test/services/subagent_connections/send_message_test.rb \
   test/services/turns/queue_follow_up_test.rb \
   test/services/turns/edit_tail_input_test.rb \
   test/services/turns/steer_current_input_test.rb \
   test/services/turns/create_output_variant_test.rb \
+  test/services/turns/retry_output_test.rb \
+  test/services/turns/rerun_output_test.rb \
+  test/services/workflows/create_for_turn_test.rb \
   test/services/conversation_control/resolve_target_runtime_test.rb \
   test/services/conversation_supervision/append_feed_entries_test.rb \
   test/services/conversation_supervision/build_activity_feed_test.rb \
@@ -541,38 +549,39 @@ Expected: feed and control paths use `latest_active_*` semantics without changin
 
 ```bash
 git add app/models/conversation.rb \
-  app/models/message.rb \
-  app/models/turn.rb \
-  app/models/workflow_run.rb \
-  app/services/conversations/create_root.rb \
+  app/services/conversations/refresh_latest_anchors.rb \
   app/services/conversations/creation_support.rb \
   app/services/conversation_bundle_imports/rehydrate_conversation.rb \
-  app/services/workbench/send_message.rb \
-  app/services/subagent_connections/send_message.rb \
   app/services/turns/start_user_turn.rb \
   app/services/turns/start_agent_turn.rb \
   app/services/turns/start_automation_turn.rb \
+  app/services/subagent_connections/send_message.rb \
   app/services/turns/queue_follow_up.rb \
+  app/services/turns/retry_output.rb \
+  app/services/turns/rerun_output.rb \
   app/services/turns/edit_tail_input.rb \
   app/services/turns/steer_current_input.rb \
   app/services/turns/create_output_variant.rb \
-  app/services/turns/retry_output.rb \
-  app/services/turns/rerun_output.rb \
   app/services/workflows/create_for_turn.rb \
-  app/services/conversation_supervision/append_feed_entries.rb \
   app/services/conversation_control/resolve_target_runtime.rb \
+  app/services/conversation_supervision/append_feed_entries.rb \
   app/services/conversation_supervision/build_activity_feed.rb \
+  app/services/conversation_supervision/build_runtime_evidence.rb \
   app/services/conversations/update_supervision_state.rb \
   app/services/embedded_agents/conversation_supervision/build_snapshot.rb \
-  test/services/conversations/create_root_test.rb \
-  test/models/message_test.rb \
   test/services/conversation_bundle_imports/rehydrate_conversation_test.rb \
   test/services/workbench/send_message_test.rb \
+  test/services/turns/start_user_turn_test.rb \
+  test/services/turns/start_agent_turn_test.rb \
+  test/services/turns/start_automation_turn_test.rb \
   test/services/subagent_connections/send_message_test.rb \
   test/services/turns/queue_follow_up_test.rb \
   test/services/turns/edit_tail_input_test.rb \
   test/services/turns/steer_current_input_test.rb \
   test/services/turns/create_output_variant_test.rb \
+  test/services/turns/retry_output_test.rb \
+  test/services/turns/rerun_output_test.rb \
+  test/services/workflows/create_for_turn_test.rb \
   test/services/conversation_control/resolve_target_runtime_test.rb \
   test/services/conversation_supervision/append_feed_entries_test.rb \
   test/services/conversation_supervision/build_activity_feed_test.rb \

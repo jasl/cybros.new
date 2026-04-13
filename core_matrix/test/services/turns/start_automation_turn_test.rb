@@ -35,6 +35,10 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
     )
     assert_nil turn.selected_input_message
     assert_nil turn.selected_output_message
+    assert_equal turn, conversation.reload.latest_turn
+    assert_equal turn, conversation.latest_active_turn
+    assert_nil conversation.latest_message
+    assert_equal turn.created_at.to_i, conversation.last_activity_at.to_i
   end
 
   test "freezes the active agent definition version instead of a caller supplied version" do

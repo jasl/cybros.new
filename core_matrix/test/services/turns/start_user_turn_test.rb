@@ -39,6 +39,10 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal 0, turn.selected_input_message.variant_index
     assert_nil turn.selected_input_message.source_input_message
     assert_nil turn.selected_output_message
+    assert_equal turn, conversation.reload.latest_turn
+    assert_equal turn, conversation.latest_active_turn
+    assert_equal turn.selected_input_message, conversation.latest_message
+    assert_equal turn.selected_input_message.created_at.to_i, conversation.last_activity_at.to_i
   end
 
   test "bootstraps conversation title through the start user turn path" do

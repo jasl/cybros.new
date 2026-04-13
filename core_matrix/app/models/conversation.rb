@@ -100,6 +100,10 @@ class Conversation < ApplicationRecord
   belongs_to :agent
   belongs_to :current_execution_epoch, class_name: "ConversationExecutionEpoch", optional: true
   belongs_to :current_execution_runtime, class_name: "ExecutionRuntime", optional: true
+  belongs_to :latest_active_turn, class_name: "Turn", optional: true
+  belongs_to :latest_turn, class_name: "Turn", optional: true
+  belongs_to :latest_active_workflow_run, class_name: "WorkflowRun", optional: true
+  belongs_to :latest_message, class_name: "Message", optional: true
   belongs_to :parent_conversation, class_name: "Conversation", optional: true
   belongs_to :historical_anchor_message, class_name: "Message", optional: true
 
@@ -246,6 +250,19 @@ class Conversation < ApplicationRecord
       "enabled_feature_ids" => enabled_feature_ids.dup,
       "during_generation_input_policy" => during_generation_input_policy,
     }
+  end
+
+  def feed_anchor_turn
+    return latest_active_turn if latest_active_turn&.active?
+
+    latest_turn
+  end
+
+  def refresh_latest_anchors!(activity_at: nil)
+    Conversations::RefreshLatestAnchors.call(
+      conversation: self,
+      activity_at: activity_at
+    )
   end
 
   private

@@ -24,6 +24,8 @@ class Turns::RetryOutputTest < ActiveSupport::TestCase
     assert_equal "Retried output", retried.selected_output_message.content
     assert_equal 1, retried.selected_output_message.variant_index
     assert_equal turn.selected_input_message, retried.selected_output_message.source_input_message
+    assert_equal retried.selected_output_message, turn.conversation.reload.latest_message
+    assert_equal retried.selected_output_message.created_at.to_i, turn.conversation.last_activity_at.to_i
   end
 
   test "rejects retrying output on a turn superseded by rollback" do

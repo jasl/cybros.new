@@ -13,7 +13,7 @@ module Turns
     def call
       validate_source_input_message!
 
-      AgentMessage.create!(
+      output = AgentMessage.create!(
         installation: @turn.installation,
         conversation: @turn.conversation,
         turn: @turn,
@@ -23,6 +23,9 @@ module Turns
         content: @content,
         source_input_message: @source_input_message
       )
+
+      @turn.conversation.refresh_latest_anchors!(activity_at: output.created_at)
+      output
     end
 
     private

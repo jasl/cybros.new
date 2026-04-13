@@ -35,6 +35,7 @@ module Turns
           selected_input_message: message,
           selected_output_message: nil
         )
+        turn.conversation.refresh_latest_anchors!(activity_at: message.created_at)
         turn
       end
     end

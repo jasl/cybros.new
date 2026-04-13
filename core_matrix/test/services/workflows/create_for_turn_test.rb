@@ -43,6 +43,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     assert turn.execution_contract.present?
     assert turn.execution_contract.execution_capability_snapshot.present?
     assert turn.execution_contract.execution_context_snapshot.present?
+    assert_equal workflow_run, conversation.reload.latest_active_workflow_run
     refute Rails.root.join("app/services/workflows/context_assembler.rb").exist?
   end
 

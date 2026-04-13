@@ -24,6 +24,8 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
     assert_equal "Rerun output", rerun.selected_output_message.content
     assert_equal 1, rerun.selected_output_message.variant_index
     assert_equal turn.selected_input_message, rerun.selected_output_message.source_input_message
+    assert_equal rerun.selected_output_message, turn.conversation.reload.latest_message
+    assert_equal rerun.selected_output_message.created_at.to_i, turn.conversation.last_activity_at.to_i
   end
 
   test "auto branches before rerunning a non tail finished output and uses the target output lineage" do
@@ -70,6 +72,9 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
     assert_equal "Historical input", rerun_turn.selected_input_message.content
     assert_equal "Branch rerun output", rerun_turn.selected_output_message.content
     assert_equal rerun_turn.selected_input_message, rerun_turn.selected_output_message.source_input_message
+    assert_equal rerun_turn, rerun_turn.conversation.reload.latest_turn
+    assert_equal rerun_turn, rerun_turn.conversation.latest_active_turn
+    assert_equal rerun_turn.selected_output_message, rerun_turn.conversation.latest_message
   end
 
   test "rejects rerunning output from an archived conversation" do

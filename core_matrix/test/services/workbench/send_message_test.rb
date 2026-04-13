@@ -24,6 +24,11 @@ class Workbench::SendMessageTest < ActiveSupport::TestCase
     assert_equal "Follow up", result.message.content
     assert_equal result.turn, result.message.turn
     assert_equal result.turn, result.workflow_run.turn
+    assert_equal result.turn, conversation.reload.latest_turn
+    assert_equal result.turn, conversation.latest_active_turn
+    assert_equal result.workflow_run, conversation.latest_active_workflow_run
+    assert_equal result.message, conversation.latest_message
+    assert_equal result.message.created_at.to_i, conversation.last_activity_at.to_i
   end
 
   test "keeps using the runtime pinned by the conversation current execution state" do

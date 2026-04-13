@@ -35,6 +35,10 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     )
     assert_instance_of UserMessage, queued.selected_input_message
     assert_equal "Follow up input", queued.selected_input_message.content
+    assert_equal queued, conversation.reload.latest_turn
+    assert_equal 1, conversation.latest_active_turn.sequence
+    assert_equal queued.selected_input_message, conversation.latest_message
+    assert_equal queued.selected_input_message.created_at.to_i, conversation.last_activity_at.to_i
   end
 
   test "freezes the active agent definition version instead of a caller supplied version" do

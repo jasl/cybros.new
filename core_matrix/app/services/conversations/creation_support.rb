@@ -16,6 +16,7 @@ module Conversations
       create_self_closure!(conversation)
       LineageStores::BootstrapForConversation.call(conversation: conversation)
       create_capability_policy_for!(conversation, workspace: workspace)
+      conversation.refresh_latest_anchors!(activity_at: conversation.created_at)
 
       conversation
     end

@@ -78,6 +78,23 @@ class Conversations::BlockerSnapshotQueryTest < ActiveSupport::TestCase
     assert_operator queries.length, :<=, 11, "Expected blocker snapshot query to stay under 11 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
   end
 
+  test "counts every active turn even when one latest-active anchor is persisted" do
+    context = build_agent_control_context!
+    root = context[:conversation]
+    newer_turn = Turns::StartUserTurn.call(
+      conversation: root,
+      content: "Second active turn",
+      execution_runtime: context[:execution_runtime],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    root.update!(latest_active_turn_id: newer_turn.id)
+
+    snapshot = Conversations::BlockerSnapshotQuery.call(conversation: root)
+
+    assert_equal 2, snapshot.work_barrier.active_turn_count
+  end
+
   private
 
   def create_open_owned_subagent_connection!(installation:, workspace:, owner_conversation:, execution_runtime:, agent_definition_version:)

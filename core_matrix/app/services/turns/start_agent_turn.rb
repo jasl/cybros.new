@@ -67,6 +67,7 @@ module Turns
         )
 
         turn.update!(selected_input_message: message)
+        conversation.refresh_latest_anchors!(activity_at: message.created_at)
         turn
       end
     end

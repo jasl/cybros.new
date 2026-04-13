@@ -339,7 +339,8 @@ module Conversations
 
     def conversation_goal_summary
       @conversation_goal_summary ||= begin
-        turn = @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
+        turn = @conversation.feed_anchor_turn ||
+          @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
           @conversation.turns.order(sequence: :desc).first
         content = turn&.selected_input_message&.content.to_s
         ConversationSupervision::BuildGoalSummary.call(content: content)
@@ -465,7 +466,11 @@ module Conversations
     def workflow_run
       return @workflow_run if instance_variable_defined?(:@workflow_run)
 
-      @workflow_run = @conversation.workflow_runs.order(created_at: :desc).first
+      @workflow_run = if @conversation.latest_active_workflow_run&.active?
+        @conversation.latest_active_workflow_run
+      else
+        @conversation.workflow_runs.order(created_at: :desc).first
+      end
     end
 
     def current_task_run

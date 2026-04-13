@@ -42,6 +42,10 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
     assert_equal owner_conversation.public_id, turn.source_ref_id
     assert_instance_of UserMessage, turn.selected_input_message
     assert_equal "Investigate this", turn.selected_input_message.content
+    assert_equal turn, child_conversation.reload.latest_turn
+    assert_equal turn, child_conversation.latest_active_turn
+    assert_equal turn.selected_input_message, child_conversation.latest_message
+    assert_equal turn.selected_input_message.created_at.to_i, child_conversation.last_activity_at.to_i
   end
 
   test "rejects owner addressable conversations" do

@@ -36,6 +36,7 @@ module Turns
           selected_output_message: retry_output,
           lifecycle_state: "active"
         )
+        locked_turn.conversation.refresh_latest_anchors!(activity_at: retry_output.created_at)
         locked_turn
       end
     end

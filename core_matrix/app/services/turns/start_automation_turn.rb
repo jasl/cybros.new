@@ -31,7 +31,7 @@ module Turns
           execution_runtime: @execution_runtime
         )
 
-        Turn.create!(
+        turn = Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
           agent_definition_version: execution_identity.agent_definition_version,
@@ -52,6 +52,9 @@ module Turns
           resolved_config_snapshot: @resolved_config_snapshot,
           resolved_model_selection_snapshot: @resolved_model_selection_snapshot
         )
+
+        conversation.refresh_latest_anchors!(activity_at: turn.created_at)
+        turn
       end
     end
 

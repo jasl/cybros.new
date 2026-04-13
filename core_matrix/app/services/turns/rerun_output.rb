@@ -51,6 +51,7 @@ module Turns
         selected_output_message: rerun_output,
         lifecycle_state: "active"
       )
+      turn.conversation.refresh_latest_anchors!(activity_at: rerun_output.created_at)
       turn
     end
 
@@ -73,6 +74,7 @@ module Turns
       )
 
       rerun_turn.update!(selected_output_message: rerun_output)
+      rerun_turn.conversation.refresh_latest_anchors!(activity_at: rerun_output.created_at)
       rerun_turn
     end
 

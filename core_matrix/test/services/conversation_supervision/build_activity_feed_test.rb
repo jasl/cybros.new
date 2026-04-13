@@ -42,6 +42,25 @@ class ConversationSupervision::BuildActivityFeedTest < ActiveSupport::TestCase
     assert_equal ["Newer active turn."], feed.map { |entry| entry.fetch("summary") }
   end
 
+  test "prefers the persisted latest active turn anchor over scan ordering" do
+    context = build_agent_control_context!
+    newer_turn = Turns::StartUserTurn.call(
+      conversation: context[:conversation],
+      content: "A newer active turn",
+      execution_runtime: context[:execution_runtime],
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    create_feed_entry!(context:, turn: context[:turn], sequence: 1, event_kind: "turn_started", summary: "Anchored turn.")
+    create_feed_entry!(context:, turn: newer_turn, sequence: 2, event_kind: "turn_started", summary: "Scanned newer turn.")
+    context[:conversation].update!(latest_active_turn_id: context[:turn].id)
+
+    feed = ConversationSupervision::BuildActivityFeed.call(conversation: context[:conversation])
+
+    assert_equal [context[:turn].public_id], feed.map { |entry| entry.fetch("turn_id") }.uniq
+    assert_equal ["Anchored turn."], feed.map { |entry| entry.fetch("summary") }
+  end
+
   test "keeps the supervision feed surface while avoiding synthetic turn todo fallback for provider-backed work" do
     fixture = prepare_provider_backed_conversation_supervision_context!
 

@@ -55,7 +55,8 @@ module ConversationSupervision
     end
 
     def target_turn
-      @target_turn ||= @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
+      @target_turn ||= @conversation.feed_anchor_turn ||
+        @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
         @conversation.turns.order(sequence: :desc).first
     end
 

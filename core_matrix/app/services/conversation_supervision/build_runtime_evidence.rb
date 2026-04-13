@@ -29,7 +29,11 @@ module ConversationSupervision
     def workflow_run
       return @workflow_run if instance_variable_defined?(:@workflow_run)
 
-      @workflow_run = @conversation.workflow_runs.order(created_at: :desc).first
+      @workflow_run = if @conversation.latest_active_workflow_run&.active?
+        @conversation.latest_active_workflow_run
+      else
+        @conversation.workflow_runs.order(created_at: :desc).first
+      end
     end
 
     def workflow_node_ids

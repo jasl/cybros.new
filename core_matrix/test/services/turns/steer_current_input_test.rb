@@ -22,6 +22,8 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
     assert_equal 1, steered.selected_input_message.variant_index
     assert_equal ["Original input", "Revised input"],
       UserMessage.where(turn: turn).order(:variant_index).pluck(:content)
+    assert_equal steered.selected_input_message, turn.conversation.reload.latest_message
+    assert_equal steered.selected_input_message.created_at.to_i, turn.conversation.last_activity_at.to_i
   end
 
   test "queues follow up work after the first transcript side-effect boundary" do

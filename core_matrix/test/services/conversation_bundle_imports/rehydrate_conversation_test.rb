@@ -57,6 +57,9 @@ class ConversationBundleImportsRehydrateConversationTest < ActiveSupport::TestCa
     assert_equal parsed_bundle.fetch("conversation_payload").fetch("messages").map { |message| message.fetch("created_at") },
       imported_conversation.messages.order(:created_at, :id).map { |message| message.created_at.iso8601(6) }
     assert_equal 1, MessageAttachment.where(conversation: imported_conversation).count
+    assert_equal imported_conversation.turns.order(:sequence).last, imported_conversation.latest_turn
+    assert_nil imported_conversation.latest_active_turn
+    assert_equal imported_conversation.messages.order(:created_at, :id).last, imported_conversation.latest_message
   ensure
     bundle&.fetch("io")&.close!
   end

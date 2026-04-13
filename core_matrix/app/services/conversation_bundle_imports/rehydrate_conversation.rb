@@ -119,6 +119,7 @@ module ConversationBundleImports
       end
 
       apply_attachment_origins!(deferred_origins:, message_map:, attachment_map:)
+      conversation.refresh_latest_anchors!
     end
 
     def create_message_from_payload(turn:, payload:, source_input_message: nil, message_map:, attachment_map:, deferred_origins:)

@@ -224,7 +224,8 @@ module EmbeddedAgents
       end
 
       def anchor_turn
-        @anchor_turn ||= @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
+        @anchor_turn ||= @conversation.feed_anchor_turn ||
+          @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
           @conversation.turns.order(sequence: :desc).first
       end
 
@@ -233,7 +234,11 @@ module EmbeddedAgents
       end
 
       def workflow_run
-        @workflow_run ||= @conversation.workflow_runs.order(created_at: :desc).first
+        @workflow_run ||= if @conversation.latest_active_workflow_run&.active?
+          @conversation.latest_active_workflow_run
+        else
+          @conversation.workflow_runs.order(created_at: :desc).first
+        end
       end
 
       def workflow_node

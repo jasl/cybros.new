@@ -20,7 +20,8 @@ module ConversationSupervision
     private
 
     def feed_turn
-      @feed_turn ||= @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
+      @feed_turn ||= @conversation.feed_anchor_turn ||
+        @conversation.turns.where(lifecycle_state: "active").order(sequence: :desc).first ||
         @conversation.turns.order(sequence: :desc).first
     end
 
