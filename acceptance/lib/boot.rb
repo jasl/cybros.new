@@ -20,3 +20,4 @@ end
 
 require_relative 'manual_support'
 require_relative 'benchmark_reporting'
+require_relative 'capstone_review_artifacts'

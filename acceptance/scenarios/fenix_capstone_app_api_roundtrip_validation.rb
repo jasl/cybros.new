@@ -162,6 +162,15 @@ write_json(artifact_dir.join("evidence", "runtime-validation.json"), runtime_val
 write_json(artifact_dir.join("evidence", "conversation-debug-export-download.json"), debug_export_download)
 write_json(artifact_dir.join("evidence", "conversation-export-download.json"), export_download)
 
+Acceptance::CapstoneReviewArtifacts.install!(
+  artifact_dir: artifact_dir,
+  conversation_export_path: conversation_export_path,
+  conversation_debug_export_path: conversation_debug_export_path,
+  turn_feed: turn_feed,
+  turn_runtime_events: turn_runtime_events,
+  debug_payload: debug_payload
+)
+
 observed_dag_shape = debug_payload.fetch("workflow_nodes")
   .select { |node| node.fetch("turn_id") == turn_id }
   .sort_by { |node| [node.fetch("ordinal"), node.fetch("created_at").to_s] }
@@ -221,7 +230,13 @@ write_text(
     - runtime browser mentioned 2048: `#{runtime_mentions_2048}`
     - host validation passed: `#{Acceptance::HostValidation.host_validation_passed?(host_validation: host_validation, playwright_validation: playwright_validation)}`
     - conversation export path: `#{conversation_export_path}`
+    - conversation debug export path: `#{conversation_debug_export_path}`
     - generated app dir: `#{generated_app_dir}`
+    - review index: `#{artifact_dir.join("review", "index.md")}`
+    - conversation transcript review: `#{artifact_dir.join("review", "conversation-transcript.md")}`
+    - diagnostics summary review: `#{artifact_dir.join("review", "diagnostics-summary.md")}`
+    - runtime events review: `#{artifact_dir.join("review", "runtime-events.md")}`
+    - supervision feed review: `#{artifact_dir.join("review", "supervision-feed.md")}`
   MD
 )
 
