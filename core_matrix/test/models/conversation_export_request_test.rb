@@ -93,4 +93,24 @@ class ConversationExportRequestTest < ActiveSupport::TestCase
 
     assert succeeded_with_bundle.valid?
   end
+
+  test "stores debug exports in the shared export request table" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+
+    request = ConversationExportRequest.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      conversation: conversation,
+      user: context[:user],
+      request_kind: "debug_export",
+      lifecycle_state: "queued",
+      expires_at: 2.hours.from_now,
+      request_payload: { "bundle_kind" => "conversation_debug_export" }
+    )
+
+    assert request.debug_export?
+  end
 end

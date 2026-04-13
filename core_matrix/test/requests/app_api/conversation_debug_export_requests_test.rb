@@ -5,8 +5,8 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
 
-    assert_enqueued_with(job: ConversationDebugExports::ExecuteRequestJob) do
-      assert_enqueued_with(job: ConversationDebugExports::ExpireRequestJob) do
+    assert_enqueued_with(job: ConversationExports::ExecuteRequestJob) do
+      assert_enqueued_with(job: ConversationExports::ExpireRequestJob) do
         post "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests",
           headers: app_api_headers(registration[:session_token]),
           as: :json
@@ -35,16 +35,17 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
     attach_selected_output!(context[:turn], content: "Debug export output")
-    request = ConversationDebugExportRequest.create!(
+    request = ConversationExportRequest.create!(
       installation: context[:installation],
       workspace: context[:workspace],
       conversation: context[:conversation],
       user: context[:user],
+      request_kind: "debug_export",
       lifecycle_state: "queued",
       expires_at: 2.hours.from_now,
       request_payload: { "bundle_kind" => "conversation_debug_export" }
     )
-    ConversationDebugExports::ExecuteRequest.call(request: request)
+    ConversationExports::ExecuteRequest.call(request: request)
 
     get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request.public_id}/download",
       headers: app_api_headers(registration[:session_token])
@@ -59,16 +60,17 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
     attach_selected_output!(context[:turn], content: "Missing debug export output")
-    request = ConversationDebugExportRequest.create!(
+    request = ConversationExportRequest.create!(
       installation: context[:installation],
       workspace: context[:workspace],
       conversation: context[:conversation],
       user: context[:user],
+      request_kind: "debug_export",
       lifecycle_state: "queued",
       expires_at: 2.hours.from_now,
       request_payload: { "bundle_kind" => "conversation_debug_export" }
     )
-    ConversationDebugExports::ExecuteRequest.call(request: request)
+    ConversationExports::ExecuteRequest.call(request: request)
     request.bundle_file.purge
 
     get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request.public_id}",
@@ -87,16 +89,17 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
     attach_selected_output!(context[:turn], content: "Expired debug export output")
-    request = ConversationDebugExportRequest.create!(
+    request = ConversationExportRequest.create!(
       installation: context[:installation],
       workspace: context[:workspace],
       conversation: context[:conversation],
       user: context[:user],
+      request_kind: "debug_export",
       lifecycle_state: "queued",
       expires_at: 1.minute.ago,
       request_payload: { "bundle_kind" => "conversation_debug_export" }
     )
-    ConversationDebugExports::ExecuteRequest.call(request: request)
+    ConversationExports::ExecuteRequest.call(request: request)
 
     get "/app_api/conversations/#{context[:conversation].public_id}/debug_export_requests/#{request.public_id}",
       headers: app_api_headers(registration[:session_token])
@@ -113,11 +116,12 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
   test "rejects raw bigint identifiers for create show and download" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
-    request = ConversationDebugExportRequest.create!(
+    request = ConversationExportRequest.create!(
       installation: context[:installation],
       workspace: context[:workspace],
       conversation: context[:conversation],
       user: context[:user],
+      request_kind: "debug_export",
       lifecycle_state: "queued",
       expires_at: 2.hours.from_now,
       request_payload: { "bundle_kind" => "conversation_debug_export" }
@@ -144,16 +148,17 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
     attach_selected_output!(context[:turn], content: "Scoped debug export output")
-    request = ConversationDebugExportRequest.create!(
+    request = ConversationExportRequest.create!(
       installation: context[:installation],
       workspace: context[:workspace],
       conversation: context[:conversation],
       user: context[:user],
+      request_kind: "debug_export",
       lifecycle_state: "queued",
       expires_at: 2.hours.from_now,
       request_payload: { "bundle_kind" => "conversation_debug_export" }
     )
-    ConversationDebugExports::ExecuteRequest.call(request: request)
+    ConversationExports::ExecuteRequest.call(request: request)
     other_conversation = create_conversation_record!(
       workspace: context[:workspace],
       agent_definition_version: context[:agent_definition_version],
@@ -174,11 +179,12 @@ class AppApiConversationDebugExportRequestsTest < ActionDispatch::IntegrationTes
   test "show loads a queued debug export request within six SQL queries" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
-    request = ConversationDebugExportRequest.create!(
+    request = ConversationExportRequest.create!(
       installation: context[:installation],
       workspace: context[:workspace],
       conversation: context[:conversation],
       user: context[:user],
+      request_kind: "debug_export",
       lifecycle_state: "queued",
       expires_at: 2.hours.from_now,
       request_payload: { "bundle_kind" => "conversation_debug_export" }

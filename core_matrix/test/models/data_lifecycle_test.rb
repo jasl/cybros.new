@@ -34,7 +34,6 @@ class DataLifecycleTest < ActiveSupport::TestCase
       ConversationCapabilityGrant => :owner_bound,
       ConversationControlRequest => :bounded_audit,
       ConversationExportRequest => :ephemeral_observability,
-      ConversationDebugExportRequest => :ephemeral_observability,
       UsageEvent => :bounded_audit,
       UsageRollup => :retained_aggregate,
     }

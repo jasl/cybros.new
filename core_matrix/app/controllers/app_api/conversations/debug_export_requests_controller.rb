@@ -2,9 +2,10 @@ module AppAPI
   module Conversations
     class DebugExportRequestsController < AppAPI::Conversations::BaseController
       def create
-        request = ConversationDebugExports::CreateRequest.call(
+        request = ConversationExports::CreateRequest.call(
           conversation: @conversation,
-          user: current_user
+          user: current_user,
+          request_kind: "debug_export"
         )
 
         render_method_response(
@@ -43,7 +44,8 @@ module AppAPI
       private
 
       def find_debug_export_request!(request_id)
-        ConversationDebugExportRequest
+        ConversationExportRequest
+          .debug_export
           .eager_load(:workspace, :user, bundle_file_attachment: :blob)
           .find_by!(
           public_id: request_id,

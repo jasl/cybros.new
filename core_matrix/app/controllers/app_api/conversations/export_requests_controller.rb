@@ -44,6 +44,7 @@ module AppAPI
 
       def find_export_request!(request_id)
         ConversationExportRequest
+          .conversation_export
           .eager_load(:workspace, :user, bundle_file_attachment: :blob)
           .find_by!(
           public_id: request_id,

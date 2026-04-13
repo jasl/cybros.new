@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_14_182010) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_14_182020) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -491,29 +491,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_182010) do
     t.index ["workspace_id"], name: "index_conversation_control_requests_on_workspace_id"
   end
 
-  create_table "conversation_debug_export_requests", force: :cascade do |t|
-    t.bigint "conversation_id", null: false
-    t.datetime "created_at", null: false
-    t.datetime "expires_at", null: false
-    t.jsonb "failure_payload", default: {}, null: false
-    t.datetime "finished_at"
-    t.bigint "installation_id", null: false
-    t.string "lifecycle_state", default: "queued", null: false
-    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.datetime "queued_at"
-    t.jsonb "request_payload", default: {}, null: false
-    t.jsonb "result_payload", default: {}, null: false
-    t.datetime "started_at"
-    t.datetime "updated_at", null: false
-    t.bigint "user_id", null: false
-    t.bigint "workspace_id", null: false
-    t.index ["conversation_id"], name: "index_conversation_debug_export_requests_on_conversation_id"
-    t.index ["installation_id"], name: "index_conversation_debug_export_requests_on_installation_id"
-    t.index ["public_id"], name: "index_conversation_debug_export_requests_on_public_id", unique: true
-    t.index ["user_id"], name: "index_conversation_debug_export_requests_on_user_id"
-    t.index ["workspace_id"], name: "index_conversation_debug_export_requests_on_workspace_id"
-  end
-
   create_table "conversation_details", force: :cascade do |t|
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
@@ -626,6 +603,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_182010) do
     t.string "lifecycle_state", default: "queued", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "queued_at"
+    t.string "request_kind", default: "conversation_export", null: false
     t.jsonb "request_payload", default: {}, null: false
     t.jsonb "result_payload", default: {}, null: false
     t.datetime "started_at"
@@ -2285,10 +2263,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_182010) do
   add_foreign_key "conversation_control_requests", "installations"
   add_foreign_key "conversation_control_requests", "users"
   add_foreign_key "conversation_control_requests", "workspaces"
-  add_foreign_key "conversation_debug_export_requests", "conversations"
-  add_foreign_key "conversation_debug_export_requests", "installations"
-  add_foreign_key "conversation_debug_export_requests", "users"
-  add_foreign_key "conversation_debug_export_requests", "workspaces"
   add_foreign_key "conversation_details", "conversations", on_delete: :cascade
   add_foreign_key "conversation_diagnostics_snapshots", "conversations"
   add_foreign_key "conversation_diagnostics_snapshots", "installations"

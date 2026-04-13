@@ -330,8 +330,8 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       metadata: {}
     )
     supervision_rows = create_supervision_rows!(context:, conversation:, turn:)
-    export_request = create_export_request!(klass: ConversationExportRequest, context: context, conversation: conversation)
-    debug_export_request = create_export_request!(klass: ConversationDebugExportRequest, context: context, conversation: conversation)
+    export_request = create_export_request!(request_kind: "conversation_export", context: context, conversation: conversation)
+    debug_export_request = create_export_request!(request_kind: "debug_export", context: context, conversation: conversation)
 
     complete_turn_and_workflow!(turn: turn, workflow_run: workflow_run)
     delete_and_finalize_conversation!(conversation)
@@ -345,11 +345,9 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
                   assert_difference("ConversationSupervisionState.count", -1) do
                     assert_difference("ConversationCapabilityGrant.count", -1) do
                       assert_difference("ConversationControlRequest.count", -1) do
-                        assert_difference("ConversationExportRequest.count", -1) do
-                          assert_difference("ConversationDebugExportRequest.count", -1) do
-                            assert_difference("ActiveStorage::Attachment.count", -2) do
-                              Conversations::PurgeDeleted.call(conversation: conversation.reload)
-                            end
+                        assert_difference("ConversationExportRequest.count", -2) do
+                          assert_difference("ActiveStorage::Attachment.count", -2) do
+                            Conversations::PurgeDeleted.call(conversation: conversation.reload)
                           end
                         end
                       end
@@ -372,7 +370,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert_not ConversationCapabilityGrant.exists?(supervision_rows.fetch(:grant).id)
     assert_not ConversationControlRequest.exists?(supervision_rows.fetch(:control_request).id)
     assert_not ConversationExportRequest.exists?(export_request.id)
-    assert_not ConversationDebugExportRequest.exists?(debug_export_request.id)
+    assert_not ConversationExportRequest.exists?(debug_export_request.id)
   end
 
   test "purges a deleted conversation with derived rows without query explosion" do
@@ -405,8 +403,8 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
       metadata: {}
     )
     create_supervision_rows!(context:, conversation:, turn:)
-    create_export_request!(klass: ConversationExportRequest, context: context, conversation: conversation)
-    create_export_request!(klass: ConversationDebugExportRequest, context: context, conversation: conversation)
+    create_export_request!(request_kind: "conversation_export", context: context, conversation: conversation)
+    create_export_request!(request_kind: "debug_export", context: context, conversation: conversation)
 
     complete_turn_and_workflow!(turn: turn, workflow_run: workflow_run)
     delete_and_finalize_conversation!(conversation)
@@ -741,26 +739,31 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     flunk("expected purge to succeed, but raised #{error.class}: #{error.message}")
   end
 
-  def create_export_request!(klass:, context:, conversation:)
-    request = klass.create!(
+  def create_export_request!(request_kind:, context:, conversation:)
+    request = ConversationExportRequest.create!(
       installation: context[:installation],
       workspace: context[:workspace],
       conversation: conversation,
       user: context[:user],
+      request_kind: request_kind,
       lifecycle_state: "queued",
       expires_at: 2.hours.from_now,
-      request_payload: { "bundle_kind" => klass.name }
+      request_payload: {
+        "bundle_kind" => request_kind == "debug_export" ? "conversation_debug_export" : "conversation_export",
+      }
     )
     request.bundle_file.attach(
-      io: StringIO.new("#{klass.name} bundle"),
-      filename: "#{klass.model_name.singular}-#{next_test_sequence}.zip",
+      io: StringIO.new("#{request_kind} bundle"),
+      filename: "#{request_kind}-#{next_test_sequence}.zip",
       content_type: "application/zip"
     )
     request.update!(
       lifecycle_state: "succeeded",
       started_at: Time.current,
       finished_at: Time.current,
-      result_payload: { "bundle_kind" => klass.name }
+      result_payload: {
+        "bundle_kind" => request_kind == "debug_export" ? "conversation_debug_export" : "conversation_export",
+      }
     )
     request
   end

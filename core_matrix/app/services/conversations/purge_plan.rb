@@ -181,16 +181,7 @@ module Conversations
     end
 
     def purge_export_request_rows!
-      purge_conversation_export_requests!
-      purge_conversation_debug_export_requests!
-    end
-
-    def purge_conversation_export_requests!
       ConversationExportRequest.where(conversation_id: @owned_conversation_ids).find_each(&:destroy!)
-    end
-
-    def purge_conversation_debug_export_requests!
-      ConversationDebugExportRequest.where(conversation_id: @owned_conversation_ids).find_each(&:destroy!)
     end
 
     def purge_transcript_rows!
@@ -316,7 +307,6 @@ module Conversations
         ConversationSupervisionState.where(target_conversation_id: @owned_conversation_ids),
         ConversationSupervisionSession.where(target_conversation_id: @owned_conversation_ids),
         ConversationExportRequest.where(conversation_id: @owned_conversation_ids),
-        ConversationDebugExportRequest.where(conversation_id: @owned_conversation_ids),
         MessageAttachment.where(id: @message_attachment_ids),
         active_storage_attachment_scope,
         Message.where(id: @message_ids),

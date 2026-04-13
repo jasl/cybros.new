@@ -28,4 +28,33 @@ class ConversationExports::ExecuteRequestJobTest < ActiveSupport::TestCase
     assert_predicate request.reload, :succeeded?
     assert request.bundle_file.attached?
   end
+
+  test "executes a queued debug export request by public id" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Debug job input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    attach_selected_output!(turn, content: "Debug job output")
+    request = ConversationExportRequest.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      conversation: conversation,
+      user: context[:user],
+      request_kind: "debug_export",
+      lifecycle_state: "queued",
+      expires_at: 2.hours.from_now,
+      request_payload: { "bundle_kind" => "conversation_debug_export" }
+    )
+
+    ConversationExports::ExecuteRequestJob.perform_now(request.public_id)
+
+    assert_predicate request.reload, :succeeded?
+    assert request.bundle_file.attached?
+  end
 end

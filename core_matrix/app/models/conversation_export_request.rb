@@ -2,6 +2,12 @@ class ConversationExportRequest < ApplicationRecord
   include HasPublicId
   include DataLifecycle
 
+  enum :request_kind,
+    {
+      conversation_export: "conversation_export",
+      debug_export: "debug_export",
+    },
+    validate: true
   enum :lifecycle_state,
     {
       queued: "queued",

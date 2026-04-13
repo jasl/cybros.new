@@ -16,7 +16,7 @@ module ConversationExports
 
       bundle = nil
       ApplicationRecord.transaction(requires_new: true) do
-        bundle = WriteZipBundle.call(conversation: @request.conversation)
+        bundle = build_bundle
 
         @request.bundle_file.attach(
           io: bundle.fetch("io"),
@@ -26,12 +26,7 @@ module ConversationExports
         @request.update!(
           lifecycle_state: "succeeded",
           finished_at: Time.current,
-          result_payload: {
-            "bundle_kind" => bundle.dig("manifest", "bundle_kind"),
-            "bundle_version" => bundle.dig("manifest", "bundle_version"),
-            "message_count" => bundle.dig("manifest", "message_count"),
-            "attachment_count" => bundle.dig("manifest", "attachment_count"),
-          }
+          result_payload: result_payload_for(bundle)
         )
       end
 
@@ -52,6 +47,35 @@ module ConversationExports
     end
 
     private
+
+    def build_bundle
+      if @request.debug_export?
+        ConversationDebugExports::WriteZipBundle.call(conversation: @request.conversation)
+      else
+        WriteZipBundle.call(conversation: @request.conversation)
+      end
+    end
+
+    def result_payload_for(bundle)
+      if @request.debug_export?
+        {
+          "bundle_kind" => bundle.dig("manifest", "bundle_kind"),
+          "bundle_version" => bundle.dig("manifest", "bundle_version"),
+          "message_count" => bundle.dig("manifest", "counts", "message_count"),
+          "attachment_count" => bundle.dig("manifest", "attachment_count"),
+          "workflow_run_count" => bundle.dig("manifest", "counts", "workflow_run_count"),
+          "tool_invocation_count" => bundle.dig("manifest", "counts", "tool_invocation_count"),
+          "usage_event_count" => bundle.dig("manifest", "counts", "usage_event_count"),
+        }
+      else
+        {
+          "bundle_kind" => bundle.dig("manifest", "bundle_kind"),
+          "bundle_version" => bundle.dig("manifest", "bundle_version"),
+          "message_count" => bundle.dig("manifest", "message_count"),
+          "attachment_count" => bundle.dig("manifest", "attachment_count"),
+        }
+      end
+    end
 
     def schedule_expiration!
       if @request.expires_at <= Time.current
