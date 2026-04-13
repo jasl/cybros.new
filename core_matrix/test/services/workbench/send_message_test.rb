@@ -22,6 +22,10 @@ class Workbench::SendMessageTest < ActiveSupport::TestCase
       end
     end
 
+    title_job = enqueued_jobs.find { |job| job[:job].to_s == "Conversations::Metadata::BootstrapTitleJob" }
+    assert title_job.present?
+    assert_equal [result.conversation.public_id, result.turn.public_id], title_job[:args]
+
     assert_equal conversation, result.conversation
     assert_equal "Follow up", result.message.content
     assert_equal result.turn, result.message.turn
@@ -31,6 +35,8 @@ class Workbench::SendMessageTest < ActiveSupport::TestCase
     assert_nil conversation.latest_active_workflow_run
     assert_equal result.message, conversation.latest_message
     assert_equal result.message.created_at.to_i, conversation.last_activity_at.to_i
+    assert_equal I18n.t("conversations.defaults.untitled_title"), conversation.reload.title
+    assert conversation.title_source_none?
     refute_respond_to result, :workflow_run
   end
 
@@ -62,8 +68,14 @@ class Workbench::SendMessageTest < ActiveSupport::TestCase
       end
     end
 
+    title_job = enqueued_jobs.find { |job| job[:job].to_s == "Conversations::Metadata::BootstrapTitleJob" }
+    assert title_job.present?
+    assert_equal [result.conversation.public_id, result.turn.public_id], title_job[:args]
+
     assert_equal override_runtime, result.turn.execution_runtime
     assert_equal "pending", result.turn.workflow_bootstrap_state
+    assert_equal I18n.t("conversations.defaults.untitled_title"), conversation.reload.title
+    assert conversation.title_source_none?
   end
 
   test "sends a message within seventy-five SQL queries" do

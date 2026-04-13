@@ -18,6 +18,7 @@ module AppSurface
           "workspace_id" => @workspace.public_id,
           "agent_id" => @workspace.agent.public_id,
           "default_execution_runtime_id" => @workspace.default_execution_runtime&.public_id,
+          "metadata" => @workspace.config_metadata,
           "available_capabilities" => available,
           "disabled_capabilities" => disabled,
           "effective_capabilities" => effective,

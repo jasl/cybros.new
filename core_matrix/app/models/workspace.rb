@@ -1,6 +1,17 @@
 class Workspace < ApplicationRecord
   include HasPublicId
 
+  TITLE_BOOTSTRAP_MODES = %w[runtime_first embedded_only].freeze
+  DEFAULT_TITLE_BOOTSTRAP_CONFIG = {
+    "enabled" => true,
+    "mode" => "runtime_first",
+  }.freeze
+  DEFAULT_CONFIG = {
+    "metadata" => {
+      "title_bootstrap" => DEFAULT_TITLE_BOOTSTRAP_CONFIG,
+    },
+  }.freeze
+
   PRIVACY_VALUES = %w[private].freeze
 
   belongs_to :installation
@@ -15,6 +26,8 @@ class Workspace < ApplicationRecord
   validate :user_installation_match
   validate :agent_installation_match
   validate :default_execution_runtime_installation_match
+  validate :config_must_be_hash
+  validate :title_bootstrap_config_must_be_valid
   validate :disabled_capabilities_must_be_array
   validate :single_default_workspace
 
@@ -29,6 +42,29 @@ class Workspace < ApplicationRecord
   end
 
   def private_workspace? = privacy == "private"
+
+  def self.default_config
+    DEFAULT_CONFIG.deep_dup
+  end
+
+  def config_with_defaults
+    self.class.default_config.deep_merge(normalized_config)
+  end
+
+  def config_metadata
+    metadata = config_with_defaults.fetch("metadata", {})
+    metadata.is_a?(Hash) ? metadata : {}
+  end
+
+  def title_bootstrap_config
+    config_metadata.fetch("title_bootstrap", {})
+  end
+
+  def merged_config_with_metadata(metadata:)
+    self.class.default_config.deep_merge(
+      normalized_config.deep_merge("metadata" => normalized_hash(metadata))
+    )
+  end
 
   private
 
@@ -51,6 +87,40 @@ class Workspace < ApplicationRecord
     return if default_execution_runtime.installation_id == installation_id
 
     errors.add(:default_execution_runtime, "must belong to the same installation")
+  end
+
+  def config_must_be_hash
+    errors.add(:config, "must be a hash") unless config.is_a?(Hash)
+  end
+
+  def title_bootstrap_config_must_be_valid
+    return unless config.is_a?(Hash)
+
+    metadata = config_with_defaults.fetch("metadata", {})
+    unless metadata.is_a?(Hash)
+      errors.add(:config, "metadata must be a hash")
+      return
+    end
+
+    title_bootstrap = metadata.fetch("title_bootstrap", {})
+    unless title_bootstrap.is_a?(Hash)
+      errors.add(:config, "metadata.title_bootstrap must be a hash")
+      return
+    end
+
+    enabled = title_bootstrap["enabled"]
+    mode = title_bootstrap["mode"]
+
+    errors.add(:config, "metadata.title_bootstrap.enabled must be true or false") unless enabled == true || enabled == false
+    errors.add(:config, "metadata.title_bootstrap.mode must be runtime_first or embedded_only") unless TITLE_BOOTSTRAP_MODES.include?(mode)
+  end
+
+  def normalized_config
+    normalized_hash(config)
+  end
+
+  def normalized_hash(value)
+    value.is_a?(Hash) ? value.deep_stringify_keys : {}
   end
 
   def disabled_capabilities_must_be_array

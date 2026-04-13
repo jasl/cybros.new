@@ -1,6 +1,7 @@
 module EmbeddedAgents
   class Registry
     AGENTS = {
+      "conversation_title" => "EmbeddedAgents::ConversationTitle::Invoke",
       "conversation_supervision" => "EmbeddedAgents::ConversationSupervision::Invoke",
     }.freeze
 

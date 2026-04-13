@@ -32,12 +32,13 @@ embedded agents, workspace policy API, optional Fenix canonical config.
 
 **Step 1: Write failing accepted-turn tests**
 
-Update the turn acceptance tests so they expect:
+Update the generic turn-service tests so they expect:
 
 - no synchronous `title_source = "bootstrap"` after manual user entry
-- the conversation title remains the placeholder title immediately after accept
-- a `Conversations::Metadata::BootstrapTitleJob` enqueue for the first manual
-  user turn
+- the conversation title remains the placeholder title immediately after
+  `Turns::AcceptPendingUserTurn` or `Turns::StartUserTurn`
+- generic turn services do **not** enqueue
+  `Conversations::Metadata::BootstrapTitleJob`
 
 Keep the existing pending workflow bootstrap assertions intact.
 
@@ -48,6 +49,9 @@ Update the request tests so they expect:
 - `POST /app_api/conversations` returns the placeholder conversation title
 - `POST /app_api/conversations/:id/messages` preserves the current title
   without synchronously bootstrapping a new one
+- app-facing/workbench entry points enqueue
+  `Conversations::Metadata::BootstrapTitleJob` with
+  `[conversation.public_id, turn.public_id]`
 - mutation responses still expose `execution_status`, `accepted_at`, and
   `request_summary`
 

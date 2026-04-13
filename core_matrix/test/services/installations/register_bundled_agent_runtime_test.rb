@@ -35,9 +35,6 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
       conversation_override_schema: {
         type: "object",
         properties: {},
-      },
-      default_canonical_config: {
-        sandbox: "workspace-write",
       }
     )
 
@@ -74,6 +71,8 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal first.execution_runtime_connection, ExecutionRuntimeConnection.find_by_plaintext_connection_credential(first.execution_runtime_connection_credential)
     assert_equal default_profile_policy, first.agent_definition_version.profile_policy
     assert_equal ["exec_command"], first.agent_definition_version.tool_contract.map { |entry| entry.fetch("tool_name") }
+    assert_equal true, first.agent_definition_version.default_canonical_config.dig("metadata", "title_bootstrap", "enabled")
+    assert_equal "runtime_first", first.agent_definition_version.default_canonical_config.dig("metadata", "title_bootstrap", "mode")
     assert_equal({ "source" => "bundled_runtime" }, first.agent_connection.health_metadata)
     assert_equal true, first.execution_runtime.capability_payload.dig("attachment_access", "request_attachment")
   end

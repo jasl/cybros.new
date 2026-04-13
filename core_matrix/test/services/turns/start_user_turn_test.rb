@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Turns::StartUserTurnTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   test "starts an active manual user turn with a selected input message" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
@@ -63,23 +65,24 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     end
   end
 
-  test "bootstraps conversation title through the start user turn path" do
+  test "leaves the placeholder title in place and defers bootstrap title generation" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
     )
 
-    Turns::StartUserTurn.call(
-      conversation: conversation,
-      content: "  \nPlan migration timeline.\nTrack dependencies.",
-      resolved_config_snapshot: {},
-      resolved_model_selection_snapshot: {}
-    )
+    assert_no_enqueued_jobs(only: Conversations::Metadata::BootstrapTitleJob) do
+      Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "  \nPlan migration timeline.\nTrack dependencies.",
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+    end
 
     conversation.reload
-    assert_equal "Plan migration timeline.", conversation.title
-    assert_equal "bootstrap", conversation.title_source
-    assert_not_nil conversation.title_updated_at
+    assert_equal I18n.t("conversations.defaults.untitled_title"), conversation.title
+    assert conversation.title_source_none?
   end
 
   test "freezes the active agent definition version instead of a caller supplied version" do

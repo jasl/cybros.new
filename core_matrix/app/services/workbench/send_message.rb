@@ -20,6 +20,7 @@ module Workbench
         selector: @selector
       )
       enqueue_materialization(turn)
+      enqueue_title_bootstrap(@conversation, turn)
 
       Result.new(
         conversation: @conversation,
@@ -34,6 +35,12 @@ module Workbench
       Turns::MaterializeAndDispatchJob.perform_later(turn.public_id)
     rescue StandardError => error
       Rails.logger.warn("turn workflow bootstrap enqueue failed for #{turn.public_id}: #{error.class}: #{error.message}")
+    end
+
+    def enqueue_title_bootstrap(conversation, turn)
+      Conversations::Metadata::BootstrapTitleJob.perform_later(conversation.public_id, turn.public_id)
+    rescue StandardError => error
+      Rails.logger.warn("conversation title bootstrap enqueue failed for #{conversation.public_id}/#{turn.public_id}: #{error.class}: #{error.message}")
     end
   end
 end

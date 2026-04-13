@@ -9,6 +9,7 @@ class CreateWorkspaces < ActiveRecord::Migration[8.2]
       t.string :name, null: false
       t.string :privacy, null: false, default: "private"
       t.boolean :is_default, null: false, default: false
+      t.jsonb :config, null: false, default: {}
       t.jsonb :disabled_capabilities, null: false, default: []
 
       t.timestamps

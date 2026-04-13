@@ -37,9 +37,9 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
     assert_equal "conversation_export", payload.fetch("bundle_kind")
     assert_equal "2026-04-02", payload.fetch("bundle_version")
     assert_equal conversation.public_id, payload.dig("conversation", "public_id")
-    assert_equal "Export me", payload.dig("conversation", "title")
+    assert_equal I18n.t("conversations.defaults.untitled_title"), payload.dig("conversation", "title")
     assert_equal "Export summary", payload.dig("conversation", "summary")
-    assert_equal "bootstrap", payload.dig("conversation", "title_source")
+    assert_equal "none", payload.dig("conversation", "title_source")
     assert_equal "agent", payload.dig("conversation", "summary_source")
     assert_equal 2, payload.fetch("messages").length
 

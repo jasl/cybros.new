@@ -20,6 +20,12 @@
       "role_slot": "main"
     }
   },
+  "metadata": {
+    "title_bootstrap": {
+      "enabled": true,
+      "mode": "runtime_first"
+    }
+  },
   "subagents": {
     "enabled": true,
     "allow_nested": true,

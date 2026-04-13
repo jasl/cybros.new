@@ -2153,6 +2153,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
 
   create_table "workspaces", force: :cascade do |t|
     t.bigint "agent_id", null: false
+    t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
     t.bigint "default_execution_runtime_id"
     t.jsonb "disabled_capabilities", default: [], null: false

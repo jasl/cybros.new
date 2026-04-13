@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Turns::AcceptPendingUserTurnTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   test "creates a pending manual user turn and projects queued supervision state" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
@@ -10,14 +12,16 @@ class Turns::AcceptPendingUserTurnTest < ActiveSupport::TestCase
 
     turn = nil
 
-    assert_difference(["Turn.count", "Message.count", "ConversationSupervisionState.count"], +1) do
-      turn = Turns::AcceptPendingUserTurn.call(
-        conversation: conversation,
-        content: "Build a complete browser-playable React 2048 game and add automated tests.",
-        selector_source: "app_api",
-        selector: "candidate:codex_subscription/gpt-5.3-codex",
-        execution_runtime: context[:execution_runtime]
-      )
+    assert_no_enqueued_jobs(only: Conversations::Metadata::BootstrapTitleJob) do
+      assert_difference(["Turn.count", "Message.count", "ConversationSupervisionState.count"], +1) do
+        turn = Turns::AcceptPendingUserTurn.call(
+          conversation: conversation,
+          content: "Build a complete browser-playable React 2048 game and add automated tests.",
+          selector_source: "app_api",
+          selector: "candidate:codex_subscription/gpt-5.3-codex",
+          execution_runtime: context[:execution_runtime]
+        )
+      end
     end
 
     assert_equal "pending", turn.workflow_bootstrap_state
@@ -42,6 +46,8 @@ class Turns::AcceptPendingUserTurnTest < ActiveSupport::TestCase
     assert_nil conversation.latest_active_workflow_run
     assert_equal "ready", conversation.execution_continuity_state
     assert conversation.current_execution_epoch.present?
+    assert_equal I18n.t("conversations.defaults.untitled_title"), conversation.reload.title
+    assert conversation.title_source_none?
 
     state = conversation.reload.conversation_supervision_state
     assert_equal "queued", state.overall_state

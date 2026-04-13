@@ -664,10 +664,10 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), agent: nil, default_execution_runtime: nil, name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, **attrs)
+    def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), agent: nil, default_execution_runtime: nil, name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, config: nil, **attrs)
       agent ||= create_agent!(installation: installation)
 
-      Workspace.create!({
+      workspace_attributes = {
         installation: installation,
         user: user,
         agent: agent,
@@ -675,7 +675,10 @@ module ActiveSupport
         name: name,
         privacy: privacy,
         is_default: is_default,
-      }.merge(attrs))
+      }
+      workspace_attributes[:config] = config unless config.nil?
+
+      Workspace.create!(workspace_attributes.merge(attrs))
     end
 
     def create_workspace_context!
@@ -926,6 +929,12 @@ module ActiveSupport
         },
         default_canonical_config: {
           "sandbox" => "workspace-write",
+          "metadata" => {
+            "title_bootstrap" => {
+              "enabled" => true,
+              "mode" => "runtime_first",
+            },
+          },
         },
       }.merge(attrs)
 

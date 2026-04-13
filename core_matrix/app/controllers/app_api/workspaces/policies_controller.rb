@@ -14,7 +14,8 @@ module AppAPI
         WorkspacePolicies::Upsert.call(
           workspace: @workspace,
           disabled_capabilities: params.fetch(:disabled_capabilities, []),
-          default_execution_runtime: runtime
+          default_execution_runtime: runtime,
+          metadata: resolve_metadata
         )
 
         render_method_response(
@@ -37,6 +38,12 @@ module AppAPI
         return nil if params[:default_execution_runtime_id].blank?
 
         find_accessible_execution_runtime!(params.fetch(:default_execution_runtime_id))
+      end
+
+      def resolve_metadata
+        return :__preserve__ unless params.key?(:metadata)
+
+        params[:metadata]
       end
     end
   end

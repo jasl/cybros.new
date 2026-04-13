@@ -116,6 +116,19 @@ class ConversationTest < ActiveSupport::TestCase
     assert_equal "unlocked", conversation.summary_lock_state
   end
 
+  test "root conversations created through create_root use the localized untitled placeholder" do
+    context = conversation_context
+
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+
+    assert_equal I18n.t("conversations.defaults.untitled_title"), conversation.title
+    assert_equal "none", conversation.title_source
+    assert_equal "unlocked", conversation.title_lock_state
+  end
+
   test "accessible_to_user keeps owner conversations while hiding deleted and hidden-agent rows" do
     context = conversation_context
     visible_conversation = Conversations::CreateRoot.call(

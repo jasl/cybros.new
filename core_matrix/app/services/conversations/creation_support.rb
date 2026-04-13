@@ -10,6 +10,7 @@ module Conversations
         user: workspace.user,
         workspace: workspace,
         agent: agent,
+        title: I18n.t("conversations.defaults.untitled_title"),
         current_execution_runtime: execution_runtime,
         kind: "root",
         purpose: purpose,

@@ -117,6 +117,59 @@ class WorkspaceTest < ActiveSupport::TestCase
     assert_includes invalid.errors[:disabled_capabilities], "must be an array"
   end
 
+  test "defaults title bootstrap config when workspace config is omitted" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    agent = create_agent!(installation: installation)
+
+    workspace = create_workspace!(
+      installation: installation,
+      user: user,
+      agent: agent
+    )
+
+    assert workspace.config.is_a?(Hash)
+    assert_equal true, workspace.title_bootstrap_config.fetch("enabled")
+    assert_equal "runtime_first", workspace.title_bootstrap_config.fetch("mode")
+  end
+
+  test "validates workspace config shape and title bootstrap modes" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    agent = create_agent!(installation: installation)
+
+    invalid_shape = Workspace.new(
+      installation: installation,
+      user: user,
+      agent: agent,
+      name: "Invalid Config Workspace",
+      privacy: "private",
+      config: []
+    )
+
+    assert_not invalid_shape.valid?
+    assert_includes invalid_shape.errors[:config], "must be a hash"
+
+    invalid_mode = Workspace.new(
+      installation: installation,
+      user: user,
+      agent: agent,
+      name: "Invalid Mode Workspace",
+      privacy: "private",
+      config: {
+        "metadata" => {
+          "title_bootstrap" => {
+            "enabled" => true,
+            "mode" => "manual_only",
+          },
+        },
+      }
+    )
+
+    assert_not invalid_mode.valid?
+    assert_includes invalid_mode.errors[:config], "metadata.title_bootstrap.mode must be runtime_first or embedded_only"
+  end
+
   test "accessible_to_user returns only owned workspaces whose agent remains visible" do
     installation = create_installation!
     user = create_user!(installation: installation)

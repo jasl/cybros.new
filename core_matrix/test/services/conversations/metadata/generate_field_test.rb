@@ -175,7 +175,8 @@ class Conversations::Metadata::GenerateFieldTest < ActiveSupport::TestCase
     end
 
     assert_includes error.record.errors[:title], "contains internal metadata content"
-    assert_nil conversation.reload.title
+    assert_equal I18n.t("conversations.defaults.untitled_title"), conversation.reload.title
+    assert_equal "none", conversation.title_source
   ensure
     ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
   end

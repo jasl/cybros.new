@@ -20,6 +20,9 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
     assert_nil conversation.current_execution_epoch
     assert_equal 0, conversation.execution_epochs.count
     assert_equal "not_started", conversation.execution_continuity_state
+    assert_equal I18n.t("conversations.defaults.untitled_title"), conversation.title
+    assert conversation.title_source_none?
+    assert conversation.title_lock_state_unlocked?
     assert_nil conversation.lineage_store_reference
     assert_equal [[conversation.id, conversation.id, 0]],
       ConversationClosure.where(descendant_conversation: conversation)
@@ -39,5 +42,8 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
     assert_equal override_runtime, conversation.current_execution_runtime
     assert_nil conversation.current_execution_epoch
     assert_equal "not_started", conversation.execution_continuity_state
+    assert_equal I18n.t("conversations.defaults.untitled_title"), conversation.title
+    assert conversation.title_source_none?
+    assert conversation.title_lock_state_unlocked?
   end
 end

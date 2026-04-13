@@ -25,7 +25,14 @@ module Installations
       profile_policy: {},
       canonical_config_schema: {},
       conversation_override_schema: {},
-      default_canonical_config: {},
+      default_canonical_config: {
+        "metadata" => {
+          "title_bootstrap" => {
+            "enabled" => true,
+            "mode" => "runtime_first",
+          },
+        },
+      },
     }.freeze
 
     Result = Struct.new(

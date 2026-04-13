@@ -53,6 +53,10 @@ class Workbench::CreateConversationFromAgentTest < ActiveSupport::TestCase
       end
     end
 
+    title_job = enqueued_jobs.find { |job| job[:job].to_s == "Conversations::Metadata::BootstrapTitleJob" }
+    assert title_job.present?
+    assert_equal [result.conversation.public_id, result.turn.public_id], title_job[:args]
+
     assert_equal user, result.workspace.user
     assert_equal agent, result.conversation.agent
     assert result.workspace.is_default?
@@ -60,6 +64,8 @@ class Workbench::CreateConversationFromAgentTest < ActiveSupport::TestCase
     assert_equal result.conversation, result.turn.conversation
     assert_equal "pending", result.turn.workflow_bootstrap_state
     assert_equal "candidate:codex_subscription/gpt-5.3-codex", result.turn.workflow_bootstrap_payload.fetch("selector")
+    assert_equal I18n.t("conversations.defaults.untitled_title"), result.conversation.reload.title
+    assert result.conversation.title_source_none?
     refute_respond_to result, :workflow_run
   end
 
@@ -97,16 +103,26 @@ class Workbench::CreateConversationFromAgentTest < ActiveSupport::TestCase
       metadata: {}
     )
 
-    result = Workbench::CreateConversationFromAgent.call(
-      user: user,
-      agent: agent,
-      content: "Use the other runtime",
-      selector: "candidate:codex_subscription/gpt-5.3-codex",
-      execution_runtime: override_runtime
-    )
+    result = nil
+
+    assert_enqueued_with(job: Turns::MaterializeAndDispatchJob) do
+      result = Workbench::CreateConversationFromAgent.call(
+        user: user,
+        agent: agent,
+        content: "Use the other runtime",
+        selector: "candidate:codex_subscription/gpt-5.3-codex",
+        execution_runtime: override_runtime
+      )
+    end
+
+    title_job = enqueued_jobs.find { |job| job[:job].to_s == "Conversations::Metadata::BootstrapTitleJob" }
+    assert title_job.present?
+    assert_equal [result.conversation.public_id, result.turn.public_id], title_job[:args]
 
     assert_equal override_runtime, result.turn.execution_runtime
     assert_equal default_runtime, result.workspace.default_execution_runtime
     assert_equal "pending", result.turn.workflow_bootstrap_state
+    assert_equal I18n.t("conversations.defaults.untitled_title"), result.conversation.reload.title
+    assert result.conversation.title_source_none?
   end
 end

@@ -87,7 +87,8 @@ class Conversations::Metadata::AgentUpdateTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:title], "contains internal metadata content"
     conversation.reload
-    assert_nil conversation.title
+    assert_equal I18n.t("conversations.defaults.untitled_title"), conversation.title
+    assert_equal "none", conversation.title_source
   end
 
   test "rejects content with runtime-internal tokens including _id forms" do

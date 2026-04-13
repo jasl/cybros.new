@@ -40,6 +40,32 @@
       },
       "required": ["main", "researcher"]
     },
+    "metadata": {
+      "type": "object",
+      "title": "Metadata Defaults",
+      "additionalProperties": false,
+      "properties": {
+        "title_bootstrap": {
+          "type": "object",
+          "title": "Title Bootstrap",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "title": "Enable Title Bootstrap"
+            },
+            "mode": {
+              "type": "string",
+              "enum": ["runtime_first", "embedded_only"],
+              "default": "runtime_first",
+              "title": "Title Bootstrap Mode"
+            }
+          },
+          "required": ["enabled", "mode"]
+        }
+      }
+    },
     "subagents": {
       "type": "object",
       "title": "Subagent Policy",
@@ -89,6 +115,7 @@
     "interactive",
     "role_slots",
     "profile_runtime_overrides",
+    "metadata",
     "subagents",
     "tool_policy_overlays",
     "behavior"
