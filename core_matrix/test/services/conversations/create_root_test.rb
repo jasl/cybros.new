@@ -46,4 +46,17 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
     assert conversation.title_source_none?
     assert conversation.title_lock_state_unlocked?
   end
+
+  test "sets empty root-conversation anchor state directly" do
+    context = create_workspace_context!
+
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+
+    assert_predicate conversation, :persisted?
+    assert_equal conversation.created_at.to_i, conversation.last_activity_at.to_i
+    assert_nil conversation.latest_turn
+    assert_nil conversation.latest_active_turn
+    assert_nil conversation.latest_message
+    assert_nil conversation.latest_active_workflow_run
+  end
 end

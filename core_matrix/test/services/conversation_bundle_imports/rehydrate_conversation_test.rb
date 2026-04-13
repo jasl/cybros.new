@@ -67,4 +67,54 @@ class ConversationBundleImportsRehydrateConversationTest < ActiveSupport::TestCa
   ensure
     bundle&.fetch("io")&.close!
   end
+
+  test "rehydrates without issuing full latest-anchor refresh queries" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Importable question",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    attach_selected_output!(turn, content: "Importable answer")
+    bundle = ConversationExports::WriteZipBundle.call(conversation: conversation)
+    request = ConversationBundleImportRequest.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      user: context[:user],
+      lifecycle_state: "queued",
+      request_payload: {
+        "target_agent_definition_version_id" => context[:agent_definition_version].public_id,
+      }
+    )
+    request.upload_file.attach(
+      io: StringIO.new(bundle.fetch("io").read),
+      filename: bundle.fetch("filename"),
+      content_type: bundle.fetch("content_type")
+    )
+    request.save!
+
+    parsed_bundle = ConversationBundleImports::ParseUpload.call(request: request)
+    ConversationBundleImports::ValidateManifest.call(parsed_bundle: parsed_bundle)
+
+    imported_conversation = nil
+    queries = capture_sql_queries do
+      imported_conversation = ConversationBundleImports::RehydrateConversation.call(
+        request: request,
+        parsed_bundle: parsed_bundle
+      )
+    end
+
+    assert_equal imported_conversation.turns.order(:sequence).last, imported_conversation.latest_turn
+    assert_equal imported_conversation.messages.order(:created_at, :id).last, imported_conversation.latest_message
+    refute queries.any? { |sql| sql.match?(/FROM "turns" WHERE "turns"\."conversation_id" = .* ORDER BY "turns"\."sequence" DESC, "turns"\."id" DESC LIMIT/m) }
+    refute queries.any? { |sql| sql.match?(/FROM "turns" WHERE "turns"\."conversation_id" = .* AND "turns"\."lifecycle_state" = .* ORDER BY "turns"\."sequence" DESC, "turns"\."id" DESC LIMIT/m) }
+    refute queries.any? { |sql| sql.match?(/FROM "workflow_runs" WHERE "workflow_runs"\."conversation_id" = .* AND "workflow_runs"\."lifecycle_state" = .* ORDER BY "workflow_runs"\."created_at" DESC, "workflow_runs"\."id" DESC LIMIT/m) }
+    refute queries.any? { |sql| sql.match?(/FROM "messages" WHERE "messages"\."conversation_id" = .* ORDER BY "messages"\."created_at" DESC, "messages"\."id" DESC LIMIT/m) }
+  ensure
+    bundle&.fetch("io")&.close!
+  end
 end

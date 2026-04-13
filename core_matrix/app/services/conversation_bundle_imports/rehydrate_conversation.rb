@@ -58,6 +58,8 @@ module ConversationBundleImports
       message_map = {}
       attachment_map = {}
       deferred_origins = []
+      latest_turn = nil
+      latest_message = nil
 
       ordered_turn_ids.each_with_index do |source_turn_public_id, index|
         message_group = grouped_messages.fetch(source_turn_public_id)
@@ -120,10 +122,31 @@ module ConversationBundleImports
           selected_output_message: output_message
         )
         turn.update_columns(created_at: created_at, updated_at: updated_at)
+
+        latest_turn = turn
+        latest_message = output_message || input_message || latest_message
       end
 
       apply_attachment_origins!(deferred_origins:, message_map:, attachment_map:)
-      conversation.refresh_latest_anchors!
+      apply_latest_anchor_projection!(conversation:, latest_turn:, latest_message:)
+    end
+
+    def apply_latest_anchor_projection!(conversation:, latest_turn:, latest_message:)
+      activity_at = [conversation.last_activity_at, latest_turn&.created_at, latest_message&.created_at].compact.max
+
+      conversation.update_columns(
+        latest_turn_id: latest_turn&.id,
+        latest_active_turn_id: nil,
+        latest_active_workflow_run_id: nil,
+        latest_message_id: latest_message&.id,
+        last_activity_at: activity_at
+      )
+      conversation.latest_turn = latest_turn
+      conversation.latest_active_turn = nil
+      conversation.latest_active_workflow_run = nil
+      conversation.latest_message = latest_message
+      conversation.last_activity_at = activity_at
+      conversation
     end
 
     def create_message_from_payload(turn:, payload:, source_input_message: nil, message_map:, attachment_map:, deferred_origins:)

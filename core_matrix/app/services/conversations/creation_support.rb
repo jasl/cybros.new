@@ -15,11 +15,11 @@ module Conversations
         kind: "root",
         purpose: purpose,
         lifecycle_state: "active",
+        last_activity_at: Time.current,
         **capability_projection
       )
 
       create_self_closure!(conversation)
-      conversation.refresh_latest_anchors!(activity_at: conversation.created_at)
 
       conversation
     end

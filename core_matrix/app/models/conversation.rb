@@ -269,13 +269,6 @@ class Conversation < ApplicationRecord
     latest_turn
   end
 
-  def refresh_latest_anchors!(activity_at: nil)
-    Conversations::RefreshLatestAnchors.call(
-      conversation: self,
-      activity_at: activity_at
-    )
-  end
-
   private
 
   def apply_default_feature_policy
