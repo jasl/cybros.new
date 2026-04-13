@@ -88,6 +88,10 @@ turns_payload = Acceptance::ManualSupport.app_api_conversation_diagnostics_turns
   conversation_id: conversation_id,
   session_token: app_api_session_token
 )
+materialized_diagnostics = Acceptance::ManualSupport.wait_for_app_api_conversation_diagnostics_materialized!(
+  conversation_id: conversation_id,
+  session_token: app_api_session_token
+)
 debug_export_download = Acceptance::ManualSupport.app_api_debug_export_conversation!(
   conversation_id: conversation_id,
   session_token: app_api_session_token,
@@ -99,7 +103,8 @@ debug_payload = Acceptance::ManualSupport.extract_debug_export_payload!(
 workflow_run = debug_payload.fetch("workflow_runs")
   .select { |candidate| candidate.fetch("turn_id") == turn_id }
   .max_by { |candidate| [candidate.fetch("created_at").to_s, candidate.fetch("workflow_run_id")] } || {}
-turn_snapshot = turns_payload.fetch("items").find { |item| item.fetch("turn_id") == turn_id } || {}
+materialized_turn_snapshot = materialized_diagnostics.fetch("turns").fetch("items")
+  .find { |item| item.fetch("turn_id") == turn_id }
 
 expected_dag_shape = ["agent_turn_step"]
 observed_dag_shape = debug_payload.fetch("workflow_nodes")
@@ -113,16 +118,22 @@ expected_conversation_state = {
   "turn_lifecycle_state" => "active",
   "agent_task_run_state" => "completed",
 }
-observed_conversation_state = {
-  "conversation_state" => diagnostics.dig("snapshot", "lifecycle_state"),
-  "workflow_lifecycle_state" => workflow_run.fetch("lifecycle_state", nil),
-  "workflow_wait_state" => workflow_run.fetch("wait_state", nil),
-  "turn_lifecycle_state" => turn_snapshot.fetch("lifecycle_state", nil),
-  "agent_task_run_state" => run.fetch(:agent_task_run).reload.lifecycle_state,
-}.compact
+observed_conversation_state = Acceptance::ManualSupport.workflow_state_hash(
+  conversation: run.fetch(:conversation),
+  workflow_run: run.fetch(:workflow_run),
+  turn: run.fetch(:turn),
+  agent_task_run: run.fetch(:agent_task_run)
+)
+diagnostics_contract_passed =
+  %w[pending ready stale].include?(diagnostics.fetch("diagnostics_status")) &&
+  %w[pending ready stale].include?(turns_payload.fetch("diagnostics_status")) &&
+  %w[ready stale].include?(materialized_diagnostics.dig("conversation", "diagnostics_status")) &&
+  %w[ready stale].include?(materialized_diagnostics.dig("turns", "diagnostics_status")) &&
+  materialized_diagnostics.dig("conversation", "snapshot", "lifecycle_state") == expected_conversation_state["conversation_state"] &&
+  materialized_turn_snapshot.present? &&
+  materialized_turn_snapshot.fetch("lifecycle_state") == expected_conversation_state["turn_lifecycle_state"]
 
-Acceptance::ManualSupport.write_json(
-  Acceptance::ManualSupport.scenario_result(
+result = Acceptance::ManualSupport.scenario_result(
     scenario: "bring_your_own_agent_validation",
     expected_dag_shape: expected_dag_shape,
     observed_dag_shape: observed_dag_shape,
@@ -145,7 +156,14 @@ Acceptance::ManualSupport.write_json(
       "runtime_execution_status" => run.fetch(:execution).fetch("status"),
       "runtime_output" => run.fetch(:execution).fetch("output"),
       "report_results" => run.fetch(:report_results),
+      "diagnostics_initial_status" => diagnostics.fetch("diagnostics_status"),
+      "diagnostics_turns_initial_status" => turns_payload.fetch("diagnostics_status"),
+      "diagnostics_eventual_status" => materialized_diagnostics.dig("conversation", "diagnostics_status"),
+      "diagnostics_turns_eventual_status" => materialized_diagnostics.dig("turns", "diagnostics_status"),
+      "diagnostics_projection_contract_passed" => diagnostics_contract_passed,
       "debug_export_path" => debug_export_path.to_s,
     }
   )
-)
+result["passed"] &&= diagnostics_contract_passed
+
+Acceptance::ManualSupport.write_json(result)

@@ -81,6 +81,10 @@ def observe_run_via_app_api(run:, session_token:, artifact_dir:)
     conversation_id: conversation_id,
     session_token: session_token
   )
+  materialized_diagnostics = Acceptance::ManualSupport.wait_for_app_api_conversation_diagnostics_materialized!(
+    conversation_id: conversation_id,
+    session_token: session_token
+  )
   debug_export_download = Acceptance::ManualSupport.app_api_debug_export_conversation!(
     conversation_id: conversation_id,
     session_token: session_token,
@@ -92,28 +96,40 @@ def observe_run_via_app_api(run:, session_token:, artifact_dir:)
   workflow_run = debug_payload.fetch('workflow_runs')
     .select { |candidate| candidate.fetch('turn_id') == turn_id }
     .max_by { |candidate| [candidate.fetch('created_at').to_s, candidate.fetch('workflow_run_id')] } || {}
-  turn_snapshot = turns_payload.fetch('items').find { |item| item.fetch('turn_id') == turn_id } || {}
+  materialized_turn_snapshot = materialized_diagnostics.fetch('turns').fetch('items')
+    .find { |item| item.fetch('turn_id') == turn_id }
   selected_output_message = debug_payload.fetch('conversation_payload')
     .fetch('messages')
     .reverse
     .find { |message| message.fetch('turn_public_id') == turn_id && message.fetch('role') == 'assistant' }
+  truth_state = Acceptance::ManualSupport.workflow_state_hash(
+    conversation: run.fetch(:conversation),
+    workflow_run: run.fetch(:workflow_run),
+    turn: run.fetch(:turn),
+    agent_task_run: run.fetch(:agent_task_run)
+  )
+  diagnostics_contract_passed =
+    %w[pending ready stale].include?(diagnostics.fetch('diagnostics_status')) &&
+    %w[pending ready stale].include?(turns_payload.fetch('diagnostics_status')) &&
+    %w[ready stale].include?(materialized_diagnostics.dig('conversation', 'diagnostics_status')) &&
+    %w[ready stale].include?(materialized_diagnostics.dig('turns', 'diagnostics_status')) &&
+    materialized_diagnostics.dig('conversation', 'snapshot', 'lifecycle_state') == truth_state['conversation_state'] &&
+    materialized_turn_snapshot.present? &&
+    materialized_turn_snapshot.fetch('lifecycle_state') == truth_state['turn_lifecycle_state']
 
   {
     'dag_shape' => debug_payload.fetch('workflow_nodes')
       .select { |node| node.fetch('turn_id') == turn_id }
       .sort_by { |node| [node.fetch('ordinal'), node.fetch('created_at').to_s] }
       .map { |node| node.fetch('node_key') },
-    'conversation_state' => {
-      'conversation_state' => diagnostics.dig('snapshot', 'lifecycle_state'),
-      'workflow_lifecycle_state' => workflow_run.fetch('lifecycle_state', nil),
-      'workflow_wait_state' => workflow_run.fetch('wait_state', nil),
-      'turn_lifecycle_state' => turn_snapshot.fetch('lifecycle_state', nil),
-      'agent_task_run_state' => run.fetch(:agent_task_run).reload.lifecycle_state,
-      'selected_output_message_id' => selected_output_message&.fetch('message_public_id', nil),
-      'selected_output_content' => selected_output_message&.fetch('content', nil)
-    }.compact,
+    'conversation_state' => truth_state,
     'workflow_run_id' => workflow_run.fetch('workflow_run_id', nil),
-    'debug_export_path' => debug_export_path.to_s
+    'debug_export_path' => debug_export_path.to_s,
+    'diagnostics_initial_status' => diagnostics.fetch('diagnostics_status'),
+    'diagnostics_turns_initial_status' => turns_payload.fetch('diagnostics_status'),
+    'diagnostics_eventual_status' => materialized_diagnostics.dig('conversation', 'diagnostics_status'),
+    'diagnostics_turns_eventual_status' => materialized_diagnostics.dig('turns', 'diagnostics_status'),
+    'diagnostics_projection_contract_passed' => diagnostics_contract_passed
   }
 end
 
@@ -124,6 +140,13 @@ def serialize_run(run, session_token:, artifact_dir:)
     .merge('workflow_run_id' => observed.fetch('workflow_run_id'))
     .merge('dag_shape' => observed.fetch('dag_shape'))
     .merge('conversation_state' => observed.fetch('conversation_state'))
+    .merge(
+      'diagnostics_initial_status' => observed.fetch('diagnostics_initial_status'),
+      'diagnostics_turns_initial_status' => observed.fetch('diagnostics_turns_initial_status'),
+      'diagnostics_eventual_status' => observed.fetch('diagnostics_eventual_status'),
+      'diagnostics_turns_eventual_status' => observed.fetch('diagnostics_turns_eventual_status'),
+      'diagnostics_projection_contract_passed' => observed.fetch('diagnostics_projection_contract_passed')
+    )
     .merge(serialize_run_execution(run))
     .merge('report_results' => run.fetch(:report_results))
     .merge('debug_export_path' => observed.fetch('debug_export_path'))
@@ -149,6 +172,7 @@ end
 
 def run_passed?(serialized_run, expected_conversation_state)
   serialized_run.fetch('dag_shape') == ['agent_turn_step'] &&
+    serialized_run.fetch('diagnostics_projection_contract_passed') &&
     expected_conversation_state.all? do |key, value|
       serialized_run.fetch('conversation_state')[key] == value
     end

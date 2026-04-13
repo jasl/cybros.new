@@ -237,6 +237,42 @@ module Acceptance
       )
     end
 
+    def wait_for_app_api_conversation_diagnostics_materialized!(
+      conversation_id:,
+      session_token:,
+      timeout_seconds: 30,
+      poll_interval_seconds: 0.2
+    )
+      deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+      loop do
+        conversation_payload = app_api_conversation_diagnostics_show!(
+          conversation_id: conversation_id,
+          session_token: session_token
+        )
+        turns_payload = app_api_conversation_diagnostics_turns!(
+          conversation_id: conversation_id,
+          session_token: session_token
+        )
+
+        conversation_ready = %w[ready stale].include?(conversation_payload.fetch("diagnostics_status"))
+        turns_ready = %w[ready stale].include?(turns_payload.fetch("diagnostics_status"))
+
+        if conversation_ready && turns_ready
+          return {
+            "conversation" => conversation_payload,
+            "turns" => turns_payload
+          }
+        end
+
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+          raise "timed out waiting for app api diagnostics for conversation #{conversation_id} to materialize"
+        end
+
+        sleep(poll_interval_seconds)
+      end
+    end
+
     def app_api_conversation_feed!(conversation_id:, session_token:)
       app_api_get_json(
         "/app_api/conversations/#{conversation_id}/feed",
