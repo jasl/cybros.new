@@ -37,7 +37,6 @@ module ExecutionRuntimeAPI
     end
 
     def authorize_agent_task_run!(agent_task_run)
-      agent_task_run = agent_task_run.reload
       raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" unless agent_task_run.turn.execution_runtime_id == current_execution_runtime.id
     end
 

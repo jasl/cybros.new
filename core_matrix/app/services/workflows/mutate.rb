@@ -33,6 +33,11 @@ module Workflows
         node = WorkflowNode.create!(
           installation: @workflow_run.installation,
           workflow_run: @workflow_run,
+          user: @workflow_run.user,
+          workspace: @workflow_run.workspace,
+          agent: @workflow_run.agent,
+          conversation: @workflow_run.conversation,
+          turn: @workflow_run.turn,
           ordinal: next_ordinal,
           node_key: node_attributes.fetch(:node_key),
           node_type: node_attributes.fetch(:node_type),

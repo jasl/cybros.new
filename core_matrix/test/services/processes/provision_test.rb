@@ -14,6 +14,9 @@ class Processes::ProvisionTest < ActiveSupport::TestCase
 
     assert_equal process_context[:turn].execution_epoch, provisioned.execution_epoch
     assert_equal process_context[:execution_runtime], provisioned.execution_runtime
+    assert_equal process_context[:conversation].user_id, provisioned.user_id
+    assert_equal process_context[:conversation].workspace_id, provisioned.workspace_id
+    assert_equal process_context[:conversation].agent_id, provisioned.agent_id
   end
 
   private

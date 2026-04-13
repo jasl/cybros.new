@@ -40,6 +40,9 @@ class ConversationSupervision::BuildBoardCardTest < ActiveSupport::TestCase
     ConversationSupervisionState.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       overall_state: "running",
       board_lane: board_lane,
       lane_changed_at: Time.current,

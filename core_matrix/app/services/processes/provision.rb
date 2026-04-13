@@ -36,6 +36,9 @@ module Processes
         @workflow_node.with_lock do
           process_run = ProcessRun.create!(
             installation: @workflow_node.installation,
+            user: @workflow_node.user,
+            workspace: @workflow_node.workspace,
+            agent: @workflow_node.agent,
             workflow_node: @workflow_node,
             execution_epoch: @workflow_node.workflow_run.turn.execution_epoch,
             execution_runtime: @execution_runtime,

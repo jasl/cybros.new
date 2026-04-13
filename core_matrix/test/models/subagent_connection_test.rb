@@ -26,6 +26,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "researcher",
       depth: 0
@@ -77,6 +80,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       origin_turn: origin_turn,
       scope: "turn",
       profile_key: "worker",
@@ -87,6 +93,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "turn",
       profile_key: "worker",
       depth: 0
@@ -106,6 +115,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         kind: "fork",
         addressability: "agent_addressable"
       ),
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 1
@@ -125,6 +137,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         kind: "fork",
         addressability: "agent_addressable"
       ),
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "critic",
       parent_subagent_connection: root_session,
@@ -187,6 +202,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 0
@@ -316,6 +334,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 0,
@@ -333,6 +354,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         kind: "fork",
         addressability: "agent_addressable"
       ),
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 0,
@@ -354,6 +378,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         kind: "fork",
         addressability: "agent_addressable"
       ),
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 0,
@@ -376,6 +403,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         kind: "fork",
         addressability: "agent_addressable"
       ),
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 0,
@@ -399,6 +429,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         kind: "fork",
         addressability: "agent_addressable"
       ),
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 0,
@@ -468,6 +501,25 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     assert_includes session.errors[:last_progress_at], "must exist when supervision has started"
   end
 
+  test "requires duplicated owner context to match the owner conversation" do
+    context = create_workspace_context!
+    owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    foreign = create_workspace_context!
+
+    session = build_subagent_connection(
+      context: context,
+      owner_conversation: owner_conversation,
+      user_id: foreign[:user].id,
+      workspace_id: foreign[:workspace].id,
+      agent_id: foreign[:agent].id
+    )
+
+    assert_not session.valid?
+    assert_includes session.errors[:user], "must match the owner conversation user"
+    assert_includes session.errors[:workspace], "must match the owner conversation workspace"
+    assert_includes session.errors[:agent], "must match the owner conversation agent"
+  end
+
   private
 
   def build_subagent_connection(context: create_workspace_context!, owner_conversation: nil, **overrides)
@@ -488,6 +540,9 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         installation: context[:installation],
         owner_conversation: owner_conversation,
         conversation: child_conversation,
+        user_id: owner_conversation.user_id,
+        workspace_id: owner_conversation.workspace_id,
+        agent_id: owner_conversation.agent_id,
         scope: "conversation",
         profile_key: "worker",
         depth: 0,

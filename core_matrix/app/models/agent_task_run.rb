@@ -22,11 +22,14 @@ class AgentTaskRun < ApplicationRecord
     validate: true
 
   belongs_to :installation
+  belongs_to :user
+  belongs_to :workspace
   belongs_to :agent
   belongs_to :workflow_run
   belongs_to :workflow_node
   belongs_to :conversation
   belongs_to :turn
+  belongs_to :execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :subagent_connection, optional: true
   belongs_to :origin_turn, class_name: "Turn", optional: true
   belongs_to :holder_agent_connection, class_name: "AgentConnection", optional: true
@@ -46,10 +49,13 @@ class AgentTaskRun < ApplicationRecord
   validate :progress_payload_must_be_hash
   validate :terminal_payload_must_be_hash
   validate :workflow_run_installation_match
+  validate :user_installation_match
+  validate :workspace_installation_match
   validate :agent_installation_match
   validate :workflow_node_installation_match
   validate :conversation_installation_match
   validate :turn_installation_match
+  validate :execution_runtime_installation_match
   validate :subagent_connection_installation_match
   validate :origin_turn_installation_match
   validate :workflow_projection_match
@@ -93,6 +99,18 @@ class AgentTaskRun < ApplicationRecord
     errors.add(:workflow_run, "must belong to the same installation")
   end
 
+  def user_installation_match
+    return if user.blank? || user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
+  def workspace_installation_match
+    return if workspace.blank? || workspace.installation_id == installation_id
+
+    errors.add(:workspace, "must belong to the same installation")
+  end
+
   def agent_installation_match
     return if agent.blank? || agent.installation_id == installation_id
 
@@ -117,6 +135,12 @@ class AgentTaskRun < ApplicationRecord
     errors.add(:turn, "must belong to the same installation")
   end
 
+  def execution_runtime_installation_match
+    return if execution_runtime.blank? || execution_runtime.installation_id == installation_id
+
+    errors.add(:execution_runtime, "must belong to the same installation")
+  end
+
   def subagent_connection_installation_match
     return if subagent_connection.blank? || subagent_connection.installation_id == installation_id
 
@@ -132,9 +156,15 @@ class AgentTaskRun < ApplicationRecord
   def workflow_projection_match
     return if workflow_run.blank?
 
+    errors.add(:user, "must match the workflow run user") if user.present? && workflow_run.user_id != user_id
+    errors.add(:workspace, "must match the workflow run workspace") if workspace.present? && workflow_run.workspace_id != workspace_id
+    errors.add(:agent, "must match the workflow run agent") if workflow_run.agent_id != agent_id
     errors.add(:workflow_node, "must belong to the same workflow run") if workflow_node.present? && workflow_node.workflow_run_id != workflow_run_id
     errors.add(:conversation, "must match the workflow run conversation") if conversation.present? && workflow_run.conversation_id != conversation_id
     errors.add(:turn, "must match the workflow run turn") if turn.present? && workflow_run.turn_id != turn_id
+    if execution_runtime.present? && workflow_run.execution_runtime_id != execution_runtime_id
+      errors.add(:execution_runtime, "must match the workflow run execution runtime")
+    end
   end
 
   def agent_turn_match

@@ -6,6 +6,9 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
     latest_feed_entry = ConversationSupervisionFeedEntry.create!(
       installation: state.installation,
       target_conversation: state.target_conversation,
+      user: state.target_conversation.user,
+      workspace: state.target_conversation.workspace,
+      agent: state.target_conversation.agent,
       target_turn: state.target_conversation.turns.first,
       sequence: 1,
       event_kind: "turn_todo_item_started",
@@ -87,6 +90,9 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
     ConversationSupervisionState.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       overall_state: "running",
       board_lane: board_lane,
       lane_changed_at: Time.current,

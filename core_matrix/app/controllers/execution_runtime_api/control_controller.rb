@@ -31,6 +31,7 @@ module ExecutionRuntimeAPI
       result = AgentControl::Report.call(
         agent_definition_version: target.fetch(:agent_definition_version),
         execution_runtime_connection: current_execution_runtime_connection,
+        agent_task_run: target[:agent_task_run],
         resource: target[:resource],
         payload: payload
       )
@@ -48,11 +49,12 @@ module ExecutionRuntimeAPI
       raise ActiveRecord::RecordNotFound, "Couldn't find ProcessRun" unless EXECUTION_REPORT_METHODS.include?(method_id)
 
       if method_id.start_with?("execution_")
-        agent_task_run = find_agent_task_run!(payload.fetch("agent_task_run_id"))
+        agent_task_run = find_execution_agent_task_run!(payload.fetch("agent_task_run_id"))
         authorize_agent_task_run!(agent_task_run)
 
         return {
           agent_definition_version: current_agent_definition_version_for_turn(agent_task_run.turn),
+          agent_task_run: agent_task_run,
           resource: nil,
         }
       end
@@ -85,6 +87,28 @@ module ExecutionRuntimeAPI
         agent_definition_version: current_agent_definition_version_for_turn(process_run.turn),
         resource: process_run,
       }
+    end
+
+    def find_execution_agent_task_run!(agent_task_run_id)
+      AgentTaskRun
+        .includes(
+          {
+            conversation: %i[installation user workspace agent],
+          },
+          :turn,
+          :execution_runtime,
+          :execution_lease,
+          :user,
+          :workspace,
+          :agent,
+          { workflow_node: %i[workflow_run user workspace agent conversation turn] },
+          { workflow_run: %i[conversation turn user workspace agent] },
+          { subagent_connection: :owner_conversation }
+        )
+        .find_by!(
+          public_id: agent_task_run_id,
+          installation_id: current_installation_id
+        )
     end
   end
 end

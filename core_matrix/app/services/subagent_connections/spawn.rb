@@ -39,6 +39,9 @@ module SubagentConnections
 
           session = SubagentConnection.create!(
             installation: conversation.installation,
+            user: conversation.user,
+            workspace: conversation.workspace,
+            agent: conversation.agent,
             conversation: child_conversation,
             owner_conversation: conversation,
             origin_turn: scope_turn? ? @origin_turn : nil,

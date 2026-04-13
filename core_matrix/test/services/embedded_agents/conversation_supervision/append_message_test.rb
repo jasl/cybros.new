@@ -26,6 +26,12 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
 
     assert_equal snapshot, user_message.conversation_supervision_snapshot
     assert_equal snapshot, supervisor_message.conversation_supervision_snapshot
+    assert_equal fixture.fetch(:conversation).user_id, user_message.user_id
+    assert_equal fixture.fetch(:conversation).workspace_id, user_message.workspace_id
+    assert_equal fixture.fetch(:conversation).agent_id, user_message.agent_id
+    assert_equal fixture.fetch(:conversation).user_id, supervisor_message.user_id
+    assert_equal fixture.fetch(:conversation).workspace_id, supervisor_message.workspace_id
+    assert_equal fixture.fetch(:conversation).agent_id, supervisor_message.agent_id
     assert_equal "user", user_message.role
     assert_equal "supervisor_agent", supervisor_message.role
     assert_equal "What are you waiting on right now?", user_message.content

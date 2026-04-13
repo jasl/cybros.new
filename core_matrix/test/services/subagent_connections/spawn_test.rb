@@ -93,6 +93,9 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     assert_equal "agent_addressable", child_conversation.addressability
     assert_equal child_conversation, child_session.conversation
     assert_equal owner_conversation, child_session.owner_conversation
+    assert_equal owner_conversation.user_id, child_session.user_id
+    assert_equal owner_conversation.workspace_id, child_session.workspace_id
+    assert_equal owner_conversation.agent_id, child_session.agent_id
     assert_equal owner_turn, child_session.origin_turn
     assert child_session.scope_turn?
     assert_equal "researcher", child_session.profile_key
@@ -101,7 +104,12 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     assert_equal child_conversation, child_turn.conversation
     assert_equal "Investigate this", child_turn.selected_input_message.content
     assert_equal child_turn, child_workflow_run.turn
+    assert_equal child_conversation.user_id, child_workflow_run.user_id
+    assert_equal child_conversation.workspace_id, child_workflow_run.workspace_id
+    assert_equal child_conversation.agent_id, child_workflow_run.agent_id
     assert_equal child_workflow_run, child_task_run.workflow_run
+    assert_equal child_workflow_run.user_id, child_task_run.user_id
+    assert_equal child_workflow_run.workspace_id, child_task_run.workspace_id
     assert_equal child_session, child_task_run.subagent_connection
     assert_equal owner_turn, child_task_run.origin_turn
     assert_equal "subagent_step", child_task_run.kind

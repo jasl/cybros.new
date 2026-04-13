@@ -74,7 +74,11 @@ module ConversationBundleImports
         turn = Turn.create!(
           installation: conversation.installation,
           conversation: conversation,
+          user: conversation.user,
+          workspace: conversation.workspace,
+          agent: conversation.agent,
           agent_definition_version: execution_identity.agent_definition_version,
+          execution_epoch: execution_identity.execution_epoch,
           execution_runtime: execution_identity.execution_runtime,
           execution_runtime_version: execution_identity.execution_runtime_version,
           sequence: index + 1,

@@ -79,6 +79,9 @@ class AgentTaskRunTest < ActiveSupport::TestCase
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       origin_turn: context[:turn],
       scope: "turn",
       profile_key: "worker",
@@ -125,11 +128,14 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     running_task = AgentTaskRun.new(
       create_agent_task_run!(workflow_node: context[:workflow_node]).attributes.slice(
         "installation_id",
+        "user_id",
+        "workspace_id",
         "agent_id",
         "workflow_run_id",
         "workflow_node_id",
         "conversation_id",
         "turn_id",
+        "execution_runtime_id",
         "kind",
         "logical_work_id",
         "attempt_no",
@@ -185,5 +191,35 @@ class AgentTaskRunTest < ActiveSupport::TestCase
 
     assert_equal 1, agent_task_run.reload.supervision_sequence
     assert agent_task_run.last_progress_at.present?
+  end
+
+  test "requires duplicated owner context to match the workflow run and conversation" do
+    context = build_agent_control_context!
+    foreign = create_workspace_context!
+
+    agent_task_run = AgentTaskRun.new(
+      installation: context[:installation],
+      workflow_run: context[:workflow_run],
+      workflow_node: context[:workflow_node],
+      conversation: context[:conversation],
+      turn: context[:turn],
+      agent: context[:agent],
+      user_id: foreign[:user].id,
+      workspace_id: foreign[:workspace].id,
+      execution_runtime_id: foreign[:execution_runtime].id,
+      kind: "turn_step",
+      lifecycle_state: "queued",
+      logical_work_id: "owner-context-mismatch",
+      attempt_no: 1,
+      task_payload: {},
+      progress_payload: {},
+      terminal_payload: {},
+      close_outcome_payload: {}
+    )
+
+    assert_not agent_task_run.valid?
+    assert_includes agent_task_run.errors[:user], "must match the workflow run user"
+    assert_includes agent_task_run.errors[:workspace], "must match the workflow run workspace"
+    assert_includes agent_task_run.errors[:execution_runtime], "must match the workflow run execution runtime"
   end
 end

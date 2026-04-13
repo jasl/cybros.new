@@ -9,13 +9,20 @@ class ConversationSupervisionState < ApplicationRecord
   data_lifecycle_kind! :recomputable
 
   belongs_to :installation
+  belongs_to :user
+  belongs_to :workspace
+  belongs_to :agent
   belongs_to :target_conversation, class_name: "Conversation"
 
   validates :overall_state, inclusion: { in: OVERALL_STATES }
   validates :last_terminal_state, inclusion: { in: LAST_TERMINAL_STATES }, allow_nil: true
   validates :board_lane, inclusion: { in: BOARD_LANES }
   validates :target_conversation, uniqueness: true
+  validate :user_installation_match
+  validate :workspace_installation_match
+  validate :agent_installation_match
   validate :target_conversation_installation_match
+  validate :target_conversation_owner_context_match
   validate :board_badges_must_be_array
   validate :counter_fields_must_be_non_negative
   validate :status_payload_must_be_hash
@@ -27,6 +34,35 @@ class ConversationSupervisionState < ApplicationRecord
     return if target_conversation.installation_id == installation_id
 
     errors.add(:target_conversation, "must belong to the same installation")
+  end
+
+  def user_installation_match
+    return if user.blank?
+    return if user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
+  def workspace_installation_match
+    return if workspace.blank?
+    return if workspace.installation_id == installation_id
+
+    errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
+
+    errors.add(:agent, "must belong to the same installation")
+  end
+
+  def target_conversation_owner_context_match
+    return if target_conversation.blank?
+
+    errors.add(:user, "must match the target conversation user") if user.present? && target_conversation.user_id != user_id
+    errors.add(:workspace, "must match the target conversation workspace") if workspace.present? && target_conversation.workspace_id != workspace_id
+    errors.add(:agent, "must match the target conversation agent") if agent.present? && target_conversation.agent_id != agent_id
   end
 
   def status_payload_must_be_hash

@@ -5,6 +5,7 @@ module Conversations
     def create_root_conversation!(workspace:, agent:, purpose:, execution_runtime: nil)
       conversation = Conversation.create!(
         installation: workspace.installation,
+        user: workspace.user,
         workspace: workspace,
         agent: agent,
         current_execution_runtime: execution_runtime,
@@ -30,6 +31,7 @@ module Conversations
     def build_child_conversation(parent:, kind:, historical_anchor_message_id: nil, addressability: "owner_addressable")
       Conversation.new(
         installation: parent.installation,
+        user: parent.user,
         workspace: parent.workspace,
         agent: parent.agent,
         current_execution_runtime: parent.current_execution_runtime,
@@ -44,6 +46,7 @@ module Conversations
 
     def refresh_child_conversation_from_parent!(conversation:, parent:)
       conversation.installation = parent.installation
+      conversation.user = parent.user
       conversation.workspace = parent.workspace
       conversation.agent = parent.agent
       conversation.current_execution_runtime = parent.current_execution_runtime

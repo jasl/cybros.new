@@ -15,9 +15,16 @@ module ToolInvocations
 
     def call
       @tool_binding.with_lock do
+        execution_subject = @tool_binding.agent_task_run || @tool_binding.workflow_node
         ToolInvocation.create!(
           installation: @tool_binding.installation,
+          user: execution_subject&.user,
+          workspace: execution_subject&.workspace,
+          agent: execution_subject&.agent,
           agent_task_run: @tool_binding.agent_task_run,
+          conversation: execution_subject&.conversation,
+          turn: execution_subject&.turn,
+          workflow_run: execution_subject&.workflow_run,
           workflow_node: @tool_binding.workflow_node,
           tool_binding: @tool_binding,
           tool_definition: @tool_binding.tool_definition,

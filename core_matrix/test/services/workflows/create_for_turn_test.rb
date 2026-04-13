@@ -27,9 +27,15 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
 
     assert workflow_run.active?
     assert_equal turn, workflow_run.turn
+    assert_equal conversation.user_id, workflow_run.user_id
+    assert_equal conversation.workspace_id, workflow_run.workspace_id
+    assert_equal conversation.agent_id, workflow_run.agent_id
     assert_equal 1, workflow_run.workflow_nodes.count
     assert_equal "root", workflow_run.workflow_nodes.first.node_key
     assert_equal 0, workflow_run.workflow_nodes.first.ordinal
+    assert_equal workflow_run.user_id, workflow_run.workflow_nodes.first.user_id
+    assert_equal workflow_run.workspace_id, workflow_run.workflow_nodes.first.workspace_id
+    assert_equal workflow_run.agent_id, workflow_run.workflow_nodes.first.agent_id
     assert_equal "role:main", turn.reload.resolved_model_selection_snapshot["normalized_selector"]
     assert_equal "codex_subscription", workflow_run.resolved_provider_handle
     assert_equal "gpt-5.4", workflow_run.resolved_model_ref
@@ -137,6 +143,9 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       installation: context[:installation],
       conversation: child_conversation,
       owner_conversation: owner_conversation,
+      user: owner_conversation.user,
+      workspace: owner_conversation.workspace,
+      agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "researcher",
       depth: 0
@@ -166,6 +175,12 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     mailbox_item = AgentControlMailboxItem.find_by!(agent_task_run: agent_task_run, item_type: "execution_assignment")
 
     assert_equal "subagent_step", agent_task_run.kind
+    assert_equal child_conversation.user_id, workflow_run.user_id
+    assert_equal child_conversation.workspace_id, workflow_run.workspace_id
+    assert_equal child_conversation.agent_id, workflow_run.agent_id
+    assert_equal workflow_run.user_id, agent_task_run.user_id
+    assert_equal workflow_run.workspace_id, agent_task_run.workspace_id
+    assert_equal workflow_run.execution_runtime_id, agent_task_run.execution_runtime_id
     assert_equal owner_turn, agent_task_run.origin_turn
     assert_equal({ "delivery_kind" => "subagent_spawn" }, agent_task_run.task_payload)
     assert_equal turn.execution_snapshot.conversation_projection.fetch("messages"), mailbox_item.payload.fetch("conversation_projection").fetch("messages")

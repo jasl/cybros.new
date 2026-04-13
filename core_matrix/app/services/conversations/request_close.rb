@@ -162,13 +162,21 @@ module Conversations
 
       SubagentConnection
         .where(id: owned_subagent_tree.connection_ids)
-        .includes(:installation, :conversation, :execution_lease, owner_conversation: :agent)
+        .includes(
+          :installation,
+          :conversation,
+          :execution_lease,
+          :user,
+          :workspace,
+          { agent: [:published_agent_definition_version, { active_agent_connection: :agent_definition_version }] },
+          owner_conversation: :agent
+        )
         .order(:created_at, :id)
     end
 
     def active_agent_connection_for(conversation)
       AgentConnection.find_by(
-        agent: conversation.agent,
+        agent_id: conversation.agent_id,
         lifecycle_state: "active"
       )
     end

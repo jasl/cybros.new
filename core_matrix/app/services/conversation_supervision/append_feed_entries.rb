@@ -12,14 +12,23 @@ module ConversationSupervision
 
     def call
       return [] if normalized_changeset.empty?
+      target_turn = self.target_turn
       return [] if target_turn.blank?
+
+      installation = @conversation.installation
+      user = @conversation.user
+      workspace = @conversation.workspace
+      agent = @conversation.agent
 
       entries = @conversation.with_lock do
         next_sequence = next_sequence_start
 
         normalized_changeset.map do |change|
           entry = ConversationSupervisionFeedEntry.create!(
-            installation_id: @conversation.installation_id,
+            installation: installation,
+            user: user,
+            workspace: workspace,
+            agent: agent,
             target_conversation: @conversation,
             target_turn: target_turn,
             sequence: next_sequence,

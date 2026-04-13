@@ -6,6 +6,9 @@ class ProcessRunTest < ActiveSupport::TestCase
 
     process_run = ProcessRun.new(
       installation: process_context[:installation],
+      user: process_context[:conversation].user,
+      workspace: process_context[:conversation].workspace,
+      agent: process_context[:conversation].agent,
       workflow_node: process_context[:workflow_node],
       execution_runtime: process_context[:execution_runtime],
       conversation: process_context[:conversation],
@@ -30,6 +33,9 @@ class ProcessRunTest < ActiveSupport::TestCase
 
     process_run = ProcessRun.new(
       installation: process_context[:installation],
+      user: process_context[:conversation].user,
+      workspace: process_context[:conversation].workspace,
+      agent: process_context[:conversation].agent,
       workflow_node: process_context[:workflow_node],
       execution_runtime: other_runtime,
       conversation: process_context[:conversation],
@@ -43,6 +49,31 @@ class ProcessRunTest < ActiveSupport::TestCase
 
     assert_not process_run.valid?
     assert_includes process_run.errors[:execution_runtime], "must match the turn execution runtime"
+  end
+
+  test "requires duplicated owner context to match the workflow turn chain" do
+    process_context = build_process_context!
+    foreign = create_workspace_context!
+
+    process_run = ProcessRun.new(
+      installation: process_context[:installation],
+      workflow_node: process_context[:workflow_node],
+      execution_runtime: process_context[:execution_runtime],
+      conversation: process_context[:conversation],
+      turn: process_context[:turn],
+      user_id: foreign[:user].id,
+      workspace_id: foreign[:workspace].id,
+      agent_id: foreign[:agent].id,
+      kind: "background_service",
+      lifecycle_state: "running",
+      command_line: "echo hi",
+      metadata: {}
+    )
+
+    assert_not process_run.valid?
+    assert_includes process_run.errors[:user], "must match the conversation user"
+    assert_includes process_run.errors[:workspace], "must match the conversation workspace"
+    assert_includes process_run.errors[:agent], "must match the conversation agent"
   end
 
   private
@@ -76,6 +107,7 @@ class ProcessRunTest < ActiveSupport::TestCase
       installation: installation,
       workspace: workspace,
       agent: agent,
+      user_id: workspace.user_id,
       current_execution_runtime: execution_runtime,
       kind: "root",
       purpose: "interactive",
@@ -88,6 +120,12 @@ class ProcessRunTest < ActiveSupport::TestCase
     turn = Turn.create!(
       installation: installation,
       conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
       agent_definition_version: agent_definition_version,
       execution_runtime: execution_runtime,
       execution_runtime_version: execution_runtime_version,

@@ -27,10 +27,11 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_definition_version:, agent_connection: nil, execution_runtime_connection: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
+    def initialize(agent_definition_version:, agent_connection: nil, execution_runtime_connection: nil, agent_task_run: nil, resource: nil, method_id:, payload:, occurred_at: Time.current)
       @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @execution_runtime_connection = execution_runtime_connection
+      @agent_task_run = agent_task_run
       @resource = resource
       @method_id = method_id
       @payload = payload
@@ -50,6 +51,7 @@ module AgentControl
           agent_definition_version: @agent_definition_version,
           agent_connection: @agent_connection,
           execution_runtime_connection: @execution_runtime_connection,
+          agent_task_run: @agent_task_run,
           method_id: @method_id,
           payload: @payload,
           occurred_at: @occurred_at

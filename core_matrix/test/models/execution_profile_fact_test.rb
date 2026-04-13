@@ -152,4 +152,28 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
     assert_not fact.valid?
     assert_includes fact.errors[:metadata], "must not duplicate structured provider request fields"
   end
+
+  test "requires duplicated runtime context to match the workflow run" do
+    context = build_agent_control_context!
+    foreign = create_workspace_context!
+
+    fact = ExecutionProfileFact.new(
+      installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      agent_id: foreign[:agent].id,
+      execution_runtime_id: foreign[:execution_runtime].id,
+      workflow_run_id: context[:workflow_run].id,
+      conversation_id: context[:conversation].id,
+      turn_id: context[:turn].id,
+      fact_kind: "tool_call",
+      fact_key: "exec_command",
+      occurred_at: Time.utc(2026, 3, 24, 12, 0, 0),
+      metadata: {}
+    )
+
+    assert_not fact.valid?
+    assert_includes fact.errors[:agent], "must match the workflow run agent"
+    assert_includes fact.errors[:execution_runtime], "must match the workflow run execution runtime"
+  end
 end

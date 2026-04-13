@@ -68,8 +68,12 @@ class WorkflowRunTest < ActiveSupport::TestCase
     )
     waiting_run = WorkflowRun.new(
       installation: conversation.installation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       conversation: conversation,
       turn: turn,
+      execution_runtime: turn.execution_runtime,
       lifecycle_state: "active",
       wait_state: "waiting",
       wait_reason_kind: "policy_gate",
@@ -81,8 +85,12 @@ class WorkflowRunTest < ActiveSupport::TestCase
     )
     invalid_waiting_run = WorkflowRun.new(
       installation: conversation.installation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       conversation: conversation,
       turn: turn,
+      execution_runtime: turn.execution_runtime,
       lifecycle_state: "active",
       wait_state: "waiting",
       wait_reason_payload: {}
@@ -124,8 +132,12 @@ class WorkflowRunTest < ActiveSupport::TestCase
 
     workflow_run = WorkflowRun.new(
       installation: conversation.installation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       conversation: conversation,
       turn: turn,
+      execution_runtime: turn.execution_runtime,
       lifecycle_state: "active",
       wait_state: "waiting",
       wait_reason_kind: "external_dependency_blocked",
@@ -222,7 +234,7 @@ class WorkflowRunTest < ActiveSupport::TestCase
     )
   end
 
-  test "derives workspace and feature policy from the turn instead of duplicate columns" do
+  test "stores duplicated owner context while still deriving feature policy from the turn" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -235,9 +247,13 @@ class WorkflowRunTest < ActiveSupport::TestCase
     )
     workflow_run = create_workflow_run!(turn: turn)
 
-    refute_includes WorkflowRun.column_names, "workspace_id"
+    assert_includes WorkflowRun.column_names, "user_id"
+    assert_includes WorkflowRun.column_names, "workspace_id"
+    assert_includes WorkflowRun.column_names, "agent_id"
     refute_includes WorkflowRun.column_names, "feature_policy_snapshot"
-    assert_equal conversation.workspace, workflow_run.workspace
+    assert_equal conversation.user_id, workflow_run.user_id
+    assert_equal conversation.workspace_id, workflow_run.workspace_id
+    assert_equal conversation.agent_id, workflow_run.agent_id
     assert_equal turn.feature_policy_snapshot, workflow_run.feature_policy_snapshot
   end
 
@@ -255,8 +271,12 @@ class WorkflowRunTest < ActiveSupport::TestCase
     )
     blocked_run = WorkflowRun.new(
       installation: conversation.installation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       conversation: conversation,
       turn: blocked_turn,
+      execution_runtime: blocked_turn.execution_runtime,
       lifecycle_state: "active",
       wait_state: "waiting",
       wait_reason_kind: "external_dependency_blocked",
@@ -276,8 +296,12 @@ class WorkflowRunTest < ActiveSupport::TestCase
     )
     retry_run = WorkflowRun.new(
       installation: conversation.installation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       conversation: conversation,
       turn: retry_turn,
+      execution_runtime: retry_turn.execution_runtime,
       lifecycle_state: "active",
       wait_state: "waiting",
       wait_reason_kind: "retryable_failure",
@@ -296,5 +320,34 @@ class WorkflowRunTest < ActiveSupport::TestCase
     assert retry_run.valid?
     assert retry_run.waiting?
     assert_not retry_run.blocked?
+  end
+
+  test "requires duplicated owner context to match the conversation and turn" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Owner context input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    foreign = create_workspace_context!
+
+    workflow_run = WorkflowRun.new(
+      installation: conversation.installation,
+      conversation: conversation,
+      turn: turn,
+      user_id: foreign[:user].id,
+      workspace_id: foreign[:workspace].id,
+      agent_id: foreign[:agent].id,
+      execution_runtime_id: foreign[:execution_runtime].id,
+      lifecycle_state: "active"
+    )
+
+    assert_not workflow_run.valid?
+    assert_includes workflow_run.errors[:user], "must match the conversation user"
+    assert_includes workflow_run.errors[:workspace], "must match the conversation workspace"
+    assert_includes workflow_run.errors[:agent], "must match the conversation agent"
+    assert_includes workflow_run.errors[:execution_runtime], "must match the turn execution runtime"
   end
 end

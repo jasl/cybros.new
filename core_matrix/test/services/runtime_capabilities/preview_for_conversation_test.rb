@@ -308,6 +308,9 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
       session = SubagentConnection.create!(
         installation: registration[:installation],
         conversation: conversation,
+        user: conversation.user,
+        workspace: conversation.workspace,
+        agent: conversation.agent,
         owner_conversation: previous_conversation,
         parent_subagent_connection: previous_session,
         scope: "conversation",

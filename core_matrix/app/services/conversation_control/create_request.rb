@@ -23,6 +23,9 @@ module ConversationControl
 
       request = ConversationControlRequest.create!(
         installation: @conversation_supervision_session.installation,
+        user: authorization.conversation.user,
+        workspace: authorization.conversation.workspace,
+        agent: authorization.conversation.agent,
         conversation_supervision_session: @conversation_supervision_session,
         target_conversation: authorization.conversation,
         request_kind: @request_kind,
@@ -41,6 +44,9 @@ module ConversationControl
     def rejected_record(authorization)
       ConversationControlRequest.new(
         installation: @conversation_supervision_session.installation,
+        user: @conversation_supervision_session.target_conversation.user,
+        workspace: @conversation_supervision_session.target_conversation.workspace,
+        agent: @conversation_supervision_session.target_conversation.agent,
         conversation_supervision_session: @conversation_supervision_session,
         target_conversation: @conversation_supervision_session.target_conversation,
         request_kind: @request_kind,

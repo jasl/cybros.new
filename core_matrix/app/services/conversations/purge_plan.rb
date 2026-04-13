@@ -7,6 +7,7 @@ module Conversations
 
     def execute!
       collect_owned_rows!
+      nullify_conversation_anchor_foreign_keys!
 
       purge_publication_rows!
       purge_agent_control_rows!
@@ -255,17 +256,24 @@ module Conversations
     end
 
     def purge_structural_rows!
-      Conversation.where(id: @owned_conversation_ids).update_all(
-        current_execution_epoch_id: nil,
-        current_execution_runtime_id: nil,
-        updated_at: Time.current
-      )
       ConversationExecutionEpoch.where(id: @execution_epoch_ids).delete_all if @execution_epoch_ids.any?
       LineageStoreReference.where(owner_type: "Conversation", owner_id: @owned_conversation_ids).delete_all
       ConversationClosure.where(ancestor_conversation_id: @owned_conversation_ids).or(
         ConversationClosure.where(descendant_conversation_id: @owned_conversation_ids)
       ).delete_all
       Conversation.where(id: @owned_subagent_conversation_ids).delete_all
+    end
+
+    def nullify_conversation_anchor_foreign_keys!
+      Conversation.where(id: @owned_conversation_ids).update_all(
+        current_execution_epoch_id: nil,
+        current_execution_runtime_id: nil,
+        latest_active_turn_id: nil,
+        latest_turn_id: nil,
+        latest_active_workflow_run_id: nil,
+        latest_message_id: nil,
+        updated_at: Time.current
+      )
     end
 
     def remaining_owned_scopes

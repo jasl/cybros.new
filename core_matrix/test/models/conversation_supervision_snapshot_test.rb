@@ -12,6 +12,12 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
     session = ConversationSupervisionSession.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
       initiator: context[:user],
       lifecycle_state: "open",
       responder_strategy: "builtin",
@@ -29,6 +35,12 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
     state = ConversationSupervisionState.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
       overall_state: "running",
       current_owner_kind: "agent_task_run",
       current_owner_public_id: "task_run_public_id",
@@ -45,6 +57,12 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
     snapshot = ConversationSupervisionSnapshot.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
       conversation_supervision_session: session,
       conversation_supervision_state_public_id: state.public_id,
       conversation_capability_policy_public_id: policy.public_id,
@@ -84,6 +102,9 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
     session = ConversationSupervisionSession.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
       initiator: context[:user],
       lifecycle_state: "open",
       responder_strategy: "builtin",
@@ -107,5 +128,50 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
 
     assert_not snapshot.valid?
     assert_includes snapshot.errors[:target_conversation], "must match the supervision session target conversation"
+  end
+
+  test "requires duplicated owner context to match the target conversation" do
+    context = create_workspace_context!
+    conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      installation: context[:installation],
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
+    )
+    session = ConversationSupervisionSession.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: {},
+      last_snapshot_at: Time.current
+    )
+    foreign = create_workspace_context!
+
+    snapshot = ConversationSupervisionSnapshot.new(
+      installation: context[:installation],
+      target_conversation: conversation,
+      user_id: foreign[:user].id,
+      workspace_id: foreign[:workspace].id,
+      agent_id: foreign[:agent].id,
+      conversation_supervision_session: session,
+      conversation_supervision_state_public_id: "state_public_id",
+      conversation_capability_policy_public_id: "policy_public_id",
+      anchor_turn_public_id: "turn_public_id",
+      anchor_turn_sequence_snapshot: 1,
+      conversation_event_projection_sequence_snapshot: 1,
+      active_subagent_connection_public_ids: [],
+      bundle_payload: {},
+      machine_status_payload: {}
+    )
+
+    assert_not snapshot.valid?
+    assert_includes snapshot.errors[:user], "must match the target conversation user"
+    assert_includes snapshot.errors[:workspace], "must match the target conversation workspace"
+    assert_includes snapshot.errors[:agent], "must match the target conversation agent"
   end
 end

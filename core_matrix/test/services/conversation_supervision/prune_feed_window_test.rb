@@ -34,6 +34,9 @@ class ConversationSupervision::PruneFeedWindowTest < ActiveSupport::TestCase
     ConversationSupervisionFeedEntry.create!(
       installation: context[:installation],
       target_conversation: context[:conversation],
+      user: context[:conversation].user,
+      workspace: context[:conversation].workspace,
+      agent: context[:conversation].agent,
       target_turn: turn,
       sequence: sequence,
       event_kind: "turn_todo_item_started",
@@ -47,6 +50,9 @@ class ConversationSupervision::PruneFeedWindowTest < ActiveSupport::TestCase
     Turn.create!(
       installation: template_turn.installation,
       conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       agent_definition_version: template_turn.agent_definition_version,
       execution_runtime: template_turn.execution_runtime,
       execution_runtime_version: template_turn.execution_runtime_version,

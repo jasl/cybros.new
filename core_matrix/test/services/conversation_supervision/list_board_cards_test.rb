@@ -32,6 +32,9 @@ class ConversationSupervision::ListBoardCardsTest < ActiveSupport::TestCase
     ConversationSupervisionState.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       overall_state: board_lane == "blocked" ? "blocked" : "running",
       board_lane: board_lane,
       lane_changed_at: minutes_ago.minutes.ago,

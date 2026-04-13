@@ -16,6 +16,9 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
       snapshot.conversation_supervision_state_public_id
     assert_equal fixture.fetch(:policy).public_id,
       snapshot.conversation_capability_policy_public_id
+    assert_equal fixture.fetch(:conversation).user_id, snapshot.user_id
+    assert_equal fixture.fetch(:conversation).workspace_id, snapshot.workspace_id
+    assert_equal fixture.fetch(:conversation).agent_id, snapshot.agent_id
     assert_equal fixture.fetch(:current_turn).public_id, snapshot.anchor_turn_public_id
     assert_equal [fixture.fetch(:subagent_connection).public_id], snapshot.active_subagent_connection_public_ids
 
@@ -99,6 +102,9 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     session = ConversationSupervisionSession.create!(
       installation: context.fetch(:installation),
       target_conversation: context.fetch(:conversation),
+      user: context.fetch(:conversation).user,
+      workspace: context.fetch(:conversation).workspace,
+      agent: context.fetch(:conversation).agent,
       initiator: context.fetch(:user),
       lifecycle_state: "open",
       responder_strategy: "builtin",

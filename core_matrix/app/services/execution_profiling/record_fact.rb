@@ -4,10 +4,13 @@ module ExecutionProfiling
       new(...).call
     end
 
-    def initialize(installation:, user: nil, workspace: nil, conversation_id: nil, turn_id: nil, workflow_node_key: nil, process_run_id: nil, subagent_connection_id: nil, human_interaction_request_id: nil, fact_kind:, fact_key:, provider_request_id: nil, provider_handle: nil, model_ref: nil, api_model: nil, wire_api: nil, total_tokens: nil, recommended_compaction_threshold: nil, threshold_crossed: nil, error_class: nil, error_message: nil, count_value: nil, duration_ms: nil, success: nil, metadata: {}, occurred_at: Time.current)
+    def initialize(installation:, user: nil, workspace: nil, agent: nil, execution_runtime: nil, workflow_run: nil, conversation_id: nil, turn_id: nil, workflow_node_key: nil, process_run_id: nil, subagent_connection_id: nil, human_interaction_request_id: nil, fact_kind:, fact_key:, provider_request_id: nil, provider_handle: nil, model_ref: nil, api_model: nil, wire_api: nil, total_tokens: nil, recommended_compaction_threshold: nil, threshold_crossed: nil, error_class: nil, error_message: nil, count_value: nil, duration_ms: nil, success: nil, metadata: {}, occurred_at: Time.current)
       @installation = installation
       @user = user
       @workspace = workspace
+      @agent = agent
+      @execution_runtime = execution_runtime
+      @workflow_run = workflow_run
       @conversation_id = conversation_id
       @turn_id = turn_id
       @workflow_node_key = workflow_node_key
@@ -38,6 +41,9 @@ module ExecutionProfiling
         installation: @installation,
         user: @user,
         workspace: @workspace,
+        agent: @agent,
+        execution_runtime: @execution_runtime,
+        workflow_run: @workflow_run,
         conversation_id: @conversation_id,
         turn_id: @turn_id,
         workflow_node_key: @workflow_node_key,

@@ -14,9 +14,11 @@ module ConversationEvents
     end
 
     def call
+      installation = @conversation.installation
+
       @conversation.with_lock do
         ConversationEvent.create!(
-          installation: @conversation.installation,
+          installation: installation,
           conversation: @conversation,
           turn: @turn,
           source: @source,

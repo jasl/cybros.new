@@ -65,11 +65,14 @@ module Workflows
 
         retried_task = AgentTaskRun.create!(
           installation: paused_task.installation,
+          user: paused_task.user,
+          workspace: paused_task.workspace,
           agent: paused_task.agent,
           workflow_run: paused_task.workflow_run,
           workflow_node: paused_task.workflow_node,
           conversation: paused_task.conversation,
           turn: turn,
+          execution_runtime: paused_task.execution_runtime,
           kind: paused_task.kind,
           lifecycle_state: "queued",
           logical_work_id: paused_task.logical_work_id,

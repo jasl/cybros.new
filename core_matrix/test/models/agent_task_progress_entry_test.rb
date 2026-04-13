@@ -67,6 +67,9 @@ class AgentTaskProgressEntryTest < ActiveSupport::TestCase
       installation: context[:installation],
       owner_conversation: unrelated_owner,
       conversation: unrelated_child,
+      user: unrelated_child.user,
+      workspace: unrelated_child.workspace,
+      agent: unrelated_child.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 0

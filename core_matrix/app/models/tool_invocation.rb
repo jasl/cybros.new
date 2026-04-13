@@ -23,7 +23,13 @@ class ToolInvocation < ApplicationRecord
     validate: true
 
   belongs_to :installation
+  belongs_to :user
+  belongs_to :workspace
+  belongs_to :agent
   belongs_to :agent_task_run, optional: true
+  belongs_to :conversation
+  belongs_to :turn
+  belongs_to :workflow_run
   belongs_to :workflow_node, optional: true
   belongs_to :tool_binding
   belongs_to :tool_definition
@@ -39,12 +45,19 @@ class ToolInvocation < ApplicationRecord
 
   validates :attempt_no, numericality: { only_integer: true, greater_than: 0 }
   validate :execution_subject_present
+  validate :user_installation_match
+  validate :workspace_installation_match
+  validate :agent_installation_match
   validate :installation_matches_task
+  validate :installation_matches_conversation
+  validate :installation_matches_turn
+  validate :installation_matches_workflow_run
   validate :installation_matches_workflow_node
   validate :installation_matches_binding
   validate :installation_matches_tool_definition
   validate :installation_matches_tool_implementation
   validate :binding_projection_alignment
+  validate :execution_subject_context_alignment
   validate :metadata_must_be_hash
   validate :lifecycle_timestamps
 
@@ -144,10 +157,46 @@ class ToolInvocation < ApplicationRecord
     errors.add(:base, "must belong to an agent task run or workflow node")
   end
 
+  def user_installation_match
+    return if user.blank? || user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
+  def workspace_installation_match
+    return if workspace.blank? || workspace.installation_id == installation_id
+
+    errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def agent_installation_match
+    return if agent.blank? || agent.installation_id == installation_id
+
+    errors.add(:agent, "must belong to the same installation")
+  end
+
   def installation_matches_task
     return if agent_task_run.blank? || agent_task_run.installation_id == installation_id
 
     errors.add(:installation, "must match the task installation")
+  end
+
+  def installation_matches_conversation
+    return if conversation.blank? || conversation.installation_id == installation_id
+
+    errors.add(:installation, "must match the conversation installation")
+  end
+
+  def installation_matches_turn
+    return if turn.blank? || turn.installation_id == installation_id
+
+    errors.add(:installation, "must match the turn installation")
+  end
+
+  def installation_matches_workflow_run
+    return if workflow_run.blank? || workflow_run.installation_id == installation_id
+
+    errors.add(:installation, "must match the workflow run installation")
   end
 
   def installation_matches_workflow_node
@@ -194,6 +243,18 @@ class ToolInvocation < ApplicationRecord
     end
   end
 
+  def execution_subject_context_alignment
+    subject = execution_subject
+    return if subject.blank?
+
+    errors.add(:user, "must match the execution subject user") if user.present? && subject.user_id != user_id
+    errors.add(:workspace, "must match the execution subject workspace") if workspace.present? && subject.workspace_id != workspace_id
+    errors.add(:agent, "must match the execution subject agent") if agent.present? && subject.agent_id != agent_id
+    errors.add(:conversation, "must match the execution subject conversation") if conversation.present? && subject.conversation_id != conversation_id
+    errors.add(:turn, "must match the execution subject turn") if turn.present? && subject.turn_id != turn_id
+    errors.add(:workflow_run, "must match the execution subject workflow run") if workflow_run.present? && subject.workflow_run_id != workflow_run_id
+  end
+
   def metadata_must_be_hash
     errors.add(:metadata, "must be a hash") unless metadata.is_a?(Hash)
     return unless metadata.is_a?(Hash)
@@ -213,5 +274,9 @@ class ToolInvocation < ApplicationRecord
 
     errors.add(:started_at, "must exist when the invocation has started") if started_at.blank?
     errors.add(:finished_at, "must exist when the invocation is terminal") if finished_at.blank?
+  end
+
+  def execution_subject
+    agent_task_run || workflow_node
   end
 end

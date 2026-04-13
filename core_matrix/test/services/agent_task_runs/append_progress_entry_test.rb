@@ -25,6 +25,9 @@ class AgentTaskRuns::AppendProgressEntryTest < ActiveSupport::TestCase
       installation: context[:installation],
       owner_conversation: owner_conversation,
       conversation: child_conversation,
+      user: child_conversation.user,
+      workspace: child_conversation.workspace,
+      agent: child_conversation.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 0

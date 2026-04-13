@@ -32,6 +32,9 @@ class SubagentConnection < ApplicationRecord
     validate: true
 
   belongs_to :installation
+  belongs_to :user
+  belongs_to :workspace
+  belongs_to :agent
   belongs_to :conversation
   belongs_to :owner_conversation, class_name: "Conversation"
   belongs_to :origin_turn, class_name: "Turn", optional: true
@@ -51,10 +54,14 @@ class SubagentConnection < ApplicationRecord
 
   validates :profile_key, presence: true
   validates :depth, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+  validate :user_installation_match
+  validate :workspace_installation_match
+  validate :agent_installation_match
   validate :conversation_installation_match
   validate :owner_conversation_installation_match
   validate :origin_turn_installation_match
   validate :parent_subagent_connection_installation_match
+  validate :owner_conversation_context_match
   validate :scope_requires_origin_turn
   validate :depth_consistency
 
@@ -92,10 +99,36 @@ class SubagentConnection < ApplicationRecord
     errors.add(:conversation, "must belong to the same installation")
   end
 
+  def user_installation_match
+    return if user.blank? || user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
+  def workspace_installation_match
+    return if workspace.blank? || workspace.installation_id == installation_id
+
+    errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def agent_installation_match
+    return if agent.blank? || agent.installation_id == installation_id
+
+    errors.add(:agent, "must belong to the same installation")
+  end
+
   def owner_conversation_installation_match
     return if owner_conversation.blank? || owner_conversation.installation_id == installation_id
 
     errors.add(:owner_conversation, "must belong to the same installation")
+  end
+
+  def owner_conversation_context_match
+    return if owner_conversation.blank?
+
+    errors.add(:user, "must match the owner conversation user") if user.present? && owner_conversation.user_id != user_id
+    errors.add(:workspace, "must match the owner conversation workspace") if workspace.present? && owner_conversation.workspace_id != workspace_id
+    errors.add(:agent, "must match the owner conversation agent") if agent.present? && owner_conversation.agent_id != agent_id
   end
 
   def origin_turn_installation_match

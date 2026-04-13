@@ -610,12 +610,14 @@ git commit -m "refactor: add latest-active conversation anchors"
 - Modify: `app/models/command_run.rb`
 - Modify: `app/models/execution_profile_fact.rb`
 - Modify: `app/services/processes/provision.rb`
+- Modify: `app/services/conversation_bundle_imports/rehydrate_conversation.rb`
 - Modify: `app/services/workflows/create_for_turn.rb`
 - Modify: `app/services/workflows/mutate.rb`
 - Modify: `app/services/workflows/re_enter_agent.rb`
 - Modify: `app/services/workflows/resume_paused_turn.rb`
 - Modify: `app/services/workflows/step_retry.rb`
 - Modify: `app/services/human_interactions/request.rb`
+- Modify: `app/services/subagent_connections/send_message.rb`
 - Modify: `app/services/subagent_connections/spawn.rb`
 - Modify: `app/services/conversation_control/create_request.rb`
 - Modify: `app/services/embedded_agents/conversation_supervision/create_session.rb`
@@ -648,7 +650,9 @@ git commit -m "refactor: add latest-active conversation anchors"
 - Modify: `test/models/execution_profile_fact_test.rb`
 - Modify: `test/queries/human_interactions/open_for_user_query_test.rb`
 - Modify: `test/services/processes/provision_test.rb`
+- Modify: `test/services/conversation_bundle_imports/rehydrate_conversation_test.rb`
 - Modify: `test/services/subagent_connections/spawn_test.rb`
+- Modify: `test/services/subagent_connections/send_message_test.rb`
 - Modify: `test/services/human_interactions/request_test.rb`
 - Modify: `test/services/conversation_control/create_request_test.rb`
 - Modify: `test/services/conversation_control/build_guidance_projection_test.rb`
@@ -657,6 +661,10 @@ git commit -m "refactor: add latest-active conversation anchors"
 - Modify: `test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb`
 - Modify: `test/services/workflows/create_for_turn_test.rb`
 - Modify: `test/services/workflows/mutate_test.rb`
+- Modify: `test/services/turns/start_user_turn_test.rb`
+- Modify: `test/services/turns/start_agent_turn_test.rb`
+- Modify: `test/services/turns/start_automation_turn_test.rb`
+- Modify: `test/services/turns/queue_follow_up_test.rb`
 - Create: `test/services/command_runs/provision_test.rb`
 - Modify: `test/services/tool_invocations/lifecycle_test.rb`
 - Modify: `test/services/command_runs/terminalize_test.rb`
@@ -685,7 +693,10 @@ carry the duplicated owner/context truth.
 
 Explicitly update:
 - conversation root and automation root creation if they still omit duplicated owner context
-- turn creation boundaries if they still omit duplicated owner context
+- every `Turn.create!` boundary if they still omit duplicated owner context, including
+  `Turns::StartUserTurn`, `Turns::StartAgentTurn`, `Turns::StartAutomationTurn`,
+  `Turns::QueueFollowUp`, `SubagentConnections::SendMessage`, and
+  `ConversationBundleImports::RehydrateConversation`
 - process-run allocation in `Processes::Provision`
 - workflow-node allocation in `Workflows::CreateForTurn` and `Workflows::Mutate`
 - tool-invocation allocation in `ToolInvocations::Start`

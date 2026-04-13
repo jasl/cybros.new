@@ -121,6 +121,9 @@ class Conversations::Metadata::BootstrapTitleTest < ActiveSupport::TestCase
     turn = Turn.create!(
       installation: conversation.installation,
       conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       agent_definition_version: context[:agent_definition_version],
       execution_runtime: context[:execution_runtime],
       sequence: conversation.turns.maximum(:sequence).to_i + 1,

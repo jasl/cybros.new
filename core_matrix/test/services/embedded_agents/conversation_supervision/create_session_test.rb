@@ -16,6 +16,9 @@ class EmbeddedAgents::ConversationSupervision::CreateSessionTest < ActiveSupport
     assert_equal "open", session.lifecycle_state
     assert_equal "summary_model", session.responder_strategy
     assert_equal supervision_policy_snapshot_for(fixture.fetch(:policy)), session.capability_policy_snapshot
+    assert_equal fixture.fetch(:conversation).user_id, session.user_id
+    assert_equal fixture.fetch(:conversation).workspace_id, session.workspace_id
+    assert_equal fixture.fetch(:conversation).agent_id, session.agent_id
   end
 
   test "raises a typed error for an unauthorized actor" do

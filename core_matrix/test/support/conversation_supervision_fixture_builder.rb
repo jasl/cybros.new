@@ -108,6 +108,9 @@ module ConversationSupervisionFixtureBuilder
       installation: context.fetch(:installation),
       owner_conversation: conversation,
       conversation: child_conversation,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
       scope: "conversation",
       profile_key: "researcher",
       depth: 0,
@@ -168,6 +171,9 @@ module ConversationSupervisionFixtureBuilder
     ConversationSupervisionSession.create!(
       installation: fixture.fetch(:installation),
       target_conversation: fixture.fetch(:conversation),
+      user_id: fixture.fetch(:conversation).user_id,
+      workspace_id: fixture.fetch(:conversation).workspace_id,
+      agent_id: fixture.fetch(:conversation).agent_id,
       initiator: initiator,
       lifecycle_state: "open",
       responder_strategy: responder_strategy,
@@ -416,7 +422,13 @@ module ConversationSupervisionFixtureBuilder
     end
     tool_invocation = ToolInvocation.create!(
       installation: context.fetch(:installation),
+      user: workflow_node.user,
+      workspace: workflow_node.workspace,
+      agent: workflow_node.agent,
       workflow_node: workflow_node,
+      conversation: workflow_node.conversation,
+      turn: workflow_node.turn,
+      workflow_run: workflow_node.workflow_run,
       tool_binding: tool_binding,
       tool_definition: tool_definition,
       tool_implementation: tool_implementation,
@@ -431,7 +443,13 @@ module ConversationSupervisionFixtureBuilder
     )
     command_run = CommandRun.create!(
       installation: context.fetch(:installation),
+      user: workflow_node.user,
+      workspace: workflow_node.workspace,
+      agent: workflow_node.agent,
       workflow_node: workflow_node,
+      conversation: workflow_node.conversation,
+      turn: workflow_node.turn,
+      workflow_run: workflow_node.workflow_run,
       tool_invocation: tool_invocation,
       command_line: command_line,
       lifecycle_state: command_state,

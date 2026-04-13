@@ -79,7 +79,9 @@ class WorkflowNodeTest < ActiveSupport::TestCase
     annotation_node = WorkflowNode.create!(
       installation: workflow_run.installation,
       workflow_run: workflow_run,
+      user: workflow_run.user,
       workspace: conversation.workspace,
+      agent: workflow_run.agent,
       conversation: conversation,
       turn: turn,
       yielding_workflow_node: yielding_node,
@@ -96,7 +98,9 @@ class WorkflowNodeTest < ActiveSupport::TestCase
     operator_node = WorkflowNode.create!(
       installation: workflow_run.installation,
       workflow_run: workflow_run,
+      user: workflow_run.user,
       workspace: conversation.workspace,
+      agent: workflow_run.agent,
       conversation: conversation,
       turn: turn,
       yielding_workflow_node: yielding_node,
@@ -134,7 +138,9 @@ class WorkflowNodeTest < ActiveSupport::TestCase
     workflow_node = WorkflowNode.new(
       installation: workflow_run.installation,
       workflow_run: workflow_run,
+      user: workflow_run.user,
       workspace: conversation.workspace,
+      agent: workflow_run.agent,
       conversation: conversation,
       turn: turn,
       ordinal: 0,
@@ -200,7 +206,9 @@ class WorkflowNodeTest < ActiveSupport::TestCase
     node = WorkflowNode.create!(
       installation: workflow_run.installation,
       workflow_run: workflow_run,
+      user: workflow_run.user,
       workspace: conversation.workspace,
+      agent: workflow_run.agent,
       conversation: conversation,
       turn: turn,
       yielding_workflow_node: yielding_node,
@@ -216,5 +224,40 @@ class WorkflowNodeTest < ActiveSupport::TestCase
     )
 
     assert_equal({ "note" => "Retitled" }, node.intent_payload)
+  end
+
+  test "requires duplicated owner context to match the workflow run" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Owner context input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    workflow_run = create_workflow_run!(turn: turn)
+    foreign = create_workspace_context!
+
+    workflow_node = WorkflowNode.new(
+      installation: workflow_run.installation,
+      workflow_run: workflow_run,
+      user_id: foreign[:user].id,
+      workspace_id: foreign[:workspace].id,
+      agent_id: foreign[:agent].id,
+      conversation_id: workflow_run.conversation_id,
+      turn_id: workflow_run.turn_id,
+      ordinal: 0,
+      node_key: "owner-mismatch",
+      node_type: "turn_step",
+      lifecycle_state: "pending",
+      presentation_policy: "internal_only",
+      decision_source: "system",
+      metadata: {}
+    )
+
+    assert_not workflow_node.valid?
+    assert_includes workflow_node.errors[:user], "must match the workflow run user"
+    assert_includes workflow_node.errors[:workspace], "must match the workflow run workspace"
+    assert_includes workflow_node.errors[:agent], "must match the workflow run agent"
   end
 end

@@ -33,11 +33,14 @@ module Workflows
 
             retried_task = AgentTaskRun.create!(
               installation: failed_task.installation,
+              user: failed_task.user,
+              workspace: failed_task.workspace,
               agent: failed_task.agent,
               workflow_run: failed_task.workflow_run,
               workflow_node: failed_task.workflow_node,
               conversation: failed_task.conversation,
               turn: failed_task.turn,
+              execution_runtime: failed_task.execution_runtime,
               kind: failed_task.kind,
               lifecycle_state: "queued",
               logical_work_id: failed_task.logical_work_id,

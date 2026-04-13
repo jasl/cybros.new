@@ -129,6 +129,20 @@ class AgentControlMailboxItem < ApplicationRecord
 
   private
 
+  def target_contract_validation_required?
+    new_record? ||
+      will_save_change_to_installation_id? ||
+      will_save_change_to_target_agent_id? ||
+      will_save_change_to_target_agent_definition_version_id? ||
+      will_save_change_to_target_execution_runtime_id? ||
+      will_save_change_to_agent_task_run_id? ||
+      will_save_change_to_workflow_node_id? ||
+      will_save_change_to_execution_contract_id? ||
+      will_save_change_to_control_plane? ||
+      will_save_change_to_leased_to_agent_connection_id? ||
+      will_save_change_to_leased_to_execution_runtime_connection_id?
+  end
+
   def reconstructed_agent_request_payload(execution_snapshot: nil)
     payload = payload_document.payload.deep_dup
     payload.merge!(payload_body)
@@ -207,12 +221,14 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def target_installation_match
+    return unless target_contract_validation_required?
     return if target_agent.blank? || target_agent.installation_id == installation_id
 
     errors.add(:target_agent, "must belong to the same installation")
   end
 
   def target_agent_definition_version_match
+    return unless target_contract_validation_required?
     return if target_agent_definition_version.blank?
 
     errors.add(:target_agent_definition_version, "must belong to the same installation") if target_agent_definition_version.installation_id != installation_id
@@ -220,6 +236,7 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def target_execution_runtime_match
+    return unless target_contract_validation_required?
     return if target_execution_runtime.blank?
     return if target_execution_runtime.installation_id == installation_id
 
@@ -227,6 +244,7 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def agent_task_run_match
+    return unless target_contract_validation_required?
     return if agent_task_run.blank?
 
     errors.add(:agent_task_run, "must belong to the same installation") if agent_task_run.installation_id != installation_id
@@ -234,6 +252,7 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def workflow_node_match
+    return unless target_contract_validation_required?
     return if workflow_node.blank?
 
     errors.add(:workflow_node, "must belong to the same installation") if workflow_node.installation_id != installation_id
@@ -245,6 +264,7 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def lease_holder_match
+    return unless target_contract_validation_required?
     return if leased_to_agent_connection.blank? && leased_to_execution_runtime_connection.blank?
 
     if leased_to_agent_connection.present?
@@ -262,6 +282,7 @@ class AgentControlMailboxItem < ApplicationRecord
   end
 
   def control_plane_contract
+    return unless target_contract_validation_required?
     return unless execution_runtime_plane?
 
     if target_execution_runtime.blank?

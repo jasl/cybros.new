@@ -14,6 +14,9 @@ class HumanInteractionRequest < ApplicationRecord
     validate: true
 
   belongs_to :installation
+  belongs_to :user
+  belongs_to :workspace
+  belongs_to :agent
   belongs_to :workflow_run
   belongs_to :workflow_node
   belongs_to :conversation
@@ -23,6 +26,9 @@ class HumanInteractionRequest < ApplicationRecord
   validate :supported_subtype
   validate :request_payload_must_be_hash
   validate :result_payload_must_be_hash
+  validate :user_installation_match
+  validate :workspace_installation_match
+  validate :agent_installation_match
   validate :workflow_run_installation_match
   validate :workflow_node_installation_match
   validate :conversation_installation_match
@@ -30,6 +36,7 @@ class HumanInteractionRequest < ApplicationRecord
   validate :workflow_node_workflow_run_match
   validate :workflow_run_turn_match
   validate :workflow_run_conversation_match
+  validate :workflow_run_owner_context_match
   validate :resolution_kind_inclusion
   validate :resolution_state_consistency
 
@@ -67,6 +74,27 @@ class HumanInteractionRequest < ApplicationRecord
 
   def request_payload_must_be_hash
     errors.add(:request_payload, "must be a hash") unless request_payload.is_a?(Hash)
+  end
+
+  def user_installation_match
+    return if user.blank?
+    return if user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
+  def workspace_installation_match
+    return if workspace.blank?
+    return if workspace.installation_id == installation_id
+
+    errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
+
+    errors.add(:agent, "must belong to the same installation")
   end
 
   def result_payload_must_be_hash
@@ -120,6 +148,14 @@ class HumanInteractionRequest < ApplicationRecord
     return if workflow_run.conversation_id == conversation_id
 
     errors.add(:conversation, "must match the workflow run conversation")
+  end
+
+  def workflow_run_owner_context_match
+    return if workflow_run.blank?
+
+    errors.add(:user, "must match the workflow run user") if user.present? && workflow_run.user_id != user_id
+    errors.add(:workspace, "must match the workflow run workspace") if workspace.present? && workflow_run.workspace_id != workspace_id
+    errors.add(:agent, "must match the workflow run agent") if agent.present? && workflow_run.agent_id != agent_id
   end
 
   def resolution_state_consistency

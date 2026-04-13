@@ -5,6 +5,9 @@ class HumanInteractionRequestTest < ActiveSupport::TestCase
     context = build_human_interaction_context!
     request = ApprovalRequest.create!(
       installation: context[:installation],
+      user: context[:conversation].user,
+      workspace: context[:conversation].workspace,
+      agent: context[:conversation].agent,
       workflow_run: context[:workflow_run],
       workflow_node: context[:workflow_node],
       conversation: context[:conversation],
@@ -24,6 +27,9 @@ class HumanInteractionRequestTest < ActiveSupport::TestCase
 
     request = ApprovalRequest.new(
       installation: context[:installation],
+      user: context[:conversation].user,
+      workspace: context[:conversation].workspace,
+      agent: context[:conversation].agent,
       workflow_run: context[:workflow_run],
       workflow_node: context[:workflow_node],
       conversation: context[:conversation],
@@ -38,6 +44,9 @@ class HumanInteractionRequestTest < ActiveSupport::TestCase
 
     base_request = HumanInteractionRequest.new(
       installation: context[:installation],
+      user: context[:conversation].user,
+      workspace: context[:conversation].workspace,
+      agent: context[:conversation].agent,
       workflow_run: context[:workflow_run],
       workflow_node: context[:workflow_node],
       conversation: context[:conversation],
@@ -61,5 +70,30 @@ class HumanInteractionRequestTest < ActiveSupport::TestCase
 
     assert_not request.valid?
     assert_includes request.errors[:turn], "must match the workflow run turn"
+  end
+
+  test "requires duplicated owner context to match the workflow run" do
+    context = build_human_interaction_context!
+    foreign = create_workspace_context!
+
+    request = ApprovalRequest.new(
+      installation: context[:installation],
+      workflow_run: context[:workflow_run],
+      workflow_node: context[:workflow_node],
+      conversation: context[:conversation],
+      turn: context[:turn],
+      user_id: foreign[:user].id,
+      workspace_id: foreign[:workspace].id,
+      agent_id: foreign[:agent].id,
+      lifecycle_state: "open",
+      blocking: true,
+      request_payload: { "approval_scope" => "publish" },
+      result_payload: {}
+    )
+
+    assert_not request.valid?
+    assert_includes request.errors[:user], "must match the workflow run user"
+    assert_includes request.errors[:workspace], "must match the workflow run workspace"
+    assert_includes request.errors[:agent], "must match the workflow run agent"
   end
 end

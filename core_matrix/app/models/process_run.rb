@@ -18,6 +18,9 @@ class ProcessRun < ApplicationRecord
     validate: true
 
   belongs_to :installation
+  belongs_to :user
+  belongs_to :workspace
+  belongs_to :agent
   belongs_to :workflow_node
   belongs_to :execution_epoch, class_name: "ConversationExecutionEpoch"
   belongs_to :execution_runtime, class_name: "ExecutionRuntime"
@@ -32,6 +35,9 @@ class ProcessRun < ApplicationRecord
 
   validates :command_line, presence: true
   validate :metadata_must_be_hash
+  validate :user_installation_match
+  validate :workspace_installation_match
+  validate :agent_installation_match
   validate :workflow_node_installation_match
   validate :execution_epoch_installation_match
   validate :execution_runtime_installation_match
@@ -42,6 +48,9 @@ class ProcessRun < ApplicationRecord
   validate :execution_epoch_runtime_match
   validate :workflow_node_turn_match
   validate :workflow_node_conversation_match
+  validate :workflow_node_owner_context_match
+  validate :conversation_owner_context_match
+  validate :turn_owner_context_match
   validate :turn_execution_runtime_match
   validate :turn_execution_epoch_match
   validate :origin_message_turn_match
@@ -61,6 +70,27 @@ class ProcessRun < ApplicationRecord
 
   def metadata_must_be_hash
     errors.add(:metadata, "must be a hash") unless metadata.is_a?(Hash)
+  end
+
+  def user_installation_match
+    return if user.blank?
+    return if user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
+  def workspace_installation_match
+    return if workspace.blank?
+    return if workspace.installation_id == installation_id
+
+    errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
+
+    errors.add(:agent, "must belong to the same installation")
   end
 
   def workflow_node_installation_match
@@ -131,6 +161,30 @@ class ProcessRun < ApplicationRecord
     return if workflow_node.workflow_run.conversation_id == conversation_id
 
     errors.add(:conversation, "must match the workflow run conversation")
+  end
+
+  def workflow_node_owner_context_match
+    return if workflow_node.blank?
+
+    errors.add(:user, "must match the workflow run user") if user.present? && workflow_node.user_id != user_id
+    errors.add(:workspace, "must match the workflow run workspace") if workspace.present? && workflow_node.workspace_id != workspace_id
+    errors.add(:agent, "must match the workflow run agent") if agent.present? && workflow_node.agent_id != agent_id
+  end
+
+  def conversation_owner_context_match
+    return if conversation.blank?
+
+    errors.add(:user, "must match the conversation user") if user.present? && conversation.user_id != user_id
+    errors.add(:workspace, "must match the conversation workspace") if workspace.present? && conversation.workspace_id != workspace_id
+    errors.add(:agent, "must match the conversation agent") if agent.present? && conversation.agent_id != agent_id
+  end
+
+  def turn_owner_context_match
+    return if turn.blank?
+
+    errors.add(:user, "must match the turn user") if user.present? && turn.user_id != user_id
+    errors.add(:workspace, "must match the turn workspace") if workspace.present? && turn.workspace_id != workspace_id
+    errors.add(:agent, "must match the turn agent") if agent.present? && turn.agent_id != agent_id
   end
 
   def turn_execution_runtime_match

@@ -33,6 +33,9 @@ module EmbeddedAgents
 
         snapshot = @conversation_supervision_session.conversation_supervision_snapshots.create!(
           installation: @conversation.installation,
+          user: @conversation.user,
+          workspace: @conversation.workspace,
+          agent: @conversation.agent,
           target_conversation: @conversation,
           conversation_supervision_state_public_id: state.public_id,
           conversation_capability_policy_public_id: policy&.public_id,

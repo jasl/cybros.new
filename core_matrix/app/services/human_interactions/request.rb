@@ -40,6 +40,9 @@ module HumanInteractions
         workflow_node = current_workflow_node(workflow_run)
         request = klass.create!(
           installation: workflow_node.installation,
+          user: workflow_run.user,
+          workspace: workflow_run.workspace,
+          agent: workflow_run.agent,
           workflow_run: workflow_run,
           workflow_node: workflow_node,
           conversation: conversation,

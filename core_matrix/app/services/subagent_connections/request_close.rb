@@ -19,7 +19,7 @@ module SubagentConnections
 
     def call
       unless @subagent_connection.close_open?
-        session = @subagent_connection.reload
+        session = @subagent_connection
         complete_control_request!(session)
         return session
       end
@@ -34,7 +34,7 @@ module SubagentConnections
         force_deadline_at: anchor_time + FORCE_PERIOD
       )
 
-      session = @subagent_connection.reload
+      session = @subagent_connection
       complete_control_request!(session)
       session
     end

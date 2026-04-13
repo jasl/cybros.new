@@ -17,7 +17,10 @@ module Conversations
     def call
       state = @conversation.conversation_supervision_state ||
         @conversation.build_conversation_supervision_state(
-          installation_id: @conversation.installation_id,
+          installation: @conversation.installation,
+          user: @conversation.user,
+          workspace: @conversation.workspace,
+          agent: @conversation.agent,
           status_payload: {}
         )
       previous_attributes = state.new_record? ? {} : comparable_attributes(state)
@@ -60,6 +63,9 @@ module Conversations
     def projection_attributes(state:)
       {
         installation_id: @conversation.installation_id,
+        user_id: @conversation.user_id,
+        workspace_id: @conversation.workspace_id,
+        agent_id: @conversation.agent_id,
         target_conversation: @conversation,
         overall_state: overall_state,
         last_terminal_state: last_terminal_state,

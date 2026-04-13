@@ -39,11 +39,14 @@ module Workflows
 
         agent_task_run = AgentTaskRun.create!(
           installation: workflow_run.installation,
+          user: workflow_run.user,
+          workspace: workflow_run.workspace,
           agent: turn.agent_definition_version.agent,
           workflow_run: workflow_run,
           workflow_node: successor_node,
           conversation: workflow_run.conversation,
           turn: turn,
+          execution_runtime: workflow_run.execution_runtime,
           kind: successor_task_kind(successor_node),
           lifecycle_state: "queued",
           logical_work_id: successor_logical_work_id(turn, successor_node),

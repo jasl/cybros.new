@@ -78,6 +78,9 @@ module EmbeddedAgents
       def create_user_message(snapshot)
         @conversation_supervision_session.conversation_supervision_messages.create!(
           installation: @conversation_supervision_session.installation,
+          user: @conversation_supervision_session.user,
+          workspace: @conversation_supervision_session.workspace,
+          agent: @conversation_supervision_session.agent,
           target_conversation: @conversation_supervision_session.target_conversation,
           conversation_supervision_snapshot: snapshot,
           role: "user",
@@ -111,6 +114,9 @@ module EmbeddedAgents
       def create_supervisor_message(snapshot, responder_output)
         @conversation_supervision_session.conversation_supervision_messages.create!(
           installation: @conversation_supervision_session.installation,
+          user: @conversation_supervision_session.user,
+          workspace: @conversation_supervision_session.workspace,
+          agent: @conversation_supervision_session.agent,
           target_conversation: @conversation_supervision_session.target_conversation,
           conversation_supervision_snapshot: snapshot,
           role: "supervisor_agent",

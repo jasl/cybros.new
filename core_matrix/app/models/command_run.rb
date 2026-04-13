@@ -13,7 +13,13 @@ class CommandRun < ApplicationRecord
     validate: true
 
   belongs_to :installation
+  belongs_to :user
+  belongs_to :workspace
+  belongs_to :agent
   belongs_to :agent_task_run, optional: true
+  belongs_to :conversation
+  belongs_to :turn
+  belongs_to :workflow_run
   belongs_to :workflow_node, optional: true
   belongs_to :tool_invocation
 
@@ -22,10 +28,17 @@ class CommandRun < ApplicationRecord
   validates :command_line, presence: true
   validate :metadata_must_be_hash
   validate :execution_subject_present
+  validate :user_installation_match
+  validate :workspace_installation_match
+  validate :agent_installation_match
   validate :installation_matches_task
+  validate :installation_matches_conversation
+  validate :installation_matches_turn
+  validate :installation_matches_workflow_run
   validate :installation_matches_workflow_node
   validate :installation_matches_tool_invocation
   validate :tool_invocation_matches_execution_subject
+  validate :tool_invocation_context_alignment
   validate :tool_invocation_tool_name
   validate :lifecycle_timestamps
 
@@ -45,10 +58,46 @@ class CommandRun < ApplicationRecord
     errors.add(:metadata, "must be a hash") unless metadata.is_a?(Hash)
   end
 
+  def user_installation_match
+    return if user.blank? || user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
+  def workspace_installation_match
+    return if workspace.blank? || workspace.installation_id == installation_id
+
+    errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def agent_installation_match
+    return if agent.blank? || agent.installation_id == installation_id
+
+    errors.add(:agent, "must belong to the same installation")
+  end
+
   def installation_matches_task
     return if agent_task_run.blank? || agent_task_run.installation_id == installation_id
 
     errors.add(:installation, "must match the task installation")
+  end
+
+  def installation_matches_conversation
+    return if conversation.blank? || conversation.installation_id == installation_id
+
+    errors.add(:installation, "must match the conversation installation")
+  end
+
+  def installation_matches_turn
+    return if turn.blank? || turn.installation_id == installation_id
+
+    errors.add(:installation, "must match the turn installation")
+  end
+
+  def installation_matches_workflow_run
+    return if workflow_run.blank? || workflow_run.installation_id == installation_id
+
+    errors.add(:installation, "must match the workflow run installation")
   end
 
   def installation_matches_workflow_node
@@ -73,6 +122,17 @@ class CommandRun < ApplicationRecord
     if tool_invocation.workflow_node_id != workflow_node_id
       errors.add(:workflow_node, "must match the tool invocation workflow node")
     end
+  end
+
+  def tool_invocation_context_alignment
+    return if tool_invocation.blank?
+
+    errors.add(:user, "must match the tool invocation user") if user.present? && tool_invocation.user_id != user_id
+    errors.add(:workspace, "must match the tool invocation workspace") if workspace.present? && tool_invocation.workspace_id != workspace_id
+    errors.add(:agent, "must match the tool invocation agent") if agent.present? && tool_invocation.agent_id != agent_id
+    errors.add(:conversation, "must match the tool invocation conversation") if conversation.present? && tool_invocation.conversation_id != conversation_id
+    errors.add(:turn, "must match the tool invocation turn") if turn.present? && tool_invocation.turn_id != turn_id
+    errors.add(:workflow_run, "must match the tool invocation workflow run") if workflow_run.present? && tool_invocation.workflow_run_id != workflow_run_id
   end
 
   def tool_invocation_tool_name

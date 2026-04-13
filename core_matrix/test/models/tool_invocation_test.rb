@@ -14,7 +14,13 @@ class ToolInvocationTest < ActiveSupport::TestCase
 
     invocation = ToolInvocation.new(
       installation: context.fetch(:workflow_node).installation,
+      user: context.fetch(:workflow_node).user,
+      workspace: context.fetch(:workflow_node).workspace,
+      agent: context.fetch(:workflow_node).agent,
       workflow_node: context.fetch(:workflow_node),
+      conversation: context.fetch(:workflow_node).conversation,
+      turn: context.fetch(:workflow_node).turn,
+      workflow_run: context.fetch(:workflow_node).workflow_run,
       tool_binding: binding,
       tool_definition: binding.tool_definition,
       tool_implementation: binding.tool_implementation,
@@ -51,7 +57,13 @@ class ToolInvocationTest < ActiveSupport::TestCase
 
     invalid_invocation = ToolInvocation.new(
       installation: task_run.installation,
+      user: task_run.user,
+      workspace: task_run.workspace,
+      agent: task_run.agent,
       agent_task_run: task_run,
+      conversation: task_run.conversation,
+      turn: task_run.turn,
+      workflow_run: task_run.workflow_run,
       tool_binding: binding,
       tool_definition: definition,
       tool_implementation: definition.tool_implementations.create!(
@@ -95,5 +107,42 @@ class ToolInvocationTest < ActiveSupport::TestCase
 
     assert_not invocation.valid?
     assert_includes invocation.errors[:finished_at], "must exist when the invocation is terminal"
+  end
+
+  test "requires duplicated owner context to match the execution subject" do
+    context = build_governed_tool_context!
+    ToolBindings::ProjectCapabilitySnapshot.call(
+      agent_definition_version: context.fetch(:agent_definition_version),
+      execution_runtime: context.fetch(:execution_runtime)
+    )
+    task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
+    binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definitions: { tool_name: "compact_context" })
+    foreign = create_workspace_context!
+
+    invocation = ToolInvocation.new(
+      installation: task_run.installation,
+      agent_task_run: task_run,
+      workflow_node: task_run.workflow_node,
+      tool_binding: binding,
+      tool_definition: binding.tool_definition,
+      tool_implementation: binding.tool_implementation,
+      user_id: foreign[:user].id,
+      workspace_id: foreign[:workspace].id,
+      agent_id: foreign[:agent].id,
+      conversation_id: task_run.conversation_id,
+      turn_id: task_run.turn_id,
+      workflow_run_id: task_run.workflow_run_id,
+      status: "running",
+      request_payload: {},
+      response_payload: {},
+      error_payload: {},
+      attempt_no: 1,
+      started_at: Time.current
+    )
+
+    assert_not invocation.valid?
+    assert_includes invocation.errors[:user], "must match the execution subject user"
+    assert_includes invocation.errors[:workspace], "must match the execution subject workspace"
+    assert_includes invocation.errors[:agent], "must match the execution subject agent"
   end
 end

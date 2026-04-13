@@ -106,6 +106,9 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
       installation: context[:installation],
       conversation: child_conversation,
       owner_conversation: owner_conversation,
+      user: child_conversation.user,
+      workspace: child_conversation.workspace,
+      agent: child_conversation.agent,
       scope: "conversation",
       profile_key: profile_key,
       depth: 0

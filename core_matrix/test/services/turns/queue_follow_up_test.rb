@@ -143,6 +143,9 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       installation: context[:installation],
       conversation: child_conversation,
       owner_conversation: root_conversation,
+      user: child_conversation.user,
+      workspace: child_conversation.workspace,
+      agent: child_conversation.agent,
       scope: "conversation",
       profile_key: "researcher",
       depth: 0

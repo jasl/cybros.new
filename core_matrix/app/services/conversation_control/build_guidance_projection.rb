@@ -42,6 +42,9 @@ module ConversationControl
       if subagent_connection.present?
         ConversationControlRequest.where(
           installation_id: conversation.installation_id,
+          user_id: conversation.user_id,
+          workspace_id: conversation.workspace_id,
+          agent_id: conversation.agent_id,
           request_kind: "send_guidance_to_subagent",
           lifecycle_state: "completed",
           target_kind: "subagent_connection",
@@ -50,6 +53,9 @@ module ConversationControl
       else
         ConversationControlRequest.where(
           installation_id: conversation.installation_id,
+          user_id: conversation.user_id,
+          workspace_id: conversation.workspace_id,
+          agent_id: conversation.agent_id,
           request_kind: "send_guidance_to_active_agent",
           lifecycle_state: "completed",
           target_kind: "conversation",

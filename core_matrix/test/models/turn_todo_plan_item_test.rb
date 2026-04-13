@@ -79,6 +79,9 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
       installation: fixture.fetch(:installation),
       owner_conversation: unrelated_owner,
       conversation: unrelated_child,
+      user: unrelated_child.user,
+      workspace: unrelated_child.workspace,
+      agent: unrelated_child.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 0
@@ -118,6 +121,9 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
       installation: context.fetch(:installation),
       owner_conversation: context.fetch(:conversation),
       conversation: child_conversation,
+      user: child_conversation.user,
+      workspace: child_conversation.workspace,
+      agent: child_conversation.agent,
       scope: "conversation",
       profile_key: "worker",
       depth: 0

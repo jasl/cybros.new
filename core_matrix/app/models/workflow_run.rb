@@ -53,8 +53,12 @@ class WorkflowRun < ApplicationRecord
     validate: { allow_nil: true }
 
   belongs_to :installation
+  belongs_to :user
+  belongs_to :workspace
+  belongs_to :agent
   belongs_to :conversation
   belongs_to :turn
+  belongs_to :execution_runtime, class_name: "ExecutionRuntime", optional: true
   belongs_to :wait_snapshot_document, class_name: "JsonDocument", optional: true
 
   has_many :workflow_nodes, dependent: :restrict_with_exception
@@ -66,7 +70,6 @@ class WorkflowRun < ApplicationRecord
   has_many :execution_leases, dependent: :restrict_with_exception
 
   delegate :execution_snapshot, to: :turn, allow_nil: true
-  delegate :workspace, to: :conversation, allow_nil: true
   delegate :normalized_selector,
     :resolved_provider_handle,
     :resolved_model_ref,
@@ -93,10 +96,6 @@ class WorkflowRun < ApplicationRecord
     execution_snapshot&.identity
   end
 
-  def workspace_id
-    workspace&.id
-  end
-
   def feature_policy_snapshot
     turn&.feature_policy_snapshot || {}
   end
@@ -107,8 +106,15 @@ class WorkflowRun < ApplicationRecord
 
   validate :wait_reason_payload_must_be_hash
   validate :conversation_installation_match
+  validate :user_installation_match
+  validate :workspace_installation_match
+  validate :agent_installation_match
   validate :turn_installation_match
+  validate :execution_runtime_installation_match
   validate :turn_conversation_match
+  validate :conversation_owner_context_match
+  validate :turn_owner_context_match
+  validate :turn_execution_runtime_match
   validate :one_active_workflow_per_conversation
   validate :wait_state_consistency
   validate :cancellation_request_pairing
@@ -237,6 +243,27 @@ class WorkflowRun < ApplicationRecord
     errors.add(:conversation, "must belong to the same installation")
   end
 
+  def user_installation_match
+    return if user.blank?
+    return if user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
+  def workspace_installation_match
+    return if workspace.blank?
+    return if workspace.installation_id == installation_id
+
+    errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
+
+    errors.add(:agent, "must belong to the same installation")
+  end
+
   def turn_installation_match
     return if turn.blank?
     return if turn.installation_id == installation_id
@@ -244,11 +271,41 @@ class WorkflowRun < ApplicationRecord
     errors.add(:turn, "must belong to the same installation")
   end
 
+  def execution_runtime_installation_match
+    return if execution_runtime.blank?
+    return if execution_runtime.installation_id == installation_id
+
+    errors.add(:execution_runtime, "must belong to the same installation")
+  end
+
   def turn_conversation_match
     return if turn.blank? || conversation.blank?
     return if turn.conversation_id == conversation_id
 
     errors.add(:conversation, "must match the turn conversation")
+  end
+
+  def conversation_owner_context_match
+    return if conversation.blank?
+
+    errors.add(:user, "must match the conversation user") if user.present? && conversation.user_id != user_id
+    errors.add(:workspace, "must match the conversation workspace") if workspace.present? && conversation.workspace_id != workspace_id
+    errors.add(:agent, "must match the conversation agent") if agent.present? && conversation.agent_id != agent_id
+  end
+
+  def turn_owner_context_match
+    return if turn.blank?
+
+    errors.add(:user, "must match the turn user") if user.present? && turn.user_id != user_id
+    errors.add(:workspace, "must match the turn workspace") if workspace.present? && turn.workspace_id != workspace_id
+    errors.add(:agent, "must match the turn agent") if agent.present? && turn.agent_id != agent_id
+  end
+
+  def turn_execution_runtime_match
+    return if turn.blank? || execution_runtime.blank?
+    return if turn.execution_runtime_id == execution_runtime_id
+
+    errors.add(:execution_runtime, "must match the turn execution runtime")
   end
 
   def one_active_workflow_per_conversation

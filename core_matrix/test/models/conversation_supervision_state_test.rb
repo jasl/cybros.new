@@ -13,6 +13,9 @@ class ConversationSupervisionStateTest < ActiveSupport::TestCase
     state = ConversationSupervisionState.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       overall_state: "idle",
       board_lane: "idle",
       lane_changed_at: Time.current,
@@ -62,6 +65,9 @@ class ConversationSupervisionStateTest < ActiveSupport::TestCase
     ConversationSupervisionState.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       overall_state: "running",
       last_progress_at: Time.current,
       status_payload: {}
@@ -70,6 +76,9 @@ class ConversationSupervisionStateTest < ActiveSupport::TestCase
     duplicate = ConversationSupervisionState.new(
       installation: context[:installation],
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       overall_state: "idle",
       board_lane: "idle",
       waiting_summary: "Waiting on review",
@@ -85,6 +94,9 @@ class ConversationSupervisionStateTest < ActiveSupport::TestCase
     mismatched = ConversationSupervisionState.new(
       installation: other_installation,
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       overall_state: "idle",
       board_lane: "idle",
       last_progress_at: Time.current,
@@ -94,6 +106,35 @@ class ConversationSupervisionStateTest < ActiveSupport::TestCase
 
     assert_not mismatched.valid?
     assert_includes mismatched.errors[:target_conversation], "must belong to the same installation"
+  end
+
+  test "requires duplicated owner context to match the target conversation" do
+    context = create_workspace_context!
+    conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      installation: context[:installation],
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
+    )
+    foreign = create_workspace_context!
+
+    state = ConversationSupervisionState.new(
+      installation: context[:installation],
+      target_conversation: conversation,
+      user_id: foreign[:user].id,
+      workspace_id: foreign[:workspace].id,
+      agent_id: foreign[:agent].id,
+      overall_state: "idle",
+      board_lane: "idle",
+      last_progress_at: Time.current,
+      board_badges: [],
+      status_payload: {}
+    )
+
+    assert_not state.valid?
+    assert_includes state.errors[:user], "must match the target conversation user"
+    assert_includes state.errors[:workspace], "must match the target conversation workspace"
+    assert_includes state.errors[:agent], "must match the target conversation agent"
   end
 
   private

@@ -11,6 +11,7 @@ class TurnTest < ActiveSupport::TestCase
     conversation = Conversation.create!(
       installation: installation,
       workspace: workspace,
+      user: user,
       agent: agent,
       kind: "root",
       purpose: "interactive",
@@ -19,6 +20,9 @@ class TurnTest < ActiveSupport::TestCase
     turn = Turn.create!(
       installation: installation,
       conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       agent_definition_version: agent_definition_version,
       sequence: 1,
       lifecycle_state: "active",
@@ -45,6 +49,7 @@ class TurnTest < ActiveSupport::TestCase
     conversation = Conversation.create!(
       installation: installation,
       workspace: workspace,
+      user: user,
       agent: agent,
       kind: "root",
       purpose: "interactive",
@@ -54,6 +59,9 @@ class TurnTest < ActiveSupport::TestCase
     Turn.create!(
       installation: installation,
       conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       agent_definition_version: agent_definition_version,
       sequence: 1,
       lifecycle_state: "active",
@@ -69,6 +77,9 @@ class TurnTest < ActiveSupport::TestCase
     duplicate = Turn.new(
       installation: installation,
       conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       agent_definition_version: agent_definition_version,
       sequence: 1,
       lifecycle_state: "queued",
@@ -95,6 +106,7 @@ class TurnTest < ActiveSupport::TestCase
     conversation = Conversation.create!(
       installation: installation,
       workspace: workspace,
+      user: user,
       agent: agent,
       kind: "root",
       purpose: "interactive",
@@ -103,6 +115,9 @@ class TurnTest < ActiveSupport::TestCase
     turn = Turn.new(
       installation: installation,
       conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       agent_definition_version: agent_definition_version,
       execution_runtime: nil,
       execution_runtime_version: nil,
@@ -134,6 +149,7 @@ class TurnTest < ActiveSupport::TestCase
     conversation = Conversation.create!(
       installation: installation,
       workspace: workspace,
+      user: user,
       agent: agent,
       kind: "root",
       purpose: "interactive",
@@ -143,6 +159,9 @@ class TurnTest < ActiveSupport::TestCase
     turn = Turn.new(
       installation: installation,
       conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       agent_definition_version: agent_definition_version,
       sequence: 1,
       lifecycle_state: "waiting",
@@ -170,6 +189,7 @@ class TurnTest < ActiveSupport::TestCase
     conversation = Conversation.create!(
       installation: installation,
       workspace: workspace,
+      user: user,
       agent: agent,
       kind: "root",
       purpose: "interactive",
@@ -179,6 +199,9 @@ class TurnTest < ActiveSupport::TestCase
     turn = Turn.new(
       installation: installation,
       conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
       agent_definition_version: agent_definition_version,
       sequence: 1,
       lifecycle_state: "active",

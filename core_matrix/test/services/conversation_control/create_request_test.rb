@@ -21,6 +21,12 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
         assert_equal "dispatched", request.lifecycle_state
         assert_equal "conversation", request.target_kind
         assert_equal fixture.fetch(:conversation).public_id, request.target_public_id
+        assert_predicate fixture.fetch(:conversation).user_id, :present?
+        assert_predicate fixture.fetch(:conversation).workspace_id, :present?
+        assert_predicate fixture.fetch(:conversation).agent_id, :present?
+        assert_equal fixture.fetch(:conversation).user_id, request.user_id
+        assert_equal fixture.fetch(:conversation).workspace_id, request.workspace_id
+        assert_equal fixture.fetch(:conversation).agent_id, request.agent_id
         assert_equal "supervision_status_refresh", mailbox_item.payload.fetch("request_kind")
         assert_equal request.public_id, mailbox_item.payload.dig("conversation_control", "conversation_control_request_id")
       end
@@ -46,6 +52,12 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
         assert_equal "dispatched", request.lifecycle_state
         assert_equal "subagent_connection", request.target_kind
         assert_equal fixture.fetch(:subagent_connection).public_id, request.target_public_id
+        assert_predicate fixture.fetch(:conversation).user_id, :present?
+        assert_predicate fixture.fetch(:conversation).workspace_id, :present?
+        assert_predicate fixture.fetch(:conversation).agent_id, :present?
+        assert_equal fixture.fetch(:conversation).user_id, request.user_id
+        assert_equal fixture.fetch(:conversation).workspace_id, request.workspace_id
+        assert_equal fixture.fetch(:conversation).agent_id, request.agent_id
       end
     end
   end
@@ -82,6 +94,9 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
     session = ConversationSupervisionSession.create!(
       installation: context.fetch(:installation),
       target_conversation: context.fetch(:conversation),
+      user: context.fetch(:conversation).user,
+      workspace: context.fetch(:conversation).workspace,
+      agent: context.fetch(:conversation).agent,
       initiator: context.fetch(:user),
       lifecycle_state: "open",
       responder_strategy: "builtin",
@@ -134,6 +149,9 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
     session = ConversationSupervisionSession.create!(
       installation: context.fetch(:installation),
       target_conversation: context.fetch(:conversation),
+      user: context.fetch(:conversation).user,
+      workspace: context.fetch(:conversation).workspace,
+      agent: context.fetch(:conversation).agent,
       initiator: context.fetch(:user),
       lifecycle_state: "open",
       responder_strategy: "builtin",

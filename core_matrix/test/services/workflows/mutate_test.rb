@@ -60,6 +60,10 @@ class Workflows::MutateTest < ActiveSupport::TestCase
     assert_equal workflow_run.id, second_mutation.id
     assert_equal %w[root llm tool review], workflow_run.reload.workflow_nodes.order(:ordinal).pluck(:node_key)
     assert_equal [0, 1], workflow_run.workflow_edges.where(from_node: workflow_run.workflow_nodes.find_by!(node_key: "root")).order(:ordinal).pluck(:ordinal)
+    appended_nodes = workflow_run.workflow_nodes.where(node_key: %w[llm tool review])
+    assert_equal [workflow_run.user_id], appended_nodes.distinct.pluck(:user_id)
+    assert_equal [workflow_run.workspace_id], appended_nodes.distinct.pluck(:workspace_id)
+    assert_equal [workflow_run.agent_id], appended_nodes.distinct.pluck(:agent_id)
   end
 
   test "rejects mutations that would introduce a cycle" do

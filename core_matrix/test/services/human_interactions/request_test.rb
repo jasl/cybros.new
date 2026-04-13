@@ -131,6 +131,9 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     assert_instance_of ApprovalRequest, request
     assert request.open?
     assert_equal context[:workflow_run], request.workflow_run
+    assert_equal context[:conversation].user_id, request.user_id
+    assert_equal context[:conversation].workspace_id, request.workspace_id
+    assert_equal context[:conversation].agent_id, request.agent_id
 
     workflow_run = context[:workflow_run].reload
     assert workflow_run.waiting?

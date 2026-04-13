@@ -80,6 +80,10 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     assert_equal "succeeded", invocation.status
     assert_nil invocation.agent_task_run
     assert_equal context.fetch(:workflow_node), invocation.workflow_node
+    assert_equal context.fetch(:workflow_run).user_id, invocation.user_id
+    assert_equal context.fetch(:workflow_run).workspace_id, invocation.workspace_id
+    assert_equal context.fetch(:workflow_run).agent_id, invocation.agent_id
+    assert_equal context.fetch(:workflow_run).id, invocation.workflow_run_id
   end
 
   test "stores structured execution facts and trace payload outside metadata" do

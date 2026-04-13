@@ -46,7 +46,9 @@ class WorkflowNode < ApplicationRecord
 
   belongs_to :installation
   belongs_to :workflow_run
+  belongs_to :user
   belongs_to :workspace
+  belongs_to :agent
   belongs_to :conversation
   belongs_to :turn
   belongs_to :yielding_workflow_node, class_name: "WorkflowNode", optional: true
@@ -78,8 +80,6 @@ class WorkflowNode < ApplicationRecord
     dependent: :nullify,
     inverse_of: :yielding_workflow_node
 
-  before_validation :default_projection_fields_from_workflow_run
-
   validates :node_key, presence: true, uniqueness: { scope: :workflow_run_id }
   validates :node_type, presence: true
   validates :ordinal,
@@ -92,7 +92,9 @@ class WorkflowNode < ApplicationRecord
     numericality: { only_integer: true, greater_than_or_equal_to: 0 },
     allow_nil: true
   validate :workflow_run_installation_match
+  validate :user_installation_match
   validate :workspace_installation_match
+  validate :agent_installation_match
   validate :conversation_installation_match
   validate :turn_installation_match
   validate :tool_call_document_installation_match
@@ -144,14 +146,6 @@ class WorkflowNode < ApplicationRecord
 
   private
 
-  def default_projection_fields_from_workflow_run
-    return if workflow_run.blank?
-
-    self.workspace ||= workflow_run.workspace
-    self.conversation ||= workflow_run.conversation
-    self.turn ||= workflow_run.turn
-  end
-
   def workflow_run_installation_match
     return if workflow_run.blank?
     return if workflow_run.installation_id == installation_id
@@ -159,11 +153,25 @@ class WorkflowNode < ApplicationRecord
     errors.add(:workflow_run, "must belong to the same installation")
   end
 
+  def user_installation_match
+    return if user.blank?
+    return if user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
   def workspace_installation_match
     return if workspace.blank?
     return if workspace.installation_id == installation_id
 
     errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
+
+    errors.add(:agent, "must belong to the same installation")
   end
 
   def conversation_installation_match
@@ -204,8 +212,14 @@ class WorkflowNode < ApplicationRecord
   def workflow_projection_match
     return if workflow_run.blank?
 
+    if user.present? && workflow_run.user_id != user_id
+      errors.add(:user, "must match the workflow run user")
+    end
     if workspace.present? && workflow_run.workspace_id != workspace_id
       errors.add(:workspace, "must match the workflow run workspace")
+    end
+    if agent.present? && workflow_run.agent_id != agent_id
+      errors.add(:agent, "must match the workflow run agent")
     end
     if conversation.present? && workflow_run.conversation_id != conversation_id
       errors.add(:conversation, "must match the workflow run conversation")

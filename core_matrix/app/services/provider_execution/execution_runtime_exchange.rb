@@ -137,11 +137,14 @@ module ProviderExecution
 
       agent_task_run = AgentTaskRun.create!(
         installation: workflow_node.installation,
+        user: workflow_node.user,
+        workspace: workflow_node.workspace,
         agent: workflow_node.turn.agent_definition_version.agent,
         workflow_run: workflow_node.workflow_run,
         workflow_node: workflow_node,
         conversation: workflow_node.conversation,
         turn: workflow_node.turn,
+        execution_runtime: workflow_node.workflow_run.execution_runtime,
         kind: "agent_tool_call",
         lifecycle_state: "queued",
         logical_work_id: logical_work_id,

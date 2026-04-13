@@ -21,7 +21,13 @@ module CommandRuns
 
         command_run = CommandRun.create!(
           installation: @tool_invocation.installation,
+          user: @tool_invocation.user,
+          workspace: @tool_invocation.workspace,
+          agent: @tool_invocation.agent,
           agent_task_run: @tool_invocation.agent_task_run,
+          conversation: @tool_invocation.conversation,
+          turn: @tool_invocation.turn,
+          workflow_run: @tool_invocation.workflow_run,
           workflow_node: @tool_invocation.workflow_node,
           tool_invocation: @tool_invocation,
           lifecycle_state: "starting",

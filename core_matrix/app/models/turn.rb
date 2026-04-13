@@ -31,6 +31,9 @@ class Turn < ApplicationRecord
 
   belongs_to :installation
   belongs_to :conversation
+  belongs_to :user
+  belongs_to :workspace
+  belongs_to :agent
   belongs_to :agent_definition_version
   belongs_to :execution_epoch, class_name: "ConversationExecutionEpoch"
   belongs_to :execution_runtime, class_name: "ExecutionRuntime", optional: true
@@ -58,12 +61,18 @@ class Turn < ApplicationRecord
   validate :resolved_config_snapshot_must_be_hash
   validate :resolved_model_selection_snapshot_must_be_hash
   validate :conversation_installation_match
+  validate :user_installation_match
+  validate :workspace_installation_match
+  validate :agent_installation_match
   validate :agent_definition_version_installation_match
   validate :execution_epoch_installation_match
   validate :execution_epoch_conversation_match
   validate :execution_runtime_installation_match
   validate :execution_runtime_version_installation_match
   validate :execution_runtime_epoch_match
+  validate :conversation_user_match
+  validate :conversation_workspace_match
+  validate :conversation_agent_match
   validate :execution_runtime_version_runtime_match
   validate :agent_definition_version_conversation_match
   validate :selected_input_message_rules
@@ -159,6 +168,27 @@ class Turn < ApplicationRecord
     errors.add(:agent_definition_version, "must belong to the same installation")
   end
 
+  def user_installation_match
+    return if user.blank?
+    return if user.installation_id == installation_id
+
+    errors.add(:user, "must belong to the same installation")
+  end
+
+  def workspace_installation_match
+    return if workspace.blank?
+    return if workspace.installation_id == installation_id
+
+    errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
+
+    errors.add(:agent, "must belong to the same installation")
+  end
+
   def execution_epoch_installation_match
     return if execution_epoch.blank?
     return if execution_epoch.installation_id == installation_id
@@ -199,6 +229,27 @@ class Turn < ApplicationRecord
     return if execution_epoch.execution_runtime_id == execution_runtime_id
 
     errors.add(:execution_runtime, "must match the execution epoch runtime")
+  end
+
+  def conversation_user_match
+    return if conversation.blank? || user.blank?
+    return if conversation.user_id == user_id
+
+    errors.add(:user, "must match the conversation owner")
+  end
+
+  def conversation_workspace_match
+    return if conversation.blank? || workspace.blank?
+    return if conversation.workspace_id == workspace_id
+
+    errors.add(:workspace, "must match the conversation workspace")
+  end
+
+  def conversation_agent_match
+    return if conversation.blank? || agent.blank?
+    return if conversation.agent_id == agent_id
+
+    errors.add(:agent, "must match the conversation agent")
   end
 
   def agent_definition_version_conversation_match

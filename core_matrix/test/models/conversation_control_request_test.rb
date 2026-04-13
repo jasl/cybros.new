@@ -12,6 +12,9 @@ class ConversationControlRequestTest < ActiveSupport::TestCase
     session = ConversationSupervisionSession.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
       initiator: context[:user],
       lifecycle_state: "open",
       responder_strategy: "builtin",
@@ -23,6 +26,12 @@ class ConversationControlRequestTest < ActiveSupport::TestCase
       installation: context[:installation],
       conversation_supervision_session: session,
       target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
       request_kind: "request_turn_interrupt",
       target_kind: "conversation",
       target_public_id: conversation.public_id,
@@ -58,6 +67,9 @@ class ConversationControlRequestTest < ActiveSupport::TestCase
     session = ConversationSupervisionSession.create!(
       installation: context[:installation],
       target_conversation: conversation,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
       initiator: context[:user],
       lifecycle_state: "open",
       responder_strategy: "builtin",
@@ -79,6 +91,49 @@ class ConversationControlRequestTest < ActiveSupport::TestCase
 
     assert_not request.valid?
     assert_includes request.errors[:target_conversation], "must match the supervision session target conversation"
+  end
+
+  test "requires duplicated owner context to match the target conversation" do
+    context = create_workspace_context!
+    conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      installation: context[:installation],
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
+    )
+    session = ConversationSupervisionSession.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      user_id: conversation.user_id,
+      workspace_id: conversation.workspace_id,
+      agent_id: conversation.agent_id,
+      initiator: context[:user],
+      lifecycle_state: "open",
+      responder_strategy: "builtin",
+      capability_policy_snapshot: {},
+      last_snapshot_at: Time.current
+    )
+    foreign = create_workspace_context!
+
+    request = ConversationControlRequest.new(
+      installation: context[:installation],
+      conversation_supervision_session: session,
+      target_conversation: conversation,
+      user_id: foreign[:user].id,
+      workspace_id: foreign[:workspace].id,
+      agent_id: foreign[:agent].id,
+      request_kind: "request_status_refresh",
+      target_kind: "conversation",
+      target_public_id: conversation.public_id,
+      lifecycle_state: "queued",
+      request_payload: {},
+      result_payload: {}
+    )
+
+    assert_not request.valid?
+    assert_includes request.errors[:user], "must match the target conversation user"
+    assert_includes request.errors[:workspace], "must match the target conversation workspace"
+    assert_includes request.errors[:agent], "must match the target conversation agent"
   end
 
   test "has guidance projection indexes for conversation and subagent targets" do

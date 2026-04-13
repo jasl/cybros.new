@@ -29,6 +29,9 @@ class ExecutionProfileFact < ApplicationRecord
   belongs_to :installation
   belongs_to :user, optional: true
   belongs_to :workspace, optional: true
+  belongs_to :agent, optional: true
+  belongs_to :execution_runtime, optional: true
+  belongs_to :workflow_run, optional: true
 
   validates :fact_key, presence: true
   validates :occurred_at, presence: true
@@ -42,6 +45,10 @@ class ExecutionProfileFact < ApplicationRecord
   validate :provider_request_metadata_compact
   validate :user_installation_match
   validate :workspace_installation_match
+  validate :agent_installation_match
+  validate :execution_runtime_installation_match
+  validate :workflow_run_installation_match
+  validate :workflow_run_runtime_context_match
 
   private
 
@@ -71,5 +78,37 @@ class ExecutionProfileFact < ApplicationRecord
     return if workspace.installation_id == installation_id
 
     errors.add(:workspace, "must belong to the same installation")
+  end
+
+  def agent_installation_match
+    return if agent.blank?
+    return if agent.installation_id == installation_id
+
+    errors.add(:agent, "must belong to the same installation")
+  end
+
+  def execution_runtime_installation_match
+    return if execution_runtime.blank?
+    return if execution_runtime.installation_id == installation_id
+
+    errors.add(:execution_runtime, "must belong to the same installation")
+  end
+
+  def workflow_run_installation_match
+    return if workflow_run.blank?
+    return if workflow_run.installation_id == installation_id
+
+    errors.add(:workflow_run, "must belong to the same installation")
+  end
+
+  def workflow_run_runtime_context_match
+    return if workflow_run.blank?
+
+    errors.add(:user, "must match the workflow run user") if user.present? && workflow_run.user_id != user_id
+    errors.add(:workspace, "must match the workflow run workspace") if workspace.present? && workflow_run.workspace_id != workspace_id
+    errors.add(:agent, "must match the workflow run agent") if agent.present? && workflow_run.agent_id != agent_id
+    if execution_runtime.present? && workflow_run.execution_runtime_id != execution_runtime_id
+      errors.add(:execution_runtime, "must match the workflow run execution runtime")
+    end
   end
 end

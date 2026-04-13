@@ -35,14 +35,23 @@ module Workflows
 
         workflow_run = WorkflowRun.create!(
           installation: @turn.installation,
+          user: @turn.user,
+          workspace: @turn.workspace,
+          agent: @turn.agent,
           conversation: @turn.conversation,
           turn: @turn,
+          execution_runtime: @turn.execution_runtime,
           lifecycle_state: "active"
         )
 
         workflow_node = WorkflowNode.create!(
           installation: workflow_run.installation,
           workflow_run: workflow_run,
+          user: workflow_run.user,
+          workspace: workflow_run.workspace,
+          agent: workflow_run.agent,
+          conversation: workflow_run.conversation,
+          turn: workflow_run.turn,
           ordinal: 0,
           node_key: @root_node_key,
           node_type: @root_node_type,
@@ -66,11 +75,14 @@ module Workflows
 
       agent_task_run = AgentTaskRun.create!(
         installation: @turn.installation,
+        user: workflow_run.user,
+        workspace: workflow_run.workspace,
         agent: @turn.agent_definition_version.agent,
         workflow_run: workflow_run,
         workflow_node: workflow_node,
         conversation: @turn.conversation,
         turn: @turn,
+        execution_runtime: workflow_run.execution_runtime,
         kind: @initial_kind,
         lifecycle_state: "queued",
         logical_work_id: logical_work_id,

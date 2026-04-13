@@ -6,10 +6,11 @@ module AgentControl
       new(...).call
     end
 
-    def initialize(agent_definition_version:, agent_connection: nil, execution_runtime_connection: nil, method_id:, payload:, occurred_at: Time.current)
+    def initialize(agent_definition_version:, agent_connection: nil, execution_runtime_connection: nil, agent_task_run: nil, method_id:, payload:, occurred_at: Time.current)
       @agent_definition_version = agent_definition_version
       @agent_connection = agent_connection
       @execution_runtime_connection = execution_runtime_connection
+      @agent_task_run = agent_task_run
       @method_id = method_id
       @payload = payload
       @occurred_at = occurred_at
@@ -332,7 +333,22 @@ module AgentControl
     end
 
     def agent_task_run
-      @agent_task_run ||= AgentTaskRun.find_by!(
+      @agent_task_run ||= AgentTaskRun
+        .includes(
+          {
+            conversation: %i[installation user workspace agent],
+          },
+          :turn,
+          :execution_runtime,
+          :execution_lease,
+          :user,
+          :workspace,
+          :agent,
+          { workflow_node: %i[workflow_run user workspace agent conversation turn] },
+          { workflow_run: %i[conversation turn user workspace agent] },
+          { subagent_connection: :owner_conversation }
+        )
+        .find_by!(
         installation_id: @agent_definition_version.installation_id,
         public_id: @payload.fetch("agent_task_run_id")
       )

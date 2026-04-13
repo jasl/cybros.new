@@ -25,6 +25,9 @@ class CommandRunsTerminalizeTest < ActiveSupport::TestCase
 
     assert_nil command_run.agent_task_run
     assert_equal context.fetch(:workflow_node), command_run.workflow_node
+    assert_equal context.fetch(:workflow_run).user_id, command_run.user_id
+    assert_equal context.fetch(:workflow_run).workspace_id, command_run.workspace_id
+    assert_equal context.fetch(:workflow_run).agent_id, command_run.agent_id
   end
 
   test "does not let a stale command run instance overwrite an existing terminal state" do

@@ -25,6 +25,9 @@ module EmbeddedAgents
         ConversationSupervisionSession.create!(
           installation: conversation.installation,
           target_conversation: conversation,
+          user: conversation.user,
+          workspace: conversation.workspace,
+          agent: conversation.agent,
           initiator: @actor,
           lifecycle_state: "open",
           responder_strategy: @responder_strategy,
