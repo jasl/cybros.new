@@ -1,5 +1,8 @@
 # Conversation Bootstrap Slimming Implementation Plan
 
+> Superseded by `docs/plans/2026-04-13-conversation-bootstrap-phase-two-implementation.md`.
+> Keep this file as the narrower Phase A checkpoint only.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Remove conversation bootstrap work that is currently preallocated but

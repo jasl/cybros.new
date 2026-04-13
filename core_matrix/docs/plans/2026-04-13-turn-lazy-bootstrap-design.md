@@ -1,5 +1,8 @@
 # Turn Lazy Bootstrap Design
 
+> Superseded by `docs/plans/2026-04-13-conversation-bootstrap-phase-two-design.md`.
+> Keep this file as the narrower Phase B checkpoint only.
+
 ## Goal
 
 Slim down the synchronous API turn-entry path so `conversations#create` and

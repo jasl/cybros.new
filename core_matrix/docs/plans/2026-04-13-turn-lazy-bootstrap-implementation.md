@@ -1,5 +1,8 @@
 # Turn Lazy Bootstrap Implementation Plan
 
+> Superseded by `docs/plans/2026-04-13-conversation-bootstrap-phase-two-implementation.md`.
+> Keep this file as the narrower Phase B checkpoint only.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Move workflow substrate creation out of the synchronous API turn-entry

@@ -1,5 +1,8 @@
 # Conversation Bootstrap Slimming Design
 
+> Superseded by `docs/plans/2026-04-13-conversation-bootstrap-phase-two-design.md`.
+> Keep this file as the narrower Phase A checkpoint only.
+
 ## Goal
 
 Slim down `Conversation` bootstrap and the related child-conversation bootstrap
