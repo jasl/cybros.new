@@ -192,4 +192,29 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  test "shows workspace policy within six SQL queries" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    session = create_session!(user: user)
+    runtime = create_execution_runtime!(installation: installation)
+    agent = create_agent!(
+      installation: installation,
+      key: "fenix",
+      default_execution_runtime: runtime
+    )
+    workspace = create_workspace!(
+      installation: installation,
+      user: user,
+      agent: agent,
+      default_execution_runtime: runtime
+    )
+
+    assert_sql_query_count_at_most(6) do
+      get "/app_api/workspaces/#{workspace.public_id}/policy",
+        headers: app_api_headers(session.plaintext_token)
+    end
+
+    assert_response :success
+  end
 end

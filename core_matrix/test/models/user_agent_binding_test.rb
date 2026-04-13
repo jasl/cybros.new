@@ -49,7 +49,7 @@ class UserAgentBindingTest < ActiveSupport::TestCase
     assert_includes invalid_binding.errors[:user], "must own the private agent"
   end
 
-  test "resolves workspaces and default workspace through the workspace ownership boundary" do
+  test "shares the same workspace ownership boundary keys as workspaces" do
     installation = create_installation!
     user = create_user!(installation: installation)
     agent = create_agent!(installation: installation)
@@ -74,7 +74,13 @@ class UserAgentBindingTest < ActiveSupport::TestCase
       privacy: "private"
     )
 
-    assert_equal [default_workspace.id], binding.workspaces.where(is_default: true).pluck(:id)
-    assert_equal default_workspace, binding.default_workspace
+    scoped_workspaces = Workspace.where(
+      installation_id: binding.installation_id,
+      user_id: binding.user_id,
+      agent_id: binding.agent_id
+    )
+
+    assert_equal [default_workspace.id], scoped_workspaces.where(is_default: true).pluck(:id)
+    assert_equal default_workspace, scoped_workspaces.find_by(is_default: true)
   end
 end

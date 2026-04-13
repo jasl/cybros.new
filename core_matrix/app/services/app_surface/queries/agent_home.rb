@@ -13,10 +13,16 @@ module AppSurface
       end
 
       def call
+        workspaces = AppSurface::Queries::WorkspacesForAgent.call(user: @user, agent: @agent)
+
         Result.new(
           agent: @agent,
-          default_workspace_ref: Workspaces::ResolveDefaultReference.call(user: @user, agent: @agent),
-          workspaces: AppSurface::Queries::WorkspacesForAgent.call(user: @user, agent: @agent)
+          default_workspace_ref: Workspaces::ResolveDefaultReference.call(
+            user: @user,
+            agent: @agent,
+            workspace: workspaces.find(&:is_default?)
+          ),
+          workspaces: workspaces
         )
       end
     end

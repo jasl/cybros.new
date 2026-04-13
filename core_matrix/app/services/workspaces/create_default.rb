@@ -6,9 +6,9 @@ module Workspaces
       new(...).call
     end
 
-    def initialize(user_agent_binding: nil, user: nil, agent: nil, name: DEFAULT_NAME)
-      @user = user || user_agent_binding&.user
-      @agent = agent || user_agent_binding&.agent
+    def initialize(user:, agent:, name: DEFAULT_NAME)
+      @user = user
+      @agent = agent
       @name = name
     end
 
@@ -18,7 +18,7 @@ module Workspaces
 
     def existing_workspace
       Workspace.find_by(
-        installation: @user.installation,
+        installation_id: @user.installation_id,
         user: @user,
         agent: @agent,
         is_default: true
@@ -29,7 +29,7 @@ module Workspaces
 
     def create_default_workspace!
       Workspace.create!(
-        installation: @user.installation,
+        installation_id: @user.installation_id,
         user: @user,
         agent: @agent,
         default_execution_runtime: @agent.default_execution_runtime,

@@ -144,4 +144,32 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
   ensure
     bundle&.fetch("io")&.close!
   end
+
+  test "show loads a queued import request within six SQL queries" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+    bundle = ConversationExports::WriteZipBundle.call(conversation: context[:conversation])
+    request = ConversationBundleImportRequest.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      user: context[:user],
+      lifecycle_state: "queued",
+      request_payload: { "target_agent_definition_version_id" => context[:agent_definition_version].public_id }
+    )
+    request.upload_file.attach(
+      io: StringIO.new(File.binread(bundle.fetch("io").path)),
+      filename: bundle.fetch("filename"),
+      content_type: bundle.fetch("content_type")
+    )
+    request.save!
+
+    assert_sql_query_count_at_most(6) do
+      get "/app_api/workspaces/#{context[:workspace].public_id}/conversation_bundle_import_requests/#{request.public_id}",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+  ensure
+    bundle&.fetch("io")&.close!
+  end
 end

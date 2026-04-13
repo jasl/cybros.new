@@ -65,8 +65,8 @@ The current landed shape is:
 - Remains the app-facing wrapper that returns the default workspace reference
   value object.
 - Delegates actual lookup to `Workspaces::ResolveDefaultReference`.
-- Accepts either a binding or an explicit `user` + `agent` pair for backward
-  compatibility.
+- Requires an explicit `user` + `agent` pair at the call site.
+- Does not retain a binding-backed compatibility mode.
 
 ### `Workspaces::ResolveDefaultReference`
 

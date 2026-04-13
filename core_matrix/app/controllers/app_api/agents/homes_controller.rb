@@ -8,7 +8,12 @@ module AppAPI
           method_id: "agent_home_show",
           agent: AppSurface::Presenters::AgentPresenter.call(agent: home.agent),
           default_workspace_ref: serialize_default_workspace_ref(home.default_workspace_ref),
-          workspaces: home.workspaces.map { |workspace| AppSurface::Presenters::WorkspacePresenter.call(workspace: workspace) }
+          workspaces: home.workspaces.map do |workspace|
+            AppSurface::Presenters::WorkspacePresenter.call(
+              workspace: workspace,
+              agent_public_id: home.agent.public_id
+            )
+          end
         )
       end
 

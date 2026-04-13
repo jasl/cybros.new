@@ -30,25 +30,6 @@ class Workspace < ApplicationRecord
 
   def private_workspace? = privacy == "private"
 
-  def user_agent_binding
-    @user_agent_binding ||= begin
-      return if installation_id.blank? || user_id.blank? || agent_id.blank?
-
-      UserAgentBinding.find_by(
-        installation_id: installation_id,
-        user_id: user_id,
-        agent_id: agent_id
-      )
-    end
-  end
-
-  def user_agent_binding=(binding)
-    @user_agent_binding = binding
-    self.installation ||= binding.installation
-    self.user ||= binding.user
-    self.agent ||= binding.agent
-  end
-
   private
 
   def user_installation_match

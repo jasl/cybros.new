@@ -41,4 +41,14 @@ class Workspaces::MaterializeDefaultTest < ActiveSupport::TestCase
     assert_equal workspace, materialized_ref.workspace
     assert_equal workspace.public_id, materialized_ref.workspace_id
   end
+
+  test "requires explicit user and agent instead of a binding" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    binding = create_user_agent_binding!(installation: installation, user: user)
+
+    assert_raises(ArgumentError) do
+      Workspaces::MaterializeDefault.call(user_agent_binding: binding)
+    end
+  end
 end

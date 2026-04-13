@@ -4,15 +4,16 @@ module Workspaces
       new(...).call
     end
 
-    def initialize(user:, agent:, name: CreateDefault::DEFAULT_NAME)
+    def initialize(user:, agent:, workspace: nil, name: CreateDefault::DEFAULT_NAME)
       @user = user
       @agent = agent
+      @workspace = workspace
       @name = name
     end
 
     def call
-      workspace = Workspace.find_by(
-        installation: @user.installation,
+      workspace = @workspace || Workspace.find_by(
+        installation_id: @user.installation_id,
         user: @user,
         agent: @agent,
         is_default: true

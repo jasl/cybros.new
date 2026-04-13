@@ -46,4 +46,24 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
     assert_equal "agent_workspace_list", response.parsed_body.fetch("method_id")
     assert_equal [context[:workspace].public_id], response.parsed_body.fetch("workspaces").map { |item| item.fetch("workspace_id") }
   end
+
+  test "lists materialized workspaces within six SQL queries" do
+    context = create_workspace_context!
+    context[:workspace].update!(is_default: true)
+    create_workspace!(
+      installation: context[:installation],
+      user: context[:user],
+      user_agent_binding: context[:user_agent_binding],
+      default_execution_runtime: context[:execution_runtime],
+      name: "Secondary Workspace"
+    )
+    session = create_session!(user: context[:user])
+
+    assert_sql_query_count_at_most(6) do
+      get "/app_api/agents/#{context[:agent].public_id}/workspaces",
+        headers: app_api_headers(session.plaintext_token)
+    end
+
+    assert_response :success
+  end
 end

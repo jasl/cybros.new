@@ -46,11 +46,11 @@ module AppAPI
     end
 
     def workspace_lookup_scope
-      Workspace.accessible_to_user(current_user)
+      Workspace.accessible_to_user(current_user).eager_load(:agent, :default_execution_runtime, :workspace_policy)
     end
 
     def agent_lookup_scope
-      Agent.visible_to_user(current_user)
+      Agent.visible_to_user(current_user).eager_load(:default_execution_runtime)
     end
 
     def execution_runtime_lookup_scope

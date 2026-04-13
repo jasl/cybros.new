@@ -20,9 +20,9 @@ module Workspaces
       new(...).call
     end
 
-    def initialize(user_agent_binding: nil, user: nil, agent: nil, name: CreateDefault::DEFAULT_NAME)
-      @user = user || user_agent_binding&.user
-      @agent = agent || user_agent_binding&.agent
+    def initialize(user:, agent:, name: CreateDefault::DEFAULT_NAME)
+      @user = user
+      @agent = agent
       @name = name
     end
 

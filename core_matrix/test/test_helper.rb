@@ -660,8 +660,7 @@ module ActiveSupport
     end
 
     def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), agent: nil, user_agent_binding: nil, default_execution_runtime: nil, name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, **attrs)
-      user_agent_binding ||= create_user_agent_binding!(installation: installation, user: user, agent: agent || create_agent!(installation: installation))
-      agent ||= user_agent_binding.agent
+      agent ||= user_agent_binding&.agent || create_agent!(installation: installation)
 
       Workspace.create!({
         installation: installation,
@@ -1419,6 +1418,12 @@ module ActiveSupport
       queries = capture_sql_queries { yield }
 
       assert_equal expected_count, queries.size, "Expected #{expected_count} SQL queries, got #{queries.size}:\n#{queries.join("\n\n")}"
+    end
+
+    def assert_sql_query_count_at_most(max_count)
+      queries = capture_sql_queries { yield }
+
+      assert_operator queries.size, :<=, max_count, "Expected at most #{max_count} SQL queries, got #{queries.size}:\n#{queries.join("\n\n")}"
     end
   end
 end

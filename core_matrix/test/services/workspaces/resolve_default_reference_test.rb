@@ -1,29 +1,32 @@
 require "test_helper"
 
 class Workspaces::ResolveDefaultReferenceTest < ActiveSupport::TestCase
-  test "returns the same virtual reference contract as the current binding-backed resolver" do
+  test "requires explicit user and agent when building the default reference" do
     context = create_workspace_context!
 
-    expected = Workspaces::BuildDefaultReference.call(
-      user_agent_binding: context[:user_agent_binding]
-    )
-    actual = Workspaces::ResolveDefaultReference.call(
+    assert_raises(ArgumentError) do
+      Workspaces::BuildDefaultReference.call(user_agent_binding: context[:user_agent_binding])
+    end
+  end
+
+  test "returns the virtual reference contract through explicit workspace ownership" do
+    context = create_workspace_context!
+
+    actual = Workspaces::BuildDefaultReference.call(
       user: context[:user],
       agent: context[:agent]
     )
 
     assert_equal "virtual", actual.state
-    assert_equal expected.state, actual.state
-    assert_nil expected.workspace_id
     assert_nil actual.workspace_id
-    assert_equal expected.agent_id, actual.agent_id
-    assert_equal expected.user_id, actual.user_id
-    assert_equal expected.name, actual.name
-    assert_equal expected.privacy, actual.privacy
-    assert_equal expected.default_execution_runtime_id, actual.default_execution_runtime_id
+    assert_equal context[:agent].public_id, actual.agent_id
+    assert_equal context[:user].public_id, actual.user_id
+    assert_equal "Default Workspace", actual.name
+    assert_equal "private", actual.privacy
+    assert_equal context[:execution_runtime].public_id, actual.default_execution_runtime_id
   end
 
-  test "returns the same materialized reference contract as the current binding-backed resolver" do
+  test "returns the materialized reference contract through explicit workspace ownership" do
     context = create_workspace_context!
     default_workspace = create_workspace!(
       installation: context[:installation],
@@ -34,22 +37,17 @@ class Workspaces::ResolveDefaultReferenceTest < ActiveSupport::TestCase
       is_default: true
     )
 
-    expected = Workspaces::BuildDefaultReference.call(
-      user_agent_binding: context[:user_agent_binding]
-    )
-    actual = Workspaces::ResolveDefaultReference.call(
+    actual = Workspaces::BuildDefaultReference.call(
       user: context[:user],
       agent: context[:agent]
     )
 
     assert_equal "materialized", actual.state
     assert_equal default_workspace.public_id, actual.workspace_id
-    assert_equal expected.state, actual.state
-    assert_equal expected.workspace_id, actual.workspace_id
-    assert_equal expected.agent_id, actual.agent_id
-    assert_equal expected.user_id, actual.user_id
-    assert_equal expected.name, actual.name
-    assert_equal expected.privacy, actual.privacy
-    assert_equal expected.default_execution_runtime_id, actual.default_execution_runtime_id
+    assert_equal context[:agent].public_id, actual.agent_id
+    assert_equal context[:user].public_id, actual.user_id
+    assert_equal default_workspace.name, actual.name
+    assert_equal default_workspace.privacy, actual.privacy
+    assert_equal context[:execution_runtime].public_id, actual.default_execution_runtime_id
   end
 end

@@ -33,11 +33,13 @@ module AppAPI
       private
 
       def find_import_request!(request_id)
-        ConversationBundleImportRequest.find_by!(
-          public_id: request_id,
-          installation_id: current_installation_id,
-          workspace_id: @workspace.id
-        )
+        ConversationBundleImportRequest
+          .eager_load(:user, upload_file_attachment: :blob)
+          .find_by!(
+            public_id: request_id,
+            installation_id: current_installation_id,
+            workspace_id: @workspace.id
+          )
       end
 
       def serialize_import_request(request)
@@ -46,7 +48,7 @@ module AppAPI
 
         {
           "request_id" => request.public_id,
-          "workspace_id" => request.workspace.public_id,
+          "workspace_id" => @workspace.public_id,
           "user_id" => request.user.public_id,
           "imported_conversation_id" => imported_conversation_id,
           "lifecycle_state" => request.lifecycle_state,

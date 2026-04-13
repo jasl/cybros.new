@@ -18,4 +18,20 @@ class AppSurface::Presenters::WorkspacePresenterTest < ActiveSupport::TestCase
     assert_equal context[:workspace].is_default, payload.fetch("is_default")
     refute_includes payload.to_json, %("#{context[:workspace].id}")
   end
+
+  test "uses an explicit agent public id without querying the workspace agent association" do
+    context = create_workspace_context!
+    context[:workspace].association(:agent).reset
+
+    queries = capture_sql_queries do
+      payload = AppSurface::Presenters::WorkspacePresenter.call(
+        workspace: context[:workspace],
+        agent_public_id: context[:agent].public_id
+      )
+
+      assert_equal context[:agent].public_id, payload.fetch("agent_id")
+    end
+
+    assert queries.none? { |sql| sql.include?("\"agents\"") }, "expected presenter to avoid agent lookups, got:\n#{queries.join("\n\n")}"
+  end
 end

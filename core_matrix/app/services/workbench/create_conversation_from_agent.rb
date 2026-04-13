@@ -1,7 +1,6 @@
 module Workbench
   class CreateConversationFromAgent
     Result = Struct.new(
-      :user_agent_binding,
       :workspace,
       :conversation,
       :turn,
@@ -24,7 +23,7 @@ module Workbench
     end
 
     def call
-      binding = UserAgentBindings::Enable.call(user: @user, agent: @agent).binding
+      UserAgentBindings::Enable.call(user: @user, agent: @agent)
       workspace = resolve_workspace
       conversation = Conversations::CreateRoot.call(
         workspace: workspace,
@@ -50,7 +49,6 @@ module Workbench
       Workflows::ExecuteRun.call(workflow_run: workflow_run)
 
       Result.new(
-        user_agent_binding: binding,
         workspace: workspace,
         conversation: conversation,
         turn: turn,

@@ -13,7 +13,7 @@ module WorkspacePolicies
     module_function
 
     def available_for(agent:)
-      reflected_surface = agent.current_agent_definition_version&.reflected_surface || {}
+      reflected_surface = current_definition_version_for(agent)&.reflected_surface || {}
       explicit = normalize_capabilities(
         reflected_surface["workspace_capabilities"] ||
         reflected_surface["available_workspace_capabilities"] ||
@@ -22,6 +22,13 @@ module WorkspacePolicies
       available = explicit.presence || KEYS
       available -= FENIX_DISABLED if agent.key.to_s == "fenix"
       normalize_dependencies(available)
+    end
+
+    def current_definition_version_for(agent)
+      return agent.current_agent_definition_version if agent[:current_agent_definition_version_id].present?
+      return agent.published_agent_definition_version if agent[:published_agent_definition_version_id].present?
+
+      nil
     end
 
     def disabled_for(workspace:)

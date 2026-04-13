@@ -39,7 +39,7 @@ class ExecutionRuntime < ApplicationRecord
 
     where(installation_id: user.installation_id, lifecycle_state: "active")
       .where(
-        "visibility = :public_visibility OR (visibility = :private_visibility AND owner_user_id = :user_id)",
+        "\"execution_runtimes\".\"visibility\" = :public_visibility OR (\"execution_runtimes\".\"visibility\" = :private_visibility AND \"execution_runtimes\".\"owner_user_id\" = :user_id)",
         public_visibility: visibilities[:public],
         private_visibility: visibilities[:private],
         user_id: user.id
