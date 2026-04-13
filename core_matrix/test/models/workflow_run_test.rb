@@ -154,6 +154,42 @@ class WorkflowRunTest < ActiveSupport::TestCase
     assert workflow_run.valid?
   end
 
+  test "stores cold wait payloads in a wait detail row instead of the header table" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Blocked input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    workflow_run = WorkflowRun.create!(
+      installation: conversation.installation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      conversation: conversation,
+      turn: turn,
+      execution_runtime: turn.execution_runtime,
+      lifecycle_state: "active",
+      wait_state: "waiting",
+      wait_reason_kind: "agent_request",
+      wait_reason_payload: { "mailbox_item_id" => "mailbox-1" },
+      wait_resume_mode: "same_step",
+      waiting_since_at: Time.current,
+      blocking_resource_type: "WorkflowNode",
+      blocking_resource_id: "workflow-node-1"
+    )
+
+    refute_includes WorkflowRun.column_names, "wait_reason_payload"
+    assert_equal :has_one, WorkflowRun.reflect_on_association(:workflow_run_wait_detail)&.macro
+    assert_equal({ "mailbox_item_id" => "mailbox-1" }, workflow_run.wait_reason_payload)
+    assert_equal({ "mailbox_item_id" => "mailbox-1" }, workflow_run.workflow_run_wait_detail.wait_reason_payload)
+  end
+
   test "requires deletion cancellation fields to be paired" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

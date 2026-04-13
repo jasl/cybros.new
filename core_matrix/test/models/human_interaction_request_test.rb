@@ -96,4 +96,32 @@ class HumanInteractionRequestTest < ActiveSupport::TestCase
     assert_includes request.errors[:workspace], "must match the workflow run workspace"
     assert_includes request.errors[:agent], "must match the workflow run agent"
   end
+
+  test "stores request and result payloads in a detail row instead of header columns" do
+    context = build_human_interaction_context!
+    request = ApprovalRequest.create!(
+      installation: context[:installation],
+      user: context[:conversation].user,
+      workspace: context[:conversation].workspace,
+      agent: context[:conversation].agent,
+      workflow_run: context[:workflow_run],
+      workflow_node: context[:workflow_node],
+      conversation: context[:conversation],
+      turn: context[:turn],
+      lifecycle_state: "open",
+      blocking: true,
+      request_payload: { "approval_scope" => "publish" },
+      result_payload: {}
+    )
+
+    refute_includes HumanInteractionRequest.column_names, "request_payload"
+    refute_includes HumanInteractionRequest.column_names, "result_payload"
+    assert_equal :has_one, HumanInteractionRequest.reflect_on_association(:human_interaction_request_detail)&.macro
+    assert_equal({ "approval_scope" => "publish" }, request.request_payload)
+
+    request.resolve!(resolution_kind: "approved", result_payload: { "approved" => true })
+
+    assert_equal({ "approved" => true }, request.reload.result_payload)
+    assert_equal({ "approved" => true }, request.human_interaction_request_detail.result_payload)
+  end
 end

@@ -59,8 +59,9 @@ module ConversationDiagnostics
       snapshot.subagent_connection_count = subagent_connections.count
       snapshot.input_variant_count = turn.messages.where(slot: "input").count
       snapshot.output_variant_count = turn.messages.where(slot: "output").count
-      snapshot.resume_attempt_count = agent_task_runs.where("task_payload ->> 'delivery_kind' = 'turn_resume'").count
-      snapshot.retry_attempt_count = agent_task_runs.where("task_payload ->> 'delivery_kind' IN (?)", RETRY_DELIVERY_KINDS).count
+      detail_joined_task_runs = agent_task_runs.left_outer_joins(:agent_task_run_detail)
+      snapshot.resume_attempt_count = detail_joined_task_runs.where("COALESCE(agent_task_run_details.task_payload, '{}'::jsonb) ->> 'delivery_kind' = 'turn_resume'").count
+      snapshot.retry_attempt_count = detail_joined_task_runs.where("COALESCE(agent_task_run_details.task_payload, '{}'::jsonb) ->> 'delivery_kind' IN (?)", RETRY_DELIVERY_KINDS).count
       snapshot.avg_latency_ms = usage_metrics.fetch("avg_latency_ms")
       snapshot.max_latency_ms = usage_metrics.fetch("max_latency_ms")
       snapshot.estimated_cost_event_count = usage_metrics.fetch("estimated_cost_event_count")

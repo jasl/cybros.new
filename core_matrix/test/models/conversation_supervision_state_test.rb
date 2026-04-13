@@ -137,6 +137,34 @@ class ConversationSupervisionStateTest < ActiveSupport::TestCase
     assert_includes state.errors[:agent], "must match the target conversation agent"
   end
 
+  test "stores cold machine status in a detail row instead of the header table" do
+    context = create_workspace_context!
+    conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      installation: context[:installation],
+      execution_runtime: context[:execution_runtime],
+      agent: context[:agent]
+    )
+
+    state = ConversationSupervisionState.create!(
+      installation: context[:installation],
+      target_conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      overall_state: "running",
+      board_lane: "active",
+      last_progress_at: Time.current,
+      board_badges: [],
+      status_payload: { "runtime_evidence" => { "active_command" => { "command_run_public_id" => "cmd-1" } } }
+    )
+
+    refute_includes ConversationSupervisionState.column_names, "status_payload"
+    assert_equal :has_one, ConversationSupervisionState.reflect_on_association(:conversation_supervision_state_detail)&.macro
+    assert_equal "cmd-1", state.status_payload.dig("runtime_evidence", "active_command", "command_run_public_id")
+    assert_equal "cmd-1", state.conversation_supervision_state_detail.status_payload.dig("runtime_evidence", "active_command", "command_run_public_id")
+  end
+
   private
 
   def create_raw_installation!

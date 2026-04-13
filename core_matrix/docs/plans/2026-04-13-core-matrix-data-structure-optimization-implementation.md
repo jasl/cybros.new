@@ -822,6 +822,7 @@ git commit -m "refactor: propagate owner context through runtime controls"
 ### Task 7: Split Wide Hot Tables Into Header/Detail or Document-Backed Layouts
 
 **Files:**
+- Create: `app/models/concerns/detail_backed_json_fields.rb`
 - Create: `app/models/agent_task_run_detail.rb`
 - Create: `app/models/human_interaction_request_detail.rb`
 - Create: `app/models/conversation_supervision_state_detail.rb`
@@ -831,15 +832,19 @@ git commit -m "refactor: propagate owner context through runtime controls"
 - Modify: `db/migrate/20260324090035_create_human_interaction_requests.rb`
 - Modify: `db/migrate/20260405093000_create_conversation_supervision_states.rb`
 - Modify: `db/migrate/20260324090028_create_workflow_runs.rb`
+- Modify: `db/migrate/20260324090031_add_wait_state_to_workflow_runs.rb`
 - Modify: `db/migrate/20260324090019_create_conversations.rb`
+- Modify: `db/migrate/20260324090021_create_turns.rb`
 - Modify: `app/models/agent_task_run.rb`
 - Modify: `app/models/human_interaction_request.rb`
 - Modify: `app/models/conversation_supervision_state.rb`
 - Modify: `app/models/workflow_run.rb`
 - Modify: `app/models/conversation.rb`
+- Modify: `app/controllers/execution_runtime_api/control_controller.rb`
 - Modify: `app/services/agent_control/apply_close_outcome.rb`
 - Modify: `app/services/agent_control/handle_close_report.rb`
 - Modify: `app/services/agent_control/handle_execution_report.rb`
+- Modify: `app/services/conversation_diagnostics/recompute_turn_snapshot.rb`
 - Modify: `app/services/human_interactions/request.rb`
 - Modify: `app/services/conversations/update_override.rb`
 - Modify: `app/services/conversations/update_supervision_state.rb`
@@ -849,7 +854,10 @@ git commit -m "refactor: propagate owner context through runtime controls"
 - Modify: `app/services/conversation_supervision/list_board_cards.rb`
 - Modify: `app/services/conversation_supervision/build_board_card.rb`
 - Modify: `test/models/agent_task_run_test.rb`
+- Modify: `test/models/approval_request_test.rb`
+- Modify: `test/models/human_form_request_test.rb`
 - Modify: `test/models/human_interaction_request_test.rb`
+- Modify: `test/models/human_task_request_test.rb`
 - Modify: `test/models/conversation_supervision_state_test.rb`
 - Modify: `test/models/workflow_run_test.rb`
 - Modify: `test/models/conversation_test.rb`
@@ -857,15 +865,19 @@ git commit -m "refactor: propagate owner context through runtime controls"
 - Modify: `test/services/agent_control/handle_close_report_test.rb`
 - Modify: `test/services/agent_control/handle_execution_report_test.rb`
 - Modify: `test/services/agent_control/handle_execution_report_turn_todo_plan_test.rb`
+- Modify: `test/services/conversation_diagnostics/recompute_turn_snapshot_test.rb`
 - Modify: `test/services/human_interactions/request_test.rb`
 - Modify: `test/services/conversations/update_override_test.rb`
 - Modify: `test/services/conversations/update_supervision_state_test.rb`
 - Modify: `test/services/workflows/block_node_for_failure_test.rb`
 - Modify: `test/services/workflows/block_node_for_agent_request_test.rb`
 - Create: `test/services/workflows/block_node_for_execution_runtime_request_test.rb`
+- Modify: `test/services/workflows/manual_resume_test.rb`
+- Modify: `test/services/workflows/resume_after_wait_resolution_test.rb`
 - Modify: `test/services/conversation_supervision/list_board_cards_test.rb`
 - Modify: `test/services/conversation_supervision/build_board_card_test.rb`
 - Modify: `test/queries/human_interactions/open_for_user_query_test.rb`
+- Modify: `test/requests/agent_api/execution_delivery_test.rb`
 - Modify: `test/services/agent_task_runs/append_progress_entry_test.rb`
 
 **Step 1: Write failing tests that prove list reads do not need cold payloads**
@@ -897,8 +909,8 @@ Use the following explicit split map:
 - `agent_task_runs`: keep lifecycle/supervision summaries, timestamps, counts, and ownership fields on the header row; move `task_payload`, `progress_payload`, `supervision_payload`, `terminal_payload`, and `close_outcome_payload` to the detail row
 - `human_interaction_requests`: keep lifecycle, type, blocking, expiry, resolution, and ownership fields on the header row; move `request_payload` and `result_payload` to the detail row
 - `conversation_supervision_states`: keep lane/state/summaries/counts and ownership fields on the header row; move `status_payload` to the detail row
-- `workflow_runs`: keep lifecycle, wait-state selectors, blocking references, and ownership fields on the header row; move `wait_reason_payload` and any equivalent cold wait-debug payloads to the detail row
-- `conversations`: keep title/summary/lifecycle/current anchors and ownership fields on the header row; move `override_payload` and `override_reconciliation_report` to the detail row or a document-backed payload reference
+- `workflow_runs`: keep lifecycle, wait-state selectors, blocking references, and ownership fields on the header row; move `wait_reason_payload` and any equivalent cold wait-debug payloads to the detail row. Because the wait-state columns are introduced in `20260324090031_add_wait_state_to_workflow_runs.rb`, rewrite that migration to add the detail table/reference instead of adding the cold payload column to the header row.
+- `conversations`: keep title/summary/lifecycle/current anchors and ownership fields on the header row; move `override_payload` and `override_reconciliation_report` to the detail row or a document-backed payload reference. Because the override fields are introduced in `20260324090021_create_turns.rb`, rewrite that migration to wire the detail table/reference instead of adding the cold payload columns to the header row.
 
 Do not move columns that are already adequately externalized through `JsonDocument`
 references, such as the large payload bodies on `tool_invocations`.
@@ -907,10 +919,16 @@ references, such as the large payload bodies on `tool_invocations`.
 
 Writers must create/update header and detail rows in one transaction. List readers must stay on header tables unless a detail payload is explicitly needed.
 
+Implement the split with a shared detail-backed JSON field layer that preserves the public model API while:
+- validating detail rows only when the detail payload itself changed
+- persisting detail rows explicitly in the same transaction as the header save
+- avoiding empty `conversation_supervision_state_detail` rows on first insert, while still clearing an existing detail row back to `{}` when recomputation produces an empty payload
+
 This explicitly includes:
 - `AgentControl::ApplyCloseOutcome` and `AgentControl::HandleCloseReport` for
   task close-outcome detail writes
 - `AgentControl::HandleExecutionReport` for task progress and terminal payload updates
+- `ConversationDiagnostics::RecomputeTurnSnapshot` for `delivery_kind` counts that now live on `agent_task_run_details`
 - `HumanInteractions::Request` for request/result payload writes
 - `Conversations::UpdateOverride` for conversation override payload writes
 - `Conversations::UpdateSupervisionState` for supervision-state detail writes
@@ -967,19 +985,24 @@ git add app/models/agent_task_run_detail.rb \
   app/models/conversation_supervision_state_detail.rb \
   app/models/workflow_run_wait_detail.rb \
   app/models/conversation_detail.rb \
+  app/models/concerns/detail_backed_json_fields.rb \
   db/migrate/20260326113000_add_agent_control_contract.rb \
   db/migrate/20260324090035_create_human_interaction_requests.rb \
   db/migrate/20260405093000_create_conversation_supervision_states.rb \
   db/migrate/20260324090028_create_workflow_runs.rb \
+  db/migrate/20260324090031_add_wait_state_to_workflow_runs.rb \
   db/migrate/20260324090019_create_conversations.rb \
+  db/migrate/20260324090021_create_turns.rb \
   app/models/agent_task_run.rb \
   app/models/human_interaction_request.rb \
   app/models/conversation_supervision_state.rb \
   app/models/workflow_run.rb \
   app/models/conversation.rb \
+  app/controllers/execution_runtime_api/control_controller.rb \
   app/services/agent_control/apply_close_outcome.rb \
   app/services/agent_control/handle_close_report.rb \
   app/services/agent_control/handle_execution_report.rb \
+  app/services/conversation_diagnostics/recompute_turn_snapshot.rb \
   app/services/human_interactions/request.rb \
   app/services/conversations/update_override.rb \
   app/services/conversations/update_supervision_state.rb \
@@ -989,7 +1012,10 @@ git add app/models/agent_task_run_detail.rb \
   app/services/conversation_supervision/list_board_cards.rb \
   app/services/conversation_supervision/build_board_card.rb \
   test/models/agent_task_run_test.rb \
+  test/models/approval_request_test.rb \
+  test/models/human_form_request_test.rb \
   test/models/human_interaction_request_test.rb \
+  test/models/human_task_request_test.rb \
   test/models/conversation_supervision_state_test.rb \
   test/models/workflow_run_test.rb \
   test/models/conversation_test.rb \
@@ -997,15 +1023,19 @@ git add app/models/agent_task_run_detail.rb \
   test/services/agent_control/handle_close_report_test.rb \
   test/services/agent_control/handle_execution_report_test.rb \
   test/services/agent_control/handle_execution_report_turn_todo_plan_test.rb \
+  test/services/conversation_diagnostics/recompute_turn_snapshot_test.rb \
   test/services/human_interactions/request_test.rb \
   test/services/conversations/update_override_test.rb \
   test/services/conversations/update_supervision_state_test.rb \
   test/services/workflows/block_node_for_failure_test.rb \
   test/services/workflows/block_node_for_agent_request_test.rb \
   test/services/workflows/block_node_for_execution_runtime_request_test.rb \
+  test/services/workflows/manual_resume_test.rb \
+  test/services/workflows/resume_after_wait_resolution_test.rb \
   test/services/conversation_supervision/list_board_cards_test.rb \
   test/services/conversation_supervision/build_board_card_test.rb \
   test/queries/human_interactions/open_for_user_query_test.rb \
+  test/requests/agent_api/execution_delivery_test.rb \
   test/services/agent_task_runs/append_progress_entry_test.rb
 git commit -m "refactor: split wide hot runtime rows"
 ```

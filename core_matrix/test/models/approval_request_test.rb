@@ -6,6 +6,9 @@ class ApprovalRequestTest < ActiveSupport::TestCase
 
     request = ApprovalRequest.new(
       installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      agent: context[:agent],
       workflow_run: context[:workflow_run],
       workflow_node: context[:workflow_node],
       conversation: context[:conversation],
@@ -24,6 +27,7 @@ class ApprovalRequestTest < ActiveSupport::TestCase
     assert_includes missing_scope.errors[:request_payload], "must include approval_scope"
 
     resolved = request.dup
+    resolved.request_payload = request.request_payload
     resolved.lifecycle_state = "resolved"
     resolved.resolution_kind = "approved"
     resolved.resolved_at = Time.current

@@ -14,10 +14,19 @@ class CreateHumanInteractionRequests < ActiveRecord::Migration[8.2]
       t.string :lifecycle_state, null: false, default: "open"
       t.string :resolution_kind
       t.boolean :blocking, null: false, default: true
-      t.jsonb :request_payload, null: false, default: {}
-      t.jsonb :result_payload, null: false, default: {}
       t.datetime :expires_at
       t.datetime :resolved_at
+
+      t.timestamps
+    end
+
+    create_table :human_interaction_request_details do |t|
+      t.references :human_interaction_request,
+        null: false,
+        foreign_key: { on_delete: :cascade },
+        index: { unique: true }
+      t.jsonb :request_payload, null: false, default: {}
+      t.jsonb :result_payload, null: false, default: {}
 
       t.timestamps
     end

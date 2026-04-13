@@ -16,6 +16,16 @@ class CreateWorkflowRuns < ActiveRecord::Migration[8.2]
       t.timestamps
     end
 
+    create_table :workflow_run_wait_details do |t|
+      t.references :workflow_run,
+        null: false,
+        foreign_key: { on_delete: :cascade },
+        index: { unique: true }
+      t.jsonb :wait_reason_payload, null: false, default: {}
+
+      t.timestamps
+    end
+
     add_index :workflow_runs, :public_id, unique: true
     add_foreign_key :conversations, :workflow_runs, column: :latest_active_workflow_run_id
     add_foreign_key :execution_profile_facts, :workflow_runs, column: :workflow_run_id

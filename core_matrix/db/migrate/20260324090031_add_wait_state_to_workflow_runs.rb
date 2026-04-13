@@ -3,7 +3,6 @@ class AddWaitStateToWorkflowRuns < ActiveRecord::Migration[8.2]
     change_table :workflow_runs, bulk: true do |t|
       t.string :wait_state, null: false, default: "ready"
       t.string :wait_reason_kind
-      t.jsonb :wait_reason_payload, null: false, default: {}
       t.string :wait_policy_mode
       t.string :wait_retry_scope
       t.string :wait_resume_mode

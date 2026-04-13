@@ -132,12 +132,8 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.string :next_step_hint
       t.datetime :last_progress_at
       t.integer :supervision_sequence, null: false, default: 0
-      t.jsonb :supervision_payload, null: false, default: {}
       t.string :logical_work_id, null: false
       t.integer :attempt_no, null: false, default: 1
-      t.jsonb :task_payload, null: false, default: {}
-      t.jsonb :progress_payload, null: false, default: {}
-      t.jsonb :terminal_payload, null: false, default: {}
       t.integer :expected_duration_seconds
       t.datetime :started_at
       t.datetime :finished_at
@@ -148,11 +144,24 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.datetime :close_force_deadline_at
       t.datetime :close_acknowledged_at
       t.string :close_outcome_kind
-      t.jsonb :close_outcome_payload, null: false, default: {}
       t.timestamps
     end
     add_index :agent_task_runs, :public_id, unique: true
     add_index :agent_task_runs, [:workflow_run_id, :logical_work_id, :attempt_no], unique: true, name: "idx_agent_task_runs_work_attempt"
+
+    create_table :agent_task_run_details do |t|
+      t.references :agent_task_run,
+        null: false,
+        foreign_key: { on_delete: :cascade },
+        index: { unique: true }
+      t.jsonb :task_payload, null: false, default: {}
+      t.jsonb :progress_payload, null: false, default: {}
+      t.jsonb :supervision_payload, null: false, default: {}
+      t.jsonb :terminal_payload, null: false, default: {}
+      t.jsonb :close_outcome_payload, null: false, default: {}
+
+      t.timestamps
+    end
 
     create_table :agent_control_mailbox_items do |t|
       t.references :installation, null: false, foreign_key: true
@@ -208,6 +217,5 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.timestamps
     end
     add_index :agent_control_report_receipts, [:installation_id, :protocol_message_id], unique: true, name: "idx_agent_control_report_receipts_protocol_message"
-
   end
 end

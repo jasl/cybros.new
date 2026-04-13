@@ -1,6 +1,7 @@
 class AgentTaskRun < ApplicationRecord
   include HasPublicId
   include ClosableRuntimeResource
+  include DetailBackedJsonFields
   include SupervisionStateFields
 
   enum :kind,
@@ -40,8 +41,16 @@ class AgentTaskRun < ApplicationRecord
   has_many :tool_bindings, dependent: :destroy
   has_many :tool_invocations, dependent: :destroy
   has_many :command_runs, dependent: :destroy
+  has_one :agent_task_run_detail, dependent: :destroy, inverse_of: :agent_task_run
   has_one :turn_todo_plan, dependent: :delete, inverse_of: :agent_task_run
   has_one :execution_lease, as: :leased_resource, dependent: :restrict_with_exception
+
+  detail_backed_json_fields :agent_task_run_detail,
+    :task_payload,
+    :progress_payload,
+    :supervision_payload,
+    :terminal_payload,
+    :close_outcome_payload
 
   validates :logical_work_id, presence: true
   validates :attempt_no, numericality: { only_integer: true, greater_than: 0 }
@@ -62,8 +71,10 @@ class AgentTaskRun < ApplicationRecord
   validate :agent_turn_match
   validate :holder_agent_definition_version_matches_task
   validate :lifecycle_timestamps
+  validate :agent_task_run_detail_must_be_valid
 
   after_create :freeze_tool_bindings!
+  after_save :persist_agent_task_run_detail!
 
   def holder_agent_definition_version
     holder_agent_connection&.agent_definition_version
@@ -82,15 +93,39 @@ class AgentTaskRun < ApplicationRecord
   private
 
   def task_payload_must_be_hash
+    return unless detail_backed_payload_validation_required?
+
     errors.add(:task_payload, "must be a hash") unless task_payload.is_a?(Hash)
   end
 
   def progress_payload_must_be_hash
+    return unless detail_backed_payload_validation_required?
+
     errors.add(:progress_payload, "must be a hash") unless progress_payload.is_a?(Hash)
   end
 
   def terminal_payload_must_be_hash
+    return unless detail_backed_payload_validation_required?
+
     errors.add(:terminal_payload, "must be a hash") unless terminal_payload.is_a?(Hash)
+  end
+
+  def supervision_payload_must_be_hash
+    return unless detail_backed_payload_validation_required?
+
+    super
+  end
+
+  def close_outcome_payload_must_be_hash
+    return unless detail_backed_payload_validation_required?
+
+    super
+  end
+
+  def close_lifecycle_pairings
+    return unless detail_backed_payload_validation_required? || close_tracking_fields_changed?
+
+    super
   end
 
   def workflow_run_installation_match
@@ -205,5 +240,37 @@ class AgentTaskRun < ApplicationRecord
 
   def freeze_tool_bindings!
     ToolBindings::FreezeForTask.call(agent_task_run: self)
+  end
+
+  def detail_backed_payload_validation_required?
+    detail_backed_json_validation_required?(:agent_task_run_detail)
+  end
+
+  def close_tracking_fields_changed?
+    will_save_change_to_close_state? ||
+      will_save_change_to_close_reason_kind? ||
+      will_save_change_to_close_requested_at? ||
+      will_save_change_to_close_grace_deadline_at? ||
+      will_save_change_to_close_force_deadline_at? ||
+      will_save_change_to_close_acknowledged_at? ||
+      will_save_change_to_close_outcome_kind?
+  end
+
+  def agent_task_run_detail_must_be_valid
+    return unless association(:agent_task_run_detail).loaded?
+    return if agent_task_run_detail.blank? || agent_task_run_detail.valid?
+
+    agent_task_run_detail.errors.each do |error|
+      errors.add(error.attribute, error.message)
+    end
+  end
+
+  def persist_agent_task_run_detail!
+    return unless association(:agent_task_run_detail).loaded?
+    return if agent_task_run_detail.blank?
+    return unless agent_task_run_detail.new_record? || agent_task_run_detail.changed?
+
+    agent_task_run_detail.agent_task_run = self
+    agent_task_run_detail.save!
   end
 end

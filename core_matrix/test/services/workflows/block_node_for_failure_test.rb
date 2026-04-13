@@ -43,6 +43,7 @@ class Workflows::BlockNodeForFailureTest < ActiveSupport::TestCase
     assert workflow_run.wait_next_retry_at.present?
     assert_equal "provider is rate limited", workflow_run.wait_last_error_summary
     assert_equal({}, workflow_run.wait_reason_payload)
+    assert_equal({}, workflow_run.workflow_run_wait_detail.wait_reason_payload)
     assert_equal "provider_rate_limited", workflow_node.reload.blocked_retry_failure_kind
     assert_equal 1, workflow_node.blocked_retry_attempt_no
     refute result.terminal?

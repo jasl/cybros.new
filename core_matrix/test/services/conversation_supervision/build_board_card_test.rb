@@ -26,6 +26,24 @@ class ConversationSupervision::BuildBoardCardTest < ActiveSupport::TestCase
     assert_equal "completed", card.fetch("last_terminal_state")
   end
 
+  test "builds a board card without loading the cold status detail row" do
+    state = create_supervision_state!(
+      board_lane: "active",
+      active_plan_item_count: 2,
+      completed_plan_item_count: 1,
+      active_subagent_count: 1,
+      board_badges: ["1 child task"],
+      last_terminal_state: "completed"
+    )
+
+    queries = capture_sql_queries do
+      ConversationSupervision::BuildBoardCard.call(conversation_supervision_state: state.reload)
+    end
+
+    assert queries.none? { |sql| sql.include?("conversation_supervision_state_details") },
+      "Expected board card reads to stay on header rows, got:\n#{queries.join("\n")}"
+  end
+
   private
 
   def create_supervision_state!(board_lane:, active_plan_item_count:, completed_plan_item_count:, active_subagent_count:, board_badges:, last_terminal_state:)

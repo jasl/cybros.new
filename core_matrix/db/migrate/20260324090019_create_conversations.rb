@@ -34,6 +34,17 @@ class CreateConversations < ActiveRecord::Migration[8.2]
       t.timestamps
     end
 
+    create_table :conversation_details do |t|
+      t.references :conversation,
+        null: false,
+        foreign_key: { on_delete: :cascade },
+        index: { unique: true }
+      t.jsonb :override_payload, null: false, default: {}
+      t.jsonb :override_reconciliation_report, null: false, default: {}
+
+      t.timestamps
+    end
+
     add_index :conversations, [:workspace_id, :purpose, :lifecycle_state], name: "idx_conversations_workspace_purpose_lifecycle"
     add_index :conversations, [:agent_id, :lifecycle_state], name: "idx_conversations_agent_lifecycle"
     add_index :conversations,

@@ -148,6 +148,7 @@ class HumanInteractions::RequestTest < ActiveSupport::TestCase
     assert_equal "human_interaction_request:#{request.id}", event.stream_key
     assert_equal 0, event.stream_revision
     assert_equal request.public_id, event.payload["request_id"]
+    assert_equal({ "approval_scope" => "publish" }, request.human_interaction_request_detail.request_payload)
   end
 
   test "non-blocking human interaction completion dispatches runnable successors" do

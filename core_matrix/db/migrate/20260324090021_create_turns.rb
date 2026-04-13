@@ -67,9 +67,7 @@ class CreateTurns < ActiveRecord::Migration[8.2]
       t.string :interactive_selector_mode, null: false, default: "auto"
       t.string :interactive_selector_provider_handle
       t.string :interactive_selector_model_ref
-      t.jsonb :override_payload, null: false, default: {}
       t.string :override_last_schema_fingerprint
-      t.jsonb :override_reconciliation_report, null: false, default: {}
       t.datetime :override_updated_at
     end
   end

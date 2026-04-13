@@ -46,6 +46,9 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     )
     SubagentConnection.create!(
       installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      agent: context[:agent],
       owner_conversation: context[:conversation],
       conversation: child_conversation,
       origin_turn: turn,
@@ -271,6 +274,12 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     end
     tool_invocation = ToolInvocation.create!(
       installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      conversation: context[:conversation],
+      turn: context[:turn],
+      workflow_run: workflow_node.workflow_run,
       workflow_node: workflow_node,
       tool_binding: tool_binding,
       tool_definition: tool_definition,
@@ -287,6 +296,12 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
 
     CommandRun.create!(
       installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      conversation: context[:conversation],
+      turn: context[:turn],
+      workflow_run: workflow_node.workflow_run,
       workflow_node: workflow_node,
       tool_invocation: tool_invocation,
       command_line: command_line,

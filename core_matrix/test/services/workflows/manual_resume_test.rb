@@ -431,6 +431,9 @@ class Workflows::ManualResumeTest < ActiveSupport::TestCase
     sessions = child_conversations.map do |child_conversation|
       SubagentConnection.create!(
         installation: context[:installation],
+        user: context[:user],
+        workspace: context[:workspace],
+        agent: context[:agent],
         owner_conversation: context[:conversation],
         conversation: child_conversation,
         origin_turn: context[:turn],

@@ -59,6 +59,7 @@ class Workflows::BlockNodeForAgentRequestTest < ActiveSupport::TestCase
     assert_equal workflow_node.public_id, workflow_run.blocking_resource_id
     assert_equal mailbox_item.public_id, workflow_run.wait_reason_payload["mailbox_item_id"]
     assert_equal "execute_tool", workflow_run.wait_reason_payload["request_kind"]
+    assert_equal mailbox_item.public_id, workflow_run.workflow_run_wait_detail.wait_reason_payload["mailbox_item_id"]
     assert_equal mailbox_item.public_id, result.mailbox_item.public_id
   end
 

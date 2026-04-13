@@ -1,6 +1,7 @@
 class ConversationSupervisionState < ApplicationRecord
   include HasPublicId
   include DataLifecycle
+  include DetailBackedJsonFields
 
   OVERALL_STATES = %w[idle queued running waiting blocked completed failed interrupted canceled].freeze
   LAST_TERMINAL_STATES = %w[completed failed interrupted canceled].freeze
@@ -13,6 +14,12 @@ class ConversationSupervisionState < ApplicationRecord
   belongs_to :workspace
   belongs_to :agent
   belongs_to :target_conversation, class_name: "Conversation"
+  has_one :conversation_supervision_state_detail,
+    dependent: :destroy,
+    autosave: true,
+    inverse_of: :conversation_supervision_state
+
+  detail_backed_json_fields :conversation_supervision_state_detail, :status_payload
 
   validates :overall_state, inclusion: { in: OVERALL_STATES }
   validates :last_terminal_state, inclusion: { in: LAST_TERMINAL_STATES }, allow_nil: true

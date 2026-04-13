@@ -67,6 +67,9 @@ class Workflows::ResumeAfterWaitResolutionTest < ActiveSupport::TestCase
 
       SubagentConnection.create!(
         installation: context[:installation],
+        user: context[:user],
+        workspace: context[:workspace],
+        agent: context[:agent],
         owner_conversation: conversation,
         conversation: child_conversation,
         origin_turn: turn,

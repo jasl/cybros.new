@@ -70,6 +70,8 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal 0, state.active_subagent_count
     refute state.status_payload.key?("active_plan_items")
     assert_equal "renderer", state.status_payload.fetch("current_turn_plan_summary").fetch("current_item_key")
+    assert_equal "renderer",
+      state.conversation_supervision_state_detail.status_payload.fetch("current_turn_plan_summary").fetch("current_item_key")
   end
 
   test "projects supervision summaries from the active turn todo plan" do

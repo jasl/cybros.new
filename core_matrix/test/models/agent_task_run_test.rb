@@ -99,6 +99,35 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     assert_equal context[:turn], agent_task_run.origin_turn
   end
 
+  test "stores cold payloads in a detail row instead of header columns" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      close_state: "closed",
+      close_reason_kind: "turn_interrupted",
+      close_requested_at: Time.current - 2.minutes,
+      close_outcome_kind: "graceful",
+      task_payload: { "step" => "execute" },
+      progress_payload: { "percent" => 25 },
+      terminal_payload: { "output" => "done" },
+      close_outcome_payload: { "source" => "agent" },
+      supervision_payload: { "runtime" => "active" }
+    )
+
+    refute_includes AgentTaskRun.column_names, "task_payload"
+    refute_includes AgentTaskRun.column_names, "progress_payload"
+    refute_includes AgentTaskRun.column_names, "terminal_payload"
+    refute_includes AgentTaskRun.column_names, "close_outcome_payload"
+    refute_includes AgentTaskRun.column_names, "supervision_payload"
+    assert_equal :has_one, AgentTaskRun.reflect_on_association(:agent_task_run_detail)&.macro
+    assert_equal({ "step" => "execute" }, agent_task_run.task_payload)
+    assert_equal({ "percent" => 25 }, agent_task_run.progress_payload)
+    assert_equal({ "output" => "done" }, agent_task_run.terminal_payload)
+    assert_equal({ "source" => "agent" }, agent_task_run.close_outcome_payload)
+    assert_equal({ "runtime" => "active" }, agent_task_run.supervision_payload)
+    assert_equal({ "step" => "execute" }, agent_task_run.agent_task_run_detail.task_payload)
+  end
+
   test "derives feature policy from the turn instead of storing a duplicate snapshot" do
     context = build_agent_control_context!
     agent_task_run = create_agent_task_run!(workflow_node: context[:workflow_node])
@@ -120,7 +149,8 @@ class AgentTaskRunTest < ActiveSupport::TestCase
     assert_includes AgentTaskRun.column_names, "next_step_hint"
     assert_includes AgentTaskRun.column_names, "last_progress_at"
     assert_includes AgentTaskRun.column_names, "supervision_sequence"
-    assert_includes AgentTaskRun.column_names, "supervision_payload"
+    refute_includes AgentTaskRun.column_names, "supervision_payload"
+    assert_equal :has_one, AgentTaskRun.reflect_on_association(:agent_task_run_detail)&.macro
 
     queued_task = create_agent_task_run!(workflow_node: context[:workflow_node])
     assert queued_task.valid?

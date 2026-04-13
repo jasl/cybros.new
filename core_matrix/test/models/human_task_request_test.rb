@@ -6,6 +6,9 @@ class HumanTaskRequestTest < ActiveSupport::TestCase
 
     open_request = HumanTaskRequest.create!(
       installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      agent: context[:agent],
       workflow_run: context[:workflow_run],
       workflow_node: context[:workflow_node],
       conversation: context[:conversation],
@@ -17,6 +20,9 @@ class HumanTaskRequestTest < ActiveSupport::TestCase
     )
     completed_request = HumanTaskRequest.create!(
       installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      agent: context[:agent],
       workflow_run: context[:workflow_run],
       workflow_node: context[:workflow_node],
       conversation: context[:conversation],
@@ -34,6 +40,9 @@ class HumanTaskRequestTest < ActiveSupport::TestCase
 
     invalid_request = HumanTaskRequest.new(
       installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      agent: context[:agent],
       workflow_run: context[:workflow_run],
       workflow_node: context[:workflow_node],
       conversation: context[:conversation],

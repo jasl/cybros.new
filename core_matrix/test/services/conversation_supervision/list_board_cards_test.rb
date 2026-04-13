@@ -19,6 +19,18 @@ class ConversationSupervision::ListBoardCardsTest < ActiveSupport::TestCase
       blocked_cards.map { |card| card.fetch("conversation_id") }
   end
 
+  test "lists board cards without loading cold status detail rows" do
+    context = create_workspace_context!
+    create_state_for_list!(context:, board_lane: "active", minutes_ago: 1)
+
+    queries = capture_sql_queries do
+      ConversationSupervision::ListBoardCards.call(installation: context[:installation])
+    end
+
+    assert queries.none? { |sql| sql.include?("conversation_supervision_state_details") },
+      "Expected board list reads to stay on header rows, got:\n#{queries.join("\n")}"
+  end
+
   private
 
   def create_state_for_list!(context:, board_lane:, minutes_ago:)

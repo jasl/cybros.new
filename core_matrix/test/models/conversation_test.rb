@@ -164,6 +164,22 @@ class ConversationTest < ActiveSupport::TestCase
     assert_equal [visible_conversation], Conversation.accessible_to_user(context[:workspace].user).order(:id).to_a
   end
 
+  test "stores override payloads in a detail row instead of the header table" do
+    conversation = build_conversation(
+      override_payload: { "subagents" => { "enabled" => false } },
+      override_reconciliation_report: { "status" => "exact" }
+    )
+
+    conversation.save!
+
+    refute_includes Conversation.column_names, "override_payload"
+    refute_includes Conversation.column_names, "override_reconciliation_report"
+    assert_equal :has_one, Conversation.reflect_on_association(:conversation_detail)&.macro
+    assert_equal({ "subagents" => { "enabled" => false } }, conversation.override_payload)
+    assert_equal({ "status" => "exact" }, conversation.override_reconciliation_report)
+    assert_equal({ "status" => "exact" }, conversation.conversation_detail.override_reconciliation_report)
+  end
+
   private
 
   def build_conversation(attributes = {})

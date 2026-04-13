@@ -1,5 +1,6 @@
 class WorkflowRun < ApplicationRecord
   include HasPublicId
+  include DetailBackedJsonFields
 
   BLOCKED_WAIT_REASON_KINDS = %w[
     external_dependency_blocked
@@ -68,6 +69,7 @@ class WorkflowRun < ApplicationRecord
   has_many :human_interaction_requests, dependent: :restrict_with_exception
   has_many :process_runs, through: :workflow_nodes
   has_many :execution_leases, dependent: :restrict_with_exception
+  has_one :workflow_run_wait_detail, dependent: :destroy, autosave: true, inverse_of: :workflow_run
 
   delegate :execution_snapshot, to: :turn, allow_nil: true
   delegate :normalized_selector,
@@ -91,6 +93,8 @@ class WorkflowRun < ApplicationRecord
     :context_imports,
     to: :execution_snapshot,
     allow_nil: true
+
+  detail_backed_json_fields :workflow_run_wait_detail, :wait_reason_payload
 
   def execution_identity
     execution_snapshot&.identity

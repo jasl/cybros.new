@@ -1,6 +1,7 @@
 class Conversation < ApplicationRecord
   include HasPublicId
   include DataLifecycle
+  include DetailBackedJsonFields
 
   FEATURE_IDS = %w[
     human_interaction
@@ -123,6 +124,7 @@ class Conversation < ApplicationRecord
     foreign_key: :target_conversation_id,
     dependent: :restrict_with_exception,
     inverse_of: :target_conversation
+  has_one :conversation_detail, dependent: :destroy, autosave: true, inverse_of: :conversation
   has_one :conversation_supervision_state,
     foreign_key: :target_conversation_id,
     dependent: :restrict_with_exception,
@@ -173,6 +175,8 @@ class Conversation < ApplicationRecord
     foreign_key: :ancestor_conversation_id,
     dependent: :restrict_with_exception,
     inverse_of: :ancestor_conversation
+
+  detail_backed_json_fields :conversation_detail, :override_payload, :override_reconciliation_report
 
   def self.accessible_to_user(user)
     return none if user.blank?

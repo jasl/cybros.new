@@ -37,4 +37,33 @@ class AgentControl::ApplyCloseOutcomeTest < ActiveSupport::TestCase
     assert_equal "completed", mailbox_item.reload.status
     assert_not result.execution_lease.active?
   end
+
+  test "persists agent task close outcome payload through the cold detail row" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      lifecycle_state: "running",
+      started_at: Time.zone.parse("2026-03-29 18:00:00 UTC"),
+      supervision_state: "running",
+      last_progress_at: Time.zone.parse("2026-03-29 18:10:00 UTC"),
+      supervision_payload: {}
+    )
+    mailbox_item = MailboxScenarioBuilder.new(self).close_request!(
+      context: context,
+      resource: agent_task_run,
+      request_kind: "archive_force_quiesce",
+      reason_kind: "conversation_archived"
+    ).fetch(:mailbox_item)
+
+    result = AgentControl::ApplyCloseOutcome.call(
+      resource: agent_task_run,
+      mailbox_item: mailbox_item,
+      close_state: "closed",
+      close_outcome_kind: "graceful",
+      close_outcome_payload: { "source" => "agent" },
+      occurred_at: Time.zone.parse("2026-03-29 18:30:00 UTC")
+    )
+
+    assert_equal({ "source" => "agent" }, result.agent_task_run_detail.close_outcome_payload)
+  end
 end

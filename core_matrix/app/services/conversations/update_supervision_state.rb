@@ -20,8 +20,7 @@ module Conversations
           installation: @conversation.installation,
           user: @conversation.user,
           workspace: @conversation.workspace,
-          agent: @conversation.agent,
-          status_payload: {}
+          agent: @conversation.agent
         )
       previous_attributes = state.new_record? ? {} : comparable_attributes(state)
       next_attributes = projection_attributes(state:).deep_stringify_keys
@@ -86,33 +85,34 @@ module Conversations
         completed_plan_item_count: completed_plan_item_count,
         active_subagent_count: active_subagent_count,
         board_badges: board_badges,
-        status_payload: status_payload,
-      }
+      }.tap do |attributes|
+        attributes[:status_payload] = status_payload if status_payload.present? || state.conversation_supervision_state_detail.present?
+      end
     end
 
     def comparable_attributes(state)
-      state.attributes.slice(
-        "overall_state",
-        "last_terminal_state",
-        "last_terminal_at",
-        "current_owner_kind",
-        "current_owner_public_id",
-        "request_summary",
-        "current_focus_summary",
-        "recent_progress_summary",
-        "waiting_summary",
-        "blocked_summary",
-        "next_step_hint",
-        "last_progress_at",
-        "board_lane",
-        "lane_changed_at",
-        "retry_due_at",
-        "active_plan_item_count",
-        "completed_plan_item_count",
-        "active_subagent_count",
-        "board_badges",
-        "status_payload"
-      )
+      {
+        "overall_state" => state.overall_state,
+        "last_terminal_state" => state.last_terminal_state,
+        "last_terminal_at" => state.last_terminal_at,
+        "current_owner_kind" => state.current_owner_kind,
+        "current_owner_public_id" => state.current_owner_public_id,
+        "request_summary" => state.request_summary,
+        "current_focus_summary" => state.current_focus_summary,
+        "recent_progress_summary" => state.recent_progress_summary,
+        "waiting_summary" => state.waiting_summary,
+        "blocked_summary" => state.blocked_summary,
+        "next_step_hint" => state.next_step_hint,
+        "last_progress_at" => state.last_progress_at,
+        "board_lane" => state.board_lane,
+        "lane_changed_at" => state.lane_changed_at,
+        "retry_due_at" => state.retry_due_at,
+        "active_plan_item_count" => state.active_plan_item_count,
+        "completed_plan_item_count" => state.completed_plan_item_count,
+        "active_subagent_count" => state.active_subagent_count,
+        "board_badges" => state.board_badges,
+        "status_payload" => state.status_payload,
+      }
     end
 
     def overall_state
@@ -288,8 +288,8 @@ module Conversations
       {
         "current_turn_plan_summary" => current_turn_plan_summary,
         "runtime_evidence" => active_runtime_evidence,
-        "active_subagent_turn_plan_summaries" => active_owned_subagent_turn_plan_summaries,
-        "active_subagents" => active_subagent_payloads,
+        "active_subagent_turn_plan_summaries" => active_owned_subagent_turn_plan_summaries.presence,
+        "active_subagents" => active_subagent_payloads.presence,
         "latest_progress_entry" => latest_progress_entry_payload,
       }.compact
     end

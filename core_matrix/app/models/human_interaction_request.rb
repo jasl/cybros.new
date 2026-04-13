@@ -1,5 +1,6 @@
 class HumanInteractionRequest < ApplicationRecord
   include HasPublicId
+  include DetailBackedJsonFields
 
   STI_TYPES = %w[ApprovalRequest HumanFormRequest HumanTaskRequest].freeze
   RESOLUTION_KINDS = %w[approved denied submitted completed canceled timed_out].freeze
@@ -21,6 +22,9 @@ class HumanInteractionRequest < ApplicationRecord
   belongs_to :workflow_node
   belongs_to :conversation
   belongs_to :turn
+  has_one :human_interaction_request_detail, dependent: :destroy, autosave: true, inverse_of: :human_interaction_request
+
+  detail_backed_json_fields :human_interaction_request_detail, :request_payload, :result_payload
 
   validates :type, presence: true
   validate :supported_subtype

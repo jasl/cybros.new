@@ -6,6 +6,9 @@ class HumanFormRequestTest < ActiveSupport::TestCase
 
     request = HumanFormRequest.new(
       installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      agent: context[:agent],
       workflow_run: context[:workflow_run],
       workflow_node: context[:workflow_node],
       conversation: context[:conversation],

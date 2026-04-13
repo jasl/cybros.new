@@ -19,6 +19,8 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
     assert_nil updated.interactive_selector_provider_handle
     assert_nil updated.interactive_selector_model_ref
     assert_not_nil updated.override_updated_at
+    assert_equal({ "subagents" => { "enabled" => false } }, updated.conversation_detail.override_payload)
+    assert_equal({ "status" => "exact" }, updated.conversation_detail.override_reconciliation_report)
   end
 
   test "persists an explicit candidate selector" do

@@ -30,7 +30,16 @@ class CreateConversationSupervisionStates < ActiveRecord::Migration[8.2]
       t.integer :active_subagent_count, null: false, default: 0
       t.jsonb :board_badges, null: false, default: []
       t.integer :projection_version, null: false, default: 0
+      t.timestamps
+    end
+
+    create_table :conversation_supervision_state_details do |t|
+      t.references :conversation_supervision_state,
+        null: false,
+        foreign_key: { on_delete: :cascade },
+        index: { unique: true }
       t.jsonb :status_payload, null: false, default: {}
+
       t.timestamps
     end
 

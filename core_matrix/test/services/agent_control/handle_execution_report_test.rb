@@ -93,6 +93,19 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     assert_equal "Adding the canonical supervision aggregates", agent_task_run.current_focus_summary
     assert_equal "Finished reviewing the old models", agent_task_run.recent_progress_summary
     assert_equal "Rewrite the migrations", agent_task_run.next_step_hint
+    assert_equal(
+      {
+        "supervision_update" => {
+          "supervision_state" => "running",
+          "focus_kind" => "implementation",
+          "request_summary" => "Replace the observation schema",
+          "current_focus_summary" => "Adding the canonical supervision aggregates",
+          "recent_progress_summary" => "Finished reviewing the old models",
+          "next_step_hint" => "Rewrite the migrations",
+        },
+      },
+      agent_task_run.agent_task_run_detail.progress_payload
+    )
     assert_equal "Finished reviewing the old models", agent_task_run.agent_task_progress_entries.order(:sequence).last.summary
 
     supervision_state = context[:conversation].reload.conversation_supervision_state

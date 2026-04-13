@@ -217,6 +217,18 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.index ["subagent_connection_id"], name: "index_agent_task_progress_entries_on_subagent_connection_id"
   end
 
+  create_table "agent_task_run_details", force: :cascade do |t|
+    t.bigint "agent_task_run_id", null: false
+    t.jsonb "close_outcome_payload", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "progress_payload", default: {}, null: false
+    t.jsonb "supervision_payload", default: {}, null: false
+    t.jsonb "task_payload", default: {}, null: false
+    t.jsonb "terminal_payload", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_task_run_id"], name: "index_agent_task_run_details_on_agent_task_run_id", unique: true
+  end
+
   create_table "agent_task_runs", force: :cascade do |t|
     t.bigint "agent_id", null: false
     t.integer "attempt_no", default: 1, null: false
@@ -225,7 +237,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.datetime "close_force_deadline_at"
     t.datetime "close_grace_deadline_at"
     t.string "close_outcome_kind"
-    t.jsonb "close_outcome_payload", default: {}, null: false
     t.string "close_reason_kind"
     t.datetime "close_requested_at"
     t.string "close_state", default: "open", null: false
@@ -244,17 +255,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.string "logical_work_id", null: false
     t.string "next_step_hint"
     t.bigint "origin_turn_id"
-    t.jsonb "progress_payload", default: {}, null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "recent_progress_summary"
     t.string "request_summary"
     t.datetime "started_at"
     t.bigint "subagent_connection_id"
-    t.jsonb "supervision_payload", default: {}, null: false
     t.integer "supervision_sequence", default: 0, null: false
     t.string "supervision_state", default: "queued", null: false
-    t.jsonb "task_payload", default: {}, null: false
-    t.jsonb "terminal_payload", default: {}, null: false
     t.bigint "turn_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id"
@@ -521,6 +528,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.index ["public_id"], name: "index_conversation_debug_export_requests_on_public_id", unique: true
     t.index ["user_id"], name: "index_conversation_debug_export_requests_on_user_id"
     t.index ["workspace_id"], name: "index_conversation_debug_export_requests_on_workspace_id"
+  end
+
+  create_table "conversation_details", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "override_payload", default: {}, null: false
+    t.jsonb "override_reconciliation_report", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id"], name: "index_conversation_details_on_conversation_id", unique: true
   end
 
   create_table "conversation_diagnostics_snapshots", force: :cascade do |t|
@@ -792,6 +808,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.index ["workspace_id"], name: "index_conversation_supervision_snapshots_on_workspace_id"
   end
 
+  create_table "conversation_supervision_state_details", force: :cascade do |t|
+    t.bigint "conversation_supervision_state_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "status_payload", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_supervision_state_id"], name: "idx_on_conversation_supervision_state_id_fb34443d37", unique: true
+  end
+
   create_table "conversation_supervision_states", force: :cascade do |t|
     t.integer "active_plan_item_count", default: 0, null: false
     t.integer "active_subagent_count", default: 0, null: false
@@ -816,7 +840,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.string "recent_progress_summary"
     t.string "request_summary"
     t.datetime "retry_due_at"
-    t.jsonb "status_payload", default: {}, null: false
     t.bigint "target_conversation_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id"
@@ -854,8 +877,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.bigint "latest_turn_id"
     t.string "lifecycle_state", null: false
     t.string "override_last_schema_fingerprint"
-    t.jsonb "override_payload", default: {}, null: false
-    t.jsonb "override_reconciliation_report", default: {}, null: false
     t.datetime "override_updated_at"
     t.bigint "parent_conversation_id"
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
@@ -1102,6 +1123,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.index ["published_execution_runtime_version_id"], name: "idx_on_published_execution_runtime_version_id_33547d051c"
   end
 
+  create_table "human_interaction_request_details", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "human_interaction_request_id", null: false
+    t.jsonb "request_payload", default: {}, null: false
+    t.jsonb "result_payload", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["human_interaction_request_id"], name: "idx_on_human_interaction_request_id_077fbcb611", unique: true
+  end
+
   create_table "human_interaction_requests", force: :cascade do |t|
     t.bigint "agent_id"
     t.boolean "blocking", default: true, null: false
@@ -1111,10 +1141,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", default: "open", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.jsonb "request_payload", default: {}, null: false
     t.string "resolution_kind"
     t.datetime "resolved_at"
-    t.jsonb "result_payload", default: {}, null: false
     t.bigint "turn_id", null: false
     t.string "type", null: false
     t.datetime "updated_at", null: false
@@ -2079,6 +2107,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.check_constraint "lifecycle_state::text = ANY (ARRAY['pending'::character varying, 'queued'::character varying, 'running'::character varying, 'waiting'::character varying, 'completed'::character varying, 'failed'::character varying, 'canceled'::character varying]::text[])", name: "chk_workflow_nodes_lifecycle_state"
   end
 
+  create_table "workflow_run_wait_details", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "wait_reason_payload", default: {}, null: false
+    t.bigint "workflow_run_id", null: false
+    t.index ["workflow_run_id"], name: "index_workflow_run_wait_details_on_workflow_run_id", unique: true
+  end
+
   create_table "workflow_runs", force: :cascade do |t|
     t.bigint "agent_id"
     t.string "blocking_resource_id"
@@ -2110,7 +2146,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.datetime "wait_next_retry_at"
     t.string "wait_policy_mode"
     t.string "wait_reason_kind"
-    t.jsonb "wait_reason_payload", default: {}, null: false
     t.string "wait_resume_mode"
     t.string "wait_retry_scope"
     t.string "wait_retry_strategy"
@@ -2200,6 +2235,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "agent_task_progress_entries", "agent_task_runs", on_delete: :cascade
   add_foreign_key "agent_task_progress_entries", "installations"
   add_foreign_key "agent_task_progress_entries", "subagent_connections"
+  add_foreign_key "agent_task_run_details", "agent_task_runs", on_delete: :cascade
   add_foreign_key "agent_task_runs", "agent_connections", column: "holder_agent_connection_id"
   add_foreign_key "agent_task_runs", "agents"
   add_foreign_key "agent_task_runs", "conversations"
@@ -2257,6 +2293,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "conversation_debug_export_requests", "installations"
   add_foreign_key "conversation_debug_export_requests", "users"
   add_foreign_key "conversation_debug_export_requests", "workspaces"
+  add_foreign_key "conversation_details", "conversations", on_delete: :cascade
   add_foreign_key "conversation_diagnostics_snapshots", "conversations"
   add_foreign_key "conversation_diagnostics_snapshots", "installations"
   add_foreign_key "conversation_diagnostics_snapshots", "turns", column: "most_expensive_turn_id"
@@ -2309,6 +2346,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "conversation_supervision_snapshots", "installations"
   add_foreign_key "conversation_supervision_snapshots", "users"
   add_foreign_key "conversation_supervision_snapshots", "workspaces"
+  add_foreign_key "conversation_supervision_state_details", "conversation_supervision_states", on_delete: :cascade
   add_foreign_key "conversation_supervision_states", "agents"
   add_foreign_key "conversation_supervision_states", "conversations", column: "target_conversation_id"
   add_foreign_key "conversation_supervision_states", "installations"
@@ -2362,6 +2400,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "execution_runtimes", "execution_runtime_versions", column: "published_execution_runtime_version_id"
   add_foreign_key "execution_runtimes", "installations"
   add_foreign_key "execution_runtimes", "users", column: "owner_user_id"
+  add_foreign_key "human_interaction_request_details", "human_interaction_requests", on_delete: :cascade
   add_foreign_key "human_interaction_requests", "agents"
   add_foreign_key "human_interaction_requests", "conversations"
   add_foreign_key "human_interaction_requests", "installations"
@@ -2526,6 +2565,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "workflow_nodes", "workflow_nodes", column: "yielding_workflow_node_id"
   add_foreign_key "workflow_nodes", "workflow_runs"
   add_foreign_key "workflow_nodes", "workspaces"
+  add_foreign_key "workflow_run_wait_details", "workflow_runs", on_delete: :cascade
   add_foreign_key "workflow_runs", "agents"
   add_foreign_key "workflow_runs", "conversations"
   add_foreign_key "workflow_runs", "execution_runtimes"

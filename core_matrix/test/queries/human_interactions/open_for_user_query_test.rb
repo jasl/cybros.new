@@ -64,6 +64,25 @@ class HumanInteractions::OpenForUserQueryTest < ActiveSupport::TestCase
     assert_not_includes result, request
   end
 
+  test "does not hit the cold request detail table while listing open requests" do
+    installation = create_installation!
+    user = create_user!(installation: installation, display_name: "Inbox Owner")
+    context = build_request_context(installation: installation, user: user)
+    HumanInteractions::Request.call(
+      request_type: "HumanTaskRequest",
+      workflow_node: context[:interactive][:workflow_node],
+      blocking: true,
+      request_payload: { "instructions" => "Review the interactive task" }
+    )
+
+    queries = capture_sql_queries do
+      HumanInteractions::OpenForUserQuery.call(user: user)
+    end
+
+    assert queries.none? { |sql| sql.include?("human_interaction_request_details") },
+      "Expected open human interaction query to stay on header rows, got:\n#{queries.join("\n")}"
+  end
+
   private
 
   def build_request_context(installation:, user:)
