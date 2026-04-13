@@ -22,6 +22,29 @@ workspace policy API.
 
 ---
 
+## Current Baseline
+
+This plan starts from the current code state, where the shared feature-policy
+foundation already exists:
+
+- `workspace.config.features.*` is the structured workspace policy container
+- `WorkspaceFeatures::Schema` and `WorkspaceFeatures::Resolver` own feature
+  normalization and effective resolution
+- workspace policy show/update already exposes resolved `features.*`
+- Fenix canonical config already ships `features.title_bootstrap` and
+  `features.prompt_compaction`
+- `ProviderExecution::PromptCompactionPolicy` already resolves the effective
+  prompt-compaction policy
+- `BuildExecutionSnapshot` already freezes
+  `provider_context.feature_policies.prompt_compaction`
+- `Conversations::Metadata::TitleBootstrapPolicy` intentionally remains a
+  live-read feature on top of the same shared resolver
+
+This implementation plan therefore covers only the remaining prompt-budget
+guard work on top of that baseline.
+
+---
+
 ### Task 1: Lock Prompt-Budget Contracts Before Wiring New Surfaces
 
 **Files:**
@@ -101,191 +124,7 @@ git add \
 git commit -m "test: lock prompt budget guard contracts"
 ```
 
-### Task 2: Add Prompt-Compaction Defaults And Workspace Policy Storage
-
-**Files:**
-- Modify: `agents/fenix/config/canonical_config.schema.json`
-- Modify: `agents/fenix/config/canonical_config.defaults.json`
-- Modify: `agents/fenix/test/integration/runtime_manifest_test.rb`
-- Create: `core_matrix/db/migrate/<timestamp>_add_config_to_workspaces.rb`
-- Modify: `core_matrix/db/schema.rb`
-- Modify: `core_matrix/app/models/workspace.rb`
-- Modify: `core_matrix/app/services/workspace_policies/upsert.rb`
-- Modify: `core_matrix/app/services/app_surface/presenters/workspace_policy_presenter.rb`
-- Modify: `core_matrix/app/controllers/app_api/workspaces/policies_controller.rb`
-- Modify: `core_matrix/app/services/installations/register_bundled_agent_runtime.rb`
-- Modify: `core_matrix/test/requests/app_api/workspace_policies_test.rb`
-- Modify: `core_matrix/test/models/workspace_test.rb`
-- Modify: `core_matrix/test/services/installations/register_bundled_agent_runtime_test.rb`
-- Modify: `core_matrix/test/test_helper.rb`
-
-**Step 1: Write failing config-surface tests**
-
-Extend Fenix manifest tests so they expect canonical config to include:
-
-- `features.prompt_compaction.enabled`
-- `features.prompt_compaction.mode`
-
-Extend workspace policy request/model tests so they expect:
-
-- `workspace_policy.features.prompt_compaction.enabled`
-- `workspace_policy.features.prompt_compaction.mode`
-- invalid prompt-compaction values to be rejected
-
-Also extend bundled runtime registration tests so the packaged definition/config
-shape round-trips with prompt-compaction defaults.
-
-**Step 2: Add Fenix canonical config defaults**
-
-Update the Fenix canonical config files so they define:
-
-- `features.prompt_compaction.enabled`
-- `features.prompt_compaction.mode`
-
-Keep the default aligned with the design:
-
-- enabled
-- `runtime_first`
-
-Verify the manifest integration test is the primary Fenix assertion point. Do
-not add unnecessary `BuildRoundInstructions` work in this task.
-
-**Step 3: Add structured workspace config storage and policy plumbing**
-
-Add a JSONB `config` column to `workspaces` with a hash default.
-
-Update:
-
-- `Workspace` validations so `config` is always a hash
-- `WorkspacePolicies::Upsert` to accept and validate nested
-  `features.prompt_compaction`
-- `WorkspacePolicyPresenter` to project prompt-compaction policy
-- `AppAPI::Workspaces::PoliciesController` to accept prompt-compaction updates
-
-Keep the prompt-compaction shape structured for future expansion instead of
-flattening fields onto the workspace row.
-
-**Step 4: Update bundled/runtime and test helper defaults**
-
-Update bundled runtime registration defaults and test helpers so new agent
-definitions, bundled manifests, and shared fixtures all carry the prompt
-compaction config shape consistently.
-
-This task is complete only when there is no hidden fallback to `{}` in the
-common registration/test setup path for prompt-compaction defaults.
-
-**Step 5: Run the targeted tests and verify they pass**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails db:migrate
-bin/rails db:test:prepare
-```
-
-Then run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
-bin/rails test test/integration/runtime_manifest_test.rb
-```
-
-Then run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-PARALLEL_WORKERS=1 bin/rails test \
-  test/models/workspace_test.rb \
-  test/requests/app_api/workspace_policies_test.rb \
-  test/services/installations/register_bundled_agent_runtime_test.rb
-```
-
-Expected: Fenix manifest exposes prompt-compaction defaults, workspace policy
-show/update persists structured prompt-compaction config, and bundled runtime
-fixtures round-trip the new shape.
-
-**Step 6: Commit**
-
-```bash
-git add \
-  /Users/jasl/Workspaces/Ruby/cybros/agents/fenix/config/canonical_config.schema.json \
-  /Users/jasl/Workspaces/Ruby/cybros/agents/fenix/config/canonical_config.defaults.json \
-  /Users/jasl/Workspaces/Ruby/cybros/agents/fenix/test/integration/runtime_manifest_test.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/*_add_config_to_workspaces.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/schema.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/workspace.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workspace_policies/upsert.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/app_surface/presenters/workspace_policy_presenter.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/app_api/workspaces/policies_controller.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/installations/register_bundled_agent_runtime.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/app_api/workspace_policies_test.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/workspace_test.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/installations/register_bundled_agent_runtime_test.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/test_helper.rb
-git commit -m "feat: add workspace prompt compaction policy"
-```
-
-### Task 3: Freeze Effective Prompt-Compaction Policy Into The Execution Snapshot
-
-**Files:**
-- Create: `core_matrix/app/services/provider_execution/prompt_compaction_policy.rb`
-- Modify: `core_matrix/app/services/workflows/build_execution_snapshot.rb`
-- Modify: `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
-
-**Step 1: Write failing policy-resolution tests**
-
-Extend `build_execution_snapshot_test.rb` so it expects prompt-compaction policy
-resolution precedence to be:
-
-- workspace override
-- agent canonical config default
-- compatibility fallback for older runtimes missing prompt-compaction config
-
-Also assert that the resolved policy is frozen into the execution snapshot
-payload consumed by provider execution.
-
-**Step 2: Implement effective policy resolution**
-
-Add a small service such as `ProviderExecution::PromptCompactionPolicy` that:
-
-- accepts workspace config
-- accepts agent default canonical config
-- returns a normalized effective policy
-
-Use named constants for fallback defaults and reject invalid mode values early.
-
-**Step 3: Freeze the policy during snapshot build**
-
-Update `BuildExecutionSnapshot` so `provider_context` includes the resolved
-prompt-compaction policy for the turn under
-`provider_context.feature_policies.prompt_compaction`. The round loop should
-later consume this frozen value, not query `workspace` live.
-
-**Step 4: Run the targeted tests and make them green**
-
-Run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-PARALLEL_WORKERS=1 bin/rails test \
-  test/services/workflows/build_execution_snapshot_test.rb
-```
-
-Expected: the execution snapshot now carries a stable, resolved
-prompt-compaction policy.
-
-**Step 5: Commit**
-
-```bash
-git add \
-  app/services/provider_execution/prompt_compaction_policy.rb \
-  app/services/workflows/build_execution_snapshot.rb \
-  test/services/workflows/build_execution_snapshot_test.rb
-git commit -m "feat: freeze prompt compaction policy in snapshots"
-```
-
-### Task 4: Implement Token Estimation And Guard Decisions
+### Task 2: Implement Token Estimation And Guard Decisions
 
 **Files:**
 - Create: `core_matrix/app/services/provider_execution/token_estimator.rb`
@@ -302,7 +141,7 @@ Extend `execute_round_loop_test.rb` with cases that expect:
 - dispatch proceeds when the guard returns `allow`
 - dispatch is blocked with a typed local error when the guard returns `reject`
 
-Do not add compaction-orchestration expectations yet. Those belong to Task 5.
+Do not add compaction-orchestration expectations yet. Those belong to Task 3.
 
 **Step 2: Implement `TokenEstimator` minimally to satisfy the tests**
 
@@ -338,7 +177,7 @@ The guard should expose a result object or hash that includes:
 - `retry_mode`
 
 For this task, a `compact` decision only blocks direct dispatch. The actual
-compaction orchestration is added in Task 5.
+compaction orchestration is added in Task 3.
 
 **Step 4: Wire the guard into `ExecuteRoundLoop` before dispatch**
 
@@ -348,7 +187,7 @@ Update `ExecuteRoundLoop` so it:
 - calls `PromptBudgetGuard`
 - dispatches only when the guard returns `allow`
 - raises a typed local error when the guard returns `reject`
-- raises a separate typed local error for `compact` until Task 5 implements the
+- raises a separate typed local error for `compact` until Task 3 implements the
   orchestration path
 
 This keeps the test boundary explicit and avoids hiding red tests across tasks.
@@ -381,7 +220,7 @@ git add \
 git commit -m "feat: add provider prompt budget guard"
 ```
 
-### Task 5: Add Runtime-First Compaction And Embedded Fallback
+### Task 3: Add Runtime-First Compaction And Embedded Fallback
 
 **Files:**
 - Create: `core_matrix/app/services/provider_execution/prompt_compaction.rb`
@@ -460,7 +299,7 @@ git add \
 git commit -m "feat: add prompt compaction fallback flow"
 ```
 
-### Task 6: Classify Provider Overflow Explicitly And Persist User Recovery Metadata
+### Task 4: Classify Provider Overflow Explicitly And Persist User Recovery Metadata
 
 **Files:**
 - Modify: `core_matrix/app/services/provider_execution/failure_classification.rb`
@@ -539,7 +378,7 @@ git add \
 git commit -m "feat: classify prompt overflow explicitly"
 ```
 
-### Task 7: Run Verification And Close The Slice
+### Task 5: Run Verification And Close The Slice
 
 **Files:**
 - Modify: `core_matrix/docs/plans/2026-04-14-prompt-budget-guard-design.md`
@@ -556,6 +395,8 @@ bin/rails db:test:prepare
 PARALLEL_WORKERS=1 bin/rails test \
   test/models/workspace_test.rb \
   test/requests/app_api/workspace_policies_test.rb \
+  test/services/conversations/metadata/title_bootstrap_policy_test.rb \
+  test/jobs/conversations/metadata/bootstrap_title_job_test.rb \
   test/services/installations/register_bundled_agent_runtime_test.rb \
   test/services/workflows/build_execution_snapshot_test.rb \
   test/services/provider_execution/token_estimator_test.rb \
@@ -566,24 +407,25 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/embedded_agents/prompt_compaction/invoke_test.rb
 ```
 
-Expected: green focused verification for the new prompt-budget protection
-slice.
+Expected:
 
-**Step 2: Run the broader `agents/fenix` verification commands required by repo policy**
+- green focused verification for the new prompt-budget protection slice
+- shared `features.*` regressions stay green
+- title bootstrap retains its live-read behavior while prompt compaction stays
+  snapshot-frozen
 
-Run:
+**Step 2: Re-run the Fenix manifest regression if any local implementation touched runtime config contracts**
+
+Run only if the prompt-budget implementation changes `agents/fenix` config,
+manifest packaging, or bundled-runtime defaults:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
-bin/brakeman --no-pager
-bin/bundler-audit
-bin/rubocop -f github
-bin/rails db:test:prepare
-bin/rails test
+bin/rails test test/integration/runtime_manifest_test.rb
 ```
 
-Expected: the Fenix-side manifest/config changes pass the owning project's
-verification commands.
+Expected: the Fenix manifest still exposes the shared `features.*` contract
+used by `core_matrix`.
 
 **Step 3: Run the broader `core_matrix` verification commands required by repo policy**
 

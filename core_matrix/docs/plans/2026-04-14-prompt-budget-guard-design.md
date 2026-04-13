@@ -22,15 +22,21 @@ The target behavior is:
 
 ## Scope
 
-This pass focuses on seven connected changes:
+The shared feature-policy groundwork has already landed. This pass now focuses
+on the five remaining prompt-budget changes that build on top of it:
 
 1. Add a token-estimation pipeline with deterministic fallback behavior
 2. Add a `core_matrix`-owned prompt-budget guard before provider dispatch
 3. Add runtime-first prompt compaction with an embedded fallback
 4. Detect provider context overflow explicitly and classify it correctly
 5. Project user remediation instructions for edit-or-resend recovery
-6. Add workspace-owned structured prompt-compaction configuration
-7. Expose prompt-compaction defaults through the Fenix canonical config
+
+This pass consumes, but does not redesign:
+
+- `workspace.config.features.*`
+- Fenix canonical-config `features.*` defaults
+- `WorkspaceFeatures::Resolver`
+- the snapshot-frozen `provider_context.feature_policies.prompt_compaction`
 
 ## Non-Goals
 
@@ -63,18 +69,23 @@ Within that path:
 
 - user input is stored as-is in `messages.content` with no prompt-size
   validation
-- `BuildExecutionSnapshot` computes only advisory values such as
-  `recommended_compaction_threshold`
-- `PrepareAgentRound` passes those hints to Fenix in `provider_context`
+- `WorkspaceFeatures::Schema` and `WorkspaceFeatures::Resolver` already define
+  the shared `features.*` contract and resolve system defaults, runtime
+  canonical defaults, and workspace overrides
+- workspace policy show/update already projects resolved `features.*`
+- Fenix canonical config already publishes `features.title_bootstrap` and
+  `features.prompt_compaction`
+- `BuildExecutionSnapshot` already freezes `budget_hints` and
+  `provider_context.feature_policies.prompt_compaction`
+- `Conversations::Metadata::TitleBootstrapPolicy` intentionally continues to
+  resolve `features.title_bootstrap` live through the shared resolver
+- `PrepareAgentRound` passes the frozen provider context to Fenix
 - Fenix exposes `compact_context`, but only as an optional runtime tool
 - `DispatchRequest` sends the final message list directly to the provider
-- workspace policy currently exposes `disabled_capabilities` and
-  `default_execution_runtime`, but not a structured prompt-compaction policy
 
-This means the system currently relies on the runtime or upstream provider to
-notice oversized prompt state. `core_matrix` never performs an authoritative
-"can this exact request fit?" decision before dispatch, and there is no
-workspace-owned control surface for prompt-compaction behavior.
+This means the config-shape prerequisite is now in place, but `core_matrix`
+still lacks an authoritative "can this exact request fit?" guard, explicit
+compaction orchestration, and prompt-size-specific failure projection.
 
 ## Problem 1: Budget Hints Exist, But No Authoritative Guard Uses Them
 
@@ -161,19 +172,26 @@ which remediation applies:
 Without a structured recovery payload, the product can only show a generic text
 error even though the actual recovery action depends on timeline state.
 
-## Problem 6: Workspace Policy Cannot Express Prompt-Compaction Intent
+## Problem 6: Prompt-Budget Flow Must Consume Shared Feature Policy Infrastructure Correctly
 
-The product requirement is that prompt compaction be controllable at the
-workspace level. Today there is no workspace-owned structured configuration
-surface that can express:
+The shared `features.*` policy infrastructure now exists, but prompt-budget
+execution still has to consume it with the right lifecycle semantics.
 
-- whether prompt compaction is enabled for this workspace
-- whether the workspace prefers runtime-first or embedded-only compaction
+For prompt compaction, the correct rule is:
 
-That leaves the system with only runtime defaults, which is too coarse. The
-default agent/runtime contract should define the baseline, but each workspace
-needs a structured override so policy can differ across workspaces using the
-same agent/runtime pairing.
+- resolve via the shared feature-policy stack
+- freeze the effective policy into the execution snapshot
+- run the whole turn against that frozen value
+
+For title bootstrap, the correct rule remains different:
+
+- resolve via the same shared feature-policy stack
+- read live policy when the metadata job runs
+
+That difference is intentional. Feature policy is shared infrastructure, but
+freeze-vs-live behavior is owned per feature. The prompt-budget work should
+reuse the shared resolver and config contract without trying to force one
+global lifecycle rule onto every feature.
 
 ## Recommended Direction
 
@@ -352,29 +370,37 @@ overflow failure kind and user remediation payload.
 
 This preserves safety while preventing infinite loops.
 
-### 11. Resolve Prompt-Compaction Policy From Workspace Config Over Agent Defaults
+### 11. Consume The Existing `features.*` Policy Infrastructure Without Coupling Feature Lifecycles
 
-V1 should use the structured `workspaces.config.features` policy container.
-Prompt compaction should live under:
+V1 should use the already-landed `workspaces.config.features` policy
+container. Prompt compaction already lives under:
 
 - `workspace.config.features.prompt_compaction.enabled`
 - `workspace.config.features.prompt_compaction.mode`
 
-The effective policy should resolve in this order:
+The effective prompt-compaction policy should resolve in this order:
 
 1. workspace override from `workspace.config.features.prompt_compaction`
 2. default from the effective agent canonical config
 3. compatibility fallback for older registered runtimes missing the new config
 
-The resolved policy should be frozen into the turn execution snapshot before the
-round loop starts. That keeps in-flight turns stable even if a workspace policy
-changes while a workflow is already running.
+That resolved prompt-compaction policy should be frozen into the turn
+execution snapshot before the round loop starts. That keeps in-flight turns
+stable even if a workspace policy changes while a workflow is already running.
+
+`title_bootstrap` should continue to own a different lifecycle:
+
+- same `features.*` contract
+- same shared resolver
+- no requirement to freeze into provider execution
+
+The rule here is "shared config surface, feature-owned execution semantics."
 
 ## Configuration Direction
 
-### Agent Default Shape
+### Current Agent Default Shape
 
-Fenix canonical config should define the default prompt-compaction shape and
+Fenix canonical config already defines the default prompt-compaction shape and
 baseline values:
 
 - `features.prompt_compaction.enabled`
@@ -382,22 +408,21 @@ baseline values:
   - `runtime_first`
   - `embedded_only`
 
-Default behavior should be enabled and runtime-first in:
+Default behavior is enabled and runtime-first in:
 
 - `agents/fenix/config/canonical_config.defaults.json`
 - `agents/fenix/config/canonical_config.schema.json`
 
-This keeps the runtime contract self-describing and ensures newly registered
-agent definitions carry the prompt-compaction baseline automatically.
+This pass should consume that existing contract rather than redesign it.
 
-### Workspace Override Surface
+### Current Workspace Override Surface
 
-The mutable user-facing override should live in workspace policy, backed by the
-new structured `workspaces.config` JSONB field rather than conversation
+The mutable user-facing override already lives in workspace policy, backed by
+the structured `workspaces.config` JSONB field rather than conversation
 override payloads or ad hoc runtime overrides.
 
-V1 should extend the existing workspace policy show/update path so it can
-project and accept:
+The prompt-budget implementation should consume the existing workspace policy
+shape:
 
 - `workspace_policy.features.prompt_compaction.enabled`
 - `workspace_policy.features.prompt_compaction.mode`
@@ -408,11 +433,13 @@ runtime selection.
 
 ### Effective Resolution And Snapshot Freezing
 
-`core_matrix` should resolve and freeze the prompt-compaction policy while
+`core_matrix` already resolves and freezes prompt-compaction policy while
 building the execution snapshot. The guard and compaction services should read
 that frozen policy from `provider_context`, not from live workspace rows.
 
 That avoids races and makes retries deterministic for the lifetime of the turn.
+This rule is specific to prompt compaction; it must not be generalized onto
+other features such as title bootstrap that intentionally remain live-read.
 
 ### Compatibility With Older Runtimes
 
@@ -441,10 +468,12 @@ assertions for the first pass.
 
 The implementation should be driven by five test layers:
 
-1. workspace policy and config-shape tests
-   - Fenix manifest exposes canonical prompt-compaction defaults
-   - workspace policy show/update persists structured prompt-compaction config
-   - bundled/default test fixtures carry the new config shape
+1. shared feature-policy regression tests
+   - Fenix manifest exposes canonical `features.*` defaults
+   - workspace policy show/update projects structured `features.*`
+   - bundled/default test fixtures carry the shared config shape
+   - prompt-compaction policy is frozen into the execution snapshot
+   - title-bootstrap policy remains live-read
 2. `TokenEstimator` unit tests
    - exact tokenizer path
    - `tiktoken` fallback path
@@ -475,7 +504,9 @@ The recommended design keeps ownership lines clear:
   resolution, and product-facing failures
 - Fenix owns the primary replaceable compaction behavior through its existing
   `compact_context` tool
-- workspace policy owns the mutable user-facing prompt-compaction override
+- workspace policy owns the mutable user-facing `features.*` overrides
+- feature lifecycle remains feature-owned: prompt compaction freezes, title
+  bootstrap stays live-read
 - embedded compaction exists only as a local safety net
 
 Most importantly, this design turns "prompt too large" from an upstream
