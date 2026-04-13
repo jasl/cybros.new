@@ -14,6 +14,7 @@ module Workflows
 
     def call
       validate_wait_state!
+      validate_mutable_state!
 
       resumed_workflow_run = ApplicationRecord.transaction do
         Workflows::WithMutableWorkflowContext.call(
@@ -69,6 +70,19 @@ module Workflows
       return if workflow_run.paused_agent_unavailable?
 
       raise_invalid!(workflow_run, :wait_reason_kind, "must require manual recovery before resuming")
+    end
+
+    def validate_mutable_state!
+      blocker_snapshot = Conversations::BlockerSnapshotQuery.call(conversation: @workflow_run.conversation)
+
+      case blocker_snapshot.live_mutation_block_reason
+      when :retained
+        raise_invalid!(@workflow_run, :deletion_state, "must be retained before manual recovery")
+      when :inactive
+        raise_invalid!(@workflow_run, :lifecycle_state, "must be active before manual recovery")
+      when :closing
+        raise_invalid!(@workflow_run, :base, "must not resume paused work while close is in progress")
+      end
     end
 
     def raise_invalid!(record, attribute, message)

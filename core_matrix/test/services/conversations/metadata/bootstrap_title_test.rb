@@ -117,6 +117,7 @@ class Conversations::Metadata::BootstrapTitleTest < ActiveSupport::TestCase
 
   def create_user_input_message!(context:, conversation:, content:)
     agent_config_state = context[:agent].agent_config_state
+    execution_epoch = initialize_current_execution_epoch!(conversation, execution_runtime: context[:execution_runtime])
 
     turn = Turn.create!(
       installation: conversation.installation,
@@ -135,6 +136,7 @@ class Conversations::Metadata::BootstrapTitleTest < ActiveSupport::TestCase
       pinned_agent_definition_fingerprint: context[:agent_definition_version].definition_fingerprint,
       agent_config_version: agent_config_state&.version || 1,
       agent_config_content_fingerprint: agent_config_state&.content_fingerprint || context[:agent_definition_version].definition_fingerprint,
+      execution_epoch: execution_epoch,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )

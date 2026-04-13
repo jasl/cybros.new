@@ -81,7 +81,6 @@ class Turn < ApplicationRecord
   validate :cancellation_request_pairing
 
   before_validation :default_feature_policy_snapshot
-  before_validation :default_execution_epoch
 
   def terminal?
     completed? || failed? || canceled?
@@ -295,12 +294,5 @@ class Turn < ApplicationRecord
     return unless feature_policy_snapshot.blank?
 
     self.feature_policy_snapshot = conversation.feature_policy_snapshot
-  end
-
-  def default_execution_epoch
-    return if execution_epoch.present?
-    return unless conversation.present?
-
-    self.execution_epoch = conversation.current_execution_epoch
   end
 end

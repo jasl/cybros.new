@@ -87,6 +87,7 @@ class Conversation < ApplicationRecord
     validate: true
   enum :execution_continuity_state,
     {
+      not_started: "not_started",
       ready: "ready",
       handoff_pending: "handoff_pending",
       handoff_blocked: "handoff_blocked",
@@ -214,7 +215,6 @@ class Conversation < ApplicationRecord
   before_validation :normalize_enabled_feature_ids
   before_validation :default_execution_continuity_state
   before_validation :default_current_execution_runtime
-  after_create :ensure_initial_execution_epoch!
 
   def deleting?
     pending_delete? || deleted?
@@ -442,7 +442,10 @@ class Conversation < ApplicationRecord
   end
 
   def default_execution_continuity_state
-    self.execution_continuity_state ||= "ready"
+    return unless execution_continuity_state.blank? ||
+      (new_record? && current_execution_epoch.blank? && execution_continuity_state == "ready")
+
+    self.execution_continuity_state = current_execution_epoch.present? ? "ready" : "not_started"
   end
 
   def default_current_execution_runtime
@@ -452,9 +455,5 @@ class Conversation < ApplicationRecord
       parent_conversation&.current_execution_runtime ||
       workspace&.default_execution_runtime ||
       agent&.default_execution_runtime
-  end
-
-  def ensure_initial_execution_epoch!
-    ConversationExecutionEpochs::InitializeCurrent.call(conversation: self)
   end
 end

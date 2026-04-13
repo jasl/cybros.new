@@ -29,6 +29,22 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     assert_includes contract.fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }, "subagent_spawn"
   end
 
+  test "previewing a bare conversation does not materialize execution continuity" do
+    registration = register_profile_aware_runtime!
+    conversation = create_root_conversation_without_epoch_for!(registration)
+
+    assert_nil conversation.current_execution_epoch
+
+    assert_no_difference("ConversationExecutionEpoch.count") do
+      contract = RuntimeCapabilities::PreviewForConversation.call(conversation: conversation)
+
+      assert_equal registration[:execution_runtime].public_id, contract.fetch("execution_runtime_id")
+    end
+
+    assert_nil conversation.reload.current_execution_epoch
+    assert_equal "not_started", conversation.execution_continuity_state
+  end
+
   test "conversation tool catalog prefers environment tools over agent tools with the same name" do
     registration = register_profile_aware_runtime!(
       execution_runtime_tool_catalog: [
@@ -285,6 +301,13 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     Conversations::CreateRoot.call(
       workspace: workspace,
     )
+  end
+
+  def create_root_conversation_without_epoch_for!(registration)
+    conversation = create_root_conversation_for!(registration)
+    conversation.update_columns(current_execution_epoch_id: nil)
+    ConversationExecutionEpoch.where(conversation: conversation).delete_all
+    conversation.reload
   end
 
   def create_subagent_conversation_chain!(registration:, parent_conversation:, depth:, profile_key:)

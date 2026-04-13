@@ -108,6 +108,7 @@ class ProcessRunTest < ActiveSupport::TestCase
       purpose: "interactive",
       lifecycle_state: "active"
     )
+    execution_epoch = initialize_current_execution_epoch!(conversation, execution_runtime: execution_runtime)
     agent_config_state = AgentConfigStates::Reconcile.call(
       agent: agent,
       agent_definition_version: agent_definition_version
@@ -131,6 +132,7 @@ class ProcessRunTest < ActiveSupport::TestCase
       pinned_agent_definition_fingerprint: agent_definition_version.definition_fingerprint,
       agent_config_version: agent_config_state.version,
       agent_config_content_fingerprint: agent_config_state.content_fingerprint,
+      execution_epoch: execution_epoch,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}

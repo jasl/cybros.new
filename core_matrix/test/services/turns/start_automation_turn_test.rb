@@ -146,7 +146,7 @@ class Turns::StartAutomationTurnTest < ActiveSupport::TestCase
       workspace: context[:workspace]
     )
 
-    assert_sql_query_count_at_most(17) do
+    assert_sql_query_count_at_most(22) do
       Turns::StartAutomationTurn.call(
         conversation: conversation,
         origin_kind: "automation_schedule",

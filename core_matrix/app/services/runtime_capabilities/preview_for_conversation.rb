@@ -35,7 +35,7 @@ module RuntimeCapabilities
     end
 
     def execution_identity
-      @execution_identity ||= Turns::FreezeExecutionIdentity.call(
+      @execution_identity ||= Conversations::ResolveExecutionContext.call(
         conversation: @conversation,
         allow_unavailable_execution_runtime: true
       )

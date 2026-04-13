@@ -671,6 +671,9 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     assert session_tree.fetch(:direct_session).reload.close_requested_at.present?
     assert session_tree.fetch(:nested_session).reload.close_requested_at.present?
     assert branch.reload.unfinished_close_operation.present?
+    assert_nil branch.current_execution_epoch
+    assert_nil session_tree.fetch(:direct_conversation).reload.current_execution_epoch
+    assert_nil session_tree.fetch(:nested_conversation).reload.current_execution_epoch
 
     AgentControl::Report.call(
       agent_definition_version: context[:agent_definition_version],
@@ -700,7 +703,7 @@ class Conversations::PurgeDeletedTest < ActiveSupport::TestCase
     )
 
     assert_difference("Conversation.count", -3) do
-      assert_difference("ConversationExecutionEpoch.count", -3) do
+      assert_no_difference("ConversationExecutionEpoch.count") do
         assert_difference("SubagentConnection.count", -2) do
           assert_difference("AgentControlMailboxItem.count", -2) do
             assert_difference("AgentControlReportReceipt.count", -2) do

@@ -53,6 +53,11 @@ and safe deletion support.
   - `latest_active_workflow_run_id`
   - `latest_message_id`
   - `last_activity_at`
+- execution continuity state:
+  - `not_started`
+  - `ready`
+  - `handoff_pending`
+  - `handoff_blocked`
 
 `addressability`, `lifecycle_state`, and `deletion_state` are separate axes. A
 conversation can be agent-addressable yet active, owner-addressable yet
@@ -72,6 +77,17 @@ The current-state anchor columns are conversation-owned cache truth for
 read-side boundaries. They let feed, diagnostics, and app-surface lookups stay
 on the conversation row rather than reconstructing the latest turn, workflow,
 or transcript activity through follow-up queries.
+
+`current_execution_runtime_id` and `current_execution_epoch_id` are related but
+not identical. Bare root, automation-root, and freshly created child
+conversations now start with:
+
+- `current_execution_runtime_id` resolved when one is available
+- `current_execution_epoch_id = nil`
+- `execution_continuity_state = "not_started"`
+
+The first real execution entry materializes the epoch and moves the
+conversation to `ready`.
 
 ## Conversation Feature Policy
 
@@ -299,6 +315,10 @@ or transcript activity through follow-up queries.
 - archival and deletion flows now call `Conversations::ValidateQuiescence`
   directly at each service boundary instead of routing through a private helper
   module
+- read-only runtime inspection and configuration paths use
+  `Conversations::ResolveExecutionContext`
+- those paths may inspect the configured runtime and active agent definition
+  while the conversation remains `not_started`
 
 ## Invariants
 

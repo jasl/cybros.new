@@ -19,4 +19,15 @@ class AppSurface::Presenters::ConversationPresenterTest < ActiveSupport::TestCas
     assert_equal conversation.lifecycle_state, payload.fetch("lifecycle_state")
     refute_includes payload.to_json, %("#{conversation.id}")
   end
+
+  test "emits bare-conversation continuity state without a current epoch" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+
+    payload = AppSurface::Presenters::ConversationPresenter.call(conversation: conversation)
+
+    assert_equal context[:execution_runtime].public_id, payload.fetch("current_execution_runtime_id")
+    assert_nil payload["current_execution_epoch_id"]
+    assert_equal "not_started", payload.fetch("execution_continuity_state")
+  end
 end

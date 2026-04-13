@@ -23,6 +23,26 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
     assert_equal({ "status" => "exact" }, updated.conversation_detail.override_reconciliation_report)
   end
 
+  test "updates a bare conversation without materializing execution continuity" do
+    conversation = create_profile_aware_conversation_without_epoch!
+
+    assert_nil conversation.current_execution_epoch
+
+    assert_no_difference("ConversationExecutionEpoch.count") do
+      updated = Conversations::UpdateOverride.call(
+        conversation: conversation,
+        payload: { "subagents" => { "enabled" => false } },
+        schema_fingerprint: "schema-v1",
+        selector_mode: "auto"
+      )
+
+      assert_equal({ "subagents" => { "enabled" => false } }, updated.override_payload)
+    end
+
+    assert_nil conversation.reload.current_execution_epoch
+    assert_equal "not_started", conversation.execution_continuity_state
+  end
+
   test "persists an explicit candidate selector" do
     conversation = create_profile_aware_conversation!
 
@@ -150,5 +170,12 @@ class Conversations::UpdateOverrideTest < ActiveSupport::TestCase
     Conversations::CreateRoot.call(
       workspace: workspace,
     )
+  end
+
+  def create_profile_aware_conversation_without_epoch!
+    conversation = create_profile_aware_conversation!
+    conversation.update_columns(current_execution_epoch_id: nil)
+    ConversationExecutionEpoch.where(conversation: conversation).delete_all
+    conversation.reload
   end
 end

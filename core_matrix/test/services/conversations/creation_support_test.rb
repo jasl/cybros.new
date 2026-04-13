@@ -57,4 +57,20 @@ class Conversations::CreationSupportTest < ActiveSupport::TestCase
     assert_equal parent.purpose, refreshed.purpose
     assert refreshed.active?
   end
+
+  test "builds child conversations with copied runtime and no current epoch" do
+    context = create_workspace_context!
+    parent = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    harness = CreationSupportHarness.new
+
+    child = harness.build_child_conversation(parent: parent, kind: "fork")
+    assert child.valid?
+
+    assert_equal parent.current_execution_runtime, child.current_execution_runtime
+    assert_nil child.current_execution_epoch
+    assert_equal "not_started", child.execution_continuity_state
+  end
 end

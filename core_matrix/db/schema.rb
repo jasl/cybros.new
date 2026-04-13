@@ -863,7 +863,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.string "deletion_state", default: "retained", null: false
     t.string "during_generation_input_policy", default: "queue", null: false
     t.string "enabled_feature_ids", default: [], null: false, array: true
-    t.string "execution_continuity_state", default: "ready", null: false
+    t.string "execution_continuity_state", default: "not_started", null: false
     t.bigint "historical_anchor_message_id"
     t.bigint "installation_id", null: false
     t.string "interactive_selector_mode", default: "auto", null: false

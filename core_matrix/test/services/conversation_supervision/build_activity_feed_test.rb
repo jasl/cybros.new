@@ -109,6 +109,7 @@ class ConversationSupervision::BuildActivityFeedTest < ActiveSupport::TestCase
       agent: conversation.agent,
       agent_definition_version: template_turn.agent_definition_version,
       execution_runtime: template_turn.execution_runtime,
+      execution_epoch: template_turn.execution_epoch,
       sequence: sequence,
       lifecycle_state: lifecycle_state,
       origin_kind: "system_internal",

@@ -92,7 +92,7 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
     end
   end
 
-  test "starts an agent turn within twenty-four SQL queries" do
+  test "starts an agent turn within twenty-seven SQL queries" do
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
@@ -103,7 +103,7 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
       profile_key: "researcher"
     )
 
-    assert_sql_query_count_at_most(24) do
+    assert_sql_query_count_at_most(27) do
       turn = Turns::StartAgentTurn.call(
         conversation: child_conversation,
         content: "Investigate this",

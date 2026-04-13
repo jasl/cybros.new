@@ -4,6 +4,7 @@ class ConversationExecutionEpochTest < ActiveSupport::TestCase
   test "requires sequence uniqueness within one conversation" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    initialize_current_execution_epoch!(conversation)
 
     duplicate = ConversationExecutionEpoch.new(
       installation: conversation.installation,
@@ -22,6 +23,8 @@ class ConversationExecutionEpochTest < ActiveSupport::TestCase
     context = create_workspace_context!
     first = Conversations::CreateRoot.call(workspace: context[:workspace])
     second = Conversations::CreateRoot.call(workspace: context[:workspace])
+    initialize_current_execution_epoch!(first)
+    initialize_current_execution_epoch!(second)
 
     epoch = ConversationExecutionEpoch.new(
       installation: second.installation,

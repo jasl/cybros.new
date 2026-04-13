@@ -14,7 +14,7 @@ module ConversationExecutionEpochs
 
       runtime = @execution_runtime || @conversation.current_execution_runtime
       epoch = ConversationExecutionEpoch.create!(
-        installation: @conversation.installation,
+        installation_id: @conversation.installation_id,
         conversation: @conversation,
         execution_runtime: runtime,
         sequence: next_sequence,

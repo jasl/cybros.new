@@ -53,12 +53,16 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
       owner_conversation: root_conversation
     )
 
+    assert_nil child_conversation.current_execution_epoch
+    assert_equal "not_started", child_conversation.execution_continuity_state
+
     owner_message = SubagentConnections::SendMessage.call(
       conversation: child_conversation,
       content: "Owner note",
       sender_kind: "owner_agent",
       sender_conversation: root_conversation
     )
+    first_epoch = child_conversation.reload.current_execution_epoch
     self_message = SubagentConnections::SendMessage.call(
       conversation: child_conversation,
       content: "Self note",
@@ -83,6 +87,11 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     assert_equal system_message.turn, child_conversation.latest_turn
     assert_nil child_conversation.latest_active_turn
     assert_equal system_message.created_at.to_i, child_conversation.last_activity_at.to_i
+    assert first_epoch.present?
+    assert_equal "ready", child_conversation.execution_continuity_state
+    assert_equal first_epoch, owner_message.turn.execution_epoch
+    assert_equal first_epoch, self_message.turn.execution_epoch
+    assert_equal first_epoch, system_message.turn.execution_epoch
   end
 
   test "successful sends avoid a full conversation anchor rescan" do
@@ -95,7 +104,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
       owner_conversation: root_conversation
     )
 
-    assert_sql_query_count_at_most(26) do
+    assert_sql_query_count_at_most(31) do
       SubagentConnections::SendMessage.call(
         conversation: child_conversation,
         content: "System note",

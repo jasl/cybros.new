@@ -5,6 +5,9 @@ class ConversationExecutionEpochs::InitializeCurrentTest < ActiveSupport::TestCa
     context = create_workspace_context!
     conversation = create_conversation_without_epoch!(context:, execution_runtime: context[:execution_runtime])
 
+    assert_nil conversation.current_execution_epoch
+    assert_equal "not_started", conversation.execution_continuity_state
+
     epoch = ConversationExecutionEpochs::InitializeCurrent.call(conversation: conversation)
 
     assert_equal conversation.reload.current_execution_epoch, epoch
@@ -16,10 +19,12 @@ class ConversationExecutionEpochs::InitializeCurrentTest < ActiveSupport::TestCa
 
   test "is idempotent when the conversation already has a current epoch" do
     context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation = create_conversation_without_epoch!(context:, execution_runtime: context[:execution_runtime])
+    first_epoch = ConversationExecutionEpochs::InitializeCurrent.call(conversation: conversation)
 
-    assert_equal conversation.current_execution_epoch, ConversationExecutionEpochs::InitializeCurrent.call(conversation: conversation)
-    assert_equal 1, conversation.execution_epochs.count
+    assert_equal first_epoch, ConversationExecutionEpochs::InitializeCurrent.call(conversation: conversation)
+    assert_equal 1, conversation.reload.execution_epochs.count
+    assert_equal "ready", conversation.execution_continuity_state
   end
 
   test "allows a conversation to initialize without an execution runtime" do
@@ -55,6 +60,7 @@ class ConversationExecutionEpochs::InitializeCurrentTest < ActiveSupport::TestCa
       installation: context.fetch(:installation),
       workspace: context.fetch(:workspace),
       agent: context.fetch(:agent),
+      user_id: context.fetch(:workspace).user_id,
       current_execution_runtime: execution_runtime,
       kind: "root",
       purpose: "interactive",

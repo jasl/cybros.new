@@ -60,6 +60,10 @@ class ConversationBundleImportsRehydrateConversationTest < ActiveSupport::TestCa
     assert_equal imported_conversation.turns.order(:sequence).last, imported_conversation.latest_turn
     assert_nil imported_conversation.latest_active_turn
     assert_equal imported_conversation.messages.order(:created_at, :id).last, imported_conversation.latest_message
+    assert imported_conversation.current_execution_epoch.present?
+    assert_equal "ready", imported_conversation.execution_continuity_state
+    assert_equal [imported_conversation.current_execution_epoch.id],
+      imported_conversation.turns.order(:sequence).pluck(:execution_epoch_id).uniq
   ensure
     bundle&.fetch("io")&.close!
   end

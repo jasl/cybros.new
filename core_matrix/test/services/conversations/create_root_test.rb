@@ -16,10 +16,10 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
     assert conversation.retained?
     assert_nil conversation.parent_conversation
     assert_nil conversation.historical_anchor_message_id
-    assert_equal conversation.current_execution_epoch, conversation.execution_epochs.order(:sequence).last
     assert_equal context[:execution_runtime], conversation.current_execution_runtime
-    assert_equal "ready", conversation.execution_continuity_state
-    assert_equal context[:execution_runtime], conversation.current_execution_epoch.execution_runtime
+    assert_nil conversation.current_execution_epoch
+    assert_equal 0, conversation.execution_epochs.count
+    assert_equal "not_started", conversation.execution_continuity_state
     assert_equal "root", conversation.lineage_store_reference.lineage_store_snapshot.snapshot_kind
     assert_equal [[conversation.id, conversation.id, 0]],
       ConversationClosure.where(descendant_conversation: conversation)
@@ -37,6 +37,7 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
     )
 
     assert_equal override_runtime, conversation.current_execution_runtime
-    assert_equal override_runtime, conversation.current_execution_epoch.execution_runtime
+    assert_nil conversation.current_execution_epoch
+    assert_equal "not_started", conversation.execution_continuity_state
   end
 end

@@ -32,21 +32,21 @@ module Turns
     end
 
     def call
-      agent_connection = AgentConnection.find_by(agent_id: @conversation.agent_id, lifecycle_state: "active")
-      unless agent_connection.present?
-        @conversation.errors.add(:agent, "must have an active agent connection for turn entry")
-        raise ActiveRecord::RecordInvalid, @conversation
-      end
-
       execution_runtime = resolve_execution_runtime
-      execution_runtime_version = resolve_execution_runtime_version(execution_runtime)
+      execution_epoch = resolve_execution_epoch(execution_runtime)
+      execution_context = Conversations::ResolveExecutionContext.call(
+        conversation: @conversation,
+        execution_runtime: @requested_execution_runtime,
+        selected_execution_runtime: execution_runtime,
+        allow_unavailable_execution_runtime: @allow_unavailable_execution_runtime
+      )
       agent_config_state = AgentConfigState.find_by(agent_id: @conversation.agent_id)
 
       ExecutionIdentity.new(
-        agent_definition_version: agent_connection.agent_definition_version,
-        execution_epoch: @conversation.current_execution_epoch,
-        execution_runtime: execution_runtime,
-        execution_runtime_version: execution_runtime_version,
+        agent_definition_version: execution_context.agent_definition_version,
+        execution_epoch: execution_epoch,
+        execution_runtime: execution_context.execution_runtime,
+        execution_runtime_version: execution_context.execution_runtime_version,
         agent_config_state: agent_config_state
       )
     end
@@ -54,9 +54,8 @@ module Turns
     private
 
     def resolve_execution_runtime
-      ConversationExecutionEpochs::InitializeCurrent.call(conversation: @conversation)
-
       if @requested_execution_runtime.present?
+        return @requested_execution_runtime if @conversation.current_execution_epoch.blank?
         return @requested_execution_runtime if @requested_execution_runtime == @conversation.current_execution_runtime
 
         if @conversation.turns.exists?
@@ -82,14 +81,13 @@ module Turns
       nil
     end
 
-    def resolve_execution_runtime_version(execution_runtime)
-      return nil if execution_runtime.blank?
+    def resolve_execution_epoch(execution_runtime)
+      return @conversation.current_execution_epoch if @conversation.current_execution_epoch.present?
 
-      execution_runtime.current_execution_runtime_version ||
-        ExecutionRuntime.find_by(id: execution_runtime.id)&.current_execution_runtime_version || begin
-        @conversation.errors.add(:execution_runtime, "must have an active execution runtime version for turn entry")
-        raise ActiveRecord::RecordInvalid, @conversation unless @allow_unavailable_execution_runtime
-      end
+      ConversationExecutionEpochs::InitializeCurrent.call(
+        conversation: @conversation,
+        execution_runtime: execution_runtime || @requested_execution_runtime
+      )
     end
   end
 end

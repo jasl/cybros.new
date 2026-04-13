@@ -18,7 +18,7 @@ class CreateConversations < ActiveRecord::Migration[8.2]
       t.string :addressability, null: false, default: "owner_addressable"
       t.string :lifecycle_state, null: false
       t.string :deletion_state, null: false, default: "retained"
-      t.string :execution_continuity_state, null: false, default: "ready"
+      t.string :execution_continuity_state, null: false, default: "not_started"
       t.datetime :deleted_at
       t.bigint :historical_anchor_message_id
       t.text :title

@@ -46,6 +46,10 @@ execution-snapshot persistence on the turn row.
   - no unfinished close operation
 - archived, pending-delete, and close-in-progress conversations therefore
   reject override and selector changes uniformly
+- preview and configuration surfaces now resolve agent/runtime/version through
+  `Conversations::ResolveExecutionContext`
+- those read-only surfaces must not materialize
+  `Conversation.current_execution_epoch` on a bare conversation
 
 ## Turn Behavior
 
@@ -111,12 +115,18 @@ execution-snapshot persistence on the turn row.
 - root conversation creation seeds the current execution runtime from the
   workspace default, falling back to the agent default unless an explicit
   initial runtime override is supplied
+- bare conversation creation leaves `current_execution_epoch_id = nil` and
+  `execution_continuity_state = "not_started"`
+- `current_execution_runtime_id` may therefore be present before any execution
+  continuity has been materialized
 - current feed and control surfaces resolve “current work” through the
   conversation's `latest_active_*` anchors, not by assuming there is only one
   active turn or workflow row
 - when a conversation still has no turn history, an explicit first-turn runtime
-  override may retarget the current execution epoch before the first turn is
-  frozen
+  override initializes the first execution epoch directly on the resolved
+  runtime
+- first execution entry on a bare conversation transitions
+  `execution_continuity_state` from `not_started` to `ready`
 - follow-up turns always freeze execution identity from the conversation current
   execution epoch rather than re-deriving continuity from previous-turn runtime
 - ordinary end-user follow-up message APIs must not switch the execution
@@ -182,6 +192,8 @@ execution-snapshot persistence on the turn row.
 - selected transcript pointers remain explicit turn-owned state
 - follow-up execution continuity is taken from the conversation current epoch,
   not from historical turn lookup
+- preview and override updates can inspect the configured runtime state without
+  transitioning the conversation out of `not_started`
 - execution-runtime identity may advance to newer versions for the same runtime
   id, but user-facing follow-up message APIs do not change the conversation to
   a different runtime id

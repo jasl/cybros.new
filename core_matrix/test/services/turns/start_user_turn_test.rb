@@ -45,13 +45,13 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal turn.selected_input_message.created_at.to_i, conversation.last_activity_at.to_i
   end
 
-  test "starts a user turn within twenty-two SQL queries" do
+  test "starts a user turn within twenty-seven SQL queries" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
     )
 
-    assert_sql_query_count_at_most(22) do
+    assert_sql_query_count_at_most(27) do
       turn = Turns::StartUserTurn.call(
         conversation: conversation,
         content: "Hello world",
@@ -105,7 +105,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     refute_equal alternate_agent_definition_version, turn.agent_definition_version
   end
 
-  test "retargets the initial execution epoch when the first turn overrides runtime" do
+  test "initializes the first execution epoch directly on the overridden runtime" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
@@ -124,6 +124,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal alternate_execution_runtime, turn.execution_runtime
     assert_equal alternate_execution_runtime, conversation.reload.current_execution_runtime
     assert_equal alternate_execution_runtime, conversation.current_execution_epoch.execution_runtime
+    assert_equal 1, conversation.execution_epochs.count
   end
 
   test "rejects unexpected keyword arguments" do

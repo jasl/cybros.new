@@ -50,6 +50,7 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
       default_execution_runtime: workspace_default_runtime
     )
     conversation = Conversations::CreateRoot.call(workspace: workspace)
+    current_epoch = initialize_current_execution_epoch!(conversation)
     agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
     agent_config_state = AgentConfigStates::Reconcile.call(
       agent: agent,
@@ -59,7 +60,7 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
       installation: installation,
       conversation: conversation,
       execution_runtime: previous_turn_runtime,
-      source_execution_epoch: conversation.current_execution_epoch,
+      source_execution_epoch: current_epoch,
       sequence: 2,
       lifecycle_state: "superseded",
       continuity_payload: {},

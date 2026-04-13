@@ -1173,6 +1173,13 @@ module ActiveSupport
       }.merge(attrs.symbolize_keys.slice(*Conversation.attribute_names.map(&:to_sym))))
     end
 
+    def initialize_current_execution_epoch!(conversation, execution_runtime: nil)
+      ConversationExecutionEpochs::InitializeCurrent.call(
+        conversation: conversation,
+        execution_runtime: execution_runtime
+      )
+    end
+
     def create_lineage_store!(workspace:, root_conversation: create_conversation_record!(workspace: workspace), installation: workspace.installation, **attrs)
       LineageStore.create!({
         installation: installation,

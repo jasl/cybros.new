@@ -180,6 +180,11 @@ The write path should become:
 That keeps first-turn runtime override behavior correct while removing the
 bootstrap-retarget churn.
 
+Under the same destructive-refactor rule, `ConversationExecutionEpochs::RetargetCurrent`
+should become a true retarget-only service. It should no longer create the
+current epoch as a side effect when one is missing. Continuity bootstrap should
+have exactly one creation entry point: `ConversationExecutionEpochs::InitializeCurrent`.
+
 ## Write Path Changes
 
 ### Conversation creation
@@ -198,21 +203,33 @@ They no longer create an initial epoch.
 All turn entry services already flow through `Turns::FreezeExecutionIdentity`
 and explicitly pass `execution_identity.execution_epoch` into `Turn.create!`.
 
-That means user turns, automation turns, queued follow-ups, agent turns, and
-subagent turn entry can all inherit the new lazy bootstrap behavior without
-needing a separate epoch-creation branch in each service.
+That means user turns, automation turns, queued follow-ups, agent turns,
+subagent delivery turns, and imported transcript rehydration can all inherit
+the new lazy bootstrap behavior without needing a separate epoch-creation
+branch in each service.
 
-Direct model construction is different. `Turn` still has a
-`before_validation :default_execution_epoch` fallback that reads
-`conversation.current_execution_epoch`. That fallback is no longer enough for a
-bare conversation that has not entered execution yet. Any direct `Turn.create!`
-path that bypasses `Turns::FreezeExecutionIdentity` must either:
+Under the destructive-refactor rules for this optimization round, direct model
+construction should also become stricter. `Turn` should stop implicitly
+copying `conversation.current_execution_epoch` in a
+`before_validation :default_execution_epoch` fallback.
+
+After this change, any direct `Turn.create!` path that bypasses
+`Turns::FreezeExecutionIdentity` must either:
 
 - initialize the conversation epoch explicitly first, or
 - pass `execution_epoch:` explicitly
 
-This mostly affects tests, fixtures, and helper builders rather than app write
-paths.
+That is a better long-term shape because it turns hidden continuity
+assumptions into immediate failures. In the current codebase, this mostly
+affects tests, fixtures, and helper builders rather than app write paths.
+
+Two app write paths still deserve explicit verification because they enter a
+fresh conversation outside the standard user-turn request flow:
+
+- `SubagentConnections::SendMessage`, which can append the first completed turn
+  to a child conversation that starts in `not_started`
+- `ConversationBundleImports::RehydrateConversation`, which seeds imported
+  completed turns into a freshly created root conversation
 
 ### Process creation
 
@@ -263,22 +280,79 @@ For that path:
 So this design changes the meaning of bare conversation creation more than it
 changes the existing conversation-first request contract.
 
+### Non-execution preview and configuration surfaces
+
+Not every place that needs runtime or agent-definition context should
+materialize execution continuity.
+
+In particular, these surfaces must remain pre-execution-safe:
+
+- `RuntimeCapabilities::PreviewForConversation`
+- `Conversations::UpdateOverride`
+
+They need the configured runtime and active agent definition so they can:
+
+- preview the visible tool catalog
+- expose the configured execution runtime in preview payloads
+- validate and apply override payloads against the active override schema
+
+But they do **not** represent the start of execution continuity. A bare
+conversation that is only previewed or configured should remain:
+
+- `current_execution_epoch_id = nil`
+- `execution_continuity_state = "not_started"`
+
+That means the implementation must separate two concepts that are currently
+collapsed inside `Turns::FreezeExecutionIdentity`:
+
+- **read-only execution context resolution**
+- **execution identity freezing with epoch materialization**
+
+The recommended shape is to introduce a read-only resolver that returns:
+
+- `agent_definition_version`
+- `execution_runtime`
+- `execution_runtime_version`
+
+from the conversation's configured runtime and active agent connection, without
+calling `ConversationExecutionEpochs::InitializeCurrent`.
+
+That resolver should become the single source of truth for
+agent/runtime/version lookup. `Turns::FreezeExecutionIdentity` should remain
+the canonical write-path entry for real turn/process execution, but its job
+should narrow to:
+
+- choosing the final runtime for this entry
+- materializing continuity if needed
+- attaching the extra write-path-only state such as `agent_config_state`
+
+Read-only preview/configuration flows should stop using
+`Turns::FreezeExecutionIdentity`, and write-path identity freezing should stop
+duplicating the same context-resolution logic.
+
 ## Schema and Migration Strategy
 
-This change can be landed with a normal forward migration even in a pre-launch
-project. A destructive migration rewrite is not necessary for the focused lazy
-bootstrap change.
+Because `core_matrix` is still pre-launch and this codebase is already using
+destructive schema rewrites during the current optimization round, this change
+should follow the same workflow instead of adding a forward-only migration.
 
-Recommended migration behavior:
+Recommended schema behavior:
 
-- change the database default for
-  `conversations.execution_continuity_state` from `ready` to `not_started`
-- backfill rows with `current_execution_epoch_id IS NULL` to `not_started`
-- keep rows with a current epoch as `ready` unless they are already in a
-  future handoff state
+- update the original conversations migration so
+  `conversations.execution_continuity_state` defaults to `not_started`
+- regenerate `db/schema.rb` from a clean database using the project-standard
+  reset flow
+- preserve the runtime/epoch nullable shape exactly as today; only the default
+  and bootstrap semantics change
 
 `current_execution_epoch_id` already allows `NULL`, so no nullability change is
 required.
+
+Recommended rebuild flow from `/Users/jasl/Workspaces/Ruby/cybros/core_matrix`:
+
+```bash
+rails db:drop && rm db/schema.rb && rails db:create && rails db:migrate && rails db:reset
+```
 
 ## Risks
 
@@ -294,6 +368,51 @@ Mitigation:
   builders
 - keep first-turn request tests asserting `ready`
 - add a targeted `FreezeExecutionIdentity` test for first-turn override order
+
+### Hidden call sites that materialize an epoch outside real execution entry
+
+The most important semantic risk is not direct `Turn.create!`; it is
+read-oriented or configuration-oriented code that currently reaches
+`Turns::FreezeExecutionIdentity` just to inspect runtime context.
+
+Today that includes:
+
+- `RuntimeCapabilities::PreviewForConversation`
+- `Conversations::UpdateOverride`
+
+If those call sites keep using the write-path materializer, a bare
+conversation can silently transition from `not_started` to `ready` just by
+opening a preview or saving overrides.
+
+Mitigation:
+
+- introduce a read-only execution-context resolver
+- move preview/override schema lookup off `Turns::FreezeExecutionIdentity`
+- add tests that preview and override updates do not create an epoch on a bare
+  conversation
+
+### Hidden first-entry write paths outside the main turn services
+
+Not every first execution entry comes from `StartUserTurn`,
+`StartAutomationTurn`, `StartAgentTurn`, or `QueueFollowUp`.
+
+Today there are also write paths that create the first turn for a fresh
+conversation through other services:
+
+- `SubagentConnections::SendMessage`
+- `ConversationBundleImports::RehydrateConversation`
+
+If those paths are not covered, lazy bootstrap can still regress by:
+
+- failing to initialize the epoch on first write
+- leaving the conversation in `not_started` after a completed turn exists
+- quietly shifting SQL cost without re-baselining the affected tests
+
+Mitigation:
+
+- add targeted regression coverage for subagent delivery and import rehydrate
+- re-baseline the explicit SQL budget in `subagent_connections/send_message`
+- assert imported conversations end in `ready` once rehydration creates turns
 
 ### Direct model construction and test fixtures bypass lazy bootstrap
 
@@ -349,6 +468,35 @@ Mitigation:
 - document the before/after counts for `CreateRoot` and the conversation-first
   request path separately
 
+Observed post-implementation probe counts on 2026-04-13:
+
+- `Conversations::CreateRoot`: `16` SQL queries
+- `Conversations::CreateAutomationRoot`: `16` SQL queries
+- `Workbench::CreateConversationFromAgent`: `97` SQL queries
+- `Turns::StartUserTurn`: `26` SQL queries
+- `SubagentConnections::SendMessage`: `30` SQL queries
+
+Comparison to the pre-change analysis snapshot:
+
+- `CreateRoot` dropped from the earlier service-phase estimate of roughly `20`
+  queries to `16`
+- `Workbench::CreateConversationFromAgent` dropped from the earlier direct
+  probe of `143` queries to `97`
+- first-entry turn paths moved upward as expected because epoch bootstrap now
+  happens there instead of during bare conversation creation
+
+### Behavior docs drift from the new continuity semantics
+
+Current behavior docs still describe eager continuity bootstrap and the old
+first-turn override retarget story.
+
+Mitigation:
+
+- update `docs/behavior/turn-entry-and-selector-state.md`
+- update `docs/behavior/conversation-structure-and-lineage.md`
+- do not treat the implementation as complete until those behavior docs match
+  the landed code
+
 ## Verification Plan
 
 The change is successful when:
@@ -360,16 +508,28 @@ The change is successful when:
   creating a current epoch
 - `ConversationExecutionEpochs::InitializeCurrent.call` transitions the
   conversation to `ready`
+- `RuntimeCapabilities::PreviewForConversation.call` does not create an epoch
+  for a bare conversation
+- `Conversations::UpdateOverride.call` does not create an epoch for a bare
+  conversation
 - first-turn runtime overrides initialize the epoch directly on the requested
   runtime
 - `AppAPI conversations#create` still returns a conversation whose continuity
   state is `ready`
-- direct `Turn.create!` test fixtures are updated so they do not rely on an
-  implicit current epoch that no longer exists
+- `Turn` no longer has an implicit `default_execution_epoch` fallback
+- direct `Turn.create!` test fixtures are updated so they either initialize the
+  conversation epoch first or pass `execution_epoch:` explicitly
+- `SubagentConnections::SendMessage.call` bootstraps continuity on the first
+  child-conversation delivery and its SQL budget is re-measured
+- `ConversationBundleImports::RehydrateConversation.call` bootstraps
+  continuity on the first imported turn and leaves the imported conversation in
+  `ready`
 - query count for `Conversations::CreateRoot` drops relative to the eager
   callback version
 - the query budget surfaces for first-turn entry are re-measured and updated to
   reflect the new work distribution
+- behavior docs describe `not_started` bare conversations and the new
+  read-only-versus-materializing boundary consistently
 
 ## Recommendation
 
@@ -383,3 +543,85 @@ It gives the schema a cleaner semantic boundary:
 
 That separation is worth preserving even if larger performance work happens
 later.
+
+## Pattern Reuse And Destructive-Refactor Follow-Ons
+
+This lazy-bootstrap pattern is worth reusing, but not blindly.
+
+The rule is:
+
+- keep boundary truth eager
+- make derived execution state lazy
+- if a one-to-one derived row has no independent lifecycle, prefer collapsing
+  it into the owning boundary instead of merely materializing it later
+
+### Good fit for the same pattern
+
+The best nearby follow-on candidate is `ConversationCapabilityPolicy`, but only
+under a stronger destructive-refactor mindset than this document's narrow
+scope.
+
+Why it is different from `ConversationExecutionEpoch`:
+
+- `ConversationExecutionEpoch` has a real independent lifecycle
+- turns and processes hold durable foreign keys to it
+- future runtime handoff needs an explicit continuity object
+
+By contrast, `ConversationCapabilityPolicy` today is:
+
+- a one-to-one row
+- created eagerly with every root conversation
+- derived from workspace policy projection
+- primarily read by supervision/control gates
+
+That means the long-term best shape is probably **not** "lazy-create the same
+table later". The better destructive-refactor option is to remove the eager
+projection row from the hot path entirely by either:
+
+1. collapsing the effective capability fields into `Conversation` or
+   `ConversationDetail`, or
+2. resolving them directly from workspace-backed policy state until a durable
+   supervision artifact explicitly snapshots them
+
+If this follow-on is taken, snapshot artifacts should store the actual
+effective flags they need, rather than depending on a separate
+`conversation_capability_policy_public_id` row identity.
+
+### Possible fit, but lower priority
+
+The second candidate is root-conversation `LineageStore` bootstrap.
+
+Today every root conversation eagerly creates:
+
+- `LineageStore`
+- `LineageStoreSnapshot`
+- `LineageStoreReference`
+
+This may be over-eager for conversations that never branch, import provenance,
+or write lineage-backed variables.
+
+However, lineage is more structural than capability policy:
+
+- branch/fork/checkpoint flows depend on it
+- purge and blocker logic depend on live lineage references
+- behavior docs currently treat root-lineage presence as part of the model
+
+So this should only be revisited after the execution-epoch change lands and
+only if the product is willing to explicitly model a `lineage_not_initialized`
+state.
+
+### Poor fit for this pattern
+
+`AgentTaskRun` tool-binding freeze is **not** a strong next candidate even
+though it creates eager rows.
+
+Those bindings are deeply coupled to:
+
+- tool invocation lifecycle
+- command runs
+- MCP/tool execution governance
+- agent control/report reconciliation
+
+That makes them execution substrate, not cheap preallocated projection state.
+It may still be worth optimizing later, but not with the same lazy-bootstrap
+pattern used here.

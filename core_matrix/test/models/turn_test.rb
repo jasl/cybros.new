@@ -16,6 +16,7 @@ class TurnTest < ActiveSupport::TestCase
       purpose: "interactive",
       lifecycle_state: "active"
     )
+    execution_epoch = initialize_current_execution_epoch!(conversation)
     turn = Turn.create!(
       installation: installation,
       conversation: conversation,
@@ -29,6 +30,7 @@ class TurnTest < ActiveSupport::TestCase
       origin_payload: {},
       agent_config_version: 1,
       agent_config_content_fingerprint: "cfg-#{next_test_sequence}",
+      execution_epoch: execution_epoch,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
@@ -53,6 +55,7 @@ class TurnTest < ActiveSupport::TestCase
       purpose: "interactive",
       lifecycle_state: "active"
     )
+    execution_epoch = initialize_current_execution_epoch!(conversation)
 
     Turn.create!(
       installation: installation,
@@ -67,6 +70,7 @@ class TurnTest < ActiveSupport::TestCase
       origin_payload: {},
       agent_config_version: 1,
       agent_config_content_fingerprint: "cfg-#{next_test_sequence}",
+      execution_epoch: execution_epoch,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
@@ -85,6 +89,7 @@ class TurnTest < ActiveSupport::TestCase
       origin_payload: {},
       agent_config_version: 1,
       agent_config_content_fingerprint: "cfg-#{next_test_sequence}",
+      execution_epoch: execution_epoch,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
@@ -109,6 +114,7 @@ class TurnTest < ActiveSupport::TestCase
       purpose: "interactive",
       lifecycle_state: "active"
     )
+    execution_epoch = initialize_current_execution_epoch!(conversation)
     turn = Turn.new(
       installation: installation,
       conversation: conversation,
@@ -124,6 +130,7 @@ class TurnTest < ActiveSupport::TestCase
       origin_payload: {},
       agent_config_version: 1,
       agent_config_content_fingerprint: "cfg-#{next_test_sequence}",
+      execution_epoch: execution_epoch,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
@@ -152,6 +159,7 @@ class TurnTest < ActiveSupport::TestCase
       lifecycle_state: "active"
     )
     agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
+    execution_epoch = initialize_current_execution_epoch!(conversation)
     turn = Turn.new(
       installation: installation,
       conversation: conversation,
@@ -165,6 +173,7 @@ class TurnTest < ActiveSupport::TestCase
       origin_payload: {},
       agent_config_version: 1,
       agent_config_content_fingerprint: "cfg-#{next_test_sequence}",
+      execution_epoch: execution_epoch,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
@@ -190,6 +199,7 @@ class TurnTest < ActiveSupport::TestCase
       purpose: "interactive",
       lifecycle_state: "active"
     )
+    execution_epoch = initialize_current_execution_epoch!(conversation)
 
     turn = Turn.new(
       installation: installation,
@@ -204,6 +214,7 @@ class TurnTest < ActiveSupport::TestCase
       origin_payload: {},
       agent_config_version: 1,
       agent_config_content_fingerprint: "cfg-#{next_test_sequence}",
+      execution_epoch: execution_epoch,
       feature_policy_snapshot: conversation.feature_policy_snapshot,
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
