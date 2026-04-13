@@ -612,6 +612,9 @@ git commit -m "refactor: add latest-active conversation anchors"
 - Modify: `app/services/processes/provision.rb`
 - Modify: `app/services/workflows/create_for_turn.rb`
 - Modify: `app/services/workflows/mutate.rb`
+- Modify: `app/services/workflows/re_enter_agent.rb`
+- Modify: `app/services/workflows/resume_paused_turn.rb`
+- Modify: `app/services/workflows/step_retry.rb`
 - Modify: `app/services/human_interactions/request.rb`
 - Modify: `app/services/subagent_connections/spawn.rb`
 - Modify: `app/services/conversation_control/create_request.rb`
@@ -622,8 +625,12 @@ git commit -m "refactor: add latest-active conversation anchors"
 - Modify: `app/services/tool_invocations/start.rb`
 - Modify: `app/services/command_runs/provision.rb`
 - Modify: `app/services/execution_profiling/record_fact.rb`
+- Modify: `app/services/provider_execution/execution_runtime_exchange.rb`
 - Modify: `app/queries/human_interactions/open_for_user_query.rb`
 - Modify: `app/services/app_surface/queries/workspaces_for_agent.rb`
+- Modify: `test/test_helper.rb`
+- Modify: `test/support/conversation_supervision_fixture_builder.rb`
+- Modify: `test/support/tool_governance_test_support.rb`
 - Modify: `test/models/human_interaction_request_test.rb`
 - Modify: `test/models/agent_task_run_test.rb` 
 - Modify: `test/models/workflow_run_test.rb`
@@ -670,7 +677,15 @@ Cover not just the primary runtime tables, but also:
 
 Make each create path copy owner/context from `Conversation` or `Turn` once, at creation time. Do not backfill with callbacks.
 
+If Task 6 red tests reveal that upstream `Conversation` or `Turn` writers still
+leave `user_id`, `workspace_id`, or `agent_id` blank, fix those writer
+boundaries first in the same task before propagating into runtime/control
+aggregates. The runtime/control work in this task assumes center rows already
+carry the duplicated owner/context truth.
+
 Explicitly update:
+- conversation root and automation root creation if they still omit duplicated owner context
+- turn creation boundaries if they still omit duplicated owner context
 - process-run allocation in `Processes::Provision`
 - workflow-node allocation in `Workflows::CreateForTurn` and `Workflows::Mutate`
 - tool-invocation allocation in `ToolInvocations::Start`
