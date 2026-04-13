@@ -32,6 +32,16 @@ follow-up audit and prioritization layer on top of:
 - `docs/plans/2026-04-13-core-matrix-data-structure-optimization-design.md`
 - `docs/plans/2026-04-13-conversation-bootstrap-phase-two-design.md`
 
+This document now serves two purposes:
+
+- preserve the original audit findings that shaped the follow-up work
+- record which items were implemented, closed, deferred, or judged not worth a
+  standalone pass
+
+Unless explicitly marked otherwise, the `Findings` section below should be read
+as the original audit record, while the later `Status Summary` and `Closeout
+Decisions` sections describe the current branch state.
+
 ## What Looks Good
 
 ### `Conversation` and `Message` are directionally correct
@@ -91,7 +101,7 @@ The current read-model denormalization also still looks right:
 Those rows are serving real board/feed use cases and should remain explicitly
 denormalized.
 
-## Findings
+## Original Audit Findings
 
 ### 1. Bootstrap failure can still be misread as healthy runtime state
 
@@ -552,7 +562,8 @@ goal of this branch. Remaining work is cleanup-only.
 ### Implemented
 
 - `A1` bootstrap failure made authoritative in supervision/read-side
-- `A2` backlog recovery wired into recurring maintenance
+- `A2` backlog recovery wired into recurring maintenance on an explicit
+  `every 5 minutes` cadence
 - `A3` remaining critical execution/bootstrap state shape hardened in schema
 - `B1` diagnostics moved to deferred recompute
 - `B2` feed / todo-plan moved to projection-first stale-tolerant reads
