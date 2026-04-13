@@ -12,8 +12,9 @@ will be removed from both Fenix canonical config and CoreMatrix workspace
 policy. `Workspace` will gain a shared feature-schema layer, workspace policy
 API will expose `features`, and title-bootstrap resolution will switch to
 `features.title_bootstrap`. Prompt-compaction docs/tests will be updated to use
-`features.prompt_compaction`, while the actual freezing work lands later with
-the prompt-budget guard implementation.
+`features.prompt_compaction`, and this pass will also freeze the effective
+prompt-compaction policy into the execution snapshot so the execution-semantic
+boundary is corrected immediately instead of deferred again.
 
 **Tech Stack:** Ruby on Rails, Active Record, Minitest, JSON schema-style hash
 validation, Fenix canonical config, CoreMatrix workspace policy API, docs in
@@ -244,6 +245,16 @@ Make `WorkspacePolicyPresenter` return:
 
 and remove `metadata` from the presented payload.
 
+The presenter should not simply echo `workspace.config["features"]`. It should
+project the **resolved** feature policy through `WorkspaceFeatures::Resolver`,
+so callers see:
+
+- system defaults
+- runtime defaults
+- workspace overrides
+
+merged into the effective workspace feature view.
+
 **Step 3: Update upsert logic**
 
 Make `WorkspacePolicies::Upsert`:
@@ -333,13 +344,14 @@ git add \
 git commit -m "refactor: resolve title bootstrap from workspace features"
 ```
 
-### Task 6: Update Prompt-Compaction Contract Docs And Freeze Tests
+### Task 6: Freeze Prompt-Compaction Policy Into The Execution Snapshot
 
 **Files:**
 - Modify: `core_matrix/docs/plans/2026-04-14-prompt-budget-guard-design.md`
 - Modify: `core_matrix/docs/plans/2026-04-14-prompt-budget-guard-implementation.md`
-- Modify: `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
 - Create: `core_matrix/app/services/provider_execution/prompt_compaction_policy.rb`
+- Modify: `core_matrix/app/services/workflows/build_execution_snapshot.rb`
+- Modify: `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
 
 **Step 1: Correct the prompt-compaction contract in docs**
 
@@ -364,7 +376,7 @@ Update `build_execution_snapshot_test.rb` so it expects:
 
 These tests should fail until actual snapshot freezing is implemented.
 
-**Step 3: Add the shared prompt-compaction policy resolver stub**
+**Step 3: Add the shared prompt-compaction policy resolver**
 
 Introduce `ProviderExecution::PromptCompactionPolicy` as the shared place for:
 
@@ -372,10 +384,24 @@ Introduce `ProviderExecution::PromptCompactionPolicy` as the shared place for:
 - workspace override resolution
 - runtime-default merge
 
-This task may stop at the resolver and failing freeze tests if the branch wants
-to keep the actual prompt-budget guard implementation separate.
+This resolver should accept the workspace and agent-definition-version context
+available during snapshot build and return the normalized effective
+`features.prompt_compaction` policy.
 
-**Step 4: Run the targeted tests and verify status**
+**Step 4: Freeze the effective policy during snapshot build**
+
+Update `Workflows::BuildExecutionSnapshot` so `provider_context` includes the
+resolved prompt-compaction policy under a stable location such as:
+
+- `provider_context.feature_policies.prompt_compaction`
+
+The implementation must use the resolver from Step 3 and persist the effective
+policy into the execution contract for the current turn.
+
+Do not leave this as a docs-only or tests-only task. The point of this task is
+to correct the execution-semantic boundary now.
+
+**Step 5: Run the targeted tests and verify they pass**
 
 Run:
 
@@ -384,28 +410,21 @@ cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test test/services/workflows/build_execution_snapshot_test.rb
 ```
 
-Expected:
+Expected: the snapshot test passes and proves that workspace config changes
+after snapshot creation do not alter the already frozen prompt-compaction
+policy.
 
-- if this task only lands docs plus failing tests, failures should be exactly
-  about missing frozen prompt-compaction policy
-- if the branch chooses to implement the freeze immediately, the test should
-  pass and the implementation should be folded into this task
-
-**Step 5: Commit**
-
-If this task lands only docs and failing tests:
+**Step 6: Commit**
 
 ```bash
 git add \
   docs/plans/2026-04-14-prompt-budget-guard-design.md \
   docs/plans/2026-04-14-prompt-budget-guard-implementation.md \
+  app/services/provider_execution/prompt_compaction_policy.rb \
+  app/services/workflows/build_execution_snapshot.rb \
   test/services/workflows/build_execution_snapshot_test.rb \
-  app/services/provider_execution/prompt_compaction_policy.rb
-git commit -m "test: lock frozen prompt compaction policy contract"
+git commit -m "feat: freeze prompt compaction policy in execution snapshot"
 ```
-
-If the branch also lands the snapshot freeze implementation now, adjust the
-commit message accordingly.
 
 ### Task 7: Full Verification
 
@@ -449,17 +468,8 @@ bin/rails test
 
 Expected: both projects remain green with the new `features.*` contract.
 
-**Step 3: Final commit if Task 6 implemented more than docs/tests**
+**Step 3: Document residual risk**
 
-If Task 6 included the actual snapshot-freeze implementation, commit any
-remaining production changes with a focused message.
-
-**Step 4: Document residual risk**
-
-Before closing, explicitly note whether:
-
-- prompt-compaction freezing has actually landed, or
-- only the corrected contract and failing tests were put in place for the next
-  prompt-budget-guard pass
-
-This branch must not leave that ambiguity unstated.
+Before closing, explicitly note that this pass fixed the contract layer and
+snapshot freeze, but did **not** yet implement the full prompt-budget guard,
+token estimation, compaction orchestration, or provider overflow handling.
