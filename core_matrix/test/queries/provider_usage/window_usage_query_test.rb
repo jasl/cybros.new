@@ -107,26 +107,17 @@ class ProviderUsage::WindowUsageQueryTest < ActiveSupport::TestCase
     installation = create_installation!
     user = create_user!(installation: installation)
     agent = create_agent!(installation: installation)
-    first_binding = create_user_agent_binding!(
-      installation: installation,
-      user: user,
-      agent: agent
-    )
-    second_binding = create_user_agent_binding!(
-      installation: installation,
-      user: user,
-      agent: create_agent!(installation: installation)
-    )
+    other_agent = create_agent!(installation: installation)
     first_workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: first_binding,
+      agent: agent,
       name: "First Workspace"
     )
     second_workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: second_binding,
+      agent: other_agent,
       name: "Second Workspace"
     )
     window_key = "codex:2026-03-24T10"

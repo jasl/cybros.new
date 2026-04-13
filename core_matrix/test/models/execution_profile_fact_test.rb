@@ -4,15 +4,11 @@ class ExecutionProfileFactTest < ActiveSupport::TestCase
   test "supports generic execution fact kinds and runtime references" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(
-      installation: installation,
-      user: user,
-      agent: create_agent!(installation: installation)
-    )
+    agent = create_agent!(installation: installation)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding
+      agent: agent
     )
 
     tool_call = ExecutionProfileFact.create!(

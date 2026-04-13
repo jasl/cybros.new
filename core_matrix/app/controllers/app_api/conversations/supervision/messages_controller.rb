@@ -14,7 +14,10 @@ module AppAPI
             method_id: "conversation_supervision_message_list",
             conversation_id: @conversation.public_id,
             supervision_session_id: @supervision_session.public_id,
-            items: @supervision_session.conversation_supervision_messages.order(:created_at).map { |message| serialize_supervision_message(message) },
+            items: @supervision_session.conversation_supervision_messages
+              .includes(:conversation_supervision_snapshot)
+              .order(:created_at)
+              .map { |message| serialize_supervision_message(message) },
           )
         end
 

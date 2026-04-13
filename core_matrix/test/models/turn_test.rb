@@ -5,8 +5,7 @@ class TurnTest < ActiveSupport::TestCase
     installation = create_installation!
     agent = create_agent!(installation: installation)
     user = create_user!(installation: installation)
-    user_agent_binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
-    workspace = create_workspace!(installation: installation, user: user, user_agent_binding: user_agent_binding)
+    workspace = create_workspace!(installation: installation, user: user, agent: agent)
     agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
     conversation = Conversation.create!(
       installation: installation,
@@ -43,8 +42,7 @@ class TurnTest < ActiveSupport::TestCase
     installation = create_installation!
     agent = create_agent!(installation: installation)
     user = create_user!(installation: installation)
-    user_agent_binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
-    workspace = create_workspace!(installation: installation, user: user, user_agent_binding: user_agent_binding)
+    workspace = create_workspace!(installation: installation, user: user, agent: agent)
     agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
     conversation = Conversation.create!(
       installation: installation,
@@ -100,8 +98,7 @@ class TurnTest < ActiveSupport::TestCase
     installation = create_installation!
     agent = create_agent!(installation: installation)
     user = create_user!(installation: installation)
-    user_agent_binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
-    workspace = create_workspace!(installation: installation, user: user, user_agent_binding: user_agent_binding)
+    workspace = create_workspace!(installation: installation, user: user, agent: agent)
     agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
     conversation = Conversation.create!(
       installation: installation,
@@ -144,8 +141,7 @@ class TurnTest < ActiveSupport::TestCase
     installation = create_installation!
     agent = create_agent!(installation: installation)
     user = create_user!(installation: installation)
-    user_agent_binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
-    workspace = create_workspace!(installation: installation, user: user, user_agent_binding: user_agent_binding)
+    workspace = create_workspace!(installation: installation, user: user, agent: agent)
     conversation = Conversation.create!(
       installation: installation,
       workspace: workspace,
@@ -183,8 +179,7 @@ class TurnTest < ActiveSupport::TestCase
     agent = create_agent!(installation: installation, key: "main-agent")
     other_agent = create_agent!(installation: installation, key: "other-agent")
     user = create_user!(installation: installation)
-    user_agent_binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
-    workspace = create_workspace!(installation: installation, user: user, user_agent_binding: user_agent_binding)
+    workspace = create_workspace!(installation: installation, user: user, agent: agent)
     agent_definition_version = create_agent_definition_version!(installation: installation, agent: other_agent)
     conversation = Conversation.create!(
       installation: installation,

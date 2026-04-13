@@ -133,8 +133,8 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
     request.save!
     other_workspace = create_workspace!(
       installation: context[:installation],
-      user_agent_binding: context[:user_agent_binding],
-      user: context[:user]
+      user: context[:user],
+      agent: context[:agent]
     )
 
     get "/app_api/workspaces/#{other_workspace.public_id}/conversation_bundle_import_requests/#{request.public_id}",

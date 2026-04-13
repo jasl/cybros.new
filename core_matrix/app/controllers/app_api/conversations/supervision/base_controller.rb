@@ -4,7 +4,11 @@ module AppAPI
       class BaseController < AppAPI::Conversations::BaseController
         rescue_from EmbeddedAgents::Errors::UnauthorizedSupervision, with: :render_not_found
 
-        private
+      private
+
+        def conversation_lookup_scope(workspace: nil)
+          super.eager_load(:conversation_capability_policy)
+        end
 
         def find_supervision_session!(session_id)
           @conversation.conversation_supervision_sessions.find_by!(
@@ -16,7 +20,8 @@ module AppAPI
         def authorize_supervision_create!
           supervision_access = AppSurface::Policies::ConversationSupervisionAccess.call(
             user: current_user,
-            conversation: @conversation
+            conversation: @conversation,
+            conversation_access_prevalidated: true
           )
           raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" unless supervision_access.create_session?
 
@@ -26,7 +31,9 @@ module AppAPI
         def authorize_supervision_read!(session)
           supervision_access = AppSurface::Policies::ConversationSupervisionAccess.call(
             user: current_user,
-            conversation_supervision_session: session
+            conversation: @conversation,
+            conversation_supervision_session: session,
+            conversation_access_prevalidated: true
           )
           raise ActiveRecord::RecordNotFound, "Couldn't find Conversation" unless supervision_access.read?
 
@@ -52,7 +59,7 @@ module AppAPI
             "supervision_session_id" => session.public_id,
             "target_conversation_id" => @conversation.public_id,
             "initiator_type" => session.initiator_type,
-            "initiator_id" => session.initiator.respond_to?(:public_id) ? session.initiator.public_id : nil,
+            "initiator_id" => supervision_initiator_public_id(session),
             "lifecycle_state" => session.lifecycle_state,
             "responder_strategy" => session.responder_strategy,
             "capability_policy_snapshot" => session.capability_policy_snapshot,
@@ -75,6 +82,14 @@ module AppAPI
             "content" => message.content,
             "created_at" => message.created_at&.iso8601(6),
           }
+        end
+
+        def supervision_initiator_public_id(session)
+          if session.initiator_type == current_user.class.base_class.name && session.initiator_id == current_user.id
+            current_user.public_id
+          elsif session.initiator.respond_to?(:public_id)
+            session.initiator.public_id
+          end
         end
       end
     end

@@ -279,11 +279,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
       installation: registration[:installation],
       user: registration[:actor],
       default_execution_runtime: registration[:execution_runtime],
-      user_agent_binding: create_user_agent_binding!(
-        installation: registration[:installation],
-        user: registration[:actor],
-        agent: registration[:agent]
-      )
+      agent: registration[:agent]
     )
 
     Conversations::CreateRoot.call(

@@ -18,19 +18,20 @@ module AppSurface
         new(...)
       end
 
-      def initialize(user:, conversation: nil, conversation_supervision_session: nil)
+      def initialize(user:, conversation: nil, conversation_supervision_session: nil, conversation_access_prevalidated: false)
         @user = user
         @conversation = conversation
         @conversation_supervision_session = conversation_supervision_session
+        @conversation_access_prevalidated = conversation_access_prevalidated
         @policy = resolved_conversation&.conversation_capability_policy
       end
 
       def read?
         resolved_conversation.present? &&
-          AppSurface::Policies::ConversationAccess.call(
+          (@conversation_access_prevalidated || AppSurface::Policies::ConversationAccess.call(
             user: @user,
             conversation: resolved_conversation
-          )
+          ))
       end
 
       def create_session?

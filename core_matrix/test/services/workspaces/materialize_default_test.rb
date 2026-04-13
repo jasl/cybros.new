@@ -9,8 +9,6 @@ class Workspaces::MaterializeDefaultTest < ActiveSupport::TestCase
     user = create_user!(installation: installation)
     execution_runtime = create_execution_runtime!(installation: installation)
     agent = create_agent!(installation: installation, default_execution_runtime: execution_runtime)
-    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
-
     first = nil
     second = nil
 
@@ -28,8 +26,6 @@ class Workspaces::MaterializeDefaultTest < ActiveSupport::TestCase
     installation = create_installation!
     user = create_user!(installation: installation)
     agent = create_agent!(installation: installation, default_execution_runtime: nil)
-    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
-
     virtual_ref = Workspaces::ResolveDefaultReference.call(user: user, agent: agent)
     workspace = Workspaces::MaterializeDefault.call(user: user, agent: agent)
     materialized_ref = Workspaces::ResolveDefaultReference.call(user: user, agent: agent)

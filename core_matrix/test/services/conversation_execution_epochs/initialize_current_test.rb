@@ -26,11 +26,10 @@ class ConversationExecutionEpochs::InitializeCurrentTest < ActiveSupport::TestCa
     installation = create_installation!
     agent = create_agent!(installation: installation, default_execution_runtime: nil)
     user = create_user!(installation: installation)
-    user_agent_binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: user_agent_binding,
+      agent: agent,
       default_execution_runtime: nil
     )
     conversation = create_conversation_without_epoch!(

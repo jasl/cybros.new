@@ -140,15 +140,10 @@ class ConversationTest < ActiveSupport::TestCase
       installation: context[:installation],
       key: "hidden-agent"
     )
-    hidden_binding = create_user_agent_binding!(
-      installation: context[:installation],
-      user: context[:workspace].user,
-      agent: hidden_agent
-    )
     hidden_workspace = create_workspace!(
       installation: context[:installation],
       user: context[:workspace].user,
-      user_agent_binding: hidden_binding,
+      agent: hidden_agent,
       name: "Hidden Agent Workspace"
     )
     Conversations::CreateRoot.call(
@@ -202,15 +197,10 @@ class ConversationTest < ActiveSupport::TestCase
       installation = create_installation!
       agent = create_agent!(installation: installation)
       user = create_user!(installation: installation)
-      user_agent_binding = create_user_agent_binding!(
-        installation: installation,
-        user: user,
-        agent: agent
-      )
       workspace = create_workspace!(
         installation: installation,
         user: user,
-        user_agent_binding: user_agent_binding
+        agent: agent
       )
 
       {

@@ -4,11 +4,11 @@ class WorkspaceTest < ActiveSupport::TestCase
   test "generates and resolves a public id" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user)
+    agent = create_agent!(installation: installation)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding
+      agent: agent
     )
 
     assert workspace.public_id.present?
@@ -18,28 +18,28 @@ class WorkspaceTest < ActiveSupport::TestCase
   test "stays private and user-owned" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user)
+    agent = create_agent!(installation: installation)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      agent: agent,
       privacy: "private"
     )
 
     assert workspace.private_workspace?
     assert_equal user, workspace.user
-    assert_equal binding.agent, workspace.agent
+    assert_equal agent, workspace.agent
   end
 
   test "allows only one default workspace per user and agent" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user)
+    agent = create_agent!(installation: installation)
 
     create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      agent: agent,
       name: "Default",
       is_default: true
     )
@@ -47,7 +47,7 @@ class WorkspaceTest < ActiveSupport::TestCase
     duplicate = Workspace.new(
       installation: installation,
       user: user,
-      agent: binding.agent,
+      agent: agent,
       name: "Another Default",
       privacy: "private",
       is_default: true
@@ -60,7 +60,6 @@ class WorkspaceTest < ActiveSupport::TestCase
   test "default execution runtime must belong to the same installation" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user)
     foreign_installation = Installation.new(
       id: installation.id.to_i + 1,
       name: "Foreign Installation",
@@ -79,7 +78,7 @@ class WorkspaceTest < ActiveSupport::TestCase
     workspace = Workspace.new(
       installation: installation,
       user: user,
-      agent: binding.agent,
+      agent: create_agent!(installation: installation),
       name: "Foreign Runtime Workspace",
       privacy: "private",
       default_execution_runtime: foreign_runtime
@@ -102,26 +101,16 @@ class WorkspaceTest < ActiveSupport::TestCase
       installation: installation,
       key: "hidden-agent"
     )
-    visible_binding = create_user_agent_binding!(
-      installation: installation,
-      user: user,
-      agent: visible_agent
-    )
-    hidden_binding = create_user_agent_binding!(
-      installation: installation,
-      user: user,
-      agent: hidden_agent
-    )
     visible_workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: visible_binding,
+      agent: visible_agent,
       name: "Visible Workspace"
     )
     create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: hidden_binding,
+      agent: hidden_agent,
       name: "Hidden Workspace"
     )
     hidden_agent.update!(

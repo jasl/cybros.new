@@ -14,15 +14,10 @@ class UsageEventTest < ActiveSupport::TestCase
       installation: installation,
       agent: agent
     )
-    binding = create_user_agent_binding!(
-      installation: installation,
-      user: user,
-      agent: agent
-    )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding
+      agent: agent
     )
 
     event = UsageEvent.create!(

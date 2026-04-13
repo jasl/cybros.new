@@ -4,7 +4,7 @@ module Workspaces
 end
 
 class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
-  test "creates or reuses one default workspace inside the binding ownership boundary" do
+  test "creates or reuses one default workspace inside the user and agent ownership boundary" do
     installation = create_installation!
     user = create_user!(installation: installation)
     execution_runtime = create_execution_runtime!(installation: installation)
@@ -12,8 +12,6 @@ class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
       installation: installation,
       default_execution_runtime: execution_runtime
     )
-    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
-
     first = Workspaces::CreateDefault.call(user: user, agent: agent)
     second = Workspaces::CreateDefault.call(user: user, agent: agent)
 
@@ -30,8 +28,6 @@ class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
     installation = create_installation!
     user = create_user!(installation: installation)
     agent = create_agent!(installation: installation, default_execution_runtime: nil)
-    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
-
     workspace = Workspaces::CreateDefault.call(user: user, agent: agent)
 
     assert_nil workspace.default_execution_runtime
@@ -45,7 +41,6 @@ class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
       installation: installation,
       user: user,
       agent: binding.agent,
-      user_agent_binding: binding,
       is_default: true
     )
     invalid_workspace = Workspace.new(

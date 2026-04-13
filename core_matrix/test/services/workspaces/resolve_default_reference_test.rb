@@ -23,7 +23,7 @@ class Workspaces::ResolveDefaultReferenceTest < ActiveSupport::TestCase
     default_workspace = create_workspace!(
       installation: context[:installation],
       user: context[:user],
-      user_agent_binding: context[:user_agent_binding],
+      agent: context[:agent],
       default_execution_runtime: context[:execution_runtime],
       name: "Default Workspace",
       is_default: true

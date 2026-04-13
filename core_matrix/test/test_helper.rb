@@ -659,8 +659,8 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), agent: nil, user_agent_binding: nil, default_execution_runtime: nil, name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, **attrs)
-      agent ||= user_agent_binding&.agent || create_agent!(installation: installation)
+    def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), agent: nil, default_execution_runtime: nil, name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, **attrs)
+      agent ||= create_agent!(installation: installation)
 
       Workspace.create!({
         installation: installation,
@@ -704,7 +704,6 @@ module ActiveSupport
         installation: installation,
         user: user,
         agent: agent,
-        user_agent_binding: user_agent_binding,
         default_execution_runtime: execution_runtime
       )
 
@@ -1306,7 +1305,7 @@ module ActiveSupport
       workspace = create_workspace!(
         installation: installation,
         user: runtime_user,
-        user_agent_binding: user_agent_binding
+        agent: agent
       )
       conversation = Conversations::CreateRoot.call(
         workspace: workspace,

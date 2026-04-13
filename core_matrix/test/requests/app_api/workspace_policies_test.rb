@@ -12,11 +12,10 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
       display_name: "Fenix",
       default_execution_runtime: runtime
     )
-    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      agent: agent,
       default_execution_runtime: runtime
     )
 
@@ -66,11 +65,10 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
       last_rotated_at: Time.current,
       metadata: {}
     )
-    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      agent: agent,
       default_execution_runtime: runtime_a
     )
 

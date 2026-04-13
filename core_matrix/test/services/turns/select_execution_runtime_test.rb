@@ -5,11 +5,10 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
     installation = create_installation!
     agent = create_agent!(installation: installation, default_execution_runtime: nil)
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      agent: agent,
       default_execution_runtime: nil
     )
     conversation = Conversations::CreateRoot.call(workspace: workspace)
@@ -25,11 +24,10 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
     create_execution_runtime_connection!(installation: installation, execution_runtime: workspace_default_runtime)
     agent = create_agent!(installation: installation, default_execution_runtime: agent_default_runtime)
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      agent: agent,
       default_execution_runtime: workspace_default_runtime
     )
     conversation = Conversations::CreateRoot.call(workspace: workspace)
@@ -45,11 +43,10 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
     create_execution_runtime_connection!(installation: installation, execution_runtime: workspace_default_runtime)
     agent = create_agent!(installation: installation, default_execution_runtime: nil)
     user = create_user!(installation: installation)
-    binding = create_user_agent_binding!(installation: installation, user: user, agent: agent)
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding,
+      agent: agent,
       default_execution_runtime: workspace_default_runtime
     )
     conversation = Conversations::CreateRoot.call(workspace: workspace)

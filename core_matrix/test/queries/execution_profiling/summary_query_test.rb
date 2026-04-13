@@ -5,15 +5,10 @@ class ExecutionProfiling::SummaryQueryTest < ActiveSupport::TestCase
     installation = create_installation!
     user = create_user!(installation: installation)
     agent = create_agent!(installation: installation)
-    binding = create_user_agent_binding!(
-      installation: installation,
-      user: user,
-      agent: agent
-    )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: binding
+      agent: agent
     )
 
     ExecutionProfiling::RecordFact.call(

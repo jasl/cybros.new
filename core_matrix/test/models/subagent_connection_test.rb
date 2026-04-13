@@ -165,15 +165,10 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       installation: foreign_installation,
       agent: foreign_agent
     )
-    foreign_binding = create_user_agent_binding!(
-      installation: foreign_installation,
-      user: foreign_user,
-      agent: foreign_agent
-    )
     foreign_workspace = create_workspace!(
       installation: foreign_installation,
       user: foreign_user,
-      user_agent_binding: foreign_binding
+      agent: foreign_agent
     )
     foreign_owner = Conversations::CreateRoot.call(
       workspace: foreign_workspace,

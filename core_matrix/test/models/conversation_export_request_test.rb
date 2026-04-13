@@ -41,7 +41,7 @@ class ConversationExportRequestTest < ActiveSupport::TestCase
     other_workspace = create_workspace!(
       installation: context[:installation],
       user: context[:user],
-      user_agent_binding: context[:user_agent_binding]
+      agent: context[:agent]
     )
 
     workspace_mismatch = ConversationExportRequest.new(

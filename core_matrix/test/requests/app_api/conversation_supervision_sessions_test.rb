@@ -178,4 +178,17 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
 
     assert_response :not_found
   end
+
+  test "shows a supervision session within six SQL queries" do
+    fixture = prepare_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    session = create_conversation_supervision_session!(fixture)
+
+    assert_sql_query_count_at_most(6) do
+      get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+  end
 end

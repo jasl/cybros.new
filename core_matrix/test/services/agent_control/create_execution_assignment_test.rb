@@ -60,15 +60,10 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       installation: installation,
       agent: agent
     )
-    user_agent_binding = create_user_agent_binding!(
-      installation: installation,
-      user: user,
-      agent: agent
-    )
     workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: user_agent_binding
+      agent: agent
     )
     context = prepare_workflow_execution_setup!(
       {
@@ -77,7 +72,6 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
         agent: agent,
         execution_runtime: execution_runtime,
         agent_definition_version: agent_definition_version,
-        user_agent_binding: user_agent_binding,
         workspace: workspace,
       }
     )

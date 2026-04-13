@@ -24,7 +24,7 @@ class WorkspacePolicyTest < ActiveSupport::TestCase
       workspace: create_workspace!(
         installation: context[:installation],
         user: context[:user],
-        user_agent_binding: context[:user_agent_binding]
+        agent: context[:agent]
       ),
       disabled_capabilities: {}
     )

@@ -130,4 +130,22 @@ class AppApiConversationSupervisionMessagesTest < ActionDispatch::IntegrationTes
 
     assert_response :not_found
   end
+
+  test "lists supervision session messages within seven SQL queries" do
+    fixture = prepare_conversation_supervision_context!
+    registration = register_machine_api_for_context!(fixture)
+    session = create_conversation_supervision_session!(fixture)
+    EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+      actor: fixture[:user],
+      conversation_supervision_session: session,
+      content: "What changed most recently?"
+    )
+
+    assert_sql_query_count_at_most(7) do
+      get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}/messages",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+  end
 end

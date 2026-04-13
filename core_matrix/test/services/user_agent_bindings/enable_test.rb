@@ -57,7 +57,6 @@ class UserAgentBindings::EnableTest < ActiveSupport::TestCase
       installation: installation,
       user: user,
       agent: agent,
-      user_agent_binding: existing_binding,
       is_default: true
     )
     invalid_binding = UserAgentBinding.new(

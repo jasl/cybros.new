@@ -37,7 +37,7 @@ class Conversations::CreationSupportTest < ActiveSupport::TestCase
     alternate_workspace = create_workspace!(
       installation: parent_context[:installation],
       user: parent_context[:user],
-      user_agent_binding: parent_context[:user_agent_binding],
+      agent: parent_context[:agent],
       name: "Alternate Workspace #{next_test_sequence}"
     )
     harness = CreationSupportHarness.new

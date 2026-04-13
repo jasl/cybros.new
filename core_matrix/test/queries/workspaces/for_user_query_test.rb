@@ -10,33 +10,23 @@ class Workspaces::ForUserQueryTest < ActiveSupport::TestCase
       display_name: "Other User"
     )
     shared_agent = create_agent!(installation: installation, key: "shared-agent")
-    user_binding = create_user_agent_binding!(
-      installation: installation,
-      user: user,
-      agent: shared_agent
-    )
-    other_binding = create_user_agent_binding!(
-      installation: installation,
-      user: other_user,
-      agent: shared_agent
-    )
     default_workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: user_binding,
+      agent: shared_agent,
       name: "Default Workspace",
       is_default: true
     )
     project_workspace = create_workspace!(
       installation: installation,
       user: user,
-      user_agent_binding: user_binding,
+      agent: shared_agent,
       name: "Project Workspace"
     )
     create_workspace!(
       installation: installation,
       user: other_user,
-      user_agent_binding: other_binding,
+      agent: shared_agent,
       name: "Other Users Workspace",
       is_default: true
     )

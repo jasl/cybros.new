@@ -8,7 +8,7 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
     secondary_workspace = create_workspace!(
       installation: context[:installation],
       user: context[:user],
-      user_agent_binding: context[:user_agent_binding],
+      agent: context[:agent],
       default_execution_runtime: context[:execution_runtime],
       name: "Secondary Workspace"
     )
@@ -53,7 +53,7 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
     create_workspace!(
       installation: context[:installation],
       user: context[:user],
-      user_agent_binding: context[:user_agent_binding],
+      agent: context[:agent],
       default_execution_runtime: context[:execution_runtime],
       name: "Secondary Workspace"
     )
