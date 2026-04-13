@@ -56,4 +56,18 @@ class Workbench::SendMessageTest < ActiveSupport::TestCase
 
     assert_equal override_runtime, result.turn.execution_runtime
   end
+
+  test "sends a message within seventy-five SQL queries" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+
+    assert_sql_query_count_at_most(75) do
+      result = Workbench::SendMessage.call(
+        conversation: conversation,
+        content: "Follow up"
+      )
+
+      assert_equal "Follow up", result.message.content
+    end
+  end
 end

@@ -4,52 +4,62 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_run:, workflow_node_key: nil)
+    def initialize(workflow_run:, workflow_node_key: nil, runnable_nodes: nil)
       @workflow_run = workflow_run
       @workflow_node_key = workflow_node_key&.to_s
+      @runnable_nodes = runnable_nodes
     end
 
     def call
-      dispatched_node_ids = []
+      dispatched_nodes = []
 
       ApplicationRecord.transaction do
         @workflow_run.with_lock do
           runnable_nodes.each do |workflow_node|
             workflow_node.with_lock do
-              workflow_node.reload
               next unless workflow_node.pending?
 
-              workflow_node.update!(
-                lifecycle_state: "queued",
-                started_at: nil,
-                finished_at: nil
-              )
-              dispatched_node_ids << workflow_node.public_id
+              mark_queued!(workflow_node)
+              dispatched_nodes << workflow_node
             end
           end
         end
       end
 
-      dispatched_node_ids.each do |workflow_node_id|
-        workflow_node = WorkflowNode.find_by_public_id!(workflow_node_id)
+      dispatched_nodes.each do |workflow_node|
         queue_name = queue_name_for(workflow_node)
         Workflows::ExecuteNodeJob.set(queue: queue_name).perform_later(
-          workflow_node_id,
+          workflow_node.public_id,
           enqueued_at_iso8601: Time.current.iso8601(6),
           queue_name: queue_name
         )
       end
 
-      WorkflowNode.where(public_id: dispatched_node_ids).order(:ordinal).to_a
+      dispatched_nodes.sort_by(&:ordinal)
     end
 
     private
 
     def runnable_nodes
-      nodes = Workflows::Scheduler.call(workflow_run: @workflow_run.reload)
+      nodes = @runnable_nodes || Workflows::Scheduler.call(workflow_run: @workflow_run)
       return nodes if @workflow_node_key.blank?
 
       nodes.select { |workflow_node| workflow_node.node_key == @workflow_node_key }
+    end
+
+    def mark_queued!(workflow_node)
+      updated_at = Time.current
+
+      workflow_node.lifecycle_state = "queued"
+      workflow_node.started_at = nil
+      workflow_node.finished_at = nil
+      workflow_node.updated_at = updated_at
+      workflow_node.update_columns(
+        lifecycle_state: "queued",
+        started_at: nil,
+        finished_at: nil,
+        updated_at: updated_at,
+      )
     end
 
     def queue_name_for(workflow_node)

@@ -10,18 +10,22 @@ module Workflows
     end
 
     def call
-      workflow_node = resolve_workflow_node!
+      runnable_turn_steps = resolve_runnable_turn_steps
+      workflow_node = resolve_workflow_node!(runnable_turn_steps)
 
       Workflows::DispatchRunnableNodes.call(
         workflow_run: @workflow_run,
-        workflow_node_key: workflow_node.node_key
+        runnable_nodes: [workflow_node]
       ).first
     end
 
     private
 
-    def resolve_workflow_node!
-      runnable_turn_steps = Workflows::Scheduler.call(workflow_run: @workflow_run).select { |node| node.node_type == "turn_step" }
+    def resolve_runnable_turn_steps
+      Workflows::Scheduler.call(workflow_run: @workflow_run).select { |node| node.node_type == "turn_step" }
+    end
+
+    def resolve_workflow_node!(runnable_turn_steps)
       return resolve_by_key!(runnable_turn_steps) if @workflow_node_key.present?
       return runnable_turn_steps.first if runnable_turn_steps.one?
 
