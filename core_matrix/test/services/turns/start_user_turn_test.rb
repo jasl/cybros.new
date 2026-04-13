@@ -45,6 +45,24 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     assert_equal turn.selected_input_message.created_at.to_i, conversation.last_activity_at.to_i
   end
 
+  test "starts a user turn within twenty-four SQL queries" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace]
+    )
+
+    assert_sql_query_count_at_most(24) do
+      turn = Turns::StartUserTurn.call(
+        conversation: conversation,
+        content: "Hello world",
+        resolved_config_snapshot: {},
+        resolved_model_selection_snapshot: {}
+      )
+
+      assert_equal context[:user].public_id, turn.source_ref_id
+    end
+  end
+
   test "bootstraps conversation title through the start user turn path" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

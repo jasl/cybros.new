@@ -1,15 +1,19 @@
 require "test_helper"
 
 class Conversations::ValidateMutableStateTest < ActiveSupport::TestCase
-  test "returns the conversation when blocker snapshot allows live mutation" do
+  test "returns the conversation when live mutation remains allowed" do
     conversation = create_conversation!
 
-    validated = Conversations::ValidateMutableState.call(
-      conversation: conversation,
-      retained_message: "must be retained before mutating",
-      active_message: "must be active before mutating",
-      closing_message: "must not mutate while close is in progress"
-    )
+    validated = nil
+
+    assert_sql_query_count_at_most(1) do
+      validated = Conversations::ValidateMutableState.call(
+        conversation: conversation,
+        retained_message: "must be retained before mutating",
+        active_message: "must be active before mutating",
+        closing_message: "must not mutate while close is in progress"
+      )
+    end
 
     assert_equal conversation.id, validated.id
   end

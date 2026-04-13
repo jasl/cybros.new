@@ -76,39 +76,31 @@ class Turns::ValidateTimelineMutationTargetTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:base], "must not rewrite output while close is in progress"
   end
 
-  test "uses blocker snapshot semantics while validating timeline mutation" do
+  test "uses the provided locked conversation while validating timeline mutation" do
     turn = build_completed_turn_with_output!
     locked_conversation = turn.conversation.reload
-    fake_snapshot = ConversationBlockerSnapshot.new(
-      retained: true,
-      active: true,
-      closing: true
+    ConversationCloseOperation.create!(
+      installation: locked_conversation.installation,
+      conversation: locked_conversation,
+      intent_kind: "archive",
+      lifecycle_state: "requested",
+      requested_at: Time.current,
+      summary_payload: {}
     )
-    received_conversation = nil
-    original_call = Conversations::BlockerSnapshotQuery.method(:call)
-    Conversations::BlockerSnapshotQuery.singleton_class.define_method(:call) do |*args, **kwargs|
-      received_conversation = kwargs.fetch(:conversation)
-      fake_snapshot
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::ValidateTimelineMutationTarget.call(
+        turn: turn,
+        conversation: locked_conversation,
+        retained_message: "must be retained before rewriting output",
+        active_message: "must belong to an active conversation to rewrite output",
+        closing_message: "must not rewrite output while close is in progress",
+        interrupted_message: "must not rewrite output after turn interruption"
+      )
     end
 
-    begin
-      error = assert_raises(ActiveRecord::RecordInvalid) do
-        Turns::ValidateTimelineMutationTarget.call(
-          turn: turn,
-          conversation: locked_conversation,
-          retained_message: "must be retained before rewriting output",
-          active_message: "must belong to an active conversation to rewrite output",
-          closing_message: "must not rewrite output while close is in progress",
-          interrupted_message: "must not rewrite output after turn interruption"
-        )
-      end
-
-      assert_same turn, error.record
-      assert_same locked_conversation, received_conversation
-      assert_includes error.record.errors[:base], "must not rewrite output while close is in progress"
-    ensure
-      Conversations::BlockerSnapshotQuery.singleton_class.define_method(:call, original_call)
-    end
+    assert_same turn, error.record
+    assert_includes error.record.errors[:base], "must not rewrite output while close is in progress"
   end
 
   test "rejects timeline mutation after the turn has been interrupted" do

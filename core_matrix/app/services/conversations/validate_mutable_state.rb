@@ -25,7 +25,7 @@ module Conversations
     end
 
     def call
-      case blocker_snapshot.live_mutation_block_reason
+      case live_mutation_block_reason
       when :retained
         Conversations::ValidateRetainedState.call(
           conversation: current_conversation,
@@ -54,8 +54,11 @@ module Conversations
       @invalid_record ||= @record || current_conversation
     end
 
-    def blocker_snapshot
-      @blocker_snapshot ||= Conversations::BlockerSnapshotQuery.call(conversation: current_conversation)
+    def live_mutation_block_reason
+      return :retained unless current_conversation.retained?
+      return :inactive unless current_conversation.active?
+
+      :closing if current_conversation.closing?
     end
   end
 end
