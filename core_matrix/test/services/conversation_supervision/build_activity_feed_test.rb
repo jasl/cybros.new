@@ -13,6 +13,17 @@ class ConversationSupervision::BuildActivityFeedTest < ActiveSupport::TestCase
     assert_equal ["Started the board projection."], feed.map { |entry| entry.fetch("summary") }
   end
 
+  test "loads the anchored turn feed without an extra turn lookup" do
+    context = build_agent_control_context!
+    create_feed_entry!(context:, turn: context[:turn], sequence: 1, event_kind: "turn_todo_item_started", summary: "Started the board projection.")
+
+    assert_sql_query_count_at_most(1) do
+      feed = ConversationSupervision::BuildActivityFeed.call(conversation: context[:conversation])
+
+      assert_equal [context[:turn].public_id], feed.map { |entry| entry.fetch("turn_id") }.uniq
+    end
+  end
+
   test "returns the latest completed turn feed when no newer turn has started" do
     context = build_agent_control_context!
     context[:turn].update!(lifecycle_state: "completed")
