@@ -230,6 +230,53 @@ class ConversationDiagnostics::RecomputeTurnSnapshotTest < ActiveSupport::TestCa
     assert_nil snapshot.metadata.fetch("provider_usage_breakdown").first["prompt_cache_hit_rate"]
   end
 
+  test "recomputes one turn snapshot within sixteen SQL queries" do
+    context = build_agent_control_context!
+    turn = context[:turn]
+    workflow_node = context[:workflow_node]
+
+    create_tool_execution!(
+      context: context,
+      workflow_node: workflow_node,
+      tool_status: "failed",
+      command_line: "bin/test",
+      command_state: "failed"
+    )
+    create_process_run!(
+      workflow_node: workflow_node,
+      execution_runtime: context[:execution_runtime],
+      conversation: context[:conversation],
+      turn: turn,
+      lifecycle_state: "lost",
+      started_at: 2.minutes.ago,
+      ended_at: 1.minute.ago
+    )
+    create_agent_task_run!(
+      workflow_node: workflow_node,
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago,
+      logical_work_id: "retryable-work",
+      task_payload: { "delivery_kind" => "step_retry" }
+    )
+    record_usage_event!(
+      context: context,
+      workflow_node: workflow_node,
+      input_tokens: 40,
+      output_tokens: 10,
+      prompt_cache_status: "available",
+      cached_input_tokens: 20,
+      latency_ms: 500,
+      estimated_cost: 0.004,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 2, 12, 0, 0)
+    )
+
+    assert_sql_query_count_at_most(16) do
+      ConversationDiagnostics::RecomputeTurnSnapshot.call(turn: turn)
+    end
+  end
+
   private
 
   def create_tool_execution!(context:, workflow_node:, tool_status:, command_line:, command_state:)

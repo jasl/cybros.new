@@ -138,4 +138,72 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  test "shows conversation diagnostics within twenty-four SQL queries" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+
+    ProviderUsage::RecordEvent.call(
+      installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      conversation_id: context[:conversation].id,
+      turn_id: context[:turn].id,
+      workflow_node_key: "turn_step",
+      agent: context[:agent],
+      agent_definition_version: context[:agent_definition_version],
+      provider_handle: "openrouter",
+      model_ref: "openai-gpt-5.4",
+      operation_kind: "text_generation",
+      input_tokens: 80,
+      output_tokens: 20,
+      prompt_cache_status: "available",
+      cached_input_tokens: 40,
+      latency_ms: 700,
+      estimated_cost: 0.006,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 2, 9, 10, 0)
+    )
+
+    assert_sql_query_count_at_most(24) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+  end
+
+  test "lists turn diagnostics within twenty-six SQL queries" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+
+    ProviderUsage::RecordEvent.call(
+      installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      conversation_id: context[:conversation].id,
+      turn_id: context[:turn].id,
+      workflow_node_key: "turn_step",
+      agent: context[:agent],
+      agent_definition_version: context[:agent_definition_version],
+      provider_handle: "openrouter",
+      model_ref: "openai-gpt-5.4",
+      operation_kind: "text_generation",
+      input_tokens: 80,
+      output_tokens: 20,
+      prompt_cache_status: "available",
+      cached_input_tokens: 40,
+      latency_ms: 700,
+      estimated_cost: 0.006,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 2, 9, 10, 0)
+    )
+
+    assert_sql_query_count_at_most(26) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics/turns",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+  end
 end

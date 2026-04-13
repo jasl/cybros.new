@@ -14,20 +14,22 @@ module ConversationDiagnostics
     end
 
     def call
-      turn = if @turn.is_a?(Turn)
-        @turn
-      else
-        Turn.includes(:workflow_run, conversation: :workspace).find(@turn.id)
-      end
+      turn = load_turn(@turn)
       conversation = turn.conversation
       usage_scope = UsageEvent.where(turn_id: turn.id)
-      attributed_usage_scope = usage_scope.where(user_id: conversation.workspace.user_id)
+      attributed_usage_scope = usage_scope.where(user_id: turn.user_id)
       workflow_nodes = WorkflowNode.where(turn_id: turn.id)
       tool_invocations = tool_invocation_scope(turn)
       command_runs = command_run_scope(turn)
       process_runs = ProcessRun.where(turn_id: turn.id)
       subagent_connections = SubagentConnection.where(origin_turn_id: turn.id)
-      agent_task_runs = AgentTaskRun.where(turn_id: turn.id)
+      workflow_node_type_counts = stringify_hash(workflow_nodes.group(:node_type).count)
+      tool_breakdown = tool_breakdown(tool_invocations)
+      command_state_counts = stringify_hash(command_runs.group(:lifecycle_state).count)
+      process_state_counts = stringify_hash(process_runs.group(:lifecycle_state).count)
+      subagent_status_counts = stringify_hash(subagent_connections.group(:observed_status).count)
+      message_slot_counts = stringify_hash(turn.messages.group(:slot).count)
+      task_delivery_counts = task_delivery_counts(turn)
 
       snapshot = TurnDiagnosticsSnapshot.find_or_initialize_by(turn: turn)
       snapshot.installation = turn.installation
@@ -49,19 +51,18 @@ module ConversationDiagnostics
       snapshot.attributed_user_input_tokens_total = attributed_usage_metrics.fetch("input_tokens_total")
       snapshot.attributed_user_output_tokens_total = attributed_usage_metrics.fetch("output_tokens_total")
       snapshot.attributed_user_estimated_cost_total = attributed_usage_metrics.fetch("estimated_cost_total")
-      snapshot.provider_round_count = usage_scope.where(operation_kind: "text_generation").count
-      snapshot.tool_call_count = tool_invocations.count
-      snapshot.tool_failure_count = tool_invocations.where(status: FAILURE_TOOL_STATES).count
-      snapshot.command_run_count = command_runs.count
-      snapshot.command_failure_count = command_runs.where(lifecycle_state: FAILURE_COMMAND_STATES).count
-      snapshot.process_run_count = process_runs.count
-      snapshot.process_failure_count = process_runs.where(lifecycle_state: FAILURE_PROCESS_STATES).count
-      snapshot.subagent_connection_count = subagent_connections.count
-      snapshot.input_variant_count = turn.messages.where(slot: "input").count
-      snapshot.output_variant_count = turn.messages.where(slot: "output").count
-      detail_joined_task_runs = agent_task_runs.left_outer_joins(:agent_task_run_detail)
-      snapshot.resume_attempt_count = detail_joined_task_runs.where("COALESCE(agent_task_run_details.task_payload, '{}'::jsonb) ->> 'delivery_kind' = 'turn_resume'").count
-      snapshot.retry_attempt_count = detail_joined_task_runs.where("COALESCE(agent_task_run_details.task_payload, '{}'::jsonb) ->> 'delivery_kind' IN (?)", RETRY_DELIVERY_KINDS).count
+      snapshot.provider_round_count = usage_metrics.fetch("provider_round_count")
+      snapshot.tool_call_count = sum_nested_counts(tool_breakdown, "count")
+      snapshot.tool_failure_count = sum_nested_counts(tool_breakdown, "failures")
+      snapshot.command_run_count = sum_counts(command_state_counts)
+      snapshot.command_failure_count = sum_counts(command_state_counts, FAILURE_COMMAND_STATES)
+      snapshot.process_run_count = sum_counts(process_state_counts)
+      snapshot.process_failure_count = sum_counts(process_state_counts, FAILURE_PROCESS_STATES)
+      snapshot.subagent_connection_count = sum_counts(subagent_status_counts)
+      snapshot.input_variant_count = message_slot_counts.fetch("input", 0)
+      snapshot.output_variant_count = message_slot_counts.fetch("output", 0)
+      snapshot.resume_attempt_count = task_delivery_counts.fetch("resume_attempt_count")
+      snapshot.retry_attempt_count = task_delivery_counts.fetch("retry_attempt_count")
       snapshot.avg_latency_ms = usage_metrics.fetch("avg_latency_ms")
       snapshot.max_latency_ms = usage_metrics.fetch("max_latency_ms")
       snapshot.estimated_cost_event_count = usage_metrics.fetch("estimated_cost_event_count")
@@ -71,12 +72,13 @@ module ConversationDiagnostics
       snapshot.pause_state = turn.workflow_run&.recovery_state
       snapshot.metadata = compact_metadata(
         {
-        "provider_usage_breakdown" => provider_usage_breakdown(usage_scope),
-        "attributed_user_provider_usage_breakdown" => provider_usage_breakdown(attributed_usage_scope),
-        "workflow_node_type_counts" => stringify_hash(workflow_nodes.group(:node_type).count),
-        "tool_breakdown" => tool_breakdown(tool_invocations),
-        "command_lifecycle_state_counts" => stringify_hash(command_runs.group(:lifecycle_state).count),
-        "subagent_status_counts" => stringify_hash(subagent_connections.group(:observed_status).count),
+          "provider_usage_breakdown" => provider_usage_breakdown(usage_scope),
+          "attributed_user_provider_usage_breakdown" => provider_usage_breakdown(attributed_usage_scope),
+          "prompt_cache_available_input_tokens_total" => usage_metrics.fetch("prompt_cache_available_input_tokens_total"),
+          "workflow_node_type_counts" => workflow_node_type_counts,
+          "tool_breakdown" => tool_breakdown,
+          "command_lifecycle_state_counts" => command_state_counts,
+          "subagent_status_counts" => subagent_status_counts,
         }
       )
       snapshot.save!
@@ -84,6 +86,16 @@ module ConversationDiagnostics
     end
 
     private
+
+    def load_turn(turn)
+      return Turn.includes(:installation, :workflow_run, :conversation).find(turn.id) unless turn.is_a?(Turn)
+
+      ActiveRecord::Associations::Preloader.new(
+        records: [turn],
+        associations: [:installation, :workflow_run, :conversation]
+      ).call
+      turn
+    end
 
     def tool_invocation_scope(turn)
       node_ids = WorkflowNode.where(turn_id: turn.id).select(:id)
@@ -102,28 +114,50 @@ module ConversationDiagnostics
     end
 
     def aggregate_usage(scope)
-      event_count = scope.count
-      input_tokens_total = scope.sum(:input_tokens)
-      output_tokens_total = scope.sum(:output_tokens)
-      estimated_cost_total = scope.sum(:estimated_cost)
-      latencies = scope.where.not(latency_ms: nil)
-      estimated_cost_event_count = scope.where.not(estimated_cost: nil).count
-      estimated_cost_missing_event_count = event_count - estimated_cost_event_count
-      available_scope = scope.where(prompt_cache_status: "available")
+      event_count,
+        input_tokens_total,
+        output_tokens_total,
+        estimated_cost_total,
+        cached_input_tokens_total,
+        prompt_cache_available_event_count,
+        prompt_cache_unknown_event_count,
+        prompt_cache_unsupported_event_count,
+        avg_latency_ms,
+        max_latency_ms,
+        estimated_cost_event_count,
+        prompt_cache_available_input_tokens_total,
+        provider_round_count = scope.pick(
+          Arel.sql("COUNT(*)"),
+          Arel.sql("SUM(COALESCE(input_tokens, 0))"),
+          Arel.sql("SUM(COALESCE(output_tokens, 0))"),
+          Arel.sql("SUM(COALESCE(estimated_cost, 0))"),
+          Arel.sql("SUM(CASE WHEN prompt_cache_status = 'available' THEN COALESCE(cached_input_tokens, 0) ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN prompt_cache_status = 'available' THEN 1 ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN prompt_cache_status = 'unknown' THEN 1 ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN prompt_cache_status = 'unsupported' THEN 1 ELSE 0 END)"),
+          Arel.sql("AVG(latency_ms)"),
+          Arel.sql("MAX(COALESCE(latency_ms, 0))"),
+          Arel.sql("SUM(CASE WHEN estimated_cost IS NULL THEN 0 ELSE 1 END)"),
+          Arel.sql("SUM(CASE WHEN prompt_cache_status = 'available' THEN COALESCE(input_tokens, 0) ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN operation_kind = 'text_generation' THEN 1 ELSE 0 END)")
+        )
+      estimated_cost_missing_event_count = event_count.to_i - estimated_cost_event_count.to_i
 
       {
-        "event_count" => event_count,
+        "event_count" => event_count.to_i,
         "input_tokens_total" => input_tokens_total.to_i,
         "output_tokens_total" => output_tokens_total.to_i,
         "estimated_cost_total" => estimated_cost_total.to_d,
-        "cached_input_tokens_total" => available_scope.sum(:cached_input_tokens).to_i,
-        "prompt_cache_available_event_count" => available_scope.count,
-        "prompt_cache_unknown_event_count" => scope.where(prompt_cache_status: "unknown").count,
-        "prompt_cache_unsupported_event_count" => scope.where(prompt_cache_status: "unsupported").count,
-        "avg_latency_ms" => event_count.zero? ? 0 : latencies.average(:latency_ms).to_f.round,
-        "max_latency_ms" => latencies.maximum(:latency_ms).to_i,
-        "estimated_cost_event_count" => estimated_cost_event_count,
+        "cached_input_tokens_total" => cached_input_tokens_total.to_i,
+        "prompt_cache_available_event_count" => prompt_cache_available_event_count.to_i,
+        "prompt_cache_unknown_event_count" => prompt_cache_unknown_event_count.to_i,
+        "prompt_cache_unsupported_event_count" => prompt_cache_unsupported_event_count.to_i,
+        "avg_latency_ms" => avg_latency_ms.to_f.round,
+        "max_latency_ms" => max_latency_ms.to_i,
+        "estimated_cost_event_count" => estimated_cost_event_count.to_i,
         "estimated_cost_missing_event_count" => estimated_cost_missing_event_count,
+        "prompt_cache_available_input_tokens_total" => prompt_cache_available_input_tokens_total.to_i,
+        "provider_round_count" => provider_round_count.to_i,
       }
     end
 
@@ -198,6 +232,35 @@ module ConversationDiagnostics
             "failures" => failures.to_i,
           }
         end
+    end
+
+    def task_delivery_counts(turn)
+      resume_attempt_count, retry_attempt_count = AgentTaskRun
+        .where(turn_id: turn.id)
+        .left_outer_joins(:agent_task_run_detail)
+        .pick(
+          Arel.sql("SUM(CASE WHEN COALESCE(agent_task_run_details.task_payload, '{}'::jsonb) ->> 'delivery_kind' = 'turn_resume' THEN 1 ELSE 0 END)"),
+          Arel.sql("SUM(CASE WHEN COALESCE(agent_task_run_details.task_payload, '{}'::jsonb) ->> 'delivery_kind' IN ('step_retry', 'paused_retry') THEN 1 ELSE 0 END)")
+        )
+
+      {
+        "resume_attempt_count" => resume_attempt_count.to_i,
+        "retry_attempt_count" => retry_attempt_count.to_i,
+      }
+    end
+
+    def sum_counts(counts, selected_keys = nil)
+      values = if selected_keys.present?
+        Array(selected_keys).sum { |key| counts.fetch(key, 0).to_i }
+      else
+        counts.values.sum(&:to_i)
+      end
+
+      values.to_i
+    end
+
+    def sum_nested_counts(hash, key)
+      hash.values.sum { |payload| payload.fetch(key, 0).to_i }
     end
 
     def stringify_hash(hash)

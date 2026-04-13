@@ -9,9 +9,7 @@ module ConversationDiagnostics
     end
 
     def call
-      conversation = Conversation
-        .includes(:workspace, turns: [:workflow_run, { conversation: :workspace }])
-        .find(@conversation.id)
+      conversation = load_conversation(@conversation)
       turn_snapshots = conversation.turns.sort_by(&:sequence).map do |turn|
         ConversationDiagnostics::RecomputeTurnSnapshot.call(turn: turn)
       end
@@ -56,16 +54,20 @@ module ConversationDiagnostics
       snapshot.most_rounds_turn = turn_snapshots.max_by { |item| [item.provider_round_count.to_i, item.turn_id] }&.turn
       snapshot.metadata = compact_metadata(
         {
-        "provider_usage_breakdown" => provider_usage_breakdown(
-          UsageEvent.where(conversation_id: conversation.id)
-        ),
-        "attributed_user_provider_usage_breakdown" => provider_usage_breakdown(
-          UsageEvent.where(conversation_id: conversation.id, user_id: conversation.workspace.user_id)
-        ),
-        "workflow_node_type_counts" => merge_count_hashes(turn_snapshots, "workflow_node_type_counts"),
-        "tool_breakdown" => merge_nested_counts(turn_snapshots, "tool_breakdown"),
-        "command_lifecycle_state_counts" => merge_count_hashes(turn_snapshots, "command_lifecycle_state_counts"),
-        "subagent_status_counts" => merge_count_hashes(turn_snapshots, "subagent_status_counts"),
+          "provider_usage_breakdown" => provider_usage_breakdown(
+            UsageEvent.where(conversation_id: conversation.id)
+          ),
+          "attributed_user_provider_usage_breakdown" => provider_usage_breakdown(
+            UsageEvent.where(conversation_id: conversation.id, user_id: conversation.user_id)
+          ),
+          "prompt_cache_available_input_tokens_total" => sum_metadata_numeric(
+            turn_snapshots,
+            "prompt_cache_available_input_tokens_total"
+          ),
+          "workflow_node_type_counts" => merge_count_hashes(turn_snapshots, "workflow_node_type_counts"),
+          "tool_breakdown" => merge_nested_counts(turn_snapshots, "tool_breakdown"),
+          "command_lifecycle_state_counts" => merge_count_hashes(turn_snapshots, "command_lifecycle_state_counts"),
+          "subagent_status_counts" => merge_count_hashes(turn_snapshots, "subagent_status_counts"),
         }
       )
       snapshot.save!
@@ -73,6 +75,16 @@ module ConversationDiagnostics
     end
 
     private
+
+    def load_conversation(conversation)
+      return Conversation.includes(:installation, turns: [:installation, :workflow_run]).find(conversation.id) unless conversation.is_a?(Conversation)
+
+      ActiveRecord::Associations::Preloader.new(
+        records: [conversation],
+        associations: [:installation, { turns: [:installation, :workflow_run] }]
+      ).call
+      conversation
+    end
 
     def sum(items, attribute)
       items.sum { |item| item.public_send(attribute).to_i }
@@ -153,6 +165,10 @@ module ConversationDiagnostics
           result[name]["failures"] += payload["failures"].to_i
         end
       end.sort.to_h
+    end
+
+    def sum_metadata_numeric(items, key)
+      items.sum { |item| item.metadata.fetch(key, 0).to_i }
     end
 
     def compact_metadata(value)

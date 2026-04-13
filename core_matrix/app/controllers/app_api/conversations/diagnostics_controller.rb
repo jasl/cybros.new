@@ -3,17 +3,14 @@ module AppAPI
     class DiagnosticsController < AppAPI::Conversations::BaseController
       def show
         snapshot = ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: @conversation)
-        available_prompt_cache_input_tokens_total = UsageEvent.where(
-          conversation_id: @conversation.id,
-          prompt_cache_status: "available"
-        ).sum(:input_tokens)
-
         render_method_response(
           method_id: "conversation_diagnostics_show",
           conversation_id: @conversation.public_id,
           snapshot: serialize_conversation_diagnostics_snapshot(
             snapshot,
-            available_prompt_cache_input_tokens_total: available_prompt_cache_input_tokens_total
+            conversation_public_id: @conversation.public_id,
+            attributed_user_public_id: attributed_user_public_id,
+            available_prompt_cache_input_tokens_total: snapshot.metadata.fetch("prompt_cache_available_input_tokens_total", 0)
           ),
         )
       end
@@ -22,12 +19,9 @@ module AppAPI
         ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: @conversation)
         snapshots = TurnDiagnosticsSnapshot
           .where(conversation: @conversation)
+          .includes(:turn)
           .joins(:turn)
           .order("turns.sequence ASC")
-        available_prompt_cache_input_tokens_by_turn = UsageEvent
-          .where(turn_id: snapshots.map(&:turn_id), prompt_cache_status: "available")
-          .group(:turn_id)
-          .sum(:input_tokens)
 
         render_method_response(
           method_id: "conversation_diagnostics_turns",
@@ -35,7 +29,9 @@ module AppAPI
           items: snapshots.map do |snapshot|
             serialize_turn_diagnostics_snapshot(
               snapshot,
-              available_prompt_cache_input_tokens_total: available_prompt_cache_input_tokens_by_turn.fetch(snapshot.turn_id, 0)
+              conversation_public_id: @conversation.public_id,
+              attributed_user_public_id: attributed_user_public_id,
+              available_prompt_cache_input_tokens_total: snapshot.metadata.fetch("prompt_cache_available_input_tokens_total", 0)
             )
           end,
         )
@@ -43,11 +39,9 @@ module AppAPI
 
       private
 
-      def serialize_conversation_diagnostics_snapshot(snapshot, available_prompt_cache_input_tokens_total:)
-        attributed_user = snapshot.conversation.workspace.user
-
+      def serialize_conversation_diagnostics_snapshot(snapshot, conversation_public_id:, attributed_user_public_id:, available_prompt_cache_input_tokens_total:)
         {
-          "conversation_id" => snapshot.conversation.public_id,
+          "conversation_id" => conversation_public_id,
           "lifecycle_state" => snapshot.lifecycle_state,
           "turn_count" => snapshot.turn_count,
           "active_turn_count" => snapshot.active_turn_count,
@@ -72,7 +66,7 @@ module AppAPI
           "estimated_cost_missing_event_count" => snapshot.estimated_cost_missing_event_count,
           "cost_data_available" => snapshot.estimated_cost_event_count.positive?,
           "cost_data_complete" => (snapshot.estimated_cost_event_count + snapshot.estimated_cost_missing_event_count).positive? && snapshot.estimated_cost_missing_event_count.zero?,
-          "attributed_user_id" => attributed_user&.public_id,
+          "attributed_user_id" => attributed_user_public_id,
           "attributed_user_usage_event_count" => snapshot.attributed_user_usage_event_count,
           "attributed_user_input_tokens_total" => snapshot.attributed_user_input_tokens_total,
           "attributed_user_output_tokens_total" => snapshot.attributed_user_output_tokens_total,
@@ -97,15 +91,13 @@ module AppAPI
           "retry_attempt_count" => snapshot.retry_attempt_count,
           "most_expensive_turn_id" => snapshot.most_expensive_turn&.public_id,
           "most_rounds_turn_id" => snapshot.most_rounds_turn&.public_id,
-          "metadata" => snapshot.metadata,
+          "metadata" => public_metadata(snapshot.metadata),
         }
       end
 
-      def serialize_turn_diagnostics_snapshot(snapshot, available_prompt_cache_input_tokens_total:)
-        attributed_user = snapshot.conversation.workspace.user
-
+      def serialize_turn_diagnostics_snapshot(snapshot, conversation_public_id:, attributed_user_public_id:, available_prompt_cache_input_tokens_total:)
         {
-          "conversation_id" => snapshot.conversation.public_id,
+          "conversation_id" => conversation_public_id,
           "turn_id" => snapshot.turn.public_id,
           "lifecycle_state" => snapshot.lifecycle_state,
           "usage_event_count" => snapshot.usage_event_count,
@@ -126,7 +118,7 @@ module AppAPI
           "estimated_cost_missing_event_count" => snapshot.estimated_cost_missing_event_count,
           "cost_data_available" => snapshot.estimated_cost_event_count.positive?,
           "cost_data_complete" => (snapshot.estimated_cost_event_count + snapshot.estimated_cost_missing_event_count).positive? && snapshot.estimated_cost_missing_event_count.zero?,
-          "attributed_user_id" => attributed_user&.public_id,
+          "attributed_user_id" => attributed_user_public_id,
           "attributed_user_usage_event_count" => snapshot.attributed_user_usage_event_count,
           "attributed_user_input_tokens_total" => snapshot.attributed_user_input_tokens_total,
           "attributed_user_output_tokens_total" => snapshot.attributed_user_output_tokens_total,
@@ -152,7 +144,7 @@ module AppAPI
           "resume_attempt_count" => snapshot.resume_attempt_count,
           "retry_attempt_count" => snapshot.retry_attempt_count,
           "pause_state" => snapshot.pause_state,
-          "metadata" => snapshot.metadata,
+          "metadata" => public_metadata(snapshot.metadata),
         }
       end
 
@@ -161,6 +153,16 @@ module AppAPI
         return nil if available_input_tokens_total.to_i.zero?
 
         cached_input_tokens_total.to_f / available_input_tokens_total.to_f
+      end
+
+      def attributed_user_public_id
+        return current_user.public_id if @conversation.user_id == current_user.id
+
+        @conversation.user&.public_id
+      end
+
+      def public_metadata(metadata)
+        metadata.except("prompt_cache_available_input_tokens_total")
       end
     end
   end

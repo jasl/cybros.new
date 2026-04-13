@@ -197,7 +197,7 @@ module ConversationDebugExports
         "retry_attempt_count" => snapshot.retry_attempt_count,
         "most_expensive_turn_id" => snapshot.most_expensive_turn&.public_id,
         "most_rounds_turn_id" => snapshot.most_rounds_turn&.public_id,
-        "metadata" => snapshot.metadata,
+        "metadata" => public_snapshot_metadata(snapshot.metadata),
       }.compact
     end
 
@@ -236,7 +236,7 @@ module ConversationDebugExports
         "resume_attempt_count" => snapshot.resume_attempt_count,
         "retry_attempt_count" => snapshot.retry_attempt_count,
         "pause_state" => snapshot.pause_state,
-        "metadata" => snapshot.metadata,
+        "metadata" => public_snapshot_metadata(snapshot.metadata),
       }
     end
 
@@ -481,6 +481,10 @@ module ConversationDebugExports
       return nil if available_input_tokens_total.to_i.zero?
 
       cached_input_tokens_total.to_f / available_input_tokens_total.to_f
+    end
+
+    def public_snapshot_metadata(metadata)
+      metadata.except("prompt_cache_available_input_tokens_total")
     end
   end
 end

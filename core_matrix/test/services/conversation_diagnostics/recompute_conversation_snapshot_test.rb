@@ -120,4 +120,76 @@ class ConversationDiagnostics::RecomputeConversationSnapshotTest < ActiveSupport
     assert_equal 1, ConversationDiagnosticsSnapshot.where(conversation: conversation).count
     assert_equal 2, TurnDiagnosticsSnapshot.where(conversation: conversation).count
   end
+
+  test "recomputes a conversation snapshot within thirty-five SQL queries" do
+    context = build_canonical_variable_context!
+    conversation = context[:conversation]
+    first_turn = context[:turn]
+
+    ProviderUsage::RecordEvent.call(
+      installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      conversation_id: conversation.id,
+      turn_id: first_turn.id,
+      workflow_node_key: "turn_step",
+      agent: context[:agent],
+      agent_definition_version: context[:agent_definition_version],
+      provider_handle: "openrouter",
+      model_ref: "openai-gpt-5.4",
+      operation_kind: "text_generation",
+      input_tokens: 60,
+      output_tokens: 20,
+      prompt_cache_status: "available",
+      cached_input_tokens: 30,
+      latency_ms: 900,
+      estimated_cost: 0.006,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 2, 9, 0, 0)
+    )
+    context[:workflow_run].update!(lifecycle_state: "completed")
+
+    second_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Second query budget question",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    second_workflow_run = create_workflow_run!(turn: second_turn, lifecycle_state: "active")
+    create_workflow_node!(
+      workflow_run: second_workflow_run,
+      node_key: "turn_step",
+      node_type: "turn_step",
+      lifecycle_state: "completed",
+      started_at: 2.minutes.ago,
+      finished_at: 1.minute.ago,
+      presentation_policy: "internal_only",
+      decision_source: "agent",
+      metadata: {}
+    )
+    ProviderUsage::RecordEvent.call(
+      installation: context[:installation],
+      user: context[:user],
+      workspace: context[:workspace],
+      conversation_id: conversation.id,
+      turn_id: second_turn.id,
+      workflow_node_key: "turn_step",
+      agent: context[:agent],
+      agent_definition_version: context[:agent_definition_version],
+      provider_handle: "openrouter",
+      model_ref: "openai-gpt-5.4",
+      operation_kind: "text_generation",
+      input_tokens: 90,
+      output_tokens: 30,
+      prompt_cache_status: "unknown",
+      latency_ms: 1_200,
+      estimated_cost: 0.010,
+      success: true,
+      occurred_at: Time.utc(2026, 4, 2, 9, 5, 0)
+    )
+
+    assert_sql_query_count_at_most(35) do
+      ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: conversation)
+    end
+  end
 end
