@@ -122,7 +122,7 @@ module ConversationDebugExports
     def process_runs
       @process_runs ||= ProcessRun
         .where(conversation: @conversation)
-        .preload(:conversation, :turn, :origin_message, workflow_node: :workflow_run)
+        .preload(:conversation, :turn, :origin_message, :workflow_run, :workflow_node)
         .order(:created_at, :id)
     end
 

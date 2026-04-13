@@ -1009,10 +1009,11 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_process_run!(workflow_node:, installation: workflow_node.installation, execution_runtime: create_execution_runtime!(installation: installation), conversation: workflow_node.conversation, turn: workflow_node.turn, kind: "background_service", lifecycle_state: "running", command_line: "echo test", metadata: {}, timeout_seconds: nil, **attrs)
+    def create_process_run!(workflow_node:, installation: workflow_node.installation, workflow_run: workflow_node.workflow_run, execution_runtime: workflow_run.execution_runtime || workflow_node.turn.execution_runtime, conversation: workflow_node.conversation, turn: workflow_node.turn, kind: "background_service", lifecycle_state: "running", command_line: "echo test", metadata: {}, timeout_seconds: nil, **attrs)
       ProcessRun.create!({
         installation: installation,
         workflow_node: workflow_node,
+        workflow_run: workflow_run,
         execution_epoch: turn.execution_epoch,
         execution_runtime: execution_runtime,
         conversation: conversation,

@@ -40,6 +40,7 @@ module Processes
             workspace: @workflow_node.workspace,
             agent: @workflow_node.agent,
             workflow_node: @workflow_node,
+            workflow_run: @workflow_node.workflow_run,
             execution_epoch: @workflow_node.workflow_run.turn.execution_epoch,
             execution_runtime: @execution_runtime,
             conversation: @workflow_node.workflow_run.conversation,

@@ -22,6 +22,7 @@ class ProcessRunTest < ActiveSupport::TestCase
 
     assert process_run.valid?
     assert_equal process_context[:turn].execution_epoch, process_run.execution_epoch
+    assert_equal process_context[:workflow_node].workflow_run, process_run.workflow_run
   end
 
   test "requires the process run execution runtime to match the frozen turn execution runtime" do
@@ -74,6 +75,31 @@ class ProcessRunTest < ActiveSupport::TestCase
     assert_includes process_run.errors[:user], "must match the conversation user"
     assert_includes process_run.errors[:workspace], "must match the conversation workspace"
     assert_includes process_run.errors[:agent], "must match the conversation agent"
+  end
+
+  test "requires the process run workflow run to match the workflow node" do
+    process_context = build_process_context!
+    other_context = build_process_context!
+
+    process_run = ProcessRun.new(
+      installation: process_context[:installation],
+      user: process_context[:conversation].user,
+      workspace: process_context[:conversation].workspace,
+      agent: process_context[:conversation].agent,
+      workflow_node: process_context[:workflow_node],
+      workflow_run: other_context[:workflow_node].workflow_run,
+      execution_runtime: process_context[:execution_runtime],
+      conversation: process_context[:conversation],
+      turn: process_context[:turn],
+      origin_message: process_context[:origin_message],
+      kind: "background_service",
+      lifecycle_state: "running",
+      command_line: "echo hi",
+      metadata: {}
+    )
+
+    assert_not process_run.valid?
+    assert_includes process_run.errors[:workflow_run], "must match the workflow node workflow run"
   end
 
   private

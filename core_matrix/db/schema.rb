@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_14_170000) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_14_182000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -1377,6 +1377,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_170000) do
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.bigint "workflow_node_id", null: false
+    t.bigint "workflow_run_id", null: false
     t.bigint "workspace_id"
     t.index ["agent_id"], name: "index_process_runs_on_agent_id"
     t.index ["conversation_id", "lifecycle_state"], name: "idx_process_runs_conversation_lifecycle"
@@ -1392,6 +1393,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_170000) do
     t.index ["workflow_node_id", "idempotency_key"], name: "idx_process_runs_workflow_node_idempotency", unique: true, where: "(idempotency_key IS NOT NULL)"
     t.index ["workflow_node_id", "lifecycle_state"], name: "index_process_runs_on_workflow_node_id_and_lifecycle_state"
     t.index ["workflow_node_id"], name: "index_process_runs_on_workflow_node_id"
+    t.index ["workflow_run_id", "lifecycle_state"], name: "idx_process_runs_workflow_run_lifecycle"
+    t.index ["workflow_run_id"], name: "index_process_runs_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_process_runs_on_workspace_id"
   end
 
@@ -1874,11 +1877,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_170000) do
     t.index ["user_id"], name: "index_turns_on_user_id"
     t.index ["workflow_bootstrap_state", "workflow_bootstrap_started_at"], name: "idx_turns_workflow_bootstrap_backlog"
     t.index ["workspace_id"], name: "index_turns_on_workspace_id"
-    t.check_constraint "(workflow_bootstrap_state::text = ANY (ARRAY['not_requested'::character varying, 'pending'::character varying, 'materializing'::character varying, 'ready'::character varying]::text[])) AND workflow_bootstrap_failure_payload = '{}'::jsonb OR workflow_bootstrap_state::text = 'failed'::text AND jsonb_typeof(workflow_bootstrap_failure_payload) = 'object'::text AND workflow_bootstrap_failure_payload ?& ARRAY['error_class'::text, 'error_message'::text, 'retryable'::text] AND (workflow_bootstrap_failure_payload - ARRAY['error_class'::text, 'error_message'::text, 'retryable'::text]) = '{}'::jsonb AND jsonb_typeof(workflow_bootstrap_failure_payload -> 'retryable'::text) = 'boolean'::text", name: "chk_turns_workflow_bootstrap_failure_contract"
+    t.check_constraint "(workflow_bootstrap_state::text = ANY (ARRAY['not_requested'::character varying::text, 'pending'::character varying::text, 'materializing'::character varying::text, 'ready'::character varying::text])) AND workflow_bootstrap_failure_payload = '{}'::jsonb OR workflow_bootstrap_state::text = 'failed'::text AND jsonb_typeof(workflow_bootstrap_failure_payload) = 'object'::text AND workflow_bootstrap_failure_payload ?& ARRAY['error_class'::text, 'error_message'::text, 'retryable'::text] AND (workflow_bootstrap_failure_payload - ARRAY['error_class'::text, 'error_message'::text, 'retryable'::text]) = '{}'::jsonb AND jsonb_typeof(workflow_bootstrap_failure_payload -> 'retryable'::text) = 'boolean'::text", name: "chk_turns_workflow_bootstrap_failure_contract"
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_turns_cancellation_pairing"
-    t.check_constraint "workflow_bootstrap_state::text = 'not_requested'::text AND workflow_bootstrap_payload = '{}'::jsonb OR (workflow_bootstrap_state::text = ANY (ARRAY['pending'::character varying, 'materializing'::character varying, 'ready'::character varying, 'failed'::character varying]::text[])) AND jsonb_typeof(workflow_bootstrap_payload) = 'object'::text AND workflow_bootstrap_payload ?& ARRAY['selector_source'::text, 'selector'::text, 'root_node_key'::text, 'root_node_type'::text, 'decision_source'::text, 'metadata'::text] AND (workflow_bootstrap_payload - ARRAY['selector_source'::text, 'selector'::text, 'root_node_key'::text, 'root_node_type'::text, 'decision_source'::text, 'metadata'::text]) = '{}'::jsonb AND jsonb_typeof(workflow_bootstrap_payload -> 'metadata'::text) = 'object'::text", name: "chk_turns_workflow_bootstrap_payload_contract"
-    t.check_constraint "workflow_bootstrap_state::text = 'not_requested'::text AND workflow_bootstrap_requested_at IS NULL AND workflow_bootstrap_started_at IS NULL AND workflow_bootstrap_finished_at IS NULL OR workflow_bootstrap_state::text = 'pending'::text AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NULL AND workflow_bootstrap_finished_at IS NULL OR workflow_bootstrap_state::text = 'materializing'::text AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NOT NULL AND workflow_bootstrap_finished_at IS NULL OR (workflow_bootstrap_state::text = ANY (ARRAY['ready'::character varying, 'failed'::character varying]::text[])) AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NOT NULL AND workflow_bootstrap_finished_at IS NOT NULL", name: "chk_turns_workflow_bootstrap_timestamps"
-    t.check_constraint "workflow_bootstrap_state::text = ANY (ARRAY['not_requested'::character varying, 'pending'::character varying, 'materializing'::character varying, 'ready'::character varying, 'failed'::character varying]::text[])", name: "chk_turns_workflow_bootstrap_state"
+    t.check_constraint "workflow_bootstrap_state::text = 'not_requested'::text AND workflow_bootstrap_payload = '{}'::jsonb OR (workflow_bootstrap_state::text = ANY (ARRAY['pending'::character varying::text, 'materializing'::character varying::text, 'ready'::character varying::text, 'failed'::character varying::text])) AND jsonb_typeof(workflow_bootstrap_payload) = 'object'::text AND workflow_bootstrap_payload ?& ARRAY['selector_source'::text, 'selector'::text, 'root_node_key'::text, 'root_node_type'::text, 'decision_source'::text, 'metadata'::text] AND (workflow_bootstrap_payload - ARRAY['selector_source'::text, 'selector'::text, 'root_node_key'::text, 'root_node_type'::text, 'decision_source'::text, 'metadata'::text]) = '{}'::jsonb AND jsonb_typeof(workflow_bootstrap_payload -> 'metadata'::text) = 'object'::text", name: "chk_turns_workflow_bootstrap_payload_contract"
+    t.check_constraint "workflow_bootstrap_state::text = 'not_requested'::text AND workflow_bootstrap_requested_at IS NULL AND workflow_bootstrap_started_at IS NULL AND workflow_bootstrap_finished_at IS NULL OR workflow_bootstrap_state::text = 'pending'::text AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NULL AND workflow_bootstrap_finished_at IS NULL OR workflow_bootstrap_state::text = 'materializing'::text AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NOT NULL AND workflow_bootstrap_finished_at IS NULL OR (workflow_bootstrap_state::text = ANY (ARRAY['ready'::character varying::text, 'failed'::character varying::text])) AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NOT NULL AND workflow_bootstrap_finished_at IS NOT NULL", name: "chk_turns_workflow_bootstrap_timestamps"
+    t.check_constraint "workflow_bootstrap_state::text = ANY (ARRAY['not_requested'::character varying::text, 'pending'::character varying::text, 'materializing'::character varying::text, 'ready'::character varying::text, 'failed'::character varying::text])", name: "chk_turns_workflow_bootstrap_state"
   end
 
   create_table "usage_events", force: :cascade do |t|
@@ -2093,6 +2096,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_170000) do
     t.bigint "yielding_workflow_node_id"
     t.index ["agent_id"], name: "index_workflow_nodes_on_agent_id"
     t.index ["conversation_id"], name: "index_workflow_nodes_on_conversation_id"
+    t.index ["id", "workflow_run_id"], name: "idx_workflow_nodes_run_alignment", unique: true
     t.index ["installation_id"], name: "index_workflow_nodes_on_installation_id"
     t.index ["opened_human_interaction_request_id"], name: "index_workflow_nodes_on_opened_human_interaction_request_id"
     t.index ["public_id"], name: "index_workflow_nodes_on_public_id", unique: true
@@ -2445,6 +2449,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_170000) do
   add_foreign_key "process_runs", "turns"
   add_foreign_key "process_runs", "users"
   add_foreign_key "process_runs", "workflow_nodes"
+  add_foreign_key "process_runs", "workflow_nodes", column: ["workflow_node_id", "workflow_run_id"], primary_key: ["id", "workflow_run_id"], name: "fk_process_runs_workflow_node_workflow_run"
+  add_foreign_key "process_runs", "workflow_runs"
   add_foreign_key "process_runs", "workspaces"
   add_foreign_key "provider_authorization_sessions", "installations"
   add_foreign_key "provider_authorization_sessions", "users", column: "issued_by_user_id"

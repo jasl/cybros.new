@@ -61,7 +61,7 @@ module ConversationRuntime
     def process_runs
       @process_runs ||= ProcessRun
         .where(conversation: @conversation, turn: @turn)
-        .includes({ workflow_node: :workflow_run }, :origin_message)
+        .includes(:workflow_node, :workflow_run, :origin_message)
         .order(:created_at, :id)
     end
 

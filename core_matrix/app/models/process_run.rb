@@ -22,6 +22,7 @@ class ProcessRun < ApplicationRecord
   belongs_to :workspace
   belongs_to :agent
   belongs_to :workflow_node
+  belongs_to :workflow_run
   belongs_to :execution_epoch, class_name: "ConversationExecutionEpoch"
   belongs_to :execution_runtime, class_name: "ExecutionRuntime"
   belongs_to :conversation
@@ -32,6 +33,7 @@ class ProcessRun < ApplicationRecord
 
   before_validation :default_started_at, on: :create
   before_validation :default_execution_epoch
+  before_validation :default_workflow_run
 
   validates :command_line, presence: true
   validate :metadata_must_be_hash
@@ -39,6 +41,7 @@ class ProcessRun < ApplicationRecord
   validate :workspace_installation_match
   validate :agent_installation_match
   validate :workflow_node_installation_match
+  validate :workflow_run_installation_match
   validate :execution_epoch_installation_match
   validate :execution_runtime_installation_match
   validate :conversation_installation_match
@@ -48,6 +51,7 @@ class ProcessRun < ApplicationRecord
   validate :execution_epoch_runtime_match
   validate :workflow_node_turn_match
   validate :workflow_node_conversation_match
+  validate :workflow_node_workflow_run_match
   validate :workflow_node_owner_context_match
   validate :conversation_owner_context_match
   validate :turn_owner_context_match
@@ -57,10 +61,6 @@ class ProcessRun < ApplicationRecord
   validate :origin_message_conversation_match
   validate :timeout_rules
   validate :lifecycle_timestamps
-
-  def workflow_run
-    workflow_node&.workflow_run
-  end
 
   private
 
@@ -98,6 +98,13 @@ class ProcessRun < ApplicationRecord
     return if workflow_node.installation_id == installation_id
 
     errors.add(:workflow_node, "must belong to the same installation")
+  end
+
+  def workflow_run_installation_match
+    return if workflow_run.blank?
+    return if workflow_run.installation_id == installation_id
+
+    errors.add(:workflow_run, "must belong to the same installation")
   end
 
   def execution_epoch_installation_match
@@ -161,6 +168,13 @@ class ProcessRun < ApplicationRecord
     return if workflow_node.workflow_run.conversation_id == conversation_id
 
     errors.add(:conversation, "must match the workflow run conversation")
+  end
+
+  def workflow_node_workflow_run_match
+    return if workflow_node.blank? || workflow_run.blank?
+    return if workflow_node.workflow_run_id == workflow_run_id
+
+    errors.add(:workflow_run, "must match the workflow node workflow run")
   end
 
   def workflow_node_owner_context_match
@@ -235,5 +249,12 @@ class ProcessRun < ApplicationRecord
     return unless turn.present?
 
     self.execution_epoch = turn.execution_epoch
+  end
+
+  def default_workflow_run
+    return if workflow_run.present?
+    return unless workflow_node.present?
+
+    self.workflow_run = workflow_node.workflow_run
   end
 end
