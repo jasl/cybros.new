@@ -3,7 +3,7 @@ class CreateLineageStores < ActiveRecord::Migration[8.2]
     create_table :lineage_stores do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :workspace, null: false, foreign_key: true
-      t.references :root_conversation,
+      t.references :owner_conversation,
         null: false,
         foreign_key: { to_table: :conversations },
         index: { unique: true }

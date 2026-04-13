@@ -21,6 +21,30 @@ class LineageStores::SetTest < ActiveSupport::TestCase
     assert_equal 1, context[:conversation].reload.lineage_store_reference.lineage_store_snapshot.depth
   end
 
+  test "the first write bootstraps lineage substrate for a bare conversation" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+
+    assert_difference({
+      "LineageStore.count" => 1,
+      "LineageStoreSnapshot.count" => 2,
+      "LineageStoreReference.count" => 1,
+      "LineageStoreEntry.count" => 1,
+      "LineageStoreValue.count" => 1,
+    }) do
+      LineageStores::Set.call(
+        conversation: conversation,
+        key: "tone",
+        typed_value_payload: { "type" => "string", "value" => "direct" }
+      )
+    end
+
+    assert_equal "direct",
+      LineageStores::GetQuery.call(reference_owner: conversation, key: "tone").typed_value_payload.fetch("value")
+  end
+
   test "identical set is a no-op" do
     context = build_lineage_store_context!
     LineageStores::Set.call(

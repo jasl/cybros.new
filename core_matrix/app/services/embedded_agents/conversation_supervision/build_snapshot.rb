@@ -27,8 +27,7 @@ module EmbeddedAgents
           conversation: @conversation,
           occurred_at: Time.current
         )
-        policy = @conversation.conversation_capability_policy
-        bundle_payload = build_bundle_payload(supervision_access:, state:, policy:)
+        bundle_payload = build_bundle_payload(supervision_access:, state:)
 
         snapshot = @conversation_supervision_session.conversation_supervision_snapshots.create!(
           installation: @conversation.installation,
@@ -37,7 +36,6 @@ module EmbeddedAgents
           agent: @conversation.agent,
           target_conversation: @conversation,
           conversation_supervision_state_public_id: state.public_id,
-          conversation_capability_policy_public_id: policy&.public_id,
           anchor_turn_public_id: anchor_turn&.public_id,
           anchor_turn_sequence_snapshot: anchor_turn&.sequence,
           conversation_event_projection_sequence_snapshot: latest_projection_sequence,
@@ -60,7 +58,7 @@ module EmbeddedAgents
 
       private
 
-      def build_bundle_payload(supervision_access:, state:, policy:)
+      def build_bundle_payload(supervision_access:, state:)
         detailed_progress_enabled = supervision_access.detailed_progress_enabled?
         context_view = detailed_progress_enabled ? conversation_context_view : empty_context_view
         turn_feed = detailed_progress_enabled ? ::ConversationSupervision::BuildActivityFeed.call(conversation: @conversation) : []
@@ -82,7 +80,6 @@ module EmbeddedAgents
           "proof_debug" => proof_debug_payload(
             context_view: context_view,
             turn_feed: turn_feed,
-            policy: policy,
             state: state
           ),
           "capability_authority" => {
@@ -109,14 +106,13 @@ module EmbeddedAgents
         )
       end
 
-      def proof_debug_payload(context_view:, turn_feed:, policy:, state:)
+      def proof_debug_payload(context_view:, turn_feed:, state:)
         {
           "conversation_id" => @conversation.public_id,
           "anchor_turn_id" => anchor_turn&.public_id,
           "workflow_run_id" => workflow_run&.public_id,
           "workflow_node_id" => workflow_node&.public_id,
           "conversation_supervision_state_id" => state.public_id,
-          "conversation_capability_policy_id" => policy&.public_id,
           "context_message_ids" => context_view.fetch("message_ids"),
           "feed_entry_ids" => turn_feed.map { |entry| entry.fetch("conversation_supervision_feed_entry_id") },
           "feed_event_kinds" => turn_feed.map { |entry| entry.fetch("event_kind") },

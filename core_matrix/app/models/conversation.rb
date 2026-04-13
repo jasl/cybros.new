@@ -121,10 +121,6 @@ class Conversation < ApplicationRecord
   has_many :conversation_events, dependent: :restrict_with_exception
   has_many :human_interaction_requests, dependent: :restrict_with_exception
   has_many :workflow_runs, dependent: :restrict_with_exception
-  has_one :conversation_capability_policy,
-    foreign_key: :target_conversation_id,
-    dependent: :restrict_with_exception,
-    inverse_of: :target_conversation
   has_one :conversation_detail, dependent: :destroy, autosave: true, inverse_of: :conversation
   has_one :conversation_supervision_state,
     foreign_key: :target_conversation_id,
@@ -159,7 +155,7 @@ class Conversation < ApplicationRecord
   has_one :lineage_store_reference, as: :owner, dependent: :restrict_with_exception
   has_one :root_lineage_store,
     class_name: "LineageStore",
-    foreign_key: :root_conversation_id,
+    foreign_key: :owner_conversation_id,
     dependent: :restrict_with_exception
   has_many :child_conversations,
     class_name: "Conversation",
@@ -214,6 +210,7 @@ class Conversation < ApplicationRecord
 
   after_initialize :apply_default_feature_policy, if: :new_record?
   before_validation :normalize_enabled_feature_ids
+  before_validation :normalize_capability_authority
   before_validation :default_execution_continuity_state
   before_validation :default_current_execution_runtime
 
@@ -257,6 +254,15 @@ class Conversation < ApplicationRecord
     }
   end
 
+  def capability_authority_snapshot
+    {
+      "supervision_enabled" => supervision_enabled?,
+      "detailed_progress_enabled" => detailed_progress_enabled?,
+      "side_chat_enabled" => side_chat_enabled?,
+      "control_enabled" => control_enabled?,
+    }
+  end
+
   def feed_anchor_turn
     return latest_active_turn if latest_active_turn&.active?
 
@@ -281,6 +287,12 @@ class Conversation < ApplicationRecord
 
   def normalize_enabled_feature_ids
     self.enabled_feature_ids = normalize_feature_ids(enabled_feature_ids)
+  end
+
+  def normalize_capability_authority
+    self.detailed_progress_enabled = false unless supervision_enabled?
+    self.side_chat_enabled = false unless supervision_enabled?
+    self.control_enabled = false unless side_chat_enabled?
   end
 
   def normalize_feature_ids(values)

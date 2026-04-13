@@ -51,11 +51,6 @@ module WorkspacePolicies
         detailed_progress_enabled: effective.include?("detailed_progress"),
         side_chat_enabled: effective.include?("side_chat"),
         control_enabled: effective.include?("control"),
-        policy_payload: {
-          "available_capabilities" => available,
-          "disabled_capabilities" => disabled,
-          "effective_capabilities" => effective,
-        },
       }
     end
 

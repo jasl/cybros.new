@@ -2,6 +2,8 @@ require "test_helper"
 
 class ConversationSupervisionMessageTest < ActiveSupport::TestCase
   test "supports side chat roles on supervision snapshots without mutating the target transcript" do
+    assert_not_includes ConversationSupervisionSnapshot.attribute_names, "conversation_capability_policy_public_id"
+
     context = create_workspace_context!
     conversation = create_conversation_record!(
       workspace: context[:workspace],
@@ -32,7 +34,6 @@ class ConversationSupervisionMessageTest < ActiveSupport::TestCase
       agent_id: conversation.agent_id,
       conversation_supervision_session: session,
       conversation_supervision_state_public_id: "state_public_id",
-      conversation_capability_policy_public_id: "policy_public_id",
       anchor_turn_public_id: "turn_public_id",
       anchor_turn_sequence_snapshot: 1,
       conversation_event_projection_sequence_snapshot: 1,
@@ -119,7 +120,6 @@ class ConversationSupervisionMessageTest < ActiveSupport::TestCase
       agent_id: conversation.agent_id,
       conversation_supervision_session: session,
       conversation_supervision_state_public_id: "state_public_id",
-      conversation_capability_policy_public_id: "policy_public_id",
       anchor_turn_public_id: "turn_public_id",
       anchor_turn_sequence_snapshot: 1,
       conversation_event_projection_sequence_snapshot: 1,
@@ -169,7 +169,6 @@ class ConversationSupervisionMessageTest < ActiveSupport::TestCase
       agent_id: conversation.agent_id,
       conversation_supervision_session: session,
       conversation_supervision_state_public_id: "state_public_id",
-      conversation_capability_policy_public_id: "policy_public_id",
       anchor_turn_public_id: "turn_public_id",
       anchor_turn_sequence_snapshot: 1,
       conversation_event_projection_sequence_snapshot: 1,

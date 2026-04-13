@@ -6,7 +6,7 @@ module LineageStores
 
     def call
       reachable_snapshot_ids = load_reachable_snapshot_ids
-      affected_root_conversation_ids = []
+      affected_owner_conversation_ids = []
 
       ApplicationRecord.transaction do
         unreachable_snapshots = reachable_snapshot_ids.empty? ?
@@ -21,11 +21,11 @@ module LineageStores
 
         LineageStoreValue.where.missing(:lineage_store_entries).delete_all
         unreachable_stores = LineageStore.where.missing(:lineage_store_snapshots)
-        affected_root_conversation_ids = unreachable_stores.pluck(:root_conversation_id).compact
+        affected_owner_conversation_ids = unreachable_stores.pluck(:owner_conversation_id).compact
         unreachable_stores.delete_all
       end
 
-      reconcile_deleted_conversations!(affected_root_conversation_ids)
+      reconcile_deleted_conversations!(affected_owner_conversation_ids)
     end
 
     private

@@ -17,6 +17,7 @@ class ConversationControl::AuthorizeRequestTest < ActiveSupport::TestCase
     assert result.allowed?
     assert_equal "conversation", result.target_kind
     assert_equal fixture.fetch(:conversation).public_id, result.target_public_id
+    refute_respond_to result, :policy
   end
 
   test "rejects the original owner after a visibility change when no explicit capability grant exists" do

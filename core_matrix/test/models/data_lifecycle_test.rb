@@ -31,7 +31,6 @@ class DataLifecycleTest < ActiveSupport::TestCase
       ConversationSupervisionSnapshot => :ephemeral_observability,
       ConversationSupervisionMessage => :ephemeral_observability,
       ConversationSupervisionState => :recomputable,
-      ConversationCapabilityPolicy => :owner_bound,
       ConversationCapabilityGrant => :owner_bound,
       ConversationControlRequest => :bounded_audit,
       ConversationExportRequest => :ephemeral_observability,

@@ -1,6 +1,34 @@
 require "test_helper"
 
 class ProviderEntitlementTest < ActiveSupport::TestCase
+  test "allows different providers to reuse the same entitlement key inside one installation" do
+    installation = create_installation!
+
+    ProviderEntitlement.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      entitlement_key: "shared_window",
+      window_kind: "rolling_five_hours",
+      window_seconds: 5.hours.to_i,
+      quota_limit: 200_000,
+      active: true,
+      metadata: {}
+    )
+
+    entitlement = ProviderEntitlement.new(
+      installation: installation,
+      provider_handle: "openai",
+      entitlement_key: "shared_window",
+      window_kind: "rolling_five_hours",
+      window_seconds: 5.hours.to_i,
+      quota_limit: 200_000,
+      active: true,
+      metadata: {}
+    )
+
+    assert entitlement.valid?
+  end
+
   test "supports rolling five-hour entitlement windows" do
     entitlement = ProviderEntitlement.create!(
       installation: create_installation!,

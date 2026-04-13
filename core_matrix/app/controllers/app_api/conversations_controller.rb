@@ -22,6 +22,9 @@ module AppAPI
         workspace: AppSurface::Presenters::WorkspacePresenter.call(workspace: result.workspace),
         conversation: AppSurface::Presenters::ConversationPresenter.call(conversation: result.conversation),
         turn_id: result.turn.public_id,
+        execution_status: result.turn.workflow_bootstrap_state,
+        accepted_at: result.turn.workflow_bootstrap_requested_at&.iso8601(6),
+        request_summary: ConversationSupervision::BuildGoalSummary.call(content: result.message.content),
         message: serialize_message(result.message)
       )
     end

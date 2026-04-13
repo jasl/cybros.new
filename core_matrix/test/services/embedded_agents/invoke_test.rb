@@ -12,12 +12,15 @@ class EmbeddedAgents::InvokeTest < ActiveSupport::TestCase
       execution_runtime: context[:execution_runtime],
       agent: context[:agent]
     )
-    upsert_conversation_capability_policy!(
-      conversation: conversation,
+    assert_includes Conversation.attribute_names, "supervision_enabled"
+    assert_includes Conversation.attribute_names, "detailed_progress_enabled"
+    assert_includes Conversation.attribute_names, "side_chat_enabled"
+    assert_includes Conversation.attribute_names, "control_enabled"
+    conversation.update!(
       supervision_enabled: true,
+      detailed_progress_enabled: true,
       side_chat_enabled: true,
-      control_enabled: false,
-      policy_payload: {}
+      control_enabled: false
     )
 
     result = EmbeddedAgents::Invoke.call(

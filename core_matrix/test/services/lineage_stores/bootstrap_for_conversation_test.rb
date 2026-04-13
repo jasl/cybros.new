@@ -16,7 +16,9 @@ class LineageStores::BootstrapForConversationTest < ActiveSupport::TestCase
 
     assert reference.present?
     assert_equal conversation, reference.owner
-    assert_equal conversation, reference.lineage_store_snapshot.lineage_store.root_conversation
+    assert_nil LineageStore.reflect_on_association(:root_conversation)
+    assert_not_nil LineageStore.reflect_on_association(:owner_conversation)
+    assert_equal conversation, reference.lineage_store_snapshot.lineage_store.owner_conversation
     assert_equal "root", reference.lineage_store_snapshot.snapshot_kind
     assert_equal 0, reference.lineage_store_snapshot.depth
   end

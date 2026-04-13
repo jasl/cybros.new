@@ -4,6 +4,15 @@ module LineageStores
 end
 
 class LineageStores::GetQueryTest < ActiveSupport::TestCase
+  test "returns nil when the owner has no lineage reference" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+
+    assert_nil LineageStores::GetQuery.call(reference_owner: conversation, key: "tone")
+  end
+
   test "returns the newest visible value for a key" do
     context = build_lineage_store_context!
     value = create_lineage_store_value!(typed_value_payload: { "type" => "string", "value" => "direct" })

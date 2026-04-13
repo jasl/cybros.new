@@ -8,6 +8,11 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
     )
+    LineageStores::Set.call(
+      conversation: conversation,
+      key: "tone",
+      typed_value_payload: { "type" => "string", "value" => "direct" }
+    )
     Conversations::RequestDeletion.call(conversation: conversation)
 
     assert_enqueued_with(job: LineageStores::GarbageCollectJob) do
@@ -84,6 +89,11 @@ class Conversations::FinalizeDeletionTest < ActiveSupport::TestCase
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
+    )
+    LineageStores::Set.call(
+      conversation: conversation,
+      key: "tone",
+      typed_value_payload: { "type" => "string", "value" => "direct" }
     )
     stale_conversation = Conversation.find(conversation.id)
 

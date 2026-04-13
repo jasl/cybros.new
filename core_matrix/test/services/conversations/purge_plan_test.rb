@@ -69,9 +69,8 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
       assert_difference("TurnDiagnosticsSnapshot.count", -1) do
         assert_difference("ConversationSupervisionSession.count", -1) do
           assert_difference("ConversationSupervisionSnapshot.count", -1) do
-            assert_difference("ConversationSupervisionMessage.count", -1) do
-              assert_difference("ConversationSupervisionState.count", -1) do
-                assert_difference("ConversationCapabilityPolicy.count", -1) do
+              assert_difference("ConversationSupervisionMessage.count", -1) do
+                assert_difference("ConversationSupervisionState.count", -1) do
                   assert_difference("ConversationCapabilityGrant.count", -1) do
                     assert_difference("ConversationControlRequest.count", -1) do
                       assert_difference("ConversationExportRequest.count", -1) do
@@ -83,7 +82,6 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
                       end
                     end
                   end
-                end
               end
             end
           end
@@ -98,7 +96,6 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
     assert_not ConversationSupervisionSnapshot.exists?(supervision_rows.fetch(:snapshot).id)
     assert_not ConversationSupervisionMessage.exists?(supervision_rows.fetch(:message).id)
     assert_not ConversationSupervisionState.exists?(supervision_rows.fetch(:state).id)
-    assert_not ConversationCapabilityPolicy.exists?(supervision_rows.fetch(:policy).id)
     assert_not ConversationCapabilityGrant.exists?(supervision_rows.fetch(:grant).id)
     assert_not ConversationControlRequest.exists?(supervision_rows.fetch(:control_request).id)
     assert_not ConversationExportRequest.exists?(export_request.id)
@@ -185,12 +182,15 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
       capability_policy_snapshot: {},
       last_snapshot_at: Time.current
     )
-    policy = upsert_conversation_capability_policy!(
-      conversation: conversation,
+    assert_includes Conversation.attribute_names, "supervision_enabled"
+    assert_includes Conversation.attribute_names, "detailed_progress_enabled"
+    assert_includes Conversation.attribute_names, "side_chat_enabled"
+    assert_includes Conversation.attribute_names, "control_enabled"
+    conversation.update!(
       supervision_enabled: true,
+      detailed_progress_enabled: true,
       side_chat_enabled: true,
-      control_enabled: true,
-      policy_payload: {}
+      control_enabled: true
     )
     state = ConversationSupervisionState.create!(
       installation: context[:installation],
@@ -212,7 +212,6 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
       workspace: conversation.workspace,
       agent: conversation.agent,
       conversation_supervision_state_public_id: state.public_id,
-      conversation_capability_policy_public_id: policy.public_id,
       anchor_turn_public_id: turn.public_id,
       anchor_turn_sequence_snapshot: turn.sequence,
       conversation_event_projection_sequence_snapshot: 1,
@@ -260,7 +259,6 @@ class Conversations::PurgePlanTest < ActiveSupport::TestCase
       snapshot: snapshot,
       message: message,
       state: state,
-      policy: policy,
       grant: grant,
       control_request: control_request,
     }

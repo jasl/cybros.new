@@ -182,11 +182,13 @@ module ConversationSupervisionFixtureBuilder
   end
 
   def supervision_policy_snapshot_for(policy)
+    return policy if policy.is_a?(Hash)
+
     {
-      "supervision_enabled" => policy.supervision_enabled,
-      "detailed_progress_enabled" => policy.detailed_progress_enabled,
-      "side_chat_enabled" => policy.side_chat_enabled,
-      "control_enabled" => policy.control_enabled,
+      "supervision_enabled" => policy.supervision_enabled?,
+      "detailed_progress_enabled" => policy.detailed_progress_enabled?,
+      "side_chat_enabled" => policy.side_chat_enabled?,
+      "control_enabled" => policy.control_enabled?,
     }
   end
 

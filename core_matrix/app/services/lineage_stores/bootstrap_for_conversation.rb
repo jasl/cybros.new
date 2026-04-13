@@ -15,7 +15,7 @@ module LineageStores
         lineage_store = LineageStore.create!(
           installation: @conversation.installation,
           workspace: @conversation.workspace,
-          root_conversation: @conversation
+          owner_conversation: @conversation
         )
         snapshot = LineageStoreSnapshot.create!(
           lineage_store: lineage_store,

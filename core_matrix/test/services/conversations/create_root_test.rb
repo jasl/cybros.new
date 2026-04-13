@@ -20,7 +20,7 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
     assert_nil conversation.current_execution_epoch
     assert_equal 0, conversation.execution_epochs.count
     assert_equal "not_started", conversation.execution_continuity_state
-    assert_equal "root", conversation.lineage_store_reference.lineage_store_snapshot.snapshot_kind
+    assert_nil conversation.lineage_store_reference
     assert_equal [[conversation.id, conversation.id, 0]],
       ConversationClosure.where(descendant_conversation: conversation)
         .pluck(:ancestor_conversation_id, :descendant_conversation_id, :depth)

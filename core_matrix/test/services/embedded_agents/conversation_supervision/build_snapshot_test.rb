@@ -14,8 +14,7 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
 
     assert_equal fixture.fetch(:conversation).conversation_supervision_state.public_id,
       snapshot.conversation_supervision_state_public_id
-    assert_equal fixture.fetch(:policy).public_id,
-      snapshot.conversation_capability_policy_public_id
+    refute_respond_to snapshot, :conversation_capability_policy_public_id
     assert_equal fixture.fetch(:conversation).user_id, snapshot.user_id
     assert_equal fixture.fetch(:conversation).workspace_id, snapshot.workspace_id
     assert_equal fixture.fetch(:conversation).agent_id, snapshot.agent_id

@@ -43,7 +43,7 @@ module LineageStores
 
     def current_reference!
       @conversation.lineage_store_reference ||
-        raise(ActiveRecord::RecordNotFound, "lineage store reference is missing")
+        LineageStores::BootstrapForConversation.call(conversation: @conversation)
     end
 
     def create_write_snapshot!(reference)

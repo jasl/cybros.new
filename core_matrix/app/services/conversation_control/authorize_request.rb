@@ -4,7 +4,6 @@ module ConversationControl
       :allowed,
       :rejection_reason,
       :conversation,
-      :policy,
       :target_record,
       :target_kind,
       :target_public_id,
@@ -34,7 +33,7 @@ module ConversationControl
         actor: @actor,
         conversation: conversation
       )
-      return rejected_result("control is not enabled for this conversation", policy: authority.policy) unless authority.control_enabled?
+      return rejected_result("control is not enabled for this conversation") unless authority.control_enabled?
 
       resolved_target = ConversationControl::ResolveTargetRuntime.call(
         conversation: conversation,
@@ -47,7 +46,6 @@ module ConversationControl
 
       rejected_result(
         "actor is not allowed to control this conversation",
-        policy: authority.policy,
         resolved_target:
       )
     end
@@ -63,7 +61,6 @@ module ConversationControl
         allowed: true,
         rejection_reason: nil,
         conversation: conversation,
-        policy: authority.policy,
         target_record: resolved_target.target_record,
         target_kind: resolved_target.target_kind,
         target_public_id: resolved_target.target_public_id,
@@ -71,12 +68,11 @@ module ConversationControl
       )
     end
 
-    def rejected_result(reason, policy: nil, resolved_target: nil)
+    def rejected_result(reason, resolved_target: nil)
       Result.new(
         allowed: false,
         rejection_reason: reason,
         conversation: conversation,
-        policy: policy,
         target_record: resolved_target&.target_record,
         target_kind: resolved_target&.target_kind,
         target_public_id: resolved_target&.target_public_id,

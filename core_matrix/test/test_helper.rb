@@ -127,6 +127,11 @@ module ActiveSupport
       @next_test_sequence = (@next_test_sequence || 0) + 1
     end
 
+    def unique_test_token(prefix)
+      test_name = respond_to?(:name) ? name.to_s.underscore.tr("/", "-") : "anonymous-test"
+      "#{prefix}-#{self.class.name.underscore.tr("/", "-")}-#{test_name}-#{next_test_sequence}"
+    end
+
     def unique_email(prefix: "user")
       "#{prefix}-#{self.class.name.underscore.tr("/", "-")}-#{next_test_sequence}@example.com"
     end
@@ -176,7 +181,7 @@ module ActiveSupport
       }.merge(attrs))
     end
 
-    def create_agent!(installation: create_installation!, visibility: "public", owner_user: nil, provisioning_origin: nil, key: "agent-#{next_test_sequence}", display_name: "Agent #{next_test_sequence}", lifecycle_state: "active", default_execution_runtime: nil, **attrs)
+    def create_agent!(installation: create_installation!, visibility: "public", owner_user: nil, provisioning_origin: nil, key: unique_test_token("agent"), display_name: "Agent #{next_test_sequence}", lifecycle_state: "active", default_execution_runtime: nil, **attrs)
       visibility = visibility.to_s
       provisioning_origin ||= if owner_user.present? || visibility == "private"
         "user_created"
@@ -326,7 +331,7 @@ module ActiveSupport
       end
     end
 
-    def create_agent_connection!(installation: create_installation!, agent: create_agent!(installation: installation), agent_definition_version: nil, connection_credential_digest: ::Digest::SHA256.hexdigest("connection-credential-#{next_test_sequence}"), connection_token_digest: ::Digest::SHA256.hexdigest("connection-token-#{next_test_sequence}"), endpoint_metadata: {}, lifecycle_state: "active", **attrs)
+    def create_agent_connection!(installation: create_installation!, agent: create_agent!(installation: installation), agent_definition_version: nil, connection_credential_digest: ::Digest::SHA256.hexdigest(unique_test_token("connection-credential")), connection_token_digest: ::Digest::SHA256.hexdigest(unique_test_token("connection-token")), endpoint_metadata: {}, lifecycle_state: "active", **attrs)
       agent_definition_version ||= create_agent_definition_version!(installation: installation, agent: agent)
 
       AgentConnection.create!({
@@ -347,7 +352,7 @@ module ActiveSupport
       end
     end
 
-    def create_execution_runtime_connection!(installation: create_installation!, execution_runtime: create_execution_runtime!(installation: installation), execution_runtime_version: create_execution_runtime_version!(installation: installation, execution_runtime: execution_runtime), connection_credential_digest: ::Digest::SHA256.hexdigest("execution-connection-credential-#{next_test_sequence}"), connection_token_digest: ::Digest::SHA256.hexdigest("execution-connection-token-#{next_test_sequence}"), endpoint_metadata: {}, lifecycle_state: "active", **attrs)
+    def create_execution_runtime_connection!(installation: create_installation!, execution_runtime: create_execution_runtime!(installation: installation), execution_runtime_version: create_execution_runtime_version!(installation: installation, execution_runtime: execution_runtime), connection_credential_digest: ::Digest::SHA256.hexdigest(unique_test_token("execution-connection-credential")), connection_token_digest: ::Digest::SHA256.hexdigest(unique_test_token("execution-connection-token")), endpoint_metadata: {}, lifecycle_state: "active", **attrs)
       ExecutionRuntimeConnection.create!({
         installation: installation,
         execution_runtime: execution_runtime,
@@ -721,19 +726,15 @@ module ActiveSupport
     end
 
     def upsert_conversation_capability_policy!(conversation:, installation: conversation.installation, **attrs)
-      policy = ConversationCapabilityPolicy.find_or_initialize_by(
-        installation: installation,
-        target_conversation: conversation
-      )
-      policy.assign_attributes({
+      authority_attrs = {
         supervision_enabled: true,
         detailed_progress_enabled: true,
         side_chat_enabled: true,
         control_enabled: false,
-        policy_payload: {},
-      }.merge(attrs))
-      policy.save!
-      policy
+      }.merge(attrs).slice(:supervision_enabled, :detailed_progress_enabled, :side_chat_enabled, :control_enabled)
+      conversation.assign_attributes(authority_attrs)
+      conversation.save!
+      conversation
     end
 
     def prepare_workflow_execution_setup!(
@@ -1154,6 +1155,7 @@ module ActiveSupport
       execution_runtime ||= parent_conversation&.current_execution_runtime
       execution_runtime ||= workspace.default_execution_runtime
       execution_runtime ||= agent.default_execution_runtime
+      capability_attrs = WorkspacePolicies::Capabilities.projection_attributes_for(workspace:)
 
       Conversation.create!({
         installation: installation,
@@ -1170,7 +1172,7 @@ module ActiveSupport
         override_payload: override_payload,
         override_reconciliation_report: override_reconciliation_report,
         deletion_state: deletion_state,
-      }.merge(attrs.symbolize_keys.slice(*Conversation.attribute_names.map(&:to_sym))))
+      }.merge(capability_attrs).merge(attrs.symbolize_keys.slice(*Conversation.attribute_names.map(&:to_sym))))
     end
 
     def initialize_current_execution_epoch!(conversation, execution_runtime: nil)
@@ -1180,11 +1182,11 @@ module ActiveSupport
       )
     end
 
-    def create_lineage_store!(workspace:, root_conversation: create_conversation_record!(workspace: workspace), installation: workspace.installation, **attrs)
+    def create_lineage_store!(workspace:, owner_conversation: create_conversation_record!(workspace: workspace), installation: workspace.installation, **attrs)
       LineageStore.create!({
         installation: installation,
         workspace: workspace,
-        root_conversation: root_conversation,
+        owner_conversation: owner_conversation,
       }.merge(attrs))
     end
 
@@ -1223,6 +1225,7 @@ module ActiveSupport
 
     def build_lineage_store_context!
       context = build_canonical_variable_context!
+      LineageStores::BootstrapForConversation.call(conversation: context[:conversation]) if context[:conversation].lineage_store_reference.blank?
       reference = context[:conversation].reload.lineage_store_reference
       root_snapshot = reference.lineage_store_snapshot
       store = root_snapshot.lineage_store

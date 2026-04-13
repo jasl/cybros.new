@@ -12,7 +12,7 @@ module AppSurface
         resume_waiting_workflow
       ].freeze
 
-      attr_reader :conversation_supervision_session, :policy
+      attr_reader :conversation_supervision_session
 
       def self.call(...)
         new(...)
@@ -23,7 +23,6 @@ module AppSurface
         @conversation = conversation
         @conversation_supervision_session = conversation_supervision_session
         @conversation_access_prevalidated = conversation_access_prevalidated
-        @policy = resolved_conversation&.conversation_capability_policy
       end
 
       def read?
@@ -47,19 +46,19 @@ module AppSurface
       end
 
       def supervision_enabled?
-        policy&.supervision_enabled? == true
+        resolved_conversation&.supervision_enabled? == true
       end
 
       def detailed_progress_enabled?
-        supervision_enabled? && policy&.detailed_progress_enabled? == true
+        supervision_enabled? && resolved_conversation&.detailed_progress_enabled? == true
       end
 
       def side_chat_enabled?
-        supervision_enabled? && policy&.side_chat_enabled? == true
+        supervision_enabled? && resolved_conversation&.side_chat_enabled? == true
       end
 
       def control_enabled?
-        side_chat_enabled? && policy&.control_enabled? == true
+        side_chat_enabled? && resolved_conversation&.control_enabled? == true
       end
 
       def available_control_verbs

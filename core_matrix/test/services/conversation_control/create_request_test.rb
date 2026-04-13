@@ -84,12 +84,15 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
 
   test "request_status_refresh targets the active runtime agent definition after a runtime rotation" do
     context = build_rotated_runtime_context!
-    upsert_conversation_capability_policy!(
-      conversation: context.fetch(:conversation),
+    assert_includes Conversation.attribute_names, "supervision_enabled"
+    assert_includes Conversation.attribute_names, "detailed_progress_enabled"
+    assert_includes Conversation.attribute_names, "side_chat_enabled"
+    assert_includes Conversation.attribute_names, "control_enabled"
+    context.fetch(:conversation).update!(
       supervision_enabled: true,
+      detailed_progress_enabled: true,
       side_chat_enabled: true,
-      control_enabled: true,
-      policy_payload: {}
+      control_enabled: true
     )
     session = ConversationSupervisionSession.create!(
       installation: context.fetch(:installation),
@@ -123,12 +126,15 @@ class ConversationControl::CreateRequestTest < ActiveSupport::TestCase
   test "resume_waiting_workflow uses the authorized requester as the recovery audit actor" do
     context = build_agent_control_context!
     outsider = create_user!(installation: context.fetch(:installation))
-    upsert_conversation_capability_policy!(
-      conversation: context.fetch(:conversation),
+    assert_includes Conversation.attribute_names, "supervision_enabled"
+    assert_includes Conversation.attribute_names, "detailed_progress_enabled"
+    assert_includes Conversation.attribute_names, "side_chat_enabled"
+    assert_includes Conversation.attribute_names, "control_enabled"
+    context.fetch(:conversation).update!(
       supervision_enabled: true,
+      detailed_progress_enabled: true,
       side_chat_enabled: true,
-      control_enabled: true,
-      policy_payload: {}
+      control_enabled: true
     )
     ConversationCapabilityGrant.create!(
       installation: context.fetch(:installation),

@@ -4,6 +4,22 @@ module LineageStores
 end
 
 class LineageStores::MultiGetQueryTest < ActiveSupport::TestCase
+  test "returns nils for every key when the owner has no lineage reference" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+
+    result = LineageStores::MultiGetQuery.call(
+      reference_owner: conversation,
+      keys: %w[customer_name tone]
+    )
+
+    assert_equal %w[customer_name tone], result.keys
+    assert_nil result["customer_name"]
+    assert_nil result["tone"]
+  end
+
   test "preserves request order and batch-loads values" do
     context = build_lineage_store_context!
     customer_name = create_lineage_store_value!(typed_value_payload: { "type" => "string", "value" => "Acme China" })

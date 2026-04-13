@@ -142,7 +142,7 @@ module Conversations
     def aggregate_dependency_flags
       @aggregate_dependency_flags ||= begin
         values = Conversation.where(id: @conversation.id).pick(
-          Arel.sql("EXISTS (SELECT 1 FROM lineage_stores WHERE root_conversation_id = conversations.id)"),
+          Arel.sql("EXISTS (SELECT 1 FROM lineage_stores WHERE owner_conversation_id = conversations.id)"),
           Arel.sql("EXISTS (SELECT 1 FROM canonical_variables WHERE source_conversation_id = conversations.id)"),
           Arel.sql("EXISTS (SELECT 1 FROM conversation_imports WHERE source_conversation_id = conversations.id)")
         )

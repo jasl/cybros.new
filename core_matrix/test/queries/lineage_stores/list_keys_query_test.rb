@@ -4,6 +4,22 @@ module LineageStores
 end
 
 class LineageStores::ListKeysQueryTest < ActiveSupport::TestCase
+  test "returns an empty page when the owner has no lineage reference" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+
+    page = LineageStores::ListKeysQuery.call(
+      reference_owner: conversation,
+      cursor: nil,
+      limit: 20
+    )
+
+    assert_empty page.items
+    assert_nil page.next_cursor
+  end
+
   test "lists visible keys without loading value rows" do
     context = build_lineage_store_context!
     alpha = create_lineage_store_value!(typed_value_payload: { "type" => "string", "value" => "a" })

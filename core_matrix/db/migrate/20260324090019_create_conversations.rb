@@ -19,6 +19,10 @@ class CreateConversations < ActiveRecord::Migration[8.2]
       t.string :lifecycle_state, null: false
       t.string :deletion_state, null: false, default: "retained"
       t.string :execution_continuity_state, null: false, default: "not_started"
+      t.boolean :supervision_enabled, null: false, default: false
+      t.boolean :detailed_progress_enabled, null: false, default: false
+      t.boolean :side_chat_enabled, null: false, default: false
+      t.boolean :control_enabled, null: false, default: false
       t.datetime :deleted_at
       t.bigint :historical_anchor_message_id
       t.text :title

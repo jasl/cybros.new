@@ -9,7 +9,6 @@ class CreateConversationObservationFrames < ActiveRecord::Migration[8.2]
       t.references :conversation_supervision_session, null: false, foreign_key: true
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :conversation_supervision_state_public_id
-      t.string :conversation_capability_policy_public_id
       t.string :anchor_turn_public_id
       t.integer :anchor_turn_sequence_snapshot
       t.integer :conversation_event_projection_sequence_snapshot

@@ -7,7 +7,7 @@ module AppAPI
       private
 
         def conversation_lookup_scope(workspace: nil)
-          super.eager_load(:conversation_capability_policy)
+          super
         end
 
         def find_supervision_session!(session_id)

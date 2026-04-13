@@ -2,6 +2,8 @@ require "test_helper"
 
 class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
   test "freezes supervision and capability public ids alongside compact bundle payloads" do
+    assert_not_includes ConversationSupervisionSnapshot.attribute_names, "conversation_capability_policy_public_id"
+
     context = create_workspace_context!
     conversation = create_conversation_record!(
       workspace: context[:workspace],
@@ -23,14 +25,6 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
       responder_strategy: "builtin",
       capability_policy_snapshot: {},
       last_snapshot_at: Time.current
-    )
-    policy = ConversationCapabilityPolicy.create!(
-      installation: context[:installation],
-      target_conversation: conversation,
-      supervision_enabled: true,
-      side_chat_enabled: true,
-      control_enabled: false,
-      policy_payload: {}
     )
     state = ConversationSupervisionState.create!(
       installation: context[:installation],
@@ -65,7 +59,6 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
       agent_id: conversation.agent_id,
       conversation_supervision_session: session,
       conversation_supervision_state_public_id: state.public_id,
-      conversation_capability_policy_public_id: policy.public_id,
       anchor_turn_public_id: "turn_public_id",
       anchor_turn_sequence_snapshot: 4,
       conversation_event_projection_sequence_snapshot: 9,
@@ -79,7 +72,7 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
     assert snapshot.public_id.present?
     assert_equal snapshot, ConversationSupervisionSnapshot.find_by_public_id!(snapshot.public_id)
     assert_equal state.public_id, snapshot.conversation_supervision_state_public_id
-    assert_equal policy.public_id, snapshot.conversation_capability_policy_public_id
+    refute_respond_to snapshot, :conversation_capability_policy_public_id
     assert_equal ["subagent_public_id"], snapshot.active_subagent_connection_public_ids
     assert_equal({ "proof" => { "conversation_id" => conversation.public_id } }, snapshot.bundle_payload)
     assert_equal({ "board_lane" => "active" }, snapshot.machine_status_payload)
@@ -117,7 +110,6 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
       target_conversation: other_conversation,
       conversation_supervision_session: session,
       conversation_supervision_state_public_id: "state_public_id",
-      conversation_capability_policy_public_id: "policy_public_id",
       anchor_turn_public_id: "turn_public_id",
       anchor_turn_sequence_snapshot: 1,
       conversation_event_projection_sequence_snapshot: 1,
@@ -160,7 +152,6 @@ class ConversationSupervisionSnapshotTest < ActiveSupport::TestCase
       agent_id: foreign[:agent].id,
       conversation_supervision_session: session,
       conversation_supervision_state_public_id: "state_public_id",
-      conversation_capability_policy_public_id: "policy_public_id",
       anchor_turn_public_id: "turn_public_id",
       anchor_turn_sequence_snapshot: 1,
       conversation_event_projection_sequence_snapshot: 1,

@@ -4,7 +4,6 @@ module Workbench
       :workspace,
       :conversation,
       :turn,
-      :workflow_run,
       :message,
       keyword_init: true
     )
@@ -25,34 +24,30 @@ module Workbench
     def call
       UserAgentBindings::Enable.call(user: @user, agent: @agent)
       workspace = resolve_workspace
-      conversation = Conversations::CreateRoot.call(
-        workspace: workspace,
-        agent: @agent,
-        execution_runtime: @execution_runtime
-      )
-      turn = Turns::StartUserTurn.call(
-        conversation: conversation,
-        content: @content,
-        execution_runtime: @execution_runtime,
-        resolved_config_snapshot: {},
-        resolved_model_selection_snapshot: {}
-      )
-      workflow_run = Workflows::CreateForTurn.call(
-        turn: turn,
-        root_node_key: "turn_step",
-        root_node_type: "turn_step",
-        decision_source: "system",
-        metadata: {},
-        selector_source: @selector.present? ? "app_api" : "conversation",
-        selector: @selector
-      )
-      Workflows::ExecuteRun.call(workflow_run: workflow_run)
+      conversation = nil
+      turn = nil
+
+      ApplicationRecord.transaction do
+        conversation = Conversations::CreateRoot.call(
+          workspace: workspace,
+          agent: @agent,
+          execution_runtime: @execution_runtime
+        )
+        turn = Turns::AcceptPendingUserTurn.call(
+          conversation: conversation,
+          content: @content,
+          selector_source: @selector.present? ? "app_api" : "conversation",
+          selector: @selector,
+          execution_runtime: @execution_runtime
+        )
+      end
+
+      enqueue_materialization(turn)
 
       Result.new(
         workspace: workspace,
         conversation: conversation,
         turn: turn,
-        workflow_run: workflow_run,
         message: turn.selected_input_message
       )
     end
@@ -68,6 +63,12 @@ module Workbench
         user: @user,
         agent: @agent
       )
+    end
+
+    def enqueue_materialization(turn)
+      Turns::MaterializeAndDispatchJob.perform_later(turn.public_id)
+    rescue StandardError => error
+      Rails.logger.warn("turn workflow bootstrap enqueue failed for #{turn.public_id}: #{error.class}: #{error.message}")
     end
   end
 end

@@ -44,6 +44,30 @@ class ConversationSupervision::BuildBoardCardTest < ActiveSupport::TestCase
       "Expected board card reads to stay on header rows, got:\n#{queries.join("\n")}"
   end
 
+  test "builds a queued turn-owned board card from pending bootstrap state" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    turn = Turns::AcceptPendingUserTurn.call(
+      conversation: conversation,
+      content: "Build a complete browser-playable React 2048 game and add automated tests.",
+      selector_source: "app_api",
+      selector: "candidate:codex_subscription/gpt-5.3-codex"
+    )
+    state = Conversations::ProjectTurnBootstrapState.call(turn: turn)
+
+    card = ConversationSupervision::BuildBoardCard.call(
+      conversation_supervision_state: state
+    )
+
+    assert_equal "queued", card.fetch("board_lane")
+    assert_equal "queued", card.fetch("overall_state")
+    assert_equal "turn", card.fetch("current_owner_kind")
+    assert_equal turn.public_id, card.fetch("current_owner_public_id")
+  end
+
   private
 
   def create_supervision_state!(board_lane:, active_plan_item_count:, completed_plan_item_count:, active_subagent_count:, board_badges:, last_terminal_state:)

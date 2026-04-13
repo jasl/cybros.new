@@ -132,13 +132,15 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
 
   test "suppresses detailed summaries and semantic feed when the conversation only allows coarse supervision" do
     context = build_agent_control_context!
-    upsert_conversation_capability_policy!(
-      conversation: context[:conversation],
+    assert_includes Conversation.attribute_names, "supervision_enabled"
+    assert_includes Conversation.attribute_names, "detailed_progress_enabled"
+    assert_includes Conversation.attribute_names, "side_chat_enabled"
+    assert_includes Conversation.attribute_names, "control_enabled"
+    context[:conversation].update!(
       supervision_enabled: true,
       detailed_progress_enabled: false,
       side_chat_enabled: true,
-      control_enabled: false,
-      policy_payload: {}
+      control_enabled: false
     )
     agent_task_run = create_agent_task_run!(
       workflow_node: context[:workflow_node],
@@ -296,6 +298,111 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "queued", state.board_lane
     assert_equal "workflow_run", state.current_owner_kind
     assert_equal context[:workflow_run].public_id, state.current_owner_public_id
+  end
+
+  test "preserves queued turn-owned state for a pending bootstrap turn before workflow substrate exists" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    turn = Turns::AcceptPendingUserTurn.call(
+      conversation: conversation,
+      content: "Build a complete browser-playable React 2048 game and add automated tests.",
+      selector_source: "app_api",
+      selector: "candidate:codex_subscription/gpt-5.3-codex"
+    )
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: conversation,
+      occurred_at: Time.current
+    )
+
+    assert_equal "queued", state.overall_state
+    assert_equal "queued", state.board_lane
+    assert_equal "turn", state.current_owner_kind
+    assert_equal turn.public_id, state.current_owner_public_id
+    assert_equal "Build a complete browser-playable React 2048 game and add automated tests.", state.request_summary
+  end
+
+  test "preserves failed turn-owned state when workflow bootstrap fails before any workflow exists" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    execution_epoch = initialize_current_execution_epoch!(conversation)
+    turn = Turn.create!(
+      installation: context[:installation],
+      conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      agent_definition_version: context[:agent_definition_version],
+      execution_epoch: execution_epoch,
+      execution_runtime: execution_epoch.execution_runtime,
+      sequence: 1,
+      lifecycle_state: "active",
+      origin_kind: "manual_user",
+      origin_payload: {},
+      agent_config_version: 1,
+      agent_config_content_fingerprint: "cfg-#{next_test_sequence}",
+      feature_policy_snapshot: conversation.feature_policy_snapshot,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {},
+      workflow_bootstrap_state: "pending",
+      workflow_bootstrap_payload: {
+        "selector_source" => "app_api",
+        "selector" => "candidate:codex_subscription/gpt-5.3-codex",
+        "root_node_key" => "turn_step",
+        "root_node_type" => "turn_step",
+        "decision_source" => "system",
+        "metadata" => {},
+      },
+      workflow_bootstrap_failure_payload: {},
+      workflow_bootstrap_requested_at: 2.minutes.ago
+    )
+    message = UserMessage.create!(
+      installation: context[:installation],
+      conversation: conversation,
+      turn: turn,
+      role: "user",
+      slot: "input",
+      variant_index: 0,
+      content: "Build a complete browser-playable React 2048 game and add automated tests."
+    )
+    Turns::PersistSelectionState.call(turn: turn, selected_input_message: message)
+    turn.update!(
+      workflow_bootstrap_state: "materializing",
+      workflow_bootstrap_started_at: 1.minute.ago
+    )
+    turn.update!(
+      workflow_bootstrap_state: "failed",
+      workflow_bootstrap_failure_payload: {
+        "error_class" => "RuntimeError",
+        "error_message" => "selector resolution blew up",
+        "retryable" => true,
+      },
+      workflow_bootstrap_finished_at: Time.current
+    )
+    Conversations::RefreshLatestTurnAnchors.call(
+      conversation: conversation,
+      turn: turn,
+      message: message,
+      activity_at: turn.workflow_bootstrap_finished_at
+    )
+    Conversations::ProjectTurnBootstrapState.call(turn: turn)
+
+    state = Conversations::UpdateSupervisionState.call(
+      conversation: conversation,
+      occurred_at: Time.current
+    )
+
+    assert_equal "failed", state.overall_state
+    assert_equal "failed", state.board_lane
+    assert_equal "turn", state.current_owner_kind
+    assert_equal turn.public_id, state.current_owner_public_id
+    assert_equal "selector resolution blew up", state.recent_progress_summary
   end
 
   test "leaves contextual focus summary for lazy sidechat rendering when no task summary exists yet" do

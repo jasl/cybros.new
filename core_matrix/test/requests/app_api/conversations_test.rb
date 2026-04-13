@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AppApiConversationsTest < ActionDispatch::IntegrationTest
-  test "creates a conversation from the conversation-first endpoint" do
+  test "creates a conversation from the conversation-first endpoint as pending execution" do
     installation = create_installation!
     user = create_user!(installation: installation)
     session = create_session!(user: user)
@@ -34,8 +34,9 @@ class AppApiConversationsTest < ActionDispatch::IntegrationTest
       metadata: {}
     )
 
-    assert_enqueued_with(job: Workflows::ExecuteNodeJob) do
-      assert_difference(["Conversation.count", "Turn.count", "Message.count", "WorkflowRun.count"], +1) do
+    assert_enqueued_with(job: Turns::MaterializeAndDispatchJob) do
+      assert_difference(["Conversation.count", "Turn.count", "Message.count"], +1) do
+        assert_no_difference("WorkflowRun.count") do
         post "/app_api/conversations",
           params: {
             agent_id: agent.public_id,
@@ -44,6 +45,7 @@ class AppApiConversationsTest < ActionDispatch::IntegrationTest
           },
           headers: app_api_headers(session.plaintext_token),
           as: :json
+        end
       end
     end
 
@@ -54,6 +56,9 @@ class AppApiConversationsTest < ActionDispatch::IntegrationTest
     assert_equal execution_runtime.public_id, body.dig("conversation", "current_execution_runtime_id")
     assert_equal "ready", body.dig("conversation", "execution_continuity_state")
     assert body.dig("conversation", "current_execution_epoch_id").present?
+    assert_equal "pending", body.fetch("execution_status")
+    assert body.fetch("accepted_at").present?
+    assert_equal "Start from conversations endpoint.", body.fetch("request_summary")
   end
 
   test "materializes the default workspace on first use" do
@@ -89,8 +94,9 @@ class AppApiConversationsTest < ActionDispatch::IntegrationTest
       metadata: {}
     )
 
-    assert_enqueued_with(job: Workflows::ExecuteNodeJob) do
-      assert_difference(["UserAgentBinding.count", "Workspace.count", "Conversation.count", "Turn.count", "Message.count", "WorkflowRun.count"], +1) do
+    assert_enqueued_with(job: Turns::MaterializeAndDispatchJob) do
+      assert_difference(["UserAgentBinding.count", "Workspace.count", "Conversation.count", "Turn.count", "Message.count"], +1) do
+        assert_no_difference("WorkflowRun.count") do
         post "/app_api/conversations",
           params: {
             agent_id: agent.public_id,
@@ -99,6 +105,7 @@ class AppApiConversationsTest < ActionDispatch::IntegrationTest
           },
           headers: app_api_headers(session.plaintext_token),
           as: :json
+        end
       end
     end
 
@@ -110,8 +117,9 @@ class AppApiConversationsTest < ActionDispatch::IntegrationTest
     assert_equal true, response_body.dig("workspace", "is_default")
     assert_equal(
       "candidate:codex_subscription/gpt-5.3-codex",
-      Turn.find_by_public_id!(response_body.fetch("turn_id")).resolved_model_selection_snapshot.fetch("normalized_selector")
+      Turn.find_by_public_id!(response_body.fetch("turn_id")).workflow_bootstrap_payload.fetch("selector")
     )
+    assert_equal "pending", response_body.fetch("execution_status")
   end
 
   test "allows overriding the execution runtime for the first turn" do
@@ -221,6 +229,54 @@ class AppApiConversationsTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :not_found
+  end
+
+  test "creates a conversation from the conversation-first endpoint within sixty-two SQL queries" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    session = create_session!(user: user)
+    execution_runtime = create_execution_runtime!(installation: installation)
+    create_execution_runtime_connection!(installation: installation, execution_runtime: execution_runtime)
+    agent = create_agent!(
+      installation: installation,
+      visibility: "public",
+      default_execution_runtime: execution_runtime
+    )
+    create_agent_connection!(installation: installation, agent: agent)
+    ProviderEntitlement.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      entitlement_key: "shared_window",
+      window_kind: "rolling_five_hours",
+      window_seconds: 5.hours.to_i,
+      quota_limit: 200_000,
+      active: true,
+      metadata: {}
+    )
+    ProviderCredential.create!(
+      installation: installation,
+      provider_handle: "codex_subscription",
+      credential_kind: "oauth_codex",
+      access_token: "oauth-codex-access-token",
+      refresh_token: "oauth-codex-refresh-token",
+      expires_at: 2.hours.from_now,
+      last_rotated_at: Time.current,
+      metadata: {}
+    )
+
+    assert_sql_query_count_at_most(62) do
+      post "/app_api/conversations",
+        params: {
+          agent_id: agent.public_id,
+          content: "Start from conversations endpoint",
+          selector: "candidate:codex_subscription/gpt-5.3-codex",
+        },
+        headers: app_api_headers(session.plaintext_token),
+        as: :json
+
+      assert_response :created
+      assert_equal "pending", response.parsed_body.fetch("execution_status")
+    end
   end
 
   test "rejects conversation creation when the agent is no longer accessible to the signed-in user" do

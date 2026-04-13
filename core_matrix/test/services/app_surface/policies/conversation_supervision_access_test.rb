@@ -14,6 +14,7 @@ class AppSurface::Policies::ConversationSupervisionAccessTest < ActiveSupport::T
     assert_predicate access, :read?
     assert_predicate access, :create_session?
     assert_predicate access, :side_chat_enabled?
+    refute_respond_to access, :policy
     assert_equal [], access.available_control_verbs
   end
 

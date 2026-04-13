@@ -31,6 +31,29 @@ class ConversationSupervision::ListBoardCardsTest < ActiveSupport::TestCase
       "Expected board list reads to stay on header rows, got:\n#{queries.join("\n")}"
   end
 
+  test "includes queued turn-bootstrap cards in queued lane ordering" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    turn = Turns::AcceptPendingUserTurn.call(
+      conversation: conversation,
+      content: "Build a complete browser-playable React 2048 game and add automated tests.",
+      selector_source: "app_api",
+      selector: "candidate:codex_subscription/gpt-5.3-codex"
+    )
+    Conversations::ProjectTurnBootstrapState.call(turn: turn)
+
+    cards = ConversationSupervision::ListBoardCards.call(
+      installation: context[:installation],
+      board_lane: "queued"
+    )
+
+    assert_equal [conversation.public_id], cards.map { |card| card.fetch("conversation_id") }
+    assert_equal "turn", cards.first.fetch("current_owner_kind")
+  end
+
   private
 
   def create_state_for_list!(context:, board_lane:, minutes_ago:)

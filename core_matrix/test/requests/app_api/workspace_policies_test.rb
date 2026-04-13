@@ -101,10 +101,13 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
 
     turn = Turn.find_by_public_id!(response.parsed_body.fetch("turn_id"))
     conversation = Conversation.find_by_public_id!(response.parsed_body.dig("conversation", "conversation_id"))
-    capability_policy = conversation.conversation_capability_policy
-    assert_not_nil capability_policy
-    assert_equal false, capability_policy.side_chat_enabled
-    assert_equal false, capability_policy.control_enabled
+    refute_respond_to conversation, :conversation_capability_policy
+    assert_includes Conversation.attribute_names, "supervision_enabled"
+    assert_includes Conversation.attribute_names, "side_chat_enabled"
+    assert_includes Conversation.attribute_names, "control_enabled"
+    assert_equal true, conversation.supervision_enabled
+    assert_equal false, conversation.side_chat_enabled
+    assert_equal false, conversation.control_enabled
     assert_equal runtime_b, turn.execution_runtime
     assert_equal runtime_b, workspace.reload.default_execution_runtime
   end

@@ -22,12 +22,8 @@ Minitest, `db/schema.rb`, behavior docs under `docs/behavior`.
 
 **Files:**
 - Create: `test/services/conversations/create_root_weight_test.rb`
+- Create: `test/services/conversations/lazy_lineage_bootstrap_contract_test.rb`
 - Create: `test/services/conversations/child_lineage_bootstrap_weight_test.rb`
-- Modify: `test/services/conversations/create_root_test.rb`
-- Modify: `test/services/conversations/create_automation_root_test.rb`
-- Modify: `test/services/conversations/create_branch_test.rb`
-- Modify: `test/services/conversations/create_checkpoint_test.rb`
-- Modify: `test/services/conversations/create_fork_test.rb`
 - Modify: `test/services/app_surface/policies/conversation_supervision_access_test.rb`
 - Modify: `test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb`
 - Modify: `test/services/embedded_agents/invoke_test.rb`
@@ -78,12 +74,19 @@ Lock:
 - the first lineage write materializes the store/snapshot/reference exactly once
 - lineage model/helpers use `owner_conversation` naming consistently
 
+Keep the broad root/child service files on their current behavior until Task 4.
+Task 1 should lock the new lazy-lineage end state in dedicated contract tests and
+query/service tests so Task 3 can still run its capability-collapse suite in
+isolation.
+
 **Step 3: Add failing weight tests**
 
-In `create_root_weight_test.rb`, add explicit expectations for:
+In `create_root_weight_test.rb`, add the post-capability-collapse expectation:
 
 - root bootstrap without capability row: `<= 13` SQL
-- root bootstrap after lazy lineage: `<= 8` SQL
+
+Defer the tighter post-lineage expectation (`<= 8` SQL) to Task 4 so Task 3 can
+green its focused suite before lazy lineage lands.
 
 In `child_lineage_bootstrap_weight_test.rb`, lock:
 
@@ -94,12 +97,8 @@ In `child_lineage_bootstrap_weight_test.rb`, lock:
 
 ```bash
 PARALLEL_WORKERS=1 bin/rails test \
-  test/services/conversations/create_root_test.rb \
-  test/services/conversations/create_automation_root_test.rb \
-  test/services/conversations/create_branch_test.rb \
-  test/services/conversations/create_checkpoint_test.rb \
-  test/services/conversations/create_fork_test.rb \
   test/services/conversations/create_root_weight_test.rb \
+  test/services/conversations/lazy_lineage_bootstrap_contract_test.rb \
   test/services/conversations/child_lineage_bootstrap_weight_test.rb \
   test/services/app_surface/policies/conversation_supervision_access_test.rb \
   test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb \
@@ -128,12 +127,8 @@ PARALLEL_WORKERS=1 bin/rails test \
 ```bash
 git add \
   test/services/conversations/create_root_weight_test.rb \
+  test/services/conversations/lazy_lineage_bootstrap_contract_test.rb \
   test/services/conversations/child_lineage_bootstrap_weight_test.rb \
-  test/services/conversations/create_root_test.rb \
-  test/services/conversations/create_automation_root_test.rb \
-  test/services/conversations/create_branch_test.rb \
-  test/services/conversations/create_checkpoint_test.rb \
-  test/services/conversations/create_fork_test.rb \
   test/services/app_surface/policies/conversation_supervision_access_test.rb \
   test/services/embedded_agents/conversation_supervision/build_snapshot_test.rb \
   test/services/embedded_agents/invoke_test.rb \
@@ -311,6 +306,7 @@ git commit -m "refactor: collapse conversation capability authority"
 - Modify: `app/queries/lineage_stores/get_query.rb`
 - Modify: `app/queries/lineage_stores/list_keys_query.rb`
 - Modify: `app/queries/lineage_stores/multi_get_query.rb`
+- Modify: `test/services/conversations/lazy_lineage_bootstrap_contract_test.rb`
 - Modify: `test/services/conversations/create_root_test.rb`
 - Modify: `test/services/conversations/create_automation_root_test.rb`
 - Modify: `test/services/conversations/create_branch_test.rb`
@@ -332,7 +328,9 @@ git commit -m "refactor: collapse conversation capability authority"
 **Step 1: Stop root creation from preallocating lineage**
 
 `CreateRoot` and `CreateAutomationRoot` should create no lineage rows unless
-real lineage state is needed.
+real lineage state is needed. Move the broad root/automation contract assertions
+from the dedicated Task 1 lineage file back into the canonical
+`create_root_test.rb` and `create_automation_root_test.rb` coverage here.
 
 **Step 2: Copy lineage references only when they already exist**
 
@@ -351,6 +349,7 @@ Missing lineage reference is now a valid empty-state, not an error.
 
 ```bash
 PARALLEL_WORKERS=1 bin/rails test \
+  test/services/conversations/lazy_lineage_bootstrap_contract_test.rb \
   test/services/conversations/create_root_test.rb \
   test/services/conversations/create_automation_root_test.rb \
   test/services/conversations/create_branch_test.rb \
@@ -388,6 +387,7 @@ git add \
   app/queries/lineage_stores/get_query.rb \
   app/queries/lineage_stores/list_keys_query.rb \
   app/queries/lineage_stores/multi_get_query.rb \
+  test/services/conversations/lazy_lineage_bootstrap_contract_test.rb \
   test/services/conversations/create_root_test.rb \
   test/services/conversations/create_automation_root_test.rb \
   test/services/conversations/create_branch_test.rb \

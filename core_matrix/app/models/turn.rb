@@ -29,6 +29,27 @@ class Turn < ApplicationRecord
     },
     validate: { allow_nil: true }
 
+  WORKFLOW_BOOTSTRAP_STATES = %w[not_requested pending materializing ready failed].freeze
+  WORKFLOW_BOOTSTRAP_PAYLOAD_KEYS = %w[
+    selector_source
+    selector
+    root_node_key
+    root_node_type
+    decision_source
+    metadata
+  ].freeze
+  WORKFLOW_BOOTSTRAP_FAILURE_KEYS = %w[
+    error_class
+    error_message
+    retryable
+  ].freeze
+  WORKFLOW_BOOTSTRAP_STATE_TRANSITIONS = {
+    "not_requested" => %w[pending],
+    "pending" => %w[materializing],
+    "materializing" => %w[ready failed],
+    "failed" => %w[materializing],
+  }.freeze
+
   belongs_to :installation
   belongs_to :conversation
   belongs_to :user
@@ -60,6 +81,11 @@ class Turn < ApplicationRecord
   validate :feature_policy_snapshot_must_be_hash
   validate :resolved_config_snapshot_must_be_hash
   validate :resolved_model_selection_snapshot_must_be_hash
+  validate :workflow_bootstrap_state_must_be_valid
+  validate :workflow_bootstrap_payload_must_be_hash
+  validate :workflow_bootstrap_failure_payload_must_be_hash
+  validate :workflow_bootstrap_contract_must_match_state
+  validate :workflow_bootstrap_transition_must_be_allowed
   validate :conversation_installation_match
   validate :user_installation_match
   validate :workspace_installation_match
@@ -104,6 +130,26 @@ class Turn < ApplicationRecord
 
   def recovery_selector
     normalized_selector.presence || "role:main"
+  end
+
+  def workflow_bootstrap_not_requested?
+    workflow_bootstrap_state == "not_requested"
+  end
+
+  def workflow_bootstrap_pending?
+    workflow_bootstrap_state == "pending"
+  end
+
+  def workflow_bootstrap_materializing?
+    workflow_bootstrap_state == "materializing"
+  end
+
+  def workflow_bootstrap_ready?
+    workflow_bootstrap_state == "ready"
+  end
+
+  def workflow_bootstrap_failed?
+    workflow_bootstrap_state == "failed"
   end
 
   def execution_snapshot
@@ -151,6 +197,53 @@ class Turn < ApplicationRecord
     return if resolved_model_selection_snapshot.is_a?(Hash)
 
     errors.add(:resolved_model_selection_snapshot, "must be a hash")
+  end
+
+  def workflow_bootstrap_state_must_be_valid
+    return if WORKFLOW_BOOTSTRAP_STATES.include?(workflow_bootstrap_state.to_s)
+
+    errors.add(:workflow_bootstrap_state, "is not included in the list")
+  end
+
+  def workflow_bootstrap_payload_must_be_hash
+    return if workflow_bootstrap_payload.is_a?(Hash)
+
+    errors.add(:workflow_bootstrap_payload, "must be a hash")
+  end
+
+  def workflow_bootstrap_failure_payload_must_be_hash
+    return if workflow_bootstrap_failure_payload.is_a?(Hash)
+
+    errors.add(:workflow_bootstrap_failure_payload, "must be a hash")
+  end
+
+  def workflow_bootstrap_contract_must_match_state
+    return unless errors[:workflow_bootstrap_state].blank?
+    return unless workflow_bootstrap_payload.is_a?(Hash) && workflow_bootstrap_failure_payload.is_a?(Hash)
+
+    case workflow_bootstrap_state
+    when "not_requested"
+      validate_not_requested_workflow_bootstrap_state
+    when "pending"
+      validate_pending_workflow_bootstrap_state
+    when "materializing"
+      validate_materializing_workflow_bootstrap_state
+    when "ready"
+      validate_ready_workflow_bootstrap_state
+    when "failed"
+      validate_failed_workflow_bootstrap_state
+    end
+  end
+
+  def workflow_bootstrap_transition_must_be_allowed
+    return if new_record?
+    return unless will_save_change_to_workflow_bootstrap_state?
+
+    previous_state, next_state = workflow_bootstrap_state_change_to_be_saved
+    allowed_states = WORKFLOW_BOOTSTRAP_STATE_TRANSITIONS.fetch(previous_state.to_s, [])
+    return if allowed_states.include?(next_state.to_s)
+
+    errors.add(:workflow_bootstrap_state, "must follow the allowed workflow bootstrap transitions")
   end
 
   def conversation_installation_match
@@ -294,5 +387,71 @@ class Turn < ApplicationRecord
     return unless feature_policy_snapshot.blank?
 
     self.feature_policy_snapshot = conversation.feature_policy_snapshot
+  end
+
+  def validate_not_requested_workflow_bootstrap_state
+    return if workflow_bootstrap_payload.empty? &&
+      workflow_bootstrap_failure_payload.empty? &&
+      workflow_bootstrap_requested_at.blank? &&
+      workflow_bootstrap_started_at.blank? &&
+      workflow_bootstrap_finished_at.blank?
+
+    errors.add(:workflow_bootstrap_state, "must keep workflow bootstrap fields empty when workflow bootstrap is not requested")
+  end
+
+  def validate_pending_workflow_bootstrap_state
+    validate_workflow_bootstrap_payload_contract
+    errors.add(:workflow_bootstrap_failure_payload, "must be empty while workflow bootstrap is pending") if workflow_bootstrap_failure_payload.present?
+    errors.add(:workflow_bootstrap_requested_at, "must be present while workflow bootstrap is pending") if workflow_bootstrap_requested_at.blank?
+    errors.add(:workflow_bootstrap_started_at, "must be blank while workflow bootstrap is pending") if workflow_bootstrap_started_at.present?
+    errors.add(:workflow_bootstrap_finished_at, "must be blank while workflow bootstrap is pending") if workflow_bootstrap_finished_at.present?
+  end
+
+  def validate_materializing_workflow_bootstrap_state
+    validate_workflow_bootstrap_payload_contract
+    errors.add(:workflow_bootstrap_failure_payload, "must be empty while workflow bootstrap is materializing") if workflow_bootstrap_failure_payload.present?
+    errors.add(:workflow_bootstrap_requested_at, "must be present while workflow bootstrap is materializing") if workflow_bootstrap_requested_at.blank?
+    errors.add(:workflow_bootstrap_started_at, "must be present while workflow bootstrap is materializing") if workflow_bootstrap_started_at.blank?
+    errors.add(:workflow_bootstrap_finished_at, "must be blank while workflow bootstrap is materializing") if workflow_bootstrap_finished_at.present?
+  end
+
+  def validate_ready_workflow_bootstrap_state
+    validate_workflow_bootstrap_payload_contract
+    errors.add(:workflow_bootstrap_failure_payload, "must be empty when workflow bootstrap is ready") if workflow_bootstrap_failure_payload.present?
+    errors.add(:workflow_bootstrap_requested_at, "must be present when workflow bootstrap is ready") if workflow_bootstrap_requested_at.blank?
+    errors.add(:workflow_bootstrap_started_at, "must be present when workflow bootstrap is ready") if workflow_bootstrap_started_at.blank?
+    errors.add(:workflow_bootstrap_finished_at, "must be present when workflow bootstrap is ready") if workflow_bootstrap_finished_at.blank?
+    errors.add(:workflow_run, "must exist when workflow bootstrap is ready") if workflow_run.blank?
+  end
+
+  def validate_failed_workflow_bootstrap_state
+    validate_workflow_bootstrap_payload_contract
+    validate_workflow_bootstrap_failure_contract
+    errors.add(:workflow_bootstrap_requested_at, "must be present when workflow bootstrap has failed") if workflow_bootstrap_requested_at.blank?
+    errors.add(:workflow_bootstrap_started_at, "must be present when workflow bootstrap has failed") if workflow_bootstrap_started_at.blank?
+    errors.add(:workflow_bootstrap_finished_at, "must be present when workflow bootstrap has failed") if workflow_bootstrap_finished_at.blank?
+  end
+
+  def validate_workflow_bootstrap_payload_contract
+    unless workflow_bootstrap_payload.keys.sort == WORKFLOW_BOOTSTRAP_PAYLOAD_KEYS.sort
+      errors.add(:workflow_bootstrap_payload, "must match the workflow bootstrap contract")
+      return
+    end
+
+    unless workflow_bootstrap_payload["metadata"].is_a?(Hash)
+      errors.add(:workflow_bootstrap_payload, "must match the workflow bootstrap contract")
+    end
+  end
+
+  def validate_workflow_bootstrap_failure_contract
+    unless workflow_bootstrap_failure_payload.keys.sort == WORKFLOW_BOOTSTRAP_FAILURE_KEYS.sort
+      errors.add(:workflow_bootstrap_failure_payload, "must match the workflow bootstrap failure contract")
+      return
+    end
+
+    retryable = workflow_bootstrap_failure_payload["retryable"]
+    return if retryable == true || retryable == false
+
+    errors.add(:workflow_bootstrap_failure_payload, "must match the workflow bootstrap failure contract")
   end
 end

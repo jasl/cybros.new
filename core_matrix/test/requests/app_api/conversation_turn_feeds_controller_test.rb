@@ -55,4 +55,27 @@ class AppApiConversationTurnFeedsControllerTest < ActionDispatch::IntegrationTes
     assert_includes body.fetch("items").map { |entry| entry.fetch("event_kind") }, "turn_started"
     refute_match(/provider round|command_run_wait|exec_command|React app|game files/i, body.to_json)
   end
+
+  test "does not regress queued turn-bootstrap supervision while listing an empty feed" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace], agent: context[:agent])
+    turn = Turns::AcceptPendingUserTurn.call(
+      conversation: conversation,
+      content: "Build a complete browser-playable React 2048 game and add automated tests.",
+      selector_source: "app_api",
+      selector: "candidate:codex_subscription/gpt-5.3-codex"
+    )
+
+    get "/app_api/conversations/#{conversation.public_id}/feed",
+      headers: app_api_headers(session.plaintext_token)
+
+    assert_response :success
+    assert_equal [], response.parsed_body.fetch("items")
+
+    state = conversation.reload.conversation_supervision_state
+    assert_equal "queued", state.overall_state
+    assert_equal "turn", state.current_owner_kind
+    assert_equal turn.public_id, state.current_owner_public_id
+  end
 end

@@ -69,6 +69,31 @@ class ConversationSupervision::PublishUpdateTest < ActiveSupport::TestCase
     assert_equal "turn_todo_item_started", events.first.fetch("latest_feed_entry").fetch("event_kind")
   end
 
+  test "publishes queued turn-bootstrap projections" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+      agent: context[:agent]
+    )
+    events = []
+    callback = lambda do |_name, _started, _finished, _id, payload|
+      events << payload
+    end
+
+    ActiveSupport::Notifications.subscribed(callback, "conversation_supervision.updated") do
+      Turns::AcceptPendingUserTurn.call(
+        conversation: conversation,
+        content: "Build a complete browser-playable React 2048 game and add automated tests.",
+        selector_source: "app_api",
+        selector: "candidate:codex_subscription/gpt-5.3-codex"
+      )
+    end
+
+    assert_equal 1, events.size
+    assert_equal "queued", events.first.fetch("board_lane")
+    assert_equal "queued", events.first.fetch("overall_state")
+  end
+
   private
 
   def create_supervision_state!(board_lane:, current_focus_summary:)

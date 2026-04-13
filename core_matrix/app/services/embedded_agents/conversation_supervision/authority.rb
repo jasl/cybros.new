@@ -13,7 +13,7 @@ module EmbeddedAgents
       ].freeze
       PUBLIC_ID_PATTERN = /\A[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\z/
 
-      attr_reader :actor, :conversation, :policy
+      attr_reader :actor, :conversation
 
       def self.call(...)
         new(...).call
@@ -32,7 +32,6 @@ module EmbeddedAgents
           user: actor,
           conversation: @conversation
         )
-        @policy = @access.policy
         self
       end
 

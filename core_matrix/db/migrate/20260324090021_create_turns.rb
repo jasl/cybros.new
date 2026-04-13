@@ -43,6 +43,12 @@ class CreateTurns < ActiveRecord::Migration[8.2]
       t.jsonb :feature_policy_snapshot, null: false, default: {}
       t.jsonb :resolved_config_snapshot, null: false, default: {}
       t.jsonb :resolved_model_selection_snapshot, null: false, default: {}
+      t.string :workflow_bootstrap_state, null: false, default: "not_requested"
+      t.jsonb :workflow_bootstrap_payload, null: false, default: {}
+      t.jsonb :workflow_bootstrap_failure_payload, null: false, default: {}
+      t.datetime :workflow_bootstrap_requested_at
+      t.datetime :workflow_bootstrap_started_at
+      t.datetime :workflow_bootstrap_finished_at
 
       t.timestamps
     end

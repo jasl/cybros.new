@@ -433,22 +433,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.index ["target_conversation_id"], name: "index_conversation_capability_grants_on_target_conversation_id"
   end
 
-  create_table "conversation_capability_policies", force: :cascade do |t|
-    t.boolean "control_enabled", default: false, null: false
-    t.datetime "created_at", null: false
-    t.boolean "detailed_progress_enabled", default: false, null: false
-    t.bigint "installation_id", null: false
-    t.jsonb "policy_payload", default: {}, null: false
-    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
-    t.boolean "side_chat_enabled", default: false, null: false
-    t.boolean "supervision_enabled", default: false, null: false
-    t.bigint "target_conversation_id", null: false
-    t.datetime "updated_at", null: false
-    t.index ["installation_id"], name: "index_conversation_capability_policies_on_installation_id"
-    t.index ["public_id"], name: "index_conversation_capability_policies_on_public_id", unique: true
-    t.index ["target_conversation_id"], name: "idx_conversation_capability_policies_target", unique: true
-  end
-
   create_table "conversation_close_operations", force: :cascade do |t|
     t.datetime "completed_at"
     t.bigint "conversation_id", null: false
@@ -786,7 +770,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.string "anchor_turn_public_id"
     t.integer "anchor_turn_sequence_snapshot"
     t.jsonb "bundle_payload", default: {}, null: false
-    t.string "conversation_capability_policy_public_id"
     t.integer "conversation_event_projection_sequence_snapshot"
     t.bigint "conversation_supervision_session_id", null: false
     t.string "conversation_supervision_state_public_id"
@@ -856,11 +839,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   create_table "conversations", force: :cascade do |t|
     t.string "addressability", default: "owner_addressable", null: false
     t.bigint "agent_id", null: false
+    t.boolean "control_enabled", default: false, null: false
     t.datetime "created_at", null: false
     t.bigint "current_execution_epoch_id"
     t.bigint "current_execution_runtime_id"
     t.datetime "deleted_at"
     t.string "deletion_state", default: "retained", null: false
+    t.boolean "detailed_progress_enabled", default: false, null: false
     t.string "during_generation_input_policy", default: "queue", null: false
     t.string "enabled_feature_ids", default: [], null: false, array: true
     t.string "execution_continuity_state", default: "not_started", null: false
@@ -881,10 +866,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.bigint "parent_conversation_id"
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "purpose", null: false
+    t.boolean "side_chat_enabled", default: false, null: false
     t.text "summary"
     t.string "summary_lock_state", default: "unlocked", null: false
     t.string "summary_source", default: "none", null: false
     t.datetime "summary_updated_at"
+    t.boolean "supervision_enabled", default: false, null: false
     t.text "title"
     t.string "title_lock_state", default: "unlocked", null: false
     t.string "title_source", default: "none", null: false
@@ -1283,11 +1270,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   create_table "lineage_stores", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "installation_id", null: false
-    t.bigint "root_conversation_id", null: false
+    t.bigint "owner_conversation_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "workspace_id", null: false
     t.index ["installation_id"], name: "index_lineage_stores_on_installation_id"
-    t.index ["root_conversation_id"], name: "index_lineage_stores_on_root_conversation_id", unique: true
+    t.index ["owner_conversation_id"], name: "index_lineage_stores_on_owner_conversation_id", unique: true
     t.index ["workspace_id"], name: "index_lineage_stores_on_workspace_id"
   end
 
@@ -1861,6 +1848,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
     t.string "source_ref_type"
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.jsonb "workflow_bootstrap_failure_payload", default: {}, null: false
+    t.datetime "workflow_bootstrap_finished_at"
+    t.jsonb "workflow_bootstrap_payload", default: {}, null: false
+    t.datetime "workflow_bootstrap_requested_at"
+    t.datetime "workflow_bootstrap_started_at"
+    t.string "workflow_bootstrap_state", default: "not_requested", null: false
     t.bigint "workspace_id"
     t.index ["agent_definition_version_id"], name: "index_turns_on_agent_definition_version_id"
     t.index ["agent_id"], name: "index_turns_on_agent_id"
@@ -2277,8 +2270,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "conversation_bundle_import_requests", "workspaces"
   add_foreign_key "conversation_capability_grants", "conversations", column: "target_conversation_id"
   add_foreign_key "conversation_capability_grants", "installations"
-  add_foreign_key "conversation_capability_policies", "conversations", column: "target_conversation_id"
-  add_foreign_key "conversation_capability_policies", "installations"
   add_foreign_key "conversation_close_operations", "conversations"
   add_foreign_key "conversation_close_operations", "installations"
   add_foreign_key "conversation_closures", "conversations", column: "ancestor_conversation_id"
@@ -2419,7 +2410,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_121000) do
   add_foreign_key "lineage_store_references", "lineage_store_snapshots"
   add_foreign_key "lineage_store_snapshots", "lineage_store_snapshots", column: "base_snapshot_id"
   add_foreign_key "lineage_store_snapshots", "lineage_stores"
-  add_foreign_key "lineage_stores", "conversations", column: "root_conversation_id"
+  add_foreign_key "lineage_stores", "conversations", column: "owner_conversation_id"
   add_foreign_key "lineage_stores", "installations"
   add_foreign_key "lineage_stores", "workspaces"
   add_foreign_key "message_attachments", "conversations"

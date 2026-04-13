@@ -6,7 +6,7 @@ class LineageStoreSnapshotTest < ActiveSupport::TestCase
     root_conversation = create_conversation_record!(workspace: context[:workspace])
     lineage_store = create_lineage_store!(
       workspace: context[:workspace],
-      root_conversation: root_conversation
+      owner_conversation: root_conversation
     )
     root_snapshot = create_lineage_store_snapshot!(lineage_store: lineage_store, snapshot_kind: "root")
 
@@ -31,7 +31,7 @@ class LineageStoreSnapshotTest < ActiveSupport::TestCase
     other_conversation = create_conversation_record!(workspace: context[:workspace])
     other_store = create_lineage_store!(
       workspace: context[:workspace],
-      root_conversation: other_conversation
+      owner_conversation: other_conversation
     )
     cross_store_write = LineageStoreSnapshot.new(
       lineage_store: other_store,

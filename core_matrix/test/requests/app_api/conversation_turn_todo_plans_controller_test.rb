@@ -56,4 +56,30 @@ class AppApiConversationTurnTodoPlansControllerTest < ActionDispatch::Integratio
     assert_equal fixture.fetch(:conversation).public_id, body.fetch("conversation_id")
     refute body.key?("primary_turn_todo_plan")
   end
+
+  test "preserves queued turn-bootstrap supervision while returning no todo plan" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace], agent: context[:agent])
+    turn = Turns::AcceptPendingUserTurn.call(
+      conversation: conversation,
+      content: "Build a complete browser-playable React 2048 game and add automated tests.",
+      selector_source: "app_api",
+      selector: "candidate:codex_subscription/gpt-5.3-codex"
+    )
+
+    get "/app_api/conversations/#{conversation.public_id}/todo_plan",
+      headers: app_api_headers(session.plaintext_token)
+
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    assert_equal conversation.public_id, body.fetch("conversation_id")
+    refute body.key?("primary_turn_todo_plan")
+
+    state = conversation.reload.conversation_supervision_state
+    assert_equal "queued", state.overall_state
+    assert_equal "turn", state.current_owner_kind
+    assert_equal turn.public_id, state.current_owner_public_id
+  end
 end

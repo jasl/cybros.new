@@ -116,6 +116,7 @@ module Conversations
     end
 
     def overall_state
+      return turn_bootstrap_projection_attributes.fetch(:overall_state) if turn_bootstrap_projection_attributes.present?
       return "blocked" if workflow_run&.blocked?
       return "waiting" if workflow_run&.waiting?
       return current_task_run.supervision_state if current_task_run.present?
@@ -142,6 +143,7 @@ module Conversations
     end
 
     def current_owner_kind
+      return turn_bootstrap_projection_attributes.fetch(:current_owner_kind) if turn_bootstrap_projection_attributes.present?
       return "workflow_run" if workflow_run&.waiting? || workflow_run&.blocked?
       return "agent_task_run" if current_task_run.present?
       return "subagent_connection" if active_conversation_subagent_connection.present?
@@ -152,6 +154,7 @@ module Conversations
     end
 
     def current_owner_public_id
+      return turn_bootstrap_projection_attributes.fetch(:current_owner_public_id) if turn_bootstrap_projection_attributes.present?
       return workflow_run.public_id if workflow_run&.waiting? || workflow_run&.blocked?
       return current_task_run.public_id if current_task_run.present?
       return active_conversation_subagent_connection.public_id if active_conversation_subagent_connection.present?
@@ -163,6 +166,7 @@ module Conversations
 
     def request_summary
       return unless detailed_progress_enabled?
+      return turn_bootstrap_projection_attributes[:request_summary] if turn_bootstrap_projection_attributes.present?
 
       current_task_plan_summary&.fetch("goal_summary", nil) ||
         current_task_run&.request_summary ||
@@ -177,6 +181,7 @@ module Conversations
     def current_focus_summary
       return unless detailed_progress_enabled?
       return if overall_state == "idle"
+      return turn_bootstrap_projection_attributes[:current_focus_summary] if turn_bootstrap_projection_attributes.present?
 
       current_task_plan_summary&.fetch("current_item_title", nil) ||
         current_task_run&.current_focus_summary ||
@@ -189,6 +194,7 @@ module Conversations
 
     def recent_progress_summary
       return unless detailed_progress_enabled?
+      return turn_bootstrap_projection_attributes[:recent_progress_summary] if turn_bootstrap_projection_attributes.present?
 
       plan_backed_recent_progress_summary ||
         current_task_run&.recent_progress_summary ||
@@ -202,6 +208,7 @@ module Conversations
 
     def waiting_summary
       return unless detailed_progress_enabled?
+      return turn_bootstrap_projection_attributes[:waiting_summary] if turn_bootstrap_projection_attributes.present?
 
       return humanized_subagent_barrier_summary if workflow_run&.waiting_on_subagent_barrier?
       return active_conversation_subagent_connection&.waiting_summary if active_conversation_subagent_connection&.waiting_summary.present?
@@ -213,6 +220,7 @@ module Conversations
 
     def blocked_summary
       return unless detailed_progress_enabled?
+      return turn_bootstrap_projection_attributes[:blocked_summary] if turn_bootstrap_projection_attributes.present?
 
       return current_task_run&.blocked_summary if current_task_run&.blocked_summary.present?
       return active_conversation_subagent_connection&.blocked_summary if active_conversation_subagent_connection&.blocked_summary.present?
@@ -224,6 +232,7 @@ module Conversations
 
     def next_step_hint
       return unless detailed_progress_enabled?
+      return turn_bootstrap_projection_attributes[:next_step_hint] if turn_bootstrap_projection_attributes.present?
 
       current_task_run&.next_step_hint ||
         active_conversation_subagent_connection&.next_step_hint ||
@@ -231,6 +240,8 @@ module Conversations
     end
 
     def last_progress_at
+      return turn_bootstrap_projection_attributes.fetch(:last_progress_at) if turn_bootstrap_projection_attributes.present?
+
       [
         current_task_run&.last_progress_at,
         active_conversation_subagent_connection&.last_progress_at,
@@ -244,6 +255,8 @@ module Conversations
     end
 
     def board_lane
+      return turn_bootstrap_projection_attributes.fetch(:board_lane) if turn_bootstrap_projection_attributes.present?
+
       @board_lane ||= ConversationSupervision::ClassifyBoardLane.call(
         overall_state: overall_state,
         active_subagent_count: board_lane_active_subagent_count,
@@ -263,18 +276,26 @@ module Conversations
     end
 
     def active_plan_item_count
+      return turn_bootstrap_projection_attributes.fetch(:active_plan_item_count, 0) if turn_bootstrap_projection_attributes.present?
+
       current_turn_plan_summary&.fetch("active_item_count", 0).to_i
     end
 
     def completed_plan_item_count
+      return turn_bootstrap_projection_attributes.fetch(:completed_plan_item_count, 0) if turn_bootstrap_projection_attributes.present?
+
       current_turn_plan_summary&.fetch("completed_item_count", 0).to_i
     end
 
     def active_subagent_count
+      return turn_bootstrap_projection_attributes.fetch(:active_subagent_count, 0) if turn_bootstrap_projection_attributes.present?
+
       active_owned_subagent_connections.count
     end
 
     def board_badges
+      return turn_bootstrap_projection_attributes.fetch(:board_badges, []) if turn_bootstrap_projection_attributes.present?
+
       badges = []
       badges << "#{active_plan_item_count} active plan item#{"s" unless active_plan_item_count == 1}" if active_plan_item_count.positive?
       badges << "#{active_subagent_count} child task#{"s" unless active_subagent_count == 1}" if active_subagent_count.positive?
@@ -284,6 +305,7 @@ module Conversations
 
     def status_payload
       return {} unless detailed_progress_enabled?
+      return turn_bootstrap_projection_attributes.fetch(:status_payload, {}) if turn_bootstrap_projection_attributes.present?
 
       {
         "current_turn_plan_summary" => current_turn_plan_summary,
@@ -295,6 +317,7 @@ module Conversations
     end
 
     def active_runtime_evidence
+      return if turn_bootstrap_projection_attributes.present?
       return if overall_state == "idle"
       return if suppress_runtime_evidence_for_task_run?
 
@@ -302,6 +325,8 @@ module Conversations
     end
 
     def active_subagent_payloads
+      return [] if turn_bootstrap_projection_attributes.present?
+
       active_owned_subagent_connections.map do |session|
         plan_summary = active_subagent_turn_plan_summary_for(session)
         {
@@ -320,6 +345,7 @@ module Conversations
     end
 
     def latest_progress_entry_payload
+      return if turn_bootstrap_projection_attributes.present?
       return if latest_progress_entry.blank?
 
       {
@@ -669,6 +695,7 @@ module Conversations
     end
 
     def board_lane_active_subagent_count
+      return 0 if turn_bootstrap_projection_attributes.present?
       return barrier_aware_subagent_connections.count if workflow_run&.waiting_on_subagent_barrier?
 
       active_subagent_count
@@ -684,6 +711,31 @@ module Conversations
 
     def workflow_progressing_without_task?
       active_workflow? && running_workflow_node.present?
+    end
+
+    def turn_bootstrap_projection_attributes
+      return @turn_bootstrap_projection_attributes if instance_variable_defined?(:@turn_bootstrap_projection_attributes)
+
+      @turn_bootstrap_projection_attributes = begin
+        turn = latest_turn_pending_bootstrap
+        if turn.present?
+          Conversations::ProjectTurnBootstrapState.attributes_for(turn: turn)
+        end
+      end
+    end
+
+    def latest_turn_pending_bootstrap
+      return nil if current_task_run.present?
+      return nil if active_conversation_subagent_connection.present?
+      return nil if active_owned_subagent_connections.any?
+      return nil if active_workflow? || workflow_run&.waiting? || workflow_run&.blocked?
+
+      turn = @conversation.latest_active_turn || @conversation.latest_turn
+      return nil if turn.blank?
+      return nil unless turn.workflow_run.blank?
+      return nil unless %w[pending materializing failed].include?(turn.workflow_bootstrap_state)
+
+      turn
     end
 
     def basic_task_run_current_focus_summary
@@ -847,8 +899,7 @@ module Conversations
     def detailed_progress_enabled?
       return @detailed_progress_enabled if instance_variable_defined?(:@detailed_progress_enabled)
 
-      policy = @conversation.conversation_capability_policy
-      @detailed_progress_enabled = policy.blank? ? true : policy.detailed_progress_enabled?
+      @detailed_progress_enabled = @conversation.detailed_progress_enabled?
     end
   end
 end

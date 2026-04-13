@@ -6,7 +6,7 @@ class LineageStoreReferenceTest < ActiveSupport::TestCase
     conversation = create_conversation_record!(workspace: context[:workspace])
     lineage_store = create_lineage_store!(
       workspace: context[:workspace],
-      root_conversation: conversation
+      owner_conversation: conversation
     )
     root_snapshot = create_lineage_store_snapshot!(lineage_store: lineage_store, snapshot_kind: "root")
     write_snapshot = create_lineage_store_snapshot!(

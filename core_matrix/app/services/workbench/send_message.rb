@@ -1,6 +1,6 @@
 module Workbench
   class SendMessage
-    Result = Struct.new(:conversation, :turn, :workflow_run, :message, keyword_init: true)
+    Result = Struct.new(:conversation, :turn, :message, keyword_init: true)
 
     def self.call(...)
       new(...).call
@@ -13,29 +13,27 @@ module Workbench
     end
 
     def call
-      turn = Turns::StartUserTurn.call(
+      turn = Turns::AcceptPendingUserTurn.call(
         conversation: @conversation,
         content: @content,
-        resolved_config_snapshot: {},
-        resolved_model_selection_snapshot: {}
-      )
-      workflow_run = Workflows::CreateForTurn.call(
-        turn: turn,
-        root_node_key: "turn_step",
-        root_node_type: "turn_step",
-        decision_source: "system",
-        metadata: {},
         selector_source: @selector.present? ? "app_api" : "conversation",
         selector: @selector
       )
-      Workflows::ExecuteRun.call(workflow_run: workflow_run)
+      enqueue_materialization(turn)
 
       Result.new(
         conversation: @conversation,
         turn: turn,
-        workflow_run: workflow_run,
         message: turn.selected_input_message
       )
+    end
+
+    private
+
+    def enqueue_materialization(turn)
+      Turns::MaterializeAndDispatchJob.perform_later(turn.public_id)
+    rescue StandardError => error
+      Rails.logger.warn("turn workflow bootstrap enqueue failed for #{turn.public_id}: #{error.class}: #{error.message}")
     end
   end
 end

@@ -107,10 +107,30 @@ cost and remains the correct starting baseline:
   - `4` SQL
   - `+1` `lineage_store_references`
 
-Phase A keeps those exact baselines and should continue to target:
+Phase A landed with the following test-backed end-state budgets and deltas:
 
-- root bootstrap without capability row: `<= 13` SQL
-- bare root bootstrap after lazy lineage: `<= 8` SQL
+- `Conversations::CreateRoot.call(workspace: ...)`
+  - budgeted at `<= 13` SQL
+  - `+1` `conversations`
+  - `+1` `conversation_closures`
+  - `+0` `conversation_capability_policies`
+  - `+0` `lineage_stores`
+  - `+0` `lineage_store_snapshots`
+  - `+0` `lineage_store_references`
+- first lineage write on a bare conversation
+  - `+1` `lineage_stores`
+  - `+2` `lineage_store_snapshots`
+  - `+1` `lineage_store_references`
+  - `+1` `lineage_store_entries`
+  - `+1` `lineage_store_values`
+- child creation with no parent lineage reference
+  - `+0` `lineage_stores`
+  - `+0` `lineage_store_snapshots`
+  - `+0` `lineage_store_references`
+- child creation with parent lineage reference
+  - `+1` `lineage_store_references`
+  - `+0` `lineage_stores`
+  - `+0` `lineage_store_snapshots`
 
 ## Phase B Baseline
 
@@ -124,20 +144,34 @@ The current turn-entry path still synchronously performs:
 - workflow anchor refresh
 - dispatch enqueue
 
-Existing tests already show that the path is still heavy:
+Phase B landed with the following test-backed budgets and synchronous row deltas:
 
-- `Workbench::SendMessage` is currently budgeted at `<= 75` SQL
-- `POST /app_api/conversations/:id/messages` is currently budgeted at `<= 84`
-  SQL
-- `Workbench::CreateConversationFromAgent` must be remeasured after Phase A,
-  because its current weight still includes root bootstrap work that Phase A
-  removes first
+- `Workbench::CreateConversationFromAgent`
+  - budgeted at `<= 52` SQL
+  - `+1` `user_agent_bindings`
+  - `+1` `workspaces`
+  - `+1` `conversations`
+  - `+1` `turns`
+  - `+1` `messages`
+  - `+0` `workflow_runs`
+- `POST /app_api/conversations`
+  - budgeted at `<= 62` SQL
+  - returns `execution_status = "pending"` with no workflow-backed ids
+- `Workbench::SendMessage`
+  - budgeted at `<= 40` SQL
+  - `+1` `turns`
+  - `+1` `messages`
+  - `+0` `workflow_runs`
+- `POST /app_api/conversations/:id/messages`
+  - budgeted at `<= 50` SQL
+  - returns `execution_status = "pending"` with no workflow-backed ids
 
-This iteration therefore requires:
+The deferred row creation is now explicit:
 
-1. refresh the real measured before-values after Phase A lands
-2. only then freeze the exact Phase B after-budgets in tests and in this design
-   doc
+- synchronous acceptance does **not** allocate `WorkflowRun`, `WorkflowNode`, or
+  initial task substrate
+- the first background bootstrap allocates those records under
+  `Turns::MaterializeWorkflowBootstrap`
 
 ## Phase A End State
 

@@ -3,6 +3,8 @@ module Conversations
     private
 
     def create_root_conversation!(workspace:, agent:, purpose:, execution_runtime: nil)
+      capability_projection = WorkspacePolicies::Capabilities.projection_attributes_for(workspace: workspace)
+
       conversation = Conversation.create!(
         installation: workspace.installation,
         user: workspace.user,
@@ -11,12 +13,11 @@ module Conversations
         current_execution_runtime: execution_runtime,
         kind: "root",
         purpose: purpose,
-        lifecycle_state: "active"
+        lifecycle_state: "active",
+        **capability_projection
       )
 
       create_self_closure!(conversation)
-      LineageStores::BootstrapForConversation.call(conversation: conversation)
-      create_capability_policy_for!(conversation, workspace: workspace)
       conversation.refresh_latest_anchors!(activity_at: conversation.created_at)
 
       conversation
@@ -40,7 +41,11 @@ module Conversations
         purpose: parent.purpose,
         addressability: addressability,
         lifecycle_state: "active",
-        historical_anchor_message_id: historical_anchor_message_id
+        historical_anchor_message_id: historical_anchor_message_id,
+        supervision_enabled: parent.supervision_enabled?,
+        detailed_progress_enabled: parent.detailed_progress_enabled?,
+        side_chat_enabled: parent.side_chat_enabled?,
+        control_enabled: parent.control_enabled?
       )
     end
 
@@ -53,6 +58,10 @@ module Conversations
       conversation.parent_conversation = parent
       conversation.purpose = parent.purpose
       conversation.lifecycle_state = "active"
+      conversation.supervision_enabled = parent.supervision_enabled?
+      conversation.detailed_progress_enabled = parent.detailed_progress_enabled?
+      conversation.side_chat_enabled = parent.side_chat_enabled?
+      conversation.control_enabled = parent.control_enabled?
       conversation
     end
 
@@ -79,22 +88,12 @@ module Conversations
     end
 
     def create_lineage_store_reference_for!(conversation, parent:)
-      parent_reference = parent.lineage_store_reference ||
-        raise(ActiveRecord::RecordNotFound, "lineage store reference is missing")
+      parent_reference = parent.lineage_store_reference
+      return if parent_reference.blank?
 
       LineageStoreReference.create!(
         owner: conversation,
         lineage_store_snapshot: parent_reference.lineage_store_snapshot
-      )
-    end
-
-    def create_capability_policy_for!(conversation, workspace:)
-      projection = WorkspacePolicies::Capabilities.projection_attributes_for(workspace: workspace)
-
-      ConversationCapabilityPolicy.create!(
-        installation: conversation.installation,
-        target_conversation: conversation,
-        **projection
       )
     end
   end

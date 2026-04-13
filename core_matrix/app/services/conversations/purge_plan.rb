@@ -176,7 +176,6 @@ module Conversations
       ConversationSupervisionSnapshot.where(target_conversation_id: @owned_conversation_ids).delete_all
       ConversationControlRequest.where(target_conversation_id: @owned_conversation_ids).delete_all
       ConversationCapabilityGrant.where(target_conversation_id: @owned_conversation_ids).delete_all
-      ConversationCapabilityPolicy.where(target_conversation_id: @owned_conversation_ids).delete_all
       ConversationSupervisionState.where(target_conversation_id: @owned_conversation_ids).delete_all
       ConversationSupervisionSession.where(target_conversation_id: @owned_conversation_ids).delete_all
     end
@@ -314,7 +313,6 @@ module Conversations
         ConversationSupervisionSnapshot.where(target_conversation_id: @owned_conversation_ids),
         ConversationControlRequest.where(target_conversation_id: @owned_conversation_ids),
         ConversationCapabilityGrant.where(target_conversation_id: @owned_conversation_ids),
-        ConversationCapabilityPolicy.where(target_conversation_id: @owned_conversation_ids),
         ConversationSupervisionState.where(target_conversation_id: @owned_conversation_ids),
         ConversationSupervisionSession.where(target_conversation_id: @owned_conversation_ids),
         ConversationExportRequest.where(conversation_id: @owned_conversation_ids),
