@@ -48,6 +48,17 @@ module SimpleInference
           b64_json = item["b64_json"]
           mime_type = item["mime_type"] || "image/png"
 
+          if b64_json.nil? && url.to_s.start_with?("data:")
+            data_url = url.to_s
+            header, encoded = data_url.split(",", 2)
+            mime_match = header.match(/\Adata:([^;]+);base64\z/)
+
+            if mime_match && encoded
+              mime_type = mime_match[1]
+              b64_json = encoded
+            end
+          end
+
           {
             "url" => url,
             "b64_json" => b64_json,

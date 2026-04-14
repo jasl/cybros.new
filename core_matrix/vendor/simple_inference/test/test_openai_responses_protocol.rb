@@ -488,4 +488,47 @@ class TestOpenAIResponsesProtocol < Minitest::Test
 
     assert_equal 400, err.status
   end
+
+  def test_stream_emits_tool_call_delta_and_done_events
+    adapter =
+      Class.new(SimpleInference::HTTPAdapter) do
+        def call_stream(_env)
+          sse = +""
+          sse << %(data: {"type":"response.output_item.added","output_index":0,"item":{"type":"function_call","id":"item_1","call_id":"call_1","name":"echo","arguments":""}}\n\n)
+          sse << %(data: {"type":"response.function_call_arguments.delta","item_id":"item_1","output_index":0,"delta":"{\\"text\\":\\"he"}\n\n)
+          sse << %(data: {"type":"response.function_call_arguments.done","item_id":"item_1","output_index":0,"name":"echo","arguments":"{\\"text\\":\\"hello\\"}"}\n\n)
+          sse << %(data: {"type":"response.completed","response":{"output":[{"type":"function_call","id":"item_1","call_id":"call_1","name":"echo","arguments":"{\\"text\\":\\"hello\\"}"}],"usage":{"input_tokens":1,"output_tokens":2}}}\n\n)
+          sse << "data: [DONE]\n\n"
+
+          yield sse
+
+          {
+            status: 200,
+            headers: { "content-type" => "text/event-stream" },
+            body: nil,
+          }
+        end
+      end.new
+
+    protocol =
+      SimpleInference::Protocols::OpenAIResponses.new(
+        base_url: "http://example.com",
+        responses_path: "/v1/responses",
+        adapter: adapter,
+      )
+
+    events = protocol.stream(model: "m", input: "Hello").to_a
+
+    tool_delta = events.find { |event| event.is_a?(SimpleInference::Responses::Events::ToolCallDelta) }
+    tool_done = events.find { |event| event.is_a?(SimpleInference::Responses::Events::ToolCallDone) }
+    completed = events.find { |event| event.is_a?(SimpleInference::Responses::Events::Completed) }
+
+    refute_nil tool_delta
+    refute_nil tool_done
+    refute_nil completed
+    assert_equal "call_1", tool_delta.call_id
+    assert_equal "{\"text\":\"he", tool_delta.delta
+    assert_equal "{\"text\":\"hello\"}", tool_done.arguments
+    assert_equal "{\"text\":\"hello\"}", completed.result.output_items.first.fetch("arguments")
+  end
 end

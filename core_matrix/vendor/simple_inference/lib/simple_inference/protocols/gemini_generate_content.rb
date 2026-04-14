@@ -36,8 +36,21 @@ module SimpleInference
 
       def stream(model:, input:, **options)
         SimpleInference::Responses::Stream.new do |&emit|
-          result = create(model: model, input: input, **options)
-          emit.call(SimpleInference::Responses::Events::TextDelta.new(delta: result.output_text)) if result.output_text && !result.output_text.empty?
+          result =
+            stream_result(model: model, input: input, **options) do |event, state|
+              emit.call(SimpleInference::Responses::Events::Raw.new(type: "gemini.generate_content.chunk", raw: event, snapshot: state[:output_items]))
+
+              next if state[:delta].to_s.empty?
+
+              emit.call(
+                SimpleInference::Responses::Events::TextDelta.new(
+                  delta: state[:delta],
+                  raw: event,
+                  snapshot: state[:output_text]
+                )
+              )
+            end
+
           emit.call(SimpleInference::Responses::Events::Completed.new(result: result, raw: result.provider_response&.body))
           result
         end
@@ -45,8 +58,84 @@ module SimpleInference
 
       private
 
+      def stream_result(model:, input:, **options)
+        raise SimpleInference::ValidationError, "model is required" if model.nil? || model.to_s.strip.empty?
+
+        full = +""
+        output_items = []
+        last_body = nil
+
+        response =
+          stream_generate_content(model: model, input: input, **options) do |event|
+            body = event.is_a?(Hash) ? event : {}
+            last_body = body if body.is_a?(Hash)
+
+            parts = Array(body.dig("candidates", 0, "content", "parts"))
+            snapshot_text = extract_text(parts)
+            delta = incremental_delta(snapshot_text, full)
+            full << delta unless delta.empty?
+
+            output_items = merge_output_items(output_items, normalize_output_items(parts))
+
+            yield(event, { delta: delta, output_text: full.dup, output_items: duplicate_items(output_items) }) if block_given?
+          end
+
+        response_body =
+          if response.body.is_a?(Hash)
+            response.body
+          else
+            last_body || {}
+          end
+
+        if response.body.nil? && response_body.is_a?(Hash) && !response_body.empty?
+          response = SimpleInference::Response.new(status: response.status, headers: response.headers, body: response_body, raw_body: response.raw_body)
+        end
+
+        parts = Array(response_body.dig("candidates", 0, "content", "parts"))
+        output_items = merge_output_items(output_items, normalize_output_items(parts))
+        full = extract_text(parts) if full.empty?
+
+        candidate = Array(response_body["candidates"]).first || {}
+
+        SimpleInference::Responses::Result.new(
+          id: response_body["responseId"] || response_body["id"],
+          output_text: full,
+          output_items: output_items,
+          tool_calls: [],
+          usage: normalize_usage(response_body["usageMetadata"]),
+          finish_reason: candidate["finishReason"],
+          provider_response: response,
+          provider_format: "responses"
+        )
+      end
+
       def generate_content_url(model)
         "#{config.base_url}/v1beta/models/#{model}:generateContent"
+      end
+
+      def stream_generate_content_url(model)
+        "#{config.base_url}/v1beta/models/#{model}:streamGenerateContent?alt=sse"
+      end
+
+      def stream_generate_content(model:, input:, **options)
+        return enum_for(:stream_generate_content, model: model, input: input, **options) unless block_given?
+
+        request_env = {
+          method: :post,
+          url: stream_generate_content_url(model),
+          headers: gemini_headers.merge(
+            "Content-Type" => "application/json",
+            "Accept" => "text/event-stream, application/json"
+          ),
+          body: serialize_json_body(build_request_body(input: input, options: options)),
+          timeout: config.timeout,
+          open_timeout: config.open_timeout,
+          read_timeout: config.read_timeout,
+        }
+
+        handle_stream_response(request_env) do |_event_name, event|
+          yield event
+        end
       end
 
       def gemini_headers
@@ -81,6 +170,159 @@ module SimpleInference
         body[:generationConfig] = generation_config unless generation_config.empty?
 
         body
+      end
+
+      def handle_stream_response(request_env, &on_event)
+        validate_url!(request_env[:url])
+
+        sse_buffer = +""
+        streamed = false
+
+        raw_response =
+          @adapter.call_stream(request_env) do |chunk|
+            streamed = true
+            sse_buffer << chunk.to_s
+            consume_sse_buffer!(sse_buffer, &on_event)
+          end
+
+        status = raw_response[:status].to_i
+        headers = (raw_response[:headers] || {}).transform_keys { |key| key.to_s.downcase }
+        body = raw_response[:body]
+        body_str = body.nil? ? "" : body.to_s
+        content_type = headers["content-type"].to_s
+
+        if status >= 200 && status < 300 && (content_type.include?("text/event-stream") || sse_like_body?(body_str))
+          consume_sse_buffer!(body_str.dup, &on_event) unless streamed
+          return SimpleInference::Response.new(status: status, headers: headers, body: nil, raw_body: body_str)
+        end
+
+        should_parse_json = content_type.include?("json") || json_like_body?(body_str)
+        parsed_body = should_parse_json ? parse_json(body_str) : body_str
+        response = SimpleInference::Response.new(status: status, headers: headers, body: parsed_body, raw_body: body_str)
+        maybe_raise_http_error(response: response, raise_on_http_error: nil)
+        response
+      rescue Timeout::Error => error
+        raise SimpleInference::TimeoutError, error.message
+      rescue SocketError, SystemCallError => error
+        raise SimpleInference::ConnectionError, error.message
+      end
+
+      def consume_sse_buffer!(buffer, &on_event)
+        extract_sse_blocks!(buffer).each do |block|
+          _event_name, data = sse_event_and_data_from_block(block)
+          next if data.nil?
+
+          payload = data.strip
+          next if payload.empty? || payload == "[DONE]"
+
+          on_event&.call(nil, JSON.parse(payload))
+        rescue JSON::ParserError => error
+          raise SimpleInference::DecodeError, "Failed to parse Gemini SSE JSON event: #{error.message}"
+        end
+      end
+
+      def extract_sse_blocks!(buffer)
+        blocks = []
+
+        loop do
+          idx_lf = buffer.index("\n\n")
+          idx_crlf = buffer.index("\r\n\r\n")
+          idx = [idx_lf, idx_crlf].compact.min
+          break if idx.nil?
+
+          sep_len = (idx == idx_crlf) ? 4 : 2
+          blocks << buffer.slice!(0, idx)
+          buffer.slice!(0, sep_len)
+        end
+
+        blocks
+      end
+
+      def sse_event_and_data_from_block(block)
+        event_name = nil
+        data_lines = []
+
+        block.to_s.split(/\r?\n/).each do |line|
+          next if line.nil? || line.empty?
+          next if line.start_with?(":")
+
+          if line.start_with?("event:")
+            event_name = line[6..]&.strip
+          elsif line.start_with?("data:")
+            data_lines << (line[5..]&.lstrip).to_s
+          end
+        end
+
+        [event_name, data_lines.empty? ? nil : data_lines.join("\n")]
+      end
+
+      def sse_like_body?(body_str)
+        body = body_str.to_s.lstrip
+        return false if body.empty?
+
+        (body.start_with?("data:", "event:") || body.include?("\ndata:") || body.include?("\nevent:")) &&
+          (body.include?("\n\n") || body.include?("\r\n\r\n"))
+      end
+
+      def json_like_body?(body_str)
+        body = body_str.to_s.lstrip
+        return false if body.empty?
+
+        body.start_with?("{", "[")
+      end
+
+      def incremental_delta(snapshot_text, accumulated_text)
+        snapshot = snapshot_text.to_s
+        return "" if snapshot.empty?
+        return snapshot unless snapshot.start_with?(accumulated_text)
+
+        snapshot.delete_prefix(accumulated_text)
+      end
+
+      def merge_output_items(existing_items, incoming_items)
+        merged = duplicate_items(existing_items)
+
+        Array(incoming_items).each do |item|
+          next unless item.is_a?(Hash)
+          next unless item["type"].to_s == "function_call"
+
+          index =
+            merged.find_index do |candidate|
+              next false unless candidate.is_a?(Hash)
+              next false unless candidate["type"].to_s == "function_call"
+
+              same_id = candidate["id"].to_s != "" && candidate["id"].to_s == item["id"].to_s
+              same_call_id = candidate["call_id"].to_s != "" && candidate["call_id"].to_s == item["call_id"].to_s
+              same_name = candidate["name"].to_s != "" && candidate["name"].to_s == item["name"].to_s
+              same_id || same_call_id || same_name
+            end
+
+          if index
+            merged[index] = merged[index].merge(item)
+          else
+            merged << item
+          end
+        end
+
+        merged
+      end
+
+      def duplicate_items(items)
+        Array(items).map do |item|
+          next item unless item.is_a?(Hash)
+
+          item.each_with_object({}) do |(key, value), out|
+            out[key.to_s] =
+              case value
+              when Hash
+                duplicate_items([value]).first
+              when Array
+                duplicate_items(value)
+              else
+                value
+              end
+          end
+        end
       end
 
       def coerce_contents(input, options)

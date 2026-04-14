@@ -28,6 +28,30 @@ module SimpleInference
         end
       end
 
+      class ToolCallDelta < Base
+        attr_reader :item_id, :call_id, :name, :delta
+
+        def initialize(item_id:, call_id: nil, name: nil, delta:, raw: nil, snapshot: nil)
+          @item_id = item_id
+          @call_id = call_id
+          @name = name
+          @delta = delta.to_s
+          super(type: "response.function_call_arguments.delta", raw: raw, snapshot: snapshot)
+        end
+      end
+
+      class ToolCallDone < Base
+        attr_reader :item_id, :call_id, :name, :arguments
+
+        def initialize(item_id:, call_id: nil, name: nil, arguments:, raw: nil, snapshot: nil)
+          @item_id = item_id
+          @call_id = call_id
+          @name = name
+          @arguments = arguments.to_s
+          super(type: "response.function_call_arguments.done", raw: raw, snapshot: snapshot)
+        end
+      end
+
       class Completed < Base
         attr_reader :result
 

@@ -8,6 +8,93 @@
 
 **Tech Stack:** Ruby, Rails, Minitest, ActionController::Live SSE, vendored gem development in `core_matrix/vendor/simple_inference`, Fiber-friendly HTTP adapters (`Net::HTTP` and `httpx`).
 
+## Status Snapshot
+
+Completed on this branch:
+
+- Tasks 1 through 6 from this document
+- full static verification, Rails test suites, vendored gem suite, and active acceptance including the 2048 capstone
+- checkpoint commit `56641a53 feat: add provider resources foundation`
+- the current head on this branch additionally lands phase-2 streaming work:
+  - explicit `ToolCallDelta` and `ToolCallDone` SDK events
+  - native Gemini and Anthropic streaming paths
+  - live `core_matrix` text-delta forwarding for streaming-capable providers
+  - runtime stream failure signaling when a round is superseded by tool continuation
+  - manual OpenRouter image smoke validation against `openai/gpt-5-image`
+    and `google/gemini-3.1-flash-image-preview`
+
+Known gaps after that checkpoint:
+
+- the design doc originally promised more `responses` methods than were shipped
+- `Responses::Stream` is still intentionally narrow at the `core_matrix`
+  integration layer even though the SDK now exposes text and tool-call events
+- `core_matrix` still only consumes `TextDelta` during provider streaming
+- `core_matrix` still does not expose product-level image generation
+- request-level capability flags remain in `simple_inference`, not `core_matrix`
+
+Manual provider validation completed during phase 2:
+
+- `openai/gpt-5-image` works through the current OpenRouter image path
+- `google/gemini-3.1-flash-image-preview` works through the current OpenRouter image path
+- real OpenRouter image payloads may surface image bytes as a `data:` URL inside
+  `message.images[*].image_url.url`, so normalization must not assume
+  `b64_json` is always present
+
+## Phase 2 Scope
+
+This batch focused on streaming fidelity and real-provider validation, not on
+widening the product surface area.
+
+### Task 7: Tighten The Documents Around The Real Shipped Surface
+
+- revise the design doc so committed APIs and deferred APIs are clearly split
+- keep `core_matrix` image generation explicitly deferred
+- document that request policy flags are SDK-only for now
+- document that Gemini and Anthropic now use native streaming paths in the SDK,
+  while `core_matrix` still only forwards text deltas
+
+### Task 8: Expand `simple_inference` Streaming Semantics
+
+Files expected to change:
+
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/vendor/simple_inference/lib/simple_inference/responses/stream.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/vendor/simple_inference/lib/simple_inference/protocols/openai_responses.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/vendor/simple_inference/lib/simple_inference/protocols/gemini_generate_content.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/vendor/simple_inference/lib/simple_inference/protocols/anthropic_messages.rb`
+- focused protocol and stream tests under `core_matrix/vendor/simple_inference/test`
+
+Acceptance target:
+
+- preserve `TextDelta`
+- add explicit tool-call stream events where the provider exposes enough data
+- keep `Completed` as the authoritative final normalized result
+- use native provider streaming when practical; otherwise keep behavior explicit
+
+### Task 9: Make `core_matrix` Streaming Capability-Aware
+
+Files expected to change:
+
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/dispatch_request.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/execute_round_loop.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/execute_turn_step.rb`
+- focused provider execution tests
+
+Acceptance target:
+
+- only request provider streaming when model capability says `streaming: true`
+- preserve final-round deltas for tool-enabled turns
+- keep retry behavior correct when no deltas have been emitted yet
+
+### Task 10: Manually Validate OpenRouter Image Models
+
+Manual smoke validation only in this phase:
+
+- `openai/gpt-5-image`
+- `google/gemini-3.1-flash-image-preview`
+
+This phase validates that the already-added SDK image path works against real
+OpenRouter models. It does not add `core_matrix` product routing yet.
+
 ---
 
 ### Task 1: Expand The Catalog And Runtime Capability Contract

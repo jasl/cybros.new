@@ -45,9 +45,27 @@ module SimpleInference
 
       def stream(model:, input:, **params)
         SimpleInference::Responses::Stream.new do |&emit|
+          request = { model: model, input: input }.merge(params)
+          request.delete(:stream)
+          request.delete("stream")
+
           raw_result =
-            responses(model: model, input: input, stream: true, **params) do |delta|
-              emit.call(SimpleInference::Responses::Events::TextDelta.new(delta: delta))
+            streamed_responses_result(request) do |event, state|
+              emit.call(SimpleInference::Responses::Events::Raw.new(type: event["type"].to_s, raw: event, snapshot: state[:output_items]))
+
+              delta = output_text_delta(event)
+              if delta
+                emit.call(
+                  SimpleInference::Responses::Events::TextDelta.new(
+                    delta: delta,
+                    raw: event,
+                    snapshot: state[:output_text]
+                  )
+                )
+              end
+
+              tool_event = stream_tool_call_event(event, states: state[:output_item_states])
+              emit.call(tool_event) if tool_event
             end
 
           result = SimpleInference::Responses::Result.from_openai_responses(raw_result)
@@ -90,35 +108,10 @@ module SimpleInference
         request.delete("stream")
 
         if use_stream
-          full = +""
-          last_usage = nil
-          output_item_states = {}
-          output_item_order = []
-
-          response =
-            responses_stream(**request) do |event|
-              delta = output_text_delta(event)
-              if delta
-                full << delta
-                block.call(delta) if block
-              end
-
-              usage = usage_from_event(event)
-              last_usage = usage if usage
-
-              collect_output_item_event!(event, states: output_item_states, order: output_item_order)
-            end
-
-          output_items = finalize_stream_output_items(output_item_states, output_item_order)
-          if response.respond_to?(:body) && response.body.is_a?(Hash)
-            body_output_items = output_items_from_body(response.body)
-            output_items = merge_stream_output_items_with_body(output_items, body_output_items) if body_output_items.any?
-            output_items = body_output_items if output_items.empty?
-            full = output_text_from_body(response.body) if full.empty?
-            last_usage ||= usage_from_body(response.body)
+          streamed_responses_result(request) do |event, _state|
+            delta = output_text_delta(event)
+            block.call(delta) if delta && block
           end
-
-          ResponsesResult.new(output_text: full, output_items: output_items, usage: last_usage, response: response)
         else
           response = responses_create(**request)
           body = response.body.is_a?(Hash) ? response.body : {}
@@ -132,6 +125,81 @@ module SimpleInference
       end
 
       private
+
+      def streamed_responses_result(request)
+        full = +""
+        last_usage = nil
+        output_item_states = {}
+        output_item_order = []
+
+        response =
+          responses_stream(**request) do |event|
+            delta = output_text_delta(event)
+            full << delta if delta
+
+            usage = usage_from_event(event)
+            last_usage = usage if usage
+
+            collect_output_item_event!(event, states: output_item_states, order: output_item_order)
+
+            yield(
+              event,
+              {
+                output_text: full.dup,
+                usage: last_usage,
+                output_item_states: output_item_states,
+                output_items: finalize_stream_output_items(output_item_states, output_item_order),
+              }
+            ) if block_given?
+          end
+
+        output_items = finalize_stream_output_items(output_item_states, output_item_order)
+        if response.respond_to?(:body) && response.body.is_a?(Hash)
+          body_output_items = output_items_from_body(response.body)
+          output_items = merge_stream_output_items_with_body(output_items, body_output_items) if body_output_items.any?
+          output_items = body_output_items if output_items.empty?
+          full = output_text_from_body(response.body) if full.empty?
+          last_usage ||= usage_from_body(response.body)
+        end
+
+        ResponsesResult.new(output_text: full, output_items: output_items, usage: last_usage, response: response)
+      end
+
+      def stream_tool_call_event(event, states:)
+        event = event.body if event.respond_to?(:body)
+        return nil unless event.is_a?(Hash)
+
+        case event["type"].to_s
+        when "response.function_call_arguments.delta"
+          key = event["item_id"].to_s.strip
+          return nil if key.empty?
+
+          state = states[key] || {}
+          SimpleInference::Responses::Events::ToolCallDelta.new(
+            item_id: key,
+            call_id: state["call_id"],
+            name: state["name"],
+            delta: event["delta"],
+            raw: event,
+            snapshot: state["arguments"].to_s
+          )
+        when "response.function_call_arguments.done"
+          key = event["item_id"].to_s.strip
+          return nil if key.empty?
+
+          state = states[key] || {}
+          SimpleInference::Responses::Events::ToolCallDone.new(
+            item_id: key,
+            call_id: state["call_id"],
+            name: state["name"],
+            arguments: state["arguments"].to_s,
+            raw: event,
+            snapshot: state.reject { |item_key, _| item_key == "output_index" }
+          )
+        else
+          nil
+        end
+      end
 
       def base_url
         config.base_url

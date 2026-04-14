@@ -109,4 +109,43 @@ class TestGeminiProtocol < Minitest::Test
     assert_equal "calculator", request_body.fetch("contents").fetch(2).fetch("parts").fetch(0).fetch("functionResponse").fetch("name")
     assert_equal 2, request_body.fetch("tools").fetch(0).fetch("functionDeclarations").length
   end
+
+  def test_stream_uses_stream_generate_content_sse_and_yields_text_deltas
+    adapter =
+      Class.new(SimpleInference::HTTPAdapter) do
+        attr_reader :last_request
+
+        def call(_env)
+          raise "stream should use call_stream"
+        end
+
+        def call_stream(env)
+          @last_request = env
+
+          sse = +""
+          sse << %(data: {"candidates":[{"content":{"parts":[{"text":"Hel"}]}}]}\n\n)
+          sse << %(data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":2,"candidatesTokenCount":3,"totalTokenCount":5}}\n\n)
+
+          yield sse
+
+          {
+            status: 200,
+            headers: { "content-type" => "text/event-stream" },
+            body: nil,
+          }
+        end
+      end.new
+
+    protocol = SimpleInference::Protocols::GeminiGenerateContent.new(base_url: "https://generativelanguage.googleapis.com", api_key: "secret", adapter: adapter)
+    events = protocol.stream(model: "gemini-2.5-pro", input: "Hello").to_a
+
+    assert_includes adapter.last_request.fetch(:url), ":streamGenerateContent?alt=sse"
+    text_deltas = events.grep(SimpleInference::Responses::Events::TextDelta).map(&:delta)
+    completed = events.find { |event| event.is_a?(SimpleInference::Responses::Events::Completed) }
+
+    assert_equal ["Hel", "lo"], text_deltas
+    refute_nil completed
+    assert_equal "Hello", completed.result.output_text
+    assert_equal 5, completed.result.usage.fetch("total_tokens")
+  end
 end

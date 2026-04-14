@@ -46,7 +46,8 @@ module ProviderExecution
         adapter: @adapter,
         effective_catalog: @effective_catalog,
         agent_request_exchange: @agent_request_exchange,
-        request_preparation_exchange: @request_preparation_exchange
+        request_preparation_exchange: @request_preparation_exchange,
+        on_output_delta: streaming_output_enabled? ? method(:handle_output_delta) : nil
       )
 
       if loop_result.final?
@@ -59,10 +60,7 @@ module ProviderExecution
           duration_ms: loop_result.dispatch_result.duration_ms,
           output_content: loop_result.normalized_response.fetch("output_text")
         )
-        output_stream.start!
-        output_deltas = loop_result.output_deltas.presence || [result.output_message.content]
-        output_deltas.each { |delta| output_stream.push(delta) }
-        output_stream.complete!(message: result.output_message)
+        finalize_output_stream!(loop_result:, result:)
         broadcast_workflow_node_event!(
           "runtime.workflow_node.completed",
           state: "completed",
@@ -71,6 +69,10 @@ module ProviderExecution
         )
         result
       elsif loop_result.yielded_prompt_compaction?
+        fail_output_stream_if_started!(
+          code: "prompt_compaction",
+          message: "assistant output superseded by prompt compaction"
+        )
         result = ProviderExecution::PersistTurnStepPromptCompactionYield.call(
           workflow_node: @workflow_node,
           prompt_compaction_result: loop_result.prompt_compaction_result
@@ -81,6 +83,10 @@ module ProviderExecution
         )
         result
       else
+        fail_output_stream_if_started!(
+          code: "tool_continuation",
+          message: "assistant output superseded by tool continuation"
+        )
         result = ProviderExecution::PersistTurnStepYield.call(
           workflow_node: @workflow_node,
           request_context: @request_context,
@@ -111,6 +117,10 @@ module ProviderExecution
       )
       @workflow_node.reload
     rescue ProviderExecution::ProviderRequestGovernor::AdmissionRefused => error
+      fail_output_stream_if_started!(
+        code: "provider_request_rejected",
+        message: error.message
+      )
       if @workflow_run.reload.canceled? || @turn.reload.canceled?
         raise StaleExecutionError, "provider execution result is stale"
       end
@@ -126,6 +136,10 @@ module ProviderExecution
       handle_failure_outcome!(failure_result.failure_outcome)
       @workflow_node.reload
     rescue ProviderExecution::ExecuteRoundLoop::RoundRequestFailed => dispatch_error
+      fail_output_stream_if_started!(
+        code: "provider_request_failed",
+        message: dispatch_error.error.message
+      )
       failure_result = ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
         request_context: @request_context,
@@ -139,6 +153,10 @@ module ProviderExecution
 
       @workflow_node.reload
     rescue ProviderExecution::ExecuteRoundLoop::PromptSizeFailure => error
+      fail_output_stream_if_started!(
+        code: "prompt_too_large",
+        message: error.message
+      )
       failure_result = ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
         request_context: @request_context,
@@ -150,6 +168,10 @@ module ProviderExecution
       handle_failure_outcome!(failure_result.failure_outcome)
       @workflow_node.reload
     rescue ProviderExecution::ExecuteRoundLoop::RoundLimitExceeded => error
+      fail_output_stream_if_started!(
+        code: "round_limit_exceeded",
+        message: error.message
+      )
       failure_result = ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
         request_context: @request_context,
@@ -173,6 +195,12 @@ module ProviderExecution
         )
       end
       raise
+    rescue StandardError => error
+      fail_output_stream_if_started!(
+        code: "provider_execution_failed",
+        message: error.message
+      )
+      raise
     end
 
     private
@@ -191,6 +219,39 @@ module ProviderExecution
 
         normalized
       end
+    end
+
+    def handle_output_delta(delta)
+      return if delta.blank?
+
+      output_stream.start! unless output_stream.started?
+      output_stream.push(delta, flush: true)
+    end
+
+    def finalize_output_stream!(loop_result:, result:)
+      return unless streaming_output_enabled?
+
+      if output_stream.started?
+        output_stream.complete!(message: result.output_message)
+        return
+      end
+
+      output_deltas = loop_result.output_deltas.presence || [result.output_message.content]
+      return if output_deltas.blank?
+
+      output_stream.start!
+      output_deltas.each { |delta| output_stream.push(delta, flush: true) }
+      output_stream.complete!(message: result.output_message)
+    end
+
+    def fail_output_stream_if_started!(code:, message:)
+      return unless output_stream.started?
+
+      output_stream.fail!(code:, message:)
+    end
+
+    def streaming_output_enabled?
+      @request_context.capabilities.fetch("streaming", false) == true
     end
 
     def claim_running!

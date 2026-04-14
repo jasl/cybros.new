@@ -26,11 +26,11 @@ module ProviderExecution
       @started
     end
 
-    def push(delta)
+    def push(delta, flush: false)
       return if delta.blank?
 
       @buffer << delta
-      flush! if should_flush?(delta)
+      flush! if should_flush?(delta, flush:)
     end
 
     def complete!(message:)
@@ -71,8 +71,8 @@ module ProviderExecution
       @buffer = +""
     end
 
-    def should_flush?(delta)
-      @buffer.bytesize >= @flush_bytes || delta.include?("\n")
+    def should_flush?(delta, flush:)
+      flush || @buffer.bytesize >= @flush_bytes || delta.include?("\n")
     end
 
     def base_payload

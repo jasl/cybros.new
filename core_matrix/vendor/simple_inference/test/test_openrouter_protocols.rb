@@ -76,4 +76,40 @@ class TestOpenRouterProtocols < Minitest::Test
     assert_equal "https://example.com/image.png", result.images.fetch(0).fetch("url")
     assert_equal "Rendered image", result.output_text
   end
+
+  def test_images_generate_extracts_b64_json_from_data_url_images
+    adapter = Class.new(SimpleInference::HTTPAdapter) do
+      def call(_env)
+        {
+          status: 200,
+          headers: { "content-type" => "application/json" },
+          body: JSON.generate(
+            {
+              choices: [
+                {
+                  message: {
+                    images: [
+                      {
+                        image_url: {
+                          url: "data:image/png;base64,ZmFrZQ==",
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            }
+          ),
+        }
+      end
+    end.new
+
+    protocol = SimpleInference::Protocols::OpenRouterImages.new(base_url: "http://example.com", api_key: "secret", adapter: adapter)
+    result = protocol.generate(model: "openai/gpt-5-image", prompt: "Hello")
+    image = result.images.fetch(0)
+
+    assert_equal "ZmFrZQ==", image.fetch("b64_json")
+    assert_equal "data:image/png;base64,ZmFrZQ==", image.fetch("data_url")
+    assert_equal "image/png", image.fetch("mime_type")
+  end
 end

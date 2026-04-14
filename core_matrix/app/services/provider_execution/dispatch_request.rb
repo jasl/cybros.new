@@ -223,12 +223,16 @@ module ProviderExecution
     end
 
     def stream_request?
-      @on_delta.present?
+      @on_delta.present? && streaming_capability_enabled?
     end
 
     def handle_delta(delta)
       @received_delta = true
       @on_delta.call(delta)
+    end
+
+    def streaming_capability_enabled?
+      @request_context.capabilities["streaming"] == true
     end
 
     def normalize_schema(schema)

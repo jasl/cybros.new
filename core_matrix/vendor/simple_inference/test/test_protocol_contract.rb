@@ -138,5 +138,4 @@ class TestProtocolContract < Minitest::Test
 
     assert_protocol_contract(protocol)
   end
-
 end

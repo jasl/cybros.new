@@ -92,7 +92,7 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, transcript:, adapter: nil, catalog: nil, effective_catalog: nil, agent_request_exchange: nil, request_preparation_exchange: nil, max_rounds: nil)
+    def initialize(workflow_node:, transcript:, adapter: nil, catalog: nil, effective_catalog: nil, agent_request_exchange: nil, request_preparation_exchange: nil, max_rounds: nil, on_output_delta: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
       @request_context = ProviderExecution::BuildRequestContext.call(
@@ -108,6 +108,7 @@ module ProviderExecution
         agent_request_exchange: @agent_request_exchange
       )
       @max_rounds = max_rounds || configured_max_rounds
+      @on_output_delta = on_output_delta
     end
 
     def call
@@ -161,7 +162,10 @@ module ProviderExecution
         adapter: @adapter,
         effective_catalog: @effective_catalog,
         provider_request_id: SecureRandom.uuid,
-        on_delta: ->(delta) { round_deltas << delta }
+        on_delta: lambda do |delta|
+          round_deltas << delta
+          @on_output_delta&.call(delta)
+        end
       )
       normalized_response = ProviderExecution::NormalizeProviderResponse.call(
         provider_result: dispatch_result.provider_result,

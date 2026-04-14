@@ -49,6 +49,33 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
     end
   end
 
+  class TrackingResponsesAdapter < SimpleInference::HTTPAdapter
+    attr_reader :call_requests, :stream_requests
+
+    def initialize(response_body:)
+      @response_body = response_body
+      @call_requests = []
+      @stream_requests = []
+    end
+
+    def call(env)
+      @call_requests << env
+      {
+        status: 200,
+        headers: {
+          "content-type" => "application/json",
+          "x-request-id" => "tracking-responses-request-1",
+        },
+        body: JSON.generate(@response_body),
+      }
+    end
+
+    def call_stream(env)
+      @stream_requests << env
+      super
+    end
+  end
+
   test "dispatches provider chat requests and returns normalized result data" do
     catalog = build_mock_chat_catalog
     workflow_run = create_mock_turn_step_workflow_run!(
@@ -546,6 +573,58 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
       },
       result.usage
     )
+  end
+
+  test "falls back to non-streaming responses create when model capability disables streaming" do
+    catalog = build_mock_responses_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    base_request_context = build_request_context_for(workflow_run, catalog: catalog)
+    request_context = ProviderRequestContext.new(
+      base_request_context.to_h.merge(
+        "capabilities" => base_request_context.capabilities.merge("streaming" => false)
+      )
+    )
+    adapter = TrackingResponsesAdapter.new(
+      response_body: {
+        "output" => [
+          {
+            "type" => "message",
+            "content" => [
+              {
+                "type" => "output_text",
+                "text" => "Non-streamed response",
+              },
+            ],
+          },
+        ],
+        "usage" => {
+          "input_tokens" => 9,
+          "output_tokens" => 5,
+          "total_tokens" => 14,
+        },
+      }
+    )
+    deltas = []
+
+    result = ProviderExecution::DispatchRequest.call(
+      workflow_run: workflow_run,
+      request_context: request_context,
+      messages: turn_step_messages_for(workflow_run),
+      adapter: adapter,
+      catalog: catalog,
+      provider_request_id: "provider-request-streaming-disabled-1",
+      on_delta: ->(delta) { deltas << delta }
+    )
+
+    assert_equal 1, adapter.call_requests.length
+    assert_equal 0, adapter.stream_requests.length
+    assert_equal [], deltas
+    assert_equal "Non-streamed response", result.content
   end
 
   test "uses the provider adapter selected from the catalog when no adapter is injected" do

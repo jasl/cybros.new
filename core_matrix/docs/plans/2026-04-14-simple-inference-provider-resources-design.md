@@ -47,7 +47,28 @@ This design covers:
 7. `core_matrix` migration from wire-API branching to capability-driven dispatch
 8. test and verification strategy for the library and `core_matrix`
 
-This design does not require in this first implementation pass:
+Committed in the current rollout:
+
+- `SimpleInference::Client#responses.create`
+- `SimpleInference::Client#responses.stream`
+- `SimpleInference::Client#images.generate`
+- capability-aware request planning inside `simple_inference`
+- OpenAI / OpenRouter / Gemini / Anthropic text adapter foundations
+- OpenAI / OpenRouter image adapter foundations
+- `core_matrix` text dispatch on top of `responses`
+- MockLLM `responses` and image-generation test endpoints
+
+Deferred to follow-up work after this rollout:
+
+- `responses.retrieve`
+- `responses.delete`
+- `responses.context`
+- `core_matrix` product-level image generation routing
+- `core_matrix` request-setting passthrough for SDK request policy flags
+- Gemini / Anthropic image-generation product integration
+- full native-stream parity for every provider
+
+This design does not require in this implementation pass:
 
 - full OpenAI SDK typed-model parity
 - every provider feature beyond `responses` and `images`
@@ -81,9 +102,9 @@ External API references that should guide behavior:
 - [Volcengine create response](https://www.volcengine.com/docs/82379/1569618)
 - [Volcengine image generation](https://www.volcengine.com/docs/82379/1666945)
 
-## Current Baseline
+## Baseline At Plan Start
 
-Today `simple_inference` is split across:
+At the start of this plan, `simple_inference` was split across:
 
 - a default `SimpleInference::Client` that is effectively an
   OpenAI-compatible chat-completions client
@@ -92,19 +113,19 @@ Today `simple_inference` is split across:
 - a helper-centric API that mixes transport concerns, protocol adaptation, and
   result aggregation
 
-`core_matrix` currently branches by `wire_api` and instantiates:
+`core_matrix` originally branched by `wire_api` and instantiated:
 
 - `SimpleInference::Client` for `chat_completions`
 - `SimpleInference::Protocols::OpenAIResponses` for `responses`
 
-At the same time, `core_matrix` has already moved part of the provider contract
+At the same time, `core_matrix` had already moved part of the provider contract
 forward in two important ways:
 
 - `core_matrix/config/llm_catalog.yml` is now schema-validated at load time
 - provider and model metadata are normalized into `ProviderRequestContext`, but
   that context still does not include a capability snapshot
 
-The validated catalog currently guarantees these model capability fields:
+The validated catalog at that point guaranteed these model capability fields:
 
 - `text_output`
 - `tool_calls`
@@ -114,7 +135,7 @@ The validated catalog currently guarantees these model capability fields:
 - `multimodal_inputs.video`
 - `multimodal_inputs.file`
 
-It does not yet represent:
+It did not yet represent:
 
 - `streaming`
 - `conversation_state`
@@ -123,7 +144,7 @@ It does not yet represent:
 - resource-specific routing metadata beyond provider-level `wire_api` and
   `responses_path`
 
-Mock infrastructure is also behind the desired API surface:
+Mock infrastructure was also behind the desired API surface:
 
 - `MockLLM` currently exposes `GET /models` and `POST /chat/completions`
 - there is no mock `POST /responses`
@@ -140,6 +161,30 @@ This creates several structural problems:
 5. future Gemini / Anthropic support would likely fork more call sites
 6. capability decisions are split between protocol shape, model naming, and ad
    hoc caller assumptions
+
+## Implementation Status On This Branch
+
+The branch has already landed the provider-resources foundation:
+
+- `simple_inference` is resource-oriented at the public entry point
+- `responses` and `images` have normalized result objects
+- request planning enforces capability gates inside `simple_inference`
+- `core_matrix` text dispatch now uses `client.responses.create/stream`
+- `MockLLM` exposes deterministic `/responses` and `/images/generations`
+- OpenAI, Gemini, and Anthropic now use native streaming paths in the SDK
+- `core_matrix` forwards live `TextDelta` chunks to the runtime output stream
+
+What is intentionally still incomplete:
+
+- the design doc originally over-promised `retrieve/delete/context`
+- `core_matrix` still consumes only `TextDelta` from `Responses::Stream`
+- tool-call stream events exist in the SDK but are not yet surfaced through the
+  `core_matrix` runtime boundary
+- `core_matrix` does not yet route image-generation product work
+- request policy toggles such as `allow_builtin_tools` remain SDK-only
+
+The next execution batch should improve streaming fidelity and keep the public
+API honest about what is and is not shipped.
 
 ## Core Problem
 
@@ -174,11 +219,16 @@ client = SimpleInference::Client.new(...)
 
 client.responses.create(...)
 client.responses.stream(...)
+
+client.images.generate(...)
+```
+
+Future extension points may later add:
+
+```ruby
 client.responses.retrieve(...)
 client.responses.delete(...)
 client.responses.context(...)
-
-client.images.generate(...)
 ```
 
 The old top-level helper methods should be removed instead of preserved behind
@@ -339,11 +389,16 @@ pretending every provider offers identical image APIs.
 
 ### Responses Resource
 
-Recommended public methods:
+Committed public methods:
 
 ```ruby
 client.responses.create(model:, input:, **options)
 client.responses.stream(model:, input:, **options)
+```
+
+Deferred methods for a later batch:
+
+```ruby
 client.responses.retrieve(response_id:, **options)
 client.responses.delete(response_id:, **options)
 client.responses.context(response_id:, **options)
@@ -404,10 +459,25 @@ Recommended event hierarchy:
 
 - `SimpleInference::Responses::Events::Raw`
 - `SimpleInference::Responses::Events::TextDelta`
-- `SimpleInference::Responses::Events::TextDone`
 - `SimpleInference::Responses::Events::ToolCallDelta`
 - `SimpleInference::Responses::Events::ToolCallDone`
 - `SimpleInference::Responses::Events::Completed`
+
+Current branch status:
+
+- `Raw`, `TextDelta`, `ToolCallDelta`, `ToolCallDone`, and `Completed` exist
+- `core_matrix` currently consumes only `TextDelta`
+- OpenAI responses streaming exposes explicit tool-call events
+- Gemini and Anthropic use native SSE streaming in the SDK
+- `core_matrix` now forwards live text deltas for streaming-capable providers
+- speculative runtime streams are failed when a round yields tool continuation
+
+Next batch target:
+
+- preserve final normalized result for tool-enabled turns
+- decide whether `core_matrix` should surface tool-call stream events, not just
+  text deltas
+- keep the public stream scheduler-friendly and single-pass
 
 Important design choice:
 
@@ -490,6 +560,13 @@ Image path:
 - `images.generate` should use `/chat/completions`
 - set `modalities` as required by OpenRouter image generation models
 - normalize `choices[0].message.images`
+- normalize both remote URLs and `data:` URLs nested inside `image_url.url`
+
+Validation target for the next batch:
+
+- manually verify `openai/gpt-5-image`
+- manually verify `google/gemini-3.1-flash-image-preview`
+- keep this validation SDK-level only; `core_matrix` image routing remains deferred
 
 Important boundary:
 
@@ -504,9 +581,11 @@ Text path:
 
 - `responses` -> `generateContent` and streaming equivalent
 
-Image path:
+Current status:
 
-- `images.generate` -> Gemini image-generation or prediction path
+- non-streaming `generateContent` is implemented
+- `stream` currently wraps non-streaming behavior and is not yet native SSE
+- image generation is deferred in this rollout
 
 Key adaptation work:
 
@@ -523,10 +602,11 @@ Text path:
 
 - `responses` -> Anthropic Messages API
 
-Initial image path:
+Current status:
 
-- no direct `images.generate` implementation unless a stable Anthropic image
-  generation API is deliberately adopted later
+- non-streaming `v1/messages` is implemented
+- `stream` currently wraps non-streaming behavior and is not yet native SSE
+- no `images.generate` path is planned in this rollout
 
 Key adaptation work:
 
@@ -662,6 +742,17 @@ Requirements:
 
 Provider-specific event richness should be additive, not required for basic use.
 
+Phase 2 streaming goals for this branch:
+
+1. `simple_inference` should expose a richer stream event contract for text and
+   tool-call accumulation.
+2. `core_matrix` should treat streaming as a model capability and only request
+   it when the provider/model profile allows it.
+3. Tool-enabled final turns must still emit user-visible deltas for the last
+   assistant response.
+4. Gemini and Anthropic should move as close as practical to their native
+   streaming APIs instead of staying purely synthetic.
+
 ## Testing Strategy
 
 ### `simple_inference`
@@ -684,6 +775,13 @@ Minimum provider coverage in the first pass:
 - Gemini responses
 - Anthropic responses
 
+Next batch adds:
+
+- OpenAI-style tool-call stream event coverage
+- native or near-native Gemini streaming coverage
+- native or near-native Anthropic streaming coverage
+- real-provider smoke validation for the two targeted OpenRouter image models
+
 ### `core_matrix`
 
 Add focused tests for:
@@ -691,8 +789,13 @@ Add focused tests for:
 1. catalog capability parsing
 2. capability-gated request dispatch
 3. normalized response result handling
-4. image-generation request routing
+4. final-round streaming behavior for tool-enabled turns
 5. MockLLM responses and image endpoints using the new canonical wire shapes
+
+Deferred from `core_matrix` follow-up work:
+
+- product-level image-generation request routing
+- request-setting passthrough for `allow_builtin_tools` and related SDK flags
 
 Execution requirement for this rollout:
 
