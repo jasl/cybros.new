@@ -275,16 +275,17 @@ module ProviderExecutionTestSupport
         request_preparation_contract: request_preparation_contract || {}
       )
       adopt_agent_definition_version!(context, capability_snapshot, turn: nil)
-      ProviderEntitlement.create!(
+      ProviderEntitlement.find_or_create_by!(
         installation: context[:installation],
         provider_handle: "dev",
-        entitlement_key: "dev_window",
-        window_kind: "rolling_five_hours",
-        window_seconds: 5.hours.to_i,
-        quota_limit: 200_000,
-        active: true,
-        metadata: {}
-      )
+        entitlement_key: "dev_window"
+      ) do |entitlement|
+        entitlement.window_kind = "rolling_five_hours"
+        entitlement.window_seconds = 5.hours.to_i
+        entitlement.quota_limit = 200_000
+        entitlement.active = true
+        entitlement.metadata = {}
+      end
 
       conversation = Conversations::CreateRoot.call(
         workspace: context[:workspace],

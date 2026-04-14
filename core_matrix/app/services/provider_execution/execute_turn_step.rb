@@ -38,6 +38,8 @@ module ProviderExecution
 
       claim_running!
       broadcast_workflow_node_event!("runtime.workflow_node.started", state: "running")
+      raise prompt_compaction_preflight_failure if prompt_compaction_preflight_failure.present?
+
       loop_result = ProviderExecution::ExecuteRoundLoop.call(
         workflow_node: @workflow_node,
         transcript: @messages,
@@ -136,7 +138,7 @@ module ProviderExecution
       raise dispatch_error.error if failure_result.failure_outcome.terminal?
 
       @workflow_node.reload
-    rescue ProviderExecution::ExecuteRoundLoop::RoundLimitExceeded => error
+    rescue ProviderExecution::ExecuteRoundLoop::PromptSizeFailure => error
       failure_result = ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
         request_context: @request_context,
@@ -146,10 +148,8 @@ module ProviderExecution
         duration_ms: 0
       )
       handle_failure_outcome!(failure_result.failure_outcome)
-      raise if failure_result.failure_outcome.terminal?
-
       @workflow_node.reload
-    rescue ProviderExecution::ExecuteRoundLoop::RoundBudgetRejected => error
+    rescue ProviderExecution::ExecuteRoundLoop::RoundLimitExceeded => error
       failure_result = ProviderExecution::PersistTurnStepFailure.call(
         workflow_node: @workflow_node,
         request_context: @request_context,
@@ -236,6 +236,9 @@ module ProviderExecution
         "retry_strategy" => failure_outcome.retry_strategy,
         "retry_at" => failure_outcome.next_retry_at&.iso8601,
       }.compact
+      wait_reason_payload = @workflow_run.reload.wait_reason_payload.deep_stringify_keys
+      payload["remediation"] = wait_reason_payload["remediation"] if wait_reason_payload["remediation"].present?
+      payload["degradation"] = wait_reason_payload["degradation"] if wait_reason_payload["degradation"].present?
       broadcast_workflow_node_event!(event_kind, **payload)
     end
 
@@ -260,6 +263,43 @@ module ProviderExecution
     def raise_invalid!(record, attribute, message)
       record.errors.add(attribute, message)
       raise ActiveRecord::RecordInvalid, record
+    end
+
+    def prompt_compaction_preflight_failure
+      payload = prompt_compaction_artifact_payload
+      return if payload.blank?
+
+      case payload["stop_reason"]
+      when "selected_input_exceeds_hard_limit"
+        ProviderExecution::ExecuteRoundLoop::PromptTooLargeForRetry.new(
+          messages_count: @messages.length,
+          selected_input_message_id: payload["selected_input_message_id"].presence || @workflow_run.execution_snapshot.selected_input_message_id
+        )
+      when "hard_limit_after_compaction"
+        ProviderExecution::ExecuteRoundLoop::ContextWindowExceededAfterCompaction.new(
+          messages_count: @messages.length,
+          selected_input_message_id: payload["selected_input_message_id"].presence || @workflow_run.execution_snapshot.selected_input_message_id
+        )
+      end
+    end
+
+    def prompt_compaction_artifact_payload
+      @prompt_compaction_artifact_payload ||= begin
+        metadata = @workflow_node.metadata.is_a?(Hash) ? @workflow_node.metadata.deep_stringify_keys : {}
+        artifact_key = metadata["prompt_compaction_artifact_key"]
+        source_node_key = metadata["prompt_compaction_source_node_key"]
+        if artifact_key.blank? || source_node_key.blank?
+          {}
+        else
+          source_node = @workflow_run.workflow_nodes.find_by(node_key: source_node_key)
+          artifact = source_node && @workflow_run.workflow_artifacts.find_by(
+            workflow_node: source_node,
+            artifact_kind: "prompt_compaction_context",
+            artifact_key: artifact_key
+          )
+          artifact&.payload&.deep_stringify_keys || {}
+        end
+      end
     end
   end
 end

@@ -1,8 +1,6 @@
 module Conversations
   module Metadata
     class RuntimeBootstrapTitle
-      PROTOCOL_METHOD_ID = "conversation_title_bootstrap".freeze
-
       def self.call(...)
         new(...).call
       end
@@ -15,9 +13,17 @@ module Conversations
       end
 
       def call
-        return nil unless runtime_title_bootstrap_supported?
+        result = RuntimeFeatures::Invoke.call(
+          feature_key: "title_bootstrap",
+          workspace: @conversation.workspace,
+          agent_definition_version: @agent_definition_version,
+          request_payload: request_payload,
+          logger: @logger
+        )
 
-        nil
+        return nil unless result.is_a?(Hash) && result.fetch("status", "").to_s == "ok"
+
+        result.dig("result", "title").to_s.squish.presence
       rescue StandardError => error
         @logger.info("conversation runtime title bootstrap fallback: #{error.class}: #{error.message}")
         nil
@@ -25,10 +31,11 @@ module Conversations
 
       private
 
-      def runtime_title_bootstrap_supported?
-        Array(@agent_definition_version&.protocol_methods).any? do |entry|
-          entry.is_a?(Hash) && entry["method_id"].to_s == PROTOCOL_METHOD_ID
-        end
+      def request_payload
+        {
+          "conversation_id" => @conversation.public_id,
+          "message_content" => @message.content.to_s,
+        }
       end
     end
   end

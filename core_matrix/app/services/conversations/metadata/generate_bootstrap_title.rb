@@ -18,44 +18,54 @@ module Conversations
           workspace: @conversation.workspace,
           agent_definition_version: @agent_definition_version
         )
-        return nil if policy.fetch("strategy") == "disabled"
 
-        runtime_title = runtime_title_candidate(policy)
-        return runtime_title if runtime_title.present?
-
-        return nil if policy.fetch("strategy") == "runtime_required"
-
-        result = EmbeddedAgents::Invoke.call(
-          agent_key: "conversation_title",
-          actor: @actor,
-          target: { "conversation_id" => @conversation.public_id },
-          input: {
-            "message_content" => @message.content.to_s,
-          }
-        )
-
-        title = result.output.fetch("title", "").to_s.squish
+        title = runtime_title_candidate(policy)
         return title if title.present?
+
+        return nil if strict_runtime_policy?(policy)
+
+        embedded_title = embedded_title_candidate
+        return embedded_title if embedded_title.present?
 
         fallback_title
       rescue StandardError => error
         @logger.info("conversation title bootstrap fallback: #{error.class}: #{error.message}")
+        return nil if strict_runtime_policy?(policy)
+
+        embedded_title = embedded_title_candidate
+        return embedded_title if embedded_title.present?
+
         fallback_title
       end
 
       private
 
       def runtime_title_candidate(policy)
-        return nil unless %w[runtime_first runtime_required].include?(policy.fetch("strategy"))
+        return nil if policy.fetch("strategy") == "disabled"
 
         Conversations::Metadata::RuntimeBootstrapTitle.call(
           conversation: @conversation,
           message: @message,
           agent_definition_version: @agent_definition_version
         )
-      rescue StandardError => error
-        @logger.info("conversation title runtime fallback: #{error.class}: #{error.message}")
-        nil
+      end
+
+      def strict_runtime_policy?(policy)
+        return false unless policy.is_a?(Hash)
+
+        %w[disabled runtime_required].include?(policy.fetch("strategy", ""))
+      end
+
+      def embedded_title_candidate
+        embedded_title = EmbeddedFeatures::TitleBootstrap::Invoke.call(
+          request_payload: {
+            "conversation_id" => @conversation.public_id,
+            "message_content" => @message.content.to_s,
+            "actor" => @actor,
+          }
+        )
+
+        embedded_title.fetch("title", "").to_s.squish.presence
       end
 
       def fallback_title

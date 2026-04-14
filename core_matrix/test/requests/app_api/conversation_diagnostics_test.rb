@@ -206,6 +206,51 @@ class AppApiConversationDiagnosticsTest < ActionDispatch::IntegrationTest
     assert_equal 0, response_body.dig("items", 0, "prompt_cache_unknown_event_count")
   end
 
+  test "returns stale turn diagnostics and surfaces the live turn lifecycle when the snapshot lags behind" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+
+    record_usage_event(context, input_tokens: 120, output_tokens: 40, cached_input_tokens: 60)
+    ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: context[:conversation])
+    clear_enqueued_jobs
+    context[:turn].update!(lifecycle_state: "completed")
+
+    assert_enqueued_with(job: ConversationDiagnostics::RecomputeConversationSnapshotJob, args: [context[:conversation].id]) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics/turns",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+
+    response_body = JSON.parse(response.body)
+    assert_equal "stale", response_body["diagnostics_status"]
+    assert_equal 1, response_body["items"].length
+    assert_equal context[:turn].public_id, response_body.dig("items", 0, "turn_id")
+    assert_equal "completed", response_body.dig("items", 0, "lifecycle_state")
+  end
+
+  test "returns stale conversation diagnostics snapshot while turn lifecycle drift is being recomputed" do
+    context = build_canonical_variable_context!
+    registration = register_machine_api_for_context!(context)
+
+    record_usage_event(context, input_tokens: 120, output_tokens: 40, cached_input_tokens: 60)
+    ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: context[:conversation])
+    clear_enqueued_jobs
+    context[:turn].update!(lifecycle_state: "completed")
+
+    assert_enqueued_with(job: ConversationDiagnostics::RecomputeConversationSnapshotJob, args: [context[:conversation].id]) do
+      get "/app_api/conversations/#{context[:conversation].public_id}/diagnostics",
+        headers: app_api_headers(registration[:session_token])
+    end
+
+    assert_response :success
+
+    response_body = JSON.parse(response.body)
+    assert_equal "stale", response_body["diagnostics_status"]
+    assert_equal context[:conversation].public_id, response_body.dig("snapshot", "conversation_id")
+    assert_equal 1, response_body.dig("snapshot", "usage_event_count")
+  end
+
   test "returns null prompt cache hit rate when ready diagnostics have no available usage events" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)

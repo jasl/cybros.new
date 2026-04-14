@@ -29,6 +29,7 @@ module ProviderExecution
 
     def call
       return admission_refused_result if @error.is_a?(ProviderExecution::ProviderRequestGovernor::AdmissionRefused)
+      return prompt_size_result(@error.failure_kind) if prompt_size_failure?(@error)
       return http_error_result if @error.is_a?(SimpleInference::HTTPError)
       return transport_error_result("provider_unreachable") if @error.is_a?(SimpleInference::TimeoutError) || @error.is_a?(SimpleInference::ConnectionError)
       return contract_error_result("invalid_provider_response_contract") if @error.is_a?(SimpleInference::DecodeError)
@@ -57,6 +58,7 @@ module ProviderExecution
       status = @error.status.to_i
       body_text = [@error.message, @error.raw_body, @error.body].compact.join(" ").downcase
 
+      return prompt_size_result("context_window_exceeded_after_compaction") if prompt_overflow_http_error?(status, body_text)
       return external_result(failure_kind: "provider_credits_exhausted", retry_strategy: "manual") if credits_exhausted?(status, body_text)
       return external_result(failure_kind: "provider_auth_expired", retry_strategy: "manual") if status.in?([401, 403])
       return external_result(failure_kind: "provider_rate_limited", retry_strategy: "automatic", next_retry_at: retry_at_from_headers) if status == 429
@@ -81,6 +83,19 @@ module ProviderExecution
 
     def transport_error_result(failure_kind)
       external_result(failure_kind:, retry_strategy: "automatic")
+    end
+
+    def prompt_size_result(failure_kind)
+      Result.new(
+        failure_category: "contract_error",
+        failure_kind: failure_kind,
+        wait_reason_kind: "retryable_failure",
+        retry_strategy: "manual",
+        max_auto_retries: 0,
+        next_retry_at: nil,
+        terminal: false,
+        last_error_summary: @error.message
+      )
     end
 
     def contract_error_result(failure_kind)
@@ -129,6 +144,15 @@ module ProviderExecution
         body_text.include?("insufficient credits") ||
         body_text.include?("credit balance") ||
         body_text.include?("quota exceeded")
+    end
+
+    def prompt_size_failure?(error)
+      error.respond_to?(:failure_kind) &&
+        error.failure_kind.to_s.in?(%w[prompt_too_large_for_retry context_window_exceeded_after_compaction])
+    end
+
+    def prompt_overflow_http_error?(status, body_text)
+      ProviderExecution::PromptOverflowDetection.matches?(status: status, body_text: body_text)
     end
 
     def retry_at_from_headers

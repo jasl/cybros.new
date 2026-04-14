@@ -118,7 +118,7 @@ module AppAPI
         {
           "conversation_id" => conversation_public_id,
           "turn_id" => snapshot.turn.public_id,
-          "lifecycle_state" => snapshot.lifecycle_state,
+          "lifecycle_state" => snapshot.turn.lifecycle_state,
           "usage_event_count" => snapshot.usage_event_count,
           "input_tokens_total" => snapshot.input_tokens_total,
           "output_tokens_total" => snapshot.output_tokens_total,

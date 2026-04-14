@@ -2,6 +2,7 @@ module ConversationDiagnostics
   class ResolveSnapshotStatus
     Result = Struct.new(
       :status,
+      :reason,
       :conversation_snapshot,
       :turn_snapshot_count,
       keyword_init: true
@@ -16,6 +17,10 @@ module ConversationDiagnostics
 
       def pending?
         status == "pending"
+      end
+
+      def turn_lifecycle_drift?
+        reason == "turn_lifecycle_drift"
       end
     end
 
@@ -44,10 +49,19 @@ module ConversationDiagnostics
 
       return pending_result(conversation_snapshot, turn_snapshot_count) if conversation_snapshot.blank?
       return pending_result(conversation_snapshot, turn_snapshot_count) if turn_snapshot_count < turn_count
+      if turn_lifecycle_drift?
+        return Result.new(
+          status: "stale",
+          reason: "turn_lifecycle_drift",
+          conversation_snapshot: conversation_snapshot,
+          turn_snapshot_count: turn_snapshot_count
+        )
+      end
 
       if conversation_snapshot.updated_at < source_watermark
         return Result.new(
           status: "stale",
+          reason: nil,
           conversation_snapshot: conversation_snapshot,
           turn_snapshot_count: turn_snapshot_count
         )
@@ -55,6 +69,7 @@ module ConversationDiagnostics
 
       Result.new(
         status: "ready",
+        reason: nil,
         conversation_snapshot: conversation_snapshot,
         turn_snapshot_count: turn_snapshot_count
       )
@@ -65,9 +80,18 @@ module ConversationDiagnostics
     def pending_result(conversation_snapshot, turn_snapshot_count)
       Result.new(
         status: "pending",
+        reason: nil,
         conversation_snapshot: conversation_snapshot,
         turn_snapshot_count: turn_snapshot_count
       )
+    end
+
+    def turn_lifecycle_drift?
+      TurnDiagnosticsSnapshot
+        .joins(:turn)
+        .where(conversation: @conversation)
+        .where("turn_diagnostics_snapshots.lifecycle_state <> turns.lifecycle_state")
+        .exists?
     end
 
     def source_watermark

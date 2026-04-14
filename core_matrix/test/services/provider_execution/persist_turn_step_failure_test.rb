@@ -108,4 +108,40 @@ class ProviderExecution::PersistTurnStepFailureTest < ActiveSupport::TestCase
     assert_equal "StandardError", result.profiling_fact.error_class
     assert_equal "boom", result.profiling_fact.error_message
   end
+
+  test "persists prompt overflow remediation for requested-token provider errors" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    request_context = build_request_context_for(workflow_run, catalog: catalog)
+    error = build_provider_http_error(
+      message: "This request asked for 145031 tokens. Please reduce the length of the messages.",
+      status: 400
+    )
+
+    ProviderExecution::PersistTurnStepFailure.call(
+      workflow_node: workflow_node,
+      request_context: request_context,
+      error: error,
+      provider_request_id: "provider-request-overflow",
+      messages_count: turn_step_messages_for(workflow_run).length,
+      duration_ms: 88
+    )
+
+    assert_equal(
+      {
+        "tail_input_editable" => false,
+        "user_must_send_new_message" => true,
+        "failure_scope" => "full_context",
+        "current_message_only" => false,
+        "selected_input_message_id" => workflow_run.turn.selected_input_message.public_id,
+      },
+      workflow_run.reload.wait_reason_payload.fetch("remediation")
+    )
+  end
 end

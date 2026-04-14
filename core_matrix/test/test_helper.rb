@@ -136,6 +136,10 @@ module ActiveSupport
       "#{prefix}-#{self.class.name.underscore.tr("/", "-")}-#{next_test_sequence}@example.com"
     end
 
+    def safe_connection_credential
+      unique_test_token("connection-credential").gsub(/[^A-Za-z0-9._-]/, "-")
+    end
+
     def create_installation!(**attrs)
       attributes = {
         name: "Core Matrix #{next_test_sequence}",
@@ -830,7 +834,7 @@ module ActiveSupport
       )
 
       context[:agent_connection]&.update!(lifecycle_state: "stale")
-      agent_connection_credential = "connection-credential-#{next_test_sequence}"
+      agent_connection_credential = safe_connection_credential
       context[:agent_connection] = create_agent_connection!(
         installation: context[:installation],
         agent: context[:agent],
@@ -852,7 +856,7 @@ module ActiveSupport
         agent_definition_version: agent_definition_version
       )
       context[:agent_connection]&.update!(lifecycle_state: "stale") if context[:agent_connection].present?
-      agent_connection_credential = "connection-credential-#{next_test_sequence}"
+      agent_connection_credential = safe_connection_credential
       context[:agent_connection] = create_agent_connection!(
         installation: context[:installation],
         agent: context[:agent],
@@ -1332,16 +1336,17 @@ module ActiveSupport
         last_heartbeat_at: Time.current,
         last_health_check_at: Time.current
       )
-      ProviderEntitlement.create!(
+      ProviderEntitlement.find_or_create_by!(
         installation: installation,
         provider_handle: "dev",
-        entitlement_key: "mock-runtime",
-        window_kind: "rolling_five_hours",
-        window_seconds: 5.hours.to_i,
-        quota_limit: 200_000,
-        active: true,
-        metadata: {}
-      )
+        entitlement_key: "mock-runtime"
+      ) do |entitlement|
+        entitlement.window_kind = "rolling_five_hours"
+        entitlement.window_seconds = 5.hours.to_i
+        entitlement.quota_limit = 200_000
+        entitlement.active = true
+        entitlement.metadata = {}
+      end
       user_agent_binding = create_user_agent_binding!(
         installation: installation,
         user: runtime_user,

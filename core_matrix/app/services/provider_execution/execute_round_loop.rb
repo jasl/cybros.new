@@ -4,6 +4,42 @@ module ProviderExecution
   class ExecuteRoundLoop
     DEFAULT_MAX_ROUNDS = 64
 
+    class PromptSizeFailure < StandardError
+      attr_reader :failure_kind, :messages_count, :failure_scope, :selected_input_message_id
+
+      def initialize(failure_kind:, message:, messages_count:, failure_scope:, selected_input_message_id:)
+        super(message)
+        @failure_kind = failure_kind
+        @messages_count = messages_count
+        @failure_scope = failure_scope
+        @selected_input_message_id = selected_input_message_id
+      end
+    end
+
+    class PromptTooLargeForRetry < PromptSizeFailure
+      def initialize(messages_count:, selected_input_message_id:)
+        super(
+          failure_kind: "prompt_too_large_for_retry",
+          message: "selected input exceeds the hard input token limit",
+          messages_count: messages_count,
+          failure_scope: "current_input",
+          selected_input_message_id: selected_input_message_id
+        )
+      end
+    end
+
+    class ContextWindowExceededAfterCompaction < PromptSizeFailure
+      def initialize(messages_count:, selected_input_message_id:)
+        super(
+          failure_kind: "context_window_exceeded_after_compaction",
+          message: "context window exceeded after compaction",
+          messages_count: messages_count,
+          failure_scope: "full_context",
+          selected_input_message_id: selected_input_message_id
+        )
+      end
+    end
+
     class RoundRequestFailed < StandardError
       attr_reader :error, :duration_ms, :provider_request_id, :messages_count
 
@@ -23,17 +59,6 @@ module ProviderExecution
         super("provider round loop exceeded #{max_rounds} rounds")
         @max_rounds = max_rounds
         @attempted_rounds = attempted_rounds
-        @messages_count = messages_count
-      end
-    end
-
-    class RoundBudgetRejected < StandardError
-      attr_reader :guard_result, :consultation_result, :messages_count
-
-      def initialize(guard_result:, consultation_result:, messages_count:)
-        super("prompt budget rejected provider dispatch")
-        @guard_result = guard_result
-        @consultation_result = consultation_result
         @messages_count = messages_count
       end
     end
@@ -187,6 +212,23 @@ module ProviderExecution
     rescue ProviderExecution::ProviderRequestGovernor::AdmissionRefused
       raise
     rescue ProviderExecution::DispatchRequest::RequestFailed => error
+      overflow_result = overflow_recovery_result(
+        error: error.error,
+        prepared_round: prepared_round,
+        prior_tool_results: prior_tool_results,
+        provider_messages: provider_messages,
+        guard_result: guard_result
+      )
+      if overflow_result.present?
+        return Result.new(
+          kind: "prompt_compaction",
+          prepared_round: prepared_round,
+          prior_tool_results: prior_tool_results,
+          messages_count: provider_messages.length,
+          prompt_compaction_result: overflow_result
+        )
+      end
+
       raise RoundRequestFailed.new(
         error: error.error,
         duration_ms: error.duration_ms,
@@ -247,7 +289,9 @@ module ProviderExecution
     end
 
     def evaluate_prompt_budget!(guard_result:, prepared_round:, prior_tool_results:, provider_messages:)
-      return if guard_result.fetch("decision") == "allow"
+      decision = guard_result.fetch("decision")
+      return if decision == "allow"
+      raise prompt_too_large_for_retry(provider_messages.length) if decision == "reject"
 
       consultation_result = consult_prompt_compaction(
         guard_result:,
@@ -264,41 +308,36 @@ module ProviderExecution
       when "allow"
         nil
       when "compact"
-        {
-          "guard_result" => guard_result,
-          "consultation" => consultation_result,
-          "consultation_reason" => consultation_reason_for(guard_result),
-          "candidate_messages" => provider_messages,
-          "selected_input_message_id" => @workflow_run.execution_snapshot.selected_input_message_id,
-          "budget_hints" => @workflow_run.execution_snapshot.budget_hints,
-          "policy" => prompt_compaction_policy,
-          "capability" => prompt_compaction_capability,
-        }
-      else
-        raise RoundBudgetRejected.new(
+        raise context_window_exceeded_after_compaction(provider_messages.length) if prompt_compaction_attempt_limit_reached?
+
+        build_prompt_compaction_result(
           guard_result: guard_result,
           consultation_result: consultation_result,
-          messages_count: provider_messages.length
+          consultation_reason: consultation_reason_for(guard_result),
+          provider_messages: provider_messages
         )
+      else
+        raise explicit_budget_failure(guard_result, provider_messages.length)
       end
     end
 
-    def consult_prompt_compaction(guard_result:, prepared_round:, prior_tool_results:, provider_messages:)
+    def consult_prompt_compaction(guard_result:, prepared_round:, prior_tool_results:, provider_messages:, consultation_reason: consultation_reason_for(guard_result))
       if runtime_consultation_supported?
         @request_preparation_exchange.consult_prompt_compaction(
           payload: prompt_compaction_consult_payload(
             guard_result:,
+            consultation_reason: consultation_reason,
             prepared_round:,
             prior_tool_results:,
             provider_messages:
           )
         )
       else
-        embedded_consultation_result(guard_result)
+        embedded_consultation_result(guard_result, consultation_reason: consultation_reason)
       end
     end
 
-    def prompt_compaction_consult_payload(guard_result:, prepared_round:, prior_tool_results:, provider_messages:)
+    def prompt_compaction_consult_payload(guard_result:, consultation_reason:, prepared_round:, prior_tool_results:, provider_messages:)
       {
         "protocol_version" => "agent-runtime/2026-04-01",
         "request_kind" => "consult_prompt_compaction",
@@ -310,7 +349,7 @@ module ProviderExecution
           "kind" => "turn_step",
         },
         "prompt_compaction" => {
-          "consultation_reason" => consultation_reason_for(guard_result),
+          "consultation_reason" => consultation_reason,
           "candidate_messages" => provider_messages,
           "selected_input_message_id" => @workflow_run.execution_snapshot.selected_input_message_id,
           "guard_result" => guard_result,
@@ -333,14 +372,18 @@ module ProviderExecution
       }
     end
 
-    def embedded_consultation_result(guard_result)
+    def embedded_consultation_result(guard_result, consultation_reason:)
       strategy = prompt_compaction_policy["strategy"].presence || "runtime_first"
       decision =
-        case strategy
-        when "disabled"
-          guard_result.fetch("decision") == "compact_required" ? "reject" : "skip"
+        if consultation_reason == "overflow_recovery"
+          strategy.in?(%w[disabled runtime_required]) ? "reject" : "compact"
         else
-          guard_result.fetch("decision") == "consult" ? "skip" : "compact"
+          case strategy
+          when "disabled"
+            guard_result.fetch("decision") == "compact_required" ? "reject" : "skip"
+          else
+            guard_result.fetch("decision") == "consult" ? "skip" : "compact"
+          end
         end
 
       {
@@ -348,7 +391,7 @@ module ProviderExecution
         "decision" => decision,
         "source" => "embedded",
         "diagnostics" => {
-          "reason" => consultation_reason_for(guard_result),
+          "reason" => consultation_reason,
           "fallback_mode" => strategy,
         },
       }
@@ -365,6 +408,124 @@ module ProviderExecution
 
     def consultation_reason_for(guard_result)
       guard_result.fetch("decision") == "consult" ? "soft_threshold" : "hard_limit"
+    end
+
+    def overflow_recovery_result(error:, prepared_round:, prior_tool_results:, provider_messages:, guard_result:)
+      return unless provider_overflow_error?(error)
+
+      raise context_window_exceeded_after_compaction(provider_messages.length) if overflow_recovery_attempt_limit_reached?
+
+      overflow_guard_result = overflow_guard_result_for(guard_result, error)
+      consultation_result = consult_prompt_compaction(
+        guard_result: overflow_guard_result,
+        prepared_round: prepared_round,
+        prior_tool_results: prior_tool_results,
+        provider_messages: provider_messages,
+        consultation_reason: "overflow_recovery"
+      )
+
+      return build_prompt_compaction_result(
+        guard_result: overflow_guard_result,
+        consultation_result: consultation_result,
+        consultation_reason: "overflow_recovery",
+        provider_messages: provider_messages
+      ) if consultation_result["decision"].to_s == "compact"
+
+      raise context_window_exceeded_after_compaction(provider_messages.length)
+    end
+
+    def build_prompt_compaction_result(guard_result:, consultation_result:, consultation_reason:, provider_messages:)
+      {
+        "guard_result" => guard_result,
+        "consultation" => consultation_result,
+        "consultation_reason" => consultation_reason,
+        "candidate_messages" => provider_messages,
+        "selected_input_message_id" => selected_input_message_public_id,
+        "budget_hints" => @workflow_run.execution_snapshot.budget_hints,
+        "policy" => prompt_compaction_policy,
+        "capability" => prompt_compaction_capability,
+      }
+    end
+
+    def overflow_guard_result_for(guard_result, error)
+      base = guard_result.deep_stringify_keys
+
+      base.merge(
+        "decision" => "compact_required",
+        "failure_scope" => "full_context",
+        "retry_mode" => "workflow_compaction",
+        "diagnostics" => base.fetch("diagnostics", {}).merge(
+          "overflow_recovery" => true,
+          "provider_overflow_status" => error.respond_to?(:status) ? error.status.to_i : nil,
+          "provider_overflow_code" => provider_overflow_code_for(error)
+        ).compact
+      )
+    end
+
+    def explicit_budget_failure(guard_result, messages_count)
+      if guard_result["failure_scope"].to_s == "current_input"
+        prompt_too_large_for_retry(messages_count)
+      else
+        context_window_exceeded_after_compaction(messages_count)
+      end
+    end
+
+    def prompt_too_large_for_retry(messages_count)
+      PromptTooLargeForRetry.new(
+        messages_count: messages_count,
+        selected_input_message_id: selected_input_message_public_id
+      )
+    end
+
+    def context_window_exceeded_after_compaction(messages_count)
+      ContextWindowExceededAfterCompaction.new(
+        messages_count: messages_count,
+        selected_input_message_id: selected_input_message_public_id
+      )
+    end
+
+    def prompt_compaction_attempt_limit_reached?
+      current_prompt_compaction_attempt_no >= ProviderExecution::PromptBudgetGuard::MAX_COMPACTION_ATTEMPTS
+    end
+
+    def overflow_recovery_attempt_limit_reached?
+      current_overflow_recovery_attempt_no >= ProviderExecution::PromptBudgetGuard::MAX_OVERFLOW_RECOVERY_ATTEMPTS
+    end
+
+    def current_prompt_compaction_attempt_no
+      workflow_node_metadata.fetch("prompt_compaction_attempt_no", 0).to_i
+    end
+
+    def current_overflow_recovery_attempt_no
+      workflow_node_metadata.fetch("overflow_recovery_attempt_no", 0).to_i
+    end
+
+    def workflow_node_metadata
+      @workflow_node_metadata ||= @workflow_node.metadata.is_a?(Hash) ? @workflow_node.metadata.deep_stringify_keys : {}
+    end
+
+    def selected_input_message_public_id
+      @workflow_run.execution_snapshot.selected_input_message_id
+    end
+
+    def provider_overflow_error?(error)
+      return false unless error.is_a?(SimpleInference::HTTPError)
+
+      body_text = [error.message, error.raw_body, error.body].compact.join(" ").downcase
+
+      ProviderExecution::PromptOverflowDetection.matches?(status: error.status, body_text: body_text)
+    end
+
+    def provider_overflow_code_for(error)
+      return unless error.respond_to?(:body)
+
+      body = error.body
+      case body
+      when Hash
+        body.deep_stringify_keys.dig("error", "code")
+      else
+        nil
+      end
     end
 
     def prompt_compaction_policy

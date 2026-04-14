@@ -49,9 +49,19 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
     )
     workflow_run = nil
 
-    with_stubbed_provider_catalog(catalog) do
-      workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {}, catalog: catalog)
-    end
+    workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {}, catalog: catalog)
+    provider_context = workflow_run.turn.execution_contract.provider_context.deep_dup
+    provider_context["budget_hints"] = provider_context.fetch("budget_hints", {}).deep_dup.merge(
+      "hard_limits" => provider_context.dig("budget_hints", "hard_limits").to_h.merge(
+        "context_window_tokens" => 400,
+        "hard_input_token_limit" => 360
+      ),
+      "advisory_hints" => provider_context.dig("budget_hints", "advisory_hints").to_h.merge(
+        "recommended_input_tokens" => 360,
+        "recommended_compaction_threshold" => 360
+      )
+    )
+    workflow_run.turn.execution_contract.update!(provider_context: provider_context)
 
     transcript = turn_step_messages_for(workflow_run)
     agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(

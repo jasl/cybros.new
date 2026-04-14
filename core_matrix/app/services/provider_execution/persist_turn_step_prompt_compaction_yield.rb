@@ -104,6 +104,8 @@ module ProviderExecution
         "policy" => @prompt_compaction_result.fetch("policy", {}),
         "capability" => @prompt_compaction_result.fetch("capability", {}),
         "selected_input_message_id" => @prompt_compaction_result["selected_input_message_id"],
+        "prompt_compaction_attempt_no" => next_prompt_compaction_attempt_no(current_node),
+        "overflow_recovery_attempt_no" => next_overflow_recovery_attempt_no(current_node),
       }.compact
     end
 
@@ -112,6 +114,8 @@ module ProviderExecution
         "prompt_compaction_artifact_key" => prompt_compaction_artifact_key(current_node),
         "prompt_compaction_source_node_key" => prompt_compaction_node_key(current_node),
         "prompt_compaction_includes_prior_tool_results" => true,
+        "prompt_compaction_attempt_no" => next_prompt_compaction_attempt_no(current_node),
+        "overflow_recovery_attempt_no" => next_overflow_recovery_attempt_no(current_node),
       }
     end
 
@@ -137,6 +141,21 @@ module ProviderExecution
     def current_round_index(current_node)
       value = current_node.provider_round_index
       value.present? ? value.to_i : 1
+    end
+
+    def next_prompt_compaction_attempt_no(current_node)
+      current_metadata(current_node).fetch("prompt_compaction_attempt_no", 0).to_i + 1
+    end
+
+    def next_overflow_recovery_attempt_no(current_node)
+      base_attempt_no = current_metadata(current_node).fetch("overflow_recovery_attempt_no", 0).to_i
+      return base_attempt_no unless @prompt_compaction_result["consultation_reason"] == "overflow_recovery"
+
+      base_attempt_no + 1
+    end
+
+    def current_metadata(current_node)
+      current_node.metadata.is_a?(Hash) ? current_node.metadata.deep_stringify_keys : {}
     end
 
     def append_status_event!(workflow_node, workflow_run)

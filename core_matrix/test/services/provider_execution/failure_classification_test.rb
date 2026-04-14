@@ -106,6 +106,74 @@ class ProviderExecution::FailureClassificationTest < ActiveSupport::TestCase
     refute classification.terminal?
   end
 
+  test "classifies selected-input prompt failures as manual retryable failures" do
+    error = ProviderExecution::ExecuteRoundLoop::PromptTooLargeForRetry.new(
+      messages_count: 3,
+      selected_input_message_id: "msg-current"
+    )
+
+    classification = ProviderExecution::FailureClassification.call(error: error)
+
+    assert_equal "contract_error", classification.failure_category
+    assert_equal "prompt_too_large_for_retry", classification.failure_kind
+    assert_equal "retryable_failure", classification.wait_reason_kind
+    assert_equal "manual", classification.retry_strategy
+    assert_equal 0, classification.max_auto_retries
+    refute classification.terminal?
+  end
+
+  test "classifies post-compaction context overflow as a manual retryable failure" do
+    error = ProviderExecution::ExecuteRoundLoop::ContextWindowExceededAfterCompaction.new(
+      messages_count: 4,
+      selected_input_message_id: "msg-current"
+    )
+
+    classification = ProviderExecution::FailureClassification.call(error: error)
+
+    assert_equal "contract_error", classification.failure_category
+    assert_equal "context_window_exceeded_after_compaction", classification.failure_kind
+    assert_equal "retryable_failure", classification.wait_reason_kind
+    assert_equal "manual", classification.retry_strategy
+    assert_equal 0, classification.max_auto_retries
+    refute classification.terminal?
+  end
+
+  test "classifies provider-side context overflow as an explicit prompt-size failure" do
+    error = build_provider_http_error(
+      message: "This model's maximum context length is 128000 tokens, however you requested 145031 tokens.",
+      status: 400,
+      body: {
+        "error" => {
+          "code" => "context_length_exceeded",
+          "message" => "This model's maximum context length is 128000 tokens, however you requested 145031 tokens.",
+        },
+      }
+    )
+
+    classification = ProviderExecution::FailureClassification.call(error: error)
+
+    assert_equal "contract_error", classification.failure_category
+    assert_equal "context_window_exceeded_after_compaction", classification.failure_kind
+    assert_equal "retryable_failure", classification.wait_reason_kind
+    assert_equal "manual", classification.retry_strategy
+    refute classification.terminal?
+  end
+
+  test "classifies requested-token overflow signatures as explicit prompt-size failures" do
+    error = build_provider_http_error(
+      message: "Provider rejected the request because you requested 145031 tokens.",
+      status: 400
+    )
+
+    classification = ProviderExecution::FailureClassification.call(error: error)
+
+    assert_equal "contract_error", classification.failure_category
+    assert_equal "context_window_exceeded_after_compaction", classification.failure_kind
+    assert_equal "retryable_failure", classification.wait_reason_kind
+    assert_equal "manual", classification.retry_strategy
+    refute classification.terminal?
+  end
+
   test "classifies unknown errors as terminal implementation failures" do
     classification = ProviderExecution::FailureClassification.call(error: StandardError.new("boom"))
 

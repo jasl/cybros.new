@@ -58,6 +58,21 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     end
   end
 
+  class ContextOverflowAdapter < SimpleInference::HTTPAdapter
+    def call(_env)
+      {
+        status: 400,
+        headers: { "content-type" => "application/json" },
+        body: JSON.generate(
+          error: {
+            code: "context_length_exceeded",
+            message: "This model's maximum context length is 128000 tokens, however you requested 145031 tokens.",
+          }
+        ),
+      }
+    end
+  end
+
   test "uses the persisted execution snapshot contract for provider request context" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
@@ -577,6 +592,168 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_nil workflow_run.turn.reload.selected_output_message
     assert_equal ["runtime.workflow_node.started", "runtime.workflow_node.waiting"], broadcasts.map { |payload| payload.fetch("event_kind") }
     assert_equal "invalid_provider_response_contract", broadcasts.last.fetch("payload").fetch("failure_kind")
+  end
+
+  test "persists remediation metadata when the selected input alone exceeds the hard limit" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: { "temperature" => 0.4 },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    long_input = "A" * 800
+    workflow_run.turn.selected_input_message.update!(content: long_input)
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "system", "content" => "You are a coding agent." },
+            { "role" => "user", "content" => "Older context" },
+            { "role" => "user", "content" => long_input },
+          ],
+          "visible_tool_names" => [],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ]
+    )
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteTurnStep.call(
+        workflow_node: workflow_node,
+        messages: turn_step_messages_for(workflow_run),
+        adapter: ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(response_bodies: []),
+        agent_request_exchange: agent_request_exchange
+      )
+    end
+
+    wait_payload = workflow_run.reload.wait_reason_payload
+
+    assert_equal "waiting", workflow_run.wait_state
+    assert_equal "retryable_failure", workflow_run.wait_reason_kind
+    assert_equal "prompt_too_large_for_retry", workflow_run.wait_failure_kind
+    assert_equal(
+      {
+        "tail_input_editable" => true,
+        "user_must_send_new_message" => false,
+        "failure_scope" => "current_input",
+        "current_message_only" => true,
+        "selected_input_message_id" => workflow_run.turn.selected_input_message.public_id,
+      },
+      wait_payload.fetch("remediation")
+    )
+    assert_equal({}, wait_payload.fetch("degradation", {}))
+  end
+
+  test "persists remediation and degradation metadata when a compacted successor still cannot fit" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: { "temperature" => 0.4 },
+      catalog: catalog,
+      request_preparation_contract: {
+        "prompt_compaction" => {
+          "consultation_mode" => "direct_optional",
+          "workflow_execution" => "supported",
+          "lifecycle" => "turn_scoped",
+        },
+      }
+    )
+    root_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+
+    Workflows::Mutate.call(
+      workflow_run: workflow_run,
+      nodes: [
+        {
+          node_key: "turn_step_prompt_compaction_1",
+          node_type: "prompt_compaction",
+          yielding_node_key: root_node.node_key,
+          provider_round_index: 1,
+          presentation_policy: "internal_only",
+          decision_source: "system",
+          metadata: {
+            "artifact_key" => "turn_step_prompt_compaction_1:context",
+          },
+        },
+        {
+          node_key: "turn_step_prompt_compaction_1_successor",
+          node_type: "turn_step",
+          yielding_node_key: root_node.node_key,
+          provider_round_index: 1,
+          presentation_policy: "internal_only",
+          decision_source: "system",
+          metadata: {
+            "prompt_compaction_artifact_key" => "turn_step_prompt_compaction_1:context",
+            "prompt_compaction_source_node_key" => "turn_step_prompt_compaction_1",
+            "prompt_compaction_includes_prior_tool_results" => true,
+            "prompt_compaction_attempt_no" => 1,
+            "overflow_recovery_attempt_no" => 1,
+          },
+        },
+      ],
+      edges: [
+        { from_node_key: root_node.node_key, to_node_key: "turn_step_prompt_compaction_1" },
+        { from_node_key: "turn_step_prompt_compaction_1", to_node_key: "turn_step_prompt_compaction_1_successor" },
+      ]
+    )
+
+    prompt_compaction_node = workflow_run.reload.workflow_nodes.find_by!(node_key: "turn_step_prompt_compaction_1")
+    successor = workflow_run.workflow_nodes.find_by!(node_key: "turn_step_prompt_compaction_1_successor")
+
+    WorkflowArtifact.create!(
+      installation: workflow_run.installation,
+      workflow_run: workflow_run,
+      workflow_node: prompt_compaction_node,
+      artifact_key: "turn_step_prompt_compaction_1:context",
+      artifact_kind: "prompt_compaction_context",
+      storage_mode: "json_document",
+      payload: {
+        "artifact_kind" => "prompt_compaction_context",
+        "messages" => [
+          { "role" => "system", "content" => "You are a coding agent." },
+          { "role" => "user", "content" => "Compacted earlier context" },
+          { "role" => "user", "content" => "Newest input" },
+        ],
+        "stop_reason" => "hard_limit_after_compaction",
+        "failure_scope" => "full_context",
+        "selected_input_message_id" => workflow_run.turn.selected_input_message.public_id,
+        "source" => "embedded",
+        "fallback_used" => true,
+        "runtime_failure_code" => "mailbox_timeout",
+      }
+    )
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteTurnStep.call(
+        workflow_node: successor,
+        messages: ProviderExecution::LoadPromptCompactionContext.call(workflow_node: successor),
+        adapter: ContextOverflowAdapter.new,
+        agent_request_exchange: ProviderExecutionTestSupport::FakeAgentRequestExchange.new
+      )
+    end
+
+    wait_payload = workflow_run.reload.wait_reason_payload
+
+    assert_equal "waiting", workflow_run.wait_state
+    assert_equal "retryable_failure", workflow_run.wait_reason_kind
+    assert_equal "context_window_exceeded_after_compaction", workflow_run.wait_failure_kind
+    assert_equal(
+      {
+        "tail_input_editable" => false,
+        "user_must_send_new_message" => true,
+        "failure_scope" => "full_context",
+        "current_message_only" => false,
+        "selected_input_message_id" => workflow_run.turn.selected_input_message.public_id,
+      },
+      wait_payload.fetch("remediation")
+    )
+    assert_equal(
+      {
+        "source" => "embedded",
+        "fallback_used" => true,
+        "runtime_failure_code" => "mailbox_timeout",
+      },
+      wait_payload.fetch("degradation")
+    )
   end
 
   test "blocks the step for retry instead of failing when the provider round budget is exceeded" do

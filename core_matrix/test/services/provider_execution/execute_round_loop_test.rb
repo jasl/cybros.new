@@ -1,6 +1,31 @@
 require "test_helper"
 
 class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
+  class ContextOverflowAdapter < SimpleInference::HTTPAdapter
+    attr_reader :requests
+
+    def initialize
+      @requests = []
+    end
+
+    def call(env)
+      @requests << env
+      {
+        status: 400,
+        headers: {
+          "content-type" => "application/json",
+          "x-request-id" => "overflow-request-#{@requests.length}",
+        },
+        body: JSON.generate(
+          error: {
+            code: "context_length_exceeded",
+            message: "This model's maximum context length is 128000 tokens, however you requested 145031 tokens.",
+          }
+        ),
+      }
+    end
+  end
+
   test "raises a dedicated round limit error when the configured loop budget is exhausted" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(
@@ -455,6 +480,237 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     assert_equal "compact", result.prompt_compaction_result.dig("consultation", "decision")
     assert_equal "compact_required", result.prompt_compaction_result.dig("guard_result", "decision")
     assert_equal [], agent_request_exchange.execute_tool_requests
+    assert_equal 1, agent_request_exchange.consult_prompt_compaction_requests.length
+  end
+
+  test "raises an explicit prompt-size failure when the selected input alone exceeds the hard limit" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {},
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    transcript = turn_step_messages_for(workflow_run)
+    long_input = "A" * 800
+    workflow_run.turn.selected_input_message.update!(content: long_input)
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "system", "content" => "You are a coding agent." },
+            { "role" => "user", "content" => "Earlier context" },
+            { "role" => "user", "content" => long_input },
+          ],
+          "visible_tool_names" => [],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ]
+    )
+
+    error = assert_raises(ProviderExecution::ExecuteRoundLoop::PromptTooLargeForRetry) do
+      with_stubbed_provider_catalog(catalog) do
+        ProviderExecution::ExecuteRoundLoop.call(
+          workflow_node: workflow_node,
+          transcript: transcript,
+          adapter: ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(response_bodies: []),
+          effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
+          agent_request_exchange: agent_request_exchange
+        )
+      end
+    end
+
+    assert_equal 3, error.messages_count
+    assert_equal workflow_run.turn.selected_input_message.public_id, error.selected_input_message_id
+  end
+
+  test "yields overflow recovery compaction when the provider still reports context overflow after dispatch" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {},
+      catalog: catalog,
+      request_preparation_contract: {
+        "prompt_compaction" => {
+          "consultation_mode" => "direct_optional",
+          "workflow_execution" => "supported",
+          "lifecycle" => "turn_scoped",
+        },
+      }
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    workflow_node.update!(
+      metadata: workflow_node.metadata.merge(
+        "prompt_compaction_source_node_key" => "previous_prompt_compaction",
+        "prompt_compaction_artifact_key" => "previous_prompt_compaction:context",
+        "prompt_compaction_attempt_no" => 0,
+        "overflow_recovery_attempt_no" => 0,
+      )
+    )
+    transcript = turn_step_messages_for(workflow_run)
+    adapter = ContextOverflowAdapter.new
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "system", "content" => "You are a coding agent." },
+            { "role" => "user", "content" => "Compacted earlier context" },
+            { "role" => "user", "content" => "Newest input" },
+          ],
+          "visible_tool_names" => [],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ],
+      prompt_compaction_consults: [
+        {
+          "status" => "ok",
+          "decision" => "compact",
+          "diagnostics" => { "reason" => "overflow_recovery" },
+        },
+      ]
+    )
+
+    result = with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteRoundLoop.call(
+        workflow_node: workflow_node,
+        transcript: transcript,
+        adapter: adapter,
+        effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
+        agent_request_exchange: agent_request_exchange,
+        request_preparation_exchange: ProviderExecution::RequestPreparationExchange.new(
+          agent_definition_version: workflow_run.turn.agent_definition_version,
+          agent_request_exchange: agent_request_exchange
+        )
+      )
+    end
+
+    assert result.yielded_prompt_compaction?
+    assert_equal "overflow_recovery", result.prompt_compaction_result.fetch("consultation_reason")
+    assert_equal "compact_required", result.prompt_compaction_result.dig("guard_result", "decision")
+    assert_equal 1, agent_request_exchange.consult_prompt_compaction_requests.length
+    assert_equal "overflow_recovery", agent_request_exchange.consult_prompt_compaction_requests.first.dig("prompt_compaction", "consultation_reason")
+    assert_equal 1, adapter.requests.length
+  end
+
+  test "raises an explicit full-context failure when compaction would be required again after a prior compaction pass" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {},
+      catalog: catalog,
+      request_preparation_contract: {
+        "prompt_compaction" => {
+          "consultation_mode" => "direct_optional",
+          "workflow_execution" => "supported",
+          "lifecycle" => "turn_scoped",
+        },
+      }
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    workflow_node.update!(
+      metadata: workflow_node.metadata.merge(
+        "prompt_compaction_source_node_key" => "previous_prompt_compaction",
+        "prompt_compaction_artifact_key" => "previous_prompt_compaction:context",
+        "prompt_compaction_attempt_no" => 1,
+      )
+    )
+    transcript = turn_step_messages_for(workflow_run)
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "system", "content" => "You are a coding agent." },
+            { "role" => "user", "content" => "Still too much older context " * 50 },
+            { "role" => "user", "content" => "Newest input" },
+          ],
+          "visible_tool_names" => [],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ],
+      prompt_compaction_consults: [
+        {
+          "status" => "ok",
+          "decision" => "compact",
+          "diagnostics" => { "reason" => "hard_limit" },
+        },
+      ]
+    )
+
+    error = assert_raises(ProviderExecution::ExecuteRoundLoop::ContextWindowExceededAfterCompaction) do
+      with_stubbed_provider_catalog(catalog) do
+        ProviderExecution::ExecuteRoundLoop.call(
+          workflow_node: workflow_node,
+          transcript: transcript,
+          adapter: ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(response_bodies: []),
+          effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
+          agent_request_exchange: agent_request_exchange,
+          request_preparation_exchange: ProviderExecution::RequestPreparationExchange.new(
+            agent_definition_version: workflow_run.turn.agent_definition_version,
+            agent_request_exchange: agent_request_exchange
+          )
+        )
+      end
+    end
+
+    assert_equal 3, error.messages_count
+    assert_equal workflow_run.turn.selected_input_message.public_id, error.selected_input_message_id
+  end
+
+  test "raises an explicit full-context failure when consultation rejects required compaction" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {},
+      catalog: catalog,
+      request_preparation_contract: {
+        "prompt_compaction" => {
+          "consultation_mode" => "direct_optional",
+          "workflow_execution" => "supported",
+          "lifecycle" => "turn_scoped",
+        },
+      }
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    transcript = turn_step_messages_for(workflow_run)
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "system", "content" => "You are a coding agent." },
+            { "role" => "user", "content" => "Still too much older context " * 50 },
+            { "role" => "user", "content" => "Newest input" },
+          ],
+          "visible_tool_names" => [],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ],
+      prompt_compaction_consults: [
+        {
+          "status" => "ok",
+          "decision" => "reject",
+          "diagnostics" => { "reason" => "hard_limit" },
+        },
+      ]
+    )
+
+    error = assert_raises(ProviderExecution::ExecuteRoundLoop::ContextWindowExceededAfterCompaction) do
+      with_stubbed_provider_catalog(catalog) do
+        ProviderExecution::ExecuteRoundLoop.call(
+          workflow_node: workflow_node,
+          transcript: transcript,
+          adapter: ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(response_bodies: []),
+          effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
+          agent_request_exchange: agent_request_exchange,
+          request_preparation_exchange: ProviderExecution::RequestPreparationExchange.new(
+            agent_definition_version: workflow_run.turn.agent_definition_version,
+            agent_request_exchange: agent_request_exchange
+          )
+        )
+      end
+    end
+
+    assert_equal 3, error.messages_count
+    assert_equal workflow_run.turn.selected_input_message.public_id, error.selected_input_message_id
     assert_equal 1, agent_request_exchange.consult_prompt_compaction_requests.length
   end
 

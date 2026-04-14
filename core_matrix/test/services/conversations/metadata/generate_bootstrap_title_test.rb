@@ -1,22 +1,16 @@
 require "test_helper"
 
 class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestCase
-  test "returns the embedded candidate title when policy is enabled" do
+  test "returns the runtime feature candidate title when policy is enabled" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     message = build_user_message("Plan the launch checklist. Include rollback steps.")
     invoked = nil
 
-    original_call = EmbeddedAgents::Invoke.method(:call)
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call) do |**kwargs|
+    original_call = Conversations::Metadata::RuntimeBootstrapTitle.method(:call)
+    Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call) do |**kwargs|
       invoked = kwargs
-      EmbeddedAgents::Result.new(
-        agent_key: "conversation_title",
-        status: "ok",
-        output: { "title" => "Launch checklist plan" },
-        metadata: { "source" => "modeled" },
-        responder_kind: "model"
-      )
+      "Launch checklist plan"
     end
 
     title = Conversations::Metadata::GenerateBootstrapTitle.call(
@@ -26,13 +20,13 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     )
 
     assert_equal "Launch checklist plan", title
-    assert_equal "conversation_title", invoked.fetch(:agent_key)
-    assert_equal conversation.public_id, invoked.fetch(:target).fetch("conversation_id")
+    assert_equal conversation.id, invoked.fetch(:conversation).id
+    assert_equal message.content.to_s, invoked.fetch(:message).content.to_s
   ensure
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call, original_call)
+    Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call, original_call)
   end
 
-  test "runtime_first mode tries the runtime strategy before the embedded fallback" do
+  test "runtime_first mode tries the runtime feature strategy before heuristic fallback" do
     context = create_workspace_context!
     context[:workspace].update!(
       config: {
@@ -46,23 +40,11 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     message = build_user_message("Plan the launch checklist. Include rollback steps.")
     runtime_attempted = false
-    embedded_invoked = false
 
     original_runtime_call = Conversations::Metadata::RuntimeBootstrapTitle.method(:call)
     Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call) do |**_kwargs|
       runtime_attempted = true
       "Runtime generated title"
-    end
-    original_embedded_call = EmbeddedAgents::Invoke.method(:call)
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call) do |**_kwargs|
-      embedded_invoked = true
-      EmbeddedAgents::Result.new(
-        agent_key: "conversation_title",
-        status: "ok",
-        output: { "title" => "Embedded fallback title" },
-        metadata: { "source" => "modeled" },
-        responder_kind: "model"
-      )
     end
 
     title = Conversations::Metadata::GenerateBootstrapTitle.call(
@@ -72,11 +54,9 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     )
 
     assert_equal true, runtime_attempted
-    assert_equal false, embedded_invoked
     assert_equal "Runtime generated title", title
   ensure
     Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call, original_runtime_call)
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call, original_embedded_call)
   end
 
   test "returns nil when the effective policy disables title bootstrap" do
@@ -102,28 +82,7 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     assert_nil title
   end
 
-  test "falls back to the deterministic heuristic when embedded generation is unavailable" do
-    context = create_workspace_context!
-    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
-    message = build_user_message("Draft the incident rollback checklist. Include owner handoff.")
-
-    original_call = EmbeddedAgents::Invoke.method(:call)
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call) do |**_kwargs|
-      raise EmbeddedAgents::Errors::UnknownAgentKey, "unknown embedded agent key conversation_title"
-    end
-
-    title = Conversations::Metadata::GenerateBootstrapTitle.call(
-      conversation: conversation,
-      message: message,
-      agent_definition_version: context[:agent_definition_version]
-    )
-
-    assert_equal "Draft the incident rollback checklist.", title
-  ensure
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call, original_call)
-  end
-
-  test "missing runtime support falls back to embedded generation" do
+  test "non-strict policies fall back to embedded generation when no platform title is produced" do
     context = create_workspace_context!
     context[:workspace].update!(
       config: {
@@ -143,15 +102,9 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
       runtime_attempted = true
       nil
     end
-    original_embedded_call = EmbeddedAgents::Invoke.method(:call)
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call) do |**_kwargs|
-      EmbeddedAgents::Result.new(
-        agent_key: "conversation_title",
-        status: "ok",
-        output: { "title" => "Embedded fallback title" },
-        metadata: { "source" => "modeled" },
-        responder_kind: "model"
-      )
+    original_embedded_call = EmbeddedFeatures::TitleBootstrap::Invoke.method(:call)
+    EmbeddedFeatures::TitleBootstrap::Invoke.singleton_class.send(:define_method, :call) do |**_kwargs|
+      { "title" => "Embedded fallback title" }
     end
 
     title = Conversations::Metadata::GenerateBootstrapTitle.call(
@@ -164,10 +117,41 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     assert_equal "Embedded fallback title", title
   ensure
     Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call, original_runtime_call)
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call, original_embedded_call)
+    EmbeddedFeatures::TitleBootstrap::Invoke.singleton_class.send(:define_method, :call, original_embedded_call)
   end
 
-  test "runtime failure falls back to embedded generation" do
+  test "passes explicit actor through the embedded fallback path" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    message = build_user_message("Draft the incident rollback checklist. Include owner handoff.")
+    explicit_actor = create_user!(installation: context[:installation], display_name: "Fallback Actor")
+    embedded_request_payload = nil
+
+    original_runtime_call = Conversations::Metadata::RuntimeBootstrapTitle.method(:call)
+    Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call) do |**_kwargs|
+      nil
+    end
+    original_embedded_call = EmbeddedFeatures::TitleBootstrap::Invoke.method(:call)
+    EmbeddedFeatures::TitleBootstrap::Invoke.singleton_class.send(:define_method, :call) do |**kwargs|
+      embedded_request_payload = kwargs.fetch(:request_payload)
+      { "title" => "Embedded fallback title" }
+    end
+
+    title = Conversations::Metadata::GenerateBootstrapTitle.call(
+      conversation: conversation,
+      message: message,
+      agent_definition_version: context[:agent_definition_version],
+      actor: explicit_actor
+    )
+
+    assert_equal "Embedded fallback title", title
+    assert_equal explicit_actor, embedded_request_payload.fetch("actor")
+  ensure
+    Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call, original_runtime_call)
+    EmbeddedFeatures::TitleBootstrap::Invoke.singleton_class.send(:define_method, :call, original_embedded_call)
+  end
+
+  test "non-strict policies fall back to embedded generation when platform invocation raises" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     message = build_user_message("Draft the incident rollback checklist. Include owner handoff.")
@@ -176,15 +160,9 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call) do |**_kwargs|
       raise "runtime unavailable"
     end
-    original_embedded_call = EmbeddedAgents::Invoke.method(:call)
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call) do |**_kwargs|
-      EmbeddedAgents::Result.new(
-        agent_key: "conversation_title",
-        status: "ok",
-        output: { "title" => "Embedded fallback title" },
-        metadata: { "source" => "modeled" },
-        responder_kind: "model"
-      )
+    original_embedded_call = EmbeddedFeatures::TitleBootstrap::Invoke.method(:call)
+    EmbeddedFeatures::TitleBootstrap::Invoke.singleton_class.send(:define_method, :call) do |**_kwargs|
+      { "title" => "Embedded fallback title" }
     end
 
     title = Conversations::Metadata::GenerateBootstrapTitle.call(
@@ -196,7 +174,7 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     assert_equal "Embedded fallback title", title
   ensure
     Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call, original_runtime_call)
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call, original_embedded_call)
+    EmbeddedFeatures::TitleBootstrap::Invoke.singleton_class.send(:define_method, :call, original_embedded_call)
   end
 
   test "runtime_required leaves the placeholder path without embedded fallback when runtime is unavailable" do
@@ -212,22 +190,10 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     )
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     message = build_user_message("Draft the incident rollback checklist. Include owner handoff.")
-    embedded_invoked = false
 
     original_runtime_call = Conversations::Metadata::RuntimeBootstrapTitle.method(:call)
     Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call) do |**_kwargs|
       nil
-    end
-    original_embedded_call = EmbeddedAgents::Invoke.method(:call)
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call) do |**_kwargs|
-      embedded_invoked = true
-      EmbeddedAgents::Result.new(
-        agent_key: "conversation_title",
-        status: "ok",
-        output: { "title" => "Embedded fallback title" },
-        metadata: { "source" => "modeled" },
-        responder_kind: "model"
-      )
     end
 
     title = Conversations::Metadata::GenerateBootstrapTitle.call(
@@ -237,10 +203,8 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     )
 
     assert_nil title
-    assert_equal false, embedded_invoked
   ensure
     Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call, original_runtime_call)
-    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call, original_embedded_call)
   end
 
   private

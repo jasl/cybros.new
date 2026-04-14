@@ -72,6 +72,22 @@ class ConversationDiagnostics::ResolveSnapshotStatusTest < ActiveSupport::TestCa
     assert_equal 1, result.turn_snapshot_count
   end
 
+  test "returns stale with a lifecycle drift reason when persisted turn snapshot lifecycle drifts from the live turn" do
+    context = build_canonical_variable_context!
+    conversation = context[:conversation]
+
+    record_usage_event(context, input_tokens: 120, output_tokens: 40, cached_input_tokens: 60)
+    ConversationDiagnostics::RecomputeConversationSnapshot.call(conversation: conversation)
+    context[:turn].update!(lifecycle_state: "completed")
+
+    result = ConversationDiagnostics::ResolveSnapshotStatus.call(conversation: conversation)
+
+    assert_equal "stale", result.status
+    assert_equal true, result.turn_lifecycle_drift?
+    assert result.conversation_snapshot.present?
+    assert_equal 1, result.turn_snapshot_count
+  end
+
   test "returns ready when no newer source facts exist" do
     context = build_canonical_variable_context!
     conversation = context[:conversation]

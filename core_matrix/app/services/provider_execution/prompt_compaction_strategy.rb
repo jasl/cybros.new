@@ -116,13 +116,13 @@ module ProviderExecution
 
       lines = ["Compacted earlier context:"]
       if prior_user_goals.present?
-        lines << "- Prior user goals: #{prior_user_goals.join(' | ')}"
+        lines << "- Prior user goals: #{prior_user_goals.join(" | ")}"
       end
       if important_paths.present?
-        lines << "- Important paths: #{important_paths.join(', ')}"
+        lines << "- Important paths: #{important_paths.join(", ")}"
       end
       if important_tokens.present?
-        lines << "- Important tokens: #{important_tokens.join(', ')}"
+        lines << "- Important tokens: #{important_tokens.join(", ")}"
       end
       if recent_context_excerpt.present?
         lines << "- Recent context: #{recent_context_excerpt}"

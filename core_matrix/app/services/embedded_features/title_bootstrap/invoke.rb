@@ -24,7 +24,7 @@ module EmbeddedFeatures
       private
 
       def modeled_title
-        return if actor.blank? || conversation_id.blank?
+        return if conversation_id.blank? || actor.blank?
 
         result = EmbeddedAgents::Invoke.call(
           agent_key: "conversation_title",
@@ -43,7 +43,13 @@ module EmbeddedFeatures
       end
 
       def actor
-        @request_payload["actor"]
+        @request_payload["actor"].presence || conversation&.user
+      end
+
+      def conversation
+        return if conversation_id.blank?
+
+        @conversation ||= Conversation.find_by(public_id: conversation_id)
       end
 
       def conversation_id

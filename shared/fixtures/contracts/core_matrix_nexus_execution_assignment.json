@@ -72,45 +72,62 @@
     "provider_context": {
       "budget_hints": {
         "hard_limits": {
+          "max_output_tokens": 128000,
           "context_window_tokens": 1000000,
-          "max_output_tokens": 128000
+          "hard_input_token_limit": 872000
         },
         "advisory_hints": {
-          "recommended_compaction_threshold": 900000
+          "reserved_tokens": 128000,
+          "soft_threshold_tokens": 900000,
+          "reserved_output_tokens": 128000,
+          "context_soft_limit_ratio": 0.9,
+          "recommended_input_tokens": 872000,
+          "recommended_compaction_threshold": 872000
+        }
+      },
+      "model_context": {
+        "wire_api": "responses",
+        "api_model": "gpt-5.4",
+        "model_ref": "gpt-5.4",
+        "transport": "https",
+        "model_metadata": {},
+        "tokenizer_hint": "o200k_base",
+        "provider_handle": "codex_subscription",
+        "provider_metadata": {
+          "owner_scope": "installation",
+          "access_model": "bundled_subscription"
+        }
+      },
+      "feature_policies": {
+        "prompt_compaction": {
+          "strategy": "runtime_first"
         }
       },
       "provider_execution": {
         "wire_api": "responses",
         "loop_policy": {
           "max_rounds": 64,
-          "parallel_tool_calls": false,
-          "max_parallel_tool_calls": 1,
           "loop_detection": {
             "enabled": false
-          }
+          },
+          "parallel_tool_calls": false,
+          "max_parallel_tool_calls": 1
         },
         "execution_settings": {
-          "reasoning_effort": "high",
-          "temperature": 0.2
+          "temperature": 0.2,
+          "reasoning_effort": "high"
         }
       },
-      "model_context": {
-        "provider_handle": "codex_subscription",
-        "model_ref": "gpt-5.4",
-        "api_model": "gpt-5.4",
-        "wire_api": "responses",
-        "transport": "https",
-        "tokenizer_hint": "o200k_base",
-        "provider_metadata": {
-          "access_model": "bundled_subscription",
-          "owner_scope": "installation"
-        },
-        "model_metadata": {}
-      },
-      "feature_policies": {
+      "request_preparation": {
         "prompt_compaction": {
-          "enabled": true,
-          "mode": "runtime_first"
+          "policy": {
+            "strategy": "runtime_first"
+          },
+          "capability": {
+            "available": false,
+            "consultation_mode": "none",
+            "workflow_execution": "unsupported"
+          }
         }
       }
     },

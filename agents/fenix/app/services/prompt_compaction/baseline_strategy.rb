@@ -114,9 +114,9 @@ module PromptCompaction
       return if middle_messages.empty?
 
       lines = ["Compacted earlier context:"]
-      lines << "- Prior user goals: #{prior_user_goals.join(' | ')}" if prior_user_goals.present?
-      lines << "- Important paths: #{important_paths.join(', ')}" if important_paths.present?
-      lines << "- Important tokens: #{important_tokens.join(', ')}" if important_tokens.present?
+      lines << "- Prior user goals: #{prior_user_goals.join(" | ")}" if prior_user_goals.present?
+      lines << "- Important paths: #{important_paths.join(", ")}" if important_paths.present?
+      lines << "- Important tokens: #{important_tokens.join(", ")}" if important_tokens.present?
       lines << "- Recent context: #{recent_context_excerpt}" if recent_context_excerpt.present?
 
       {
