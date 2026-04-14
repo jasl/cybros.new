@@ -7,7 +7,10 @@ features that need all of the following:
 
 - workspace-level policy
 - runtime capability discovery
-- runtime-first execution with embedded fallback
+- feature-specific execution modes such as direct control-plane calls vs
+  workflow-backed execution
+- runtime-first execution or runtime-authored workflow participation with
+  embedded fallback
 - feature-specific lifecycle rules such as snapshot-frozen vs live-read
 - future schema publication for UI or external tooling
 
@@ -41,10 +44,11 @@ It includes:
 1. structured feature policy schemas
 2. runtime feature capability contracts in manifests
 3. a shared feature registry in `core_matrix`
-4. runtime feature invocation over the control plane
-5. embedded fallback execution
-6. feature-owned lifecycle semantics
-7. schema publication for future UI consumers
+4. direct runtime feature invocation over the control plane where appropriate
+5. intent-backed workflow-node execution for model-backed features
+6. embedded fallback execution
+7. feature-owned lifecycle semantics
+8. schema publication for future UI consumers
 
 It explicitly covers `prompt_compaction` and `title_bootstrap` as the first
 consumers.
@@ -81,7 +85,8 @@ The main issues are:
 3. feature lifecycle behavior is implemented ad hoc per feature
 4. the policy schema is hand-written Ruby hash validation rather than a
    first-class schema artifact
-5. there is no shared execution contract for internal runtime features
+5. there is no shared execution contract that distinguishes direct feature
+   calls from workflow-backed feature execution
 
 ## Core Problem
 
@@ -130,7 +135,7 @@ The long-term policy shape should become:
       "strategy": "runtime_first"
     },
     "title_bootstrap": {
-      "strategy": "runtime_first"
+      "strategy": "embedded_only"
     }
   }
 }
@@ -159,6 +164,9 @@ Each registry entry should define:
 - `feature_key`
 - `policy_schema_class`
 - `runtime_capability_key`
+- `runtime_requirement`
+- `consultation_mode`
+- `execution_mode`
 - `policy_lifecycle`
 - `capability_lifecycle`
 - `orchestrator_class`
@@ -176,6 +184,9 @@ RuntimeFeatures::Registry.register(
   key: "prompt_compaction",
   policy_schema: RuntimeFeatures::Policies::PromptCompaction,
   runtime_capability_key: "prompt_compaction",
+  runtime_requirement: :required_on_fenix,
+  consultation_mode: :direct_required,
+  execution_mode: :workflow_intent,
   policy_lifecycle: :snapshot_frozen,
   capability_lifecycle: :snapshot_frozen,
   orchestrator: RuntimeFeatures::PromptCompaction::Orchestrator,
@@ -235,10 +246,12 @@ continuing to advertise internal product features through `tool_contract`.
 Each feature entry should include:
 
 - `feature_key`
-- `execution_plane`
+- `consultation_mode`
+- `execution_mode`
 - `lifecycle`
-- `input_schema`
-- `result_schema`
+- `consultation_schema`
+- `intent_schema`
+- `artifact_schema`
 - `implementation_ref`
 
 Example:
@@ -246,10 +259,12 @@ Example:
 ```json
 {
   "feature_key": "prompt_compaction",
-  "execution_plane": "agent",
+  "consultation_mode": "direct_required",
+  "execution_mode": "workflow_intent",
   "lifecycle": "turn_scoped",
-  "input_schema": { "type": "object" },
-  "result_schema": { "type": "object" },
+  "consultation_schema": { "type": "object" },
+  "intent_schema": { "type": "object" },
+  "artifact_schema": { "type": "object" },
   "implementation_ref": "fenix/prompt_compaction"
 }
 ```
@@ -257,20 +272,37 @@ Example:
 This is a cleaner fit than pretending internal compaction is a normal agent
 tool.
 
-### 7. Add A Dedicated `execute_feature` Control-Plane Contract
+### 7. Add Dedicated Feature Execution Paths
 
-The runtime invocation path should also become first-class.
+The platform should not force every feature through the same transport.
 
-Instead of routing internal features through `execute_tool`, add:
+It should support two execution paths plus an optional consultation hook:
 
-- `execute_feature` request kind
-- `FeatureRequestExchange` in `core_matrix`
-- `Requests::ExecuteFeature` in Fenix
+1. direct feature execution
+   - for non-LLM or non-loop-shaping features
+   - modeled through `execute_feature`
+2. intent-backed workflow execution
+   - for model-backed features that should appear as workflow nodes and re-enter
+     the agent loop after completion
+   - modeled through yielded feature intents plus workflow-node materialization
 
 This keeps the control-plane model honest:
 
 - tools are tools
-- features are features
+- direct features are direct features
+- workflow-backed features are workflow-backed features
+
+Some features may also require a direct consultation phase before execution:
+
+- Core Matrix remains the authoritative trigger
+- runtime is asked whether and how the feature should proceed
+- Core Matrix then decides whether to materialize workflow work
+
+For the initial slices:
+
+- `prompt_compaction` must use `workflow_intent`
+- `prompt_compaction` should also expose a direct consultation hook
+- `title_bootstrap` may use direct feature execution or embedded execution
 
 ### 8. Freeze Or Resolve Per Feature, Not Globally
 
@@ -298,10 +330,19 @@ Every feature invocation should go through one orchestration path:
 
 1. resolve effective policy
 2. resolve effective capability
-3. select runtime vs embedded path
-4. invoke runtime when allowed and supported
-5. fall back to embedded according to feature policy
-6. return a typed result object with source and status
+3. run consultation when the feature requires it
+4. select direct invocation vs workflow-backed execution vs embedded path
+5. invoke or materialize the selected path
+6. fall back to embedded according to feature policy
+7. return a typed result object with source, execution mode, and status
+
+The platform must still allow per-feature runtime criticality:
+
+- some features are genuinely runtime-optional
+- some features are runtime-required for specific runtimes such as Fenix
+
+That requirement must be explicit in the registry and enforced by manifest
+tests and bundled-runtime registration, not left as convention.
 
 The common result shape should include:
 
@@ -312,6 +353,10 @@ The common result shape should include:
 - `source`
   - `runtime`
   - `embedded`
+  - `none`
+- `execution_mode`
+  - `direct`
+  - `workflow`
   - `none`
 - `fallback_used`
 - `value`
@@ -337,10 +382,13 @@ Each feature then decides whether these mean:
 For example:
 
 - `prompt_compaction`
-  - `feature_unsupported` means fallback
+  - on Fenix, missing advertised capability is a contract failure, not a
+    healthy steady state
+  - runtime execution failure may still fall back once for resilience
   - repeated failure may become a turn failure
 - `title_bootstrap`
-  - `feature_unsupported` means fallback
+  - runtime support is optional
+  - `feature_unsupported` means fallback or skip according to strategy
   - final failure is still best-effort and non-blocking
 
 ## Platform Components
@@ -395,6 +443,61 @@ Responsibilities:
 
 - send and receive feature control-plane requests
 - normalize runtime results and failures
+- support consultation-style direct requests for workflow-backed features when
+  the platform requires runtime guidance before materializing workflow work
+
+### Shared Advisory APIs
+
+Some agent-facing infrastructure queries should remain Core Matrix-owned instead
+of being reimplemented per runtime.
+
+The first concrete example is input-token counting for prompt construction:
+
+- a static per-round budget envelope delivered during prompt construction
+- an OpenAI-style input-token counting API exposed to agents over the
+  authenticated AgentAPI
+  surface
+- backed by Core Matrix token estimation and reserve logic
+- reusable outside the `prompt_compaction` slice
+- non-mutating and non-authoritative for final dispatch
+
+This keeps heavy tokenizer and budgeting infrastructure in Core Matrix while
+still giving specialized agents a way to proactively manage context.
+
+The two surfaces should be distinct:
+
+- `budget envelope`
+  - delivered with round-construction context
+  - includes selected model identity plus recommended and hard prompt-input
+    budget targets
+  - intended for up-front drafting guidance
+- `input-token counting API`
+  - invoked on demand with a concrete candidate provider-visible `input`
+    payload
+  - returns recalculated token diagnostics for that candidate
+  - intended for dynamic refinement while drafting
+
+Neither surface replaces the final dispatch-time guard.
+
+These agent-initiated counting APIs should not be modeled as mailbox work or as
+Core Matrix-to-agent `execute_feature` calls. They are agent-initiated,
+authenticated AgentAPI requests.
+
+### Workflow Intent Layer
+
+Recommended home:
+
+- `core_matrix/app/services/provider_execution/persist_turn_step_yield.rb`
+- `core_matrix/app/services/workflows/re_enter_agent.rb`
+- `core_matrix/app/services/runtime_features/intent_materializer.rb`
+
+Responsibilities:
+
+- accept runtime-authored workflow intents only for features that permit them
+- synthesize feature intents from Core Matrix guards or platform orchestrators
+  when the feature is Core Matrix-triggered
+- materialize workflow nodes and artifacts
+- resume normal agent execution after the feature node completes
 
 ### Orchestration Layer
 
@@ -431,8 +534,23 @@ Platform-specific characteristics:
 - execution-critical
 - snapshot-frozen
 - runtime-first by default
+- runtime capability required for Fenix
+- Core Matrix is the sole trigger
+- direct consultation before workflow insertion
+- workflow-backed execution
 - embedded fallback required
 - may produce turn failure if compaction cannot recover the request
+
+`prompt_compaction` is the one feature in this initial platform that should be
+treated as quality-critical for the primary agent runtime. For Fenix, the
+runtime capability must exist and be validated as part of the runtime contract.
+The authoritative budget check belongs to Core Matrix, not the runtime agent.
+When Core Matrix detects that compaction is advisable or required, it should
+ask the runtime for compaction guidance, then insert a workflow node if the
+decision is to compact. If compaction requires an LLM call, that call should
+appear as a workflow node, not as an invisible synchronous control-plane side
+effect. Embedded compaction remains valuable, but only as a degraded fallback
+or for non-Fenix runtimes.
 
 ### `title_bootstrap`
 
@@ -440,7 +558,8 @@ Platform-specific characteristics:
 
 - metadata-only
 - live-resolved
-- runtime-first by default
+- embedded-only by default
+- runtime capability optional
 - embedded fallback required
 - final failure is best-effort and non-blocking
 
@@ -470,8 +589,8 @@ The platform should be tested at five levels:
 
 1. policy schema bundle generation and validation
 2. manifest `feature_contract` parsing and freezing
-3. runtime `execute_feature` exchange
-4. shared orchestration and fallback behavior
+3. direct `execute_feature` exchange where relevant
+4. workflow-intent materialization and re-entry behavior
 5. feature-slice behavior for prompt compaction and title bootstrap
 
 ## Summary

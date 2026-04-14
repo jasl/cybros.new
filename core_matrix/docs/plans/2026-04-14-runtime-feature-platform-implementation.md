@@ -4,15 +4,17 @@
 
 **Goal:** Replace the current ad hoc internal-feature infrastructure with a
 shared runtime feature platform that provides schema-first workspace policy,
-manifest-driven capability discovery, explicit runtime feature invocation, and
-embedded fallback execution for feature slices such as `prompt_compaction` and
-`title_bootstrap`.
+manifest-driven capability discovery, direct or workflow-backed feature
+execution, and embedded fallback execution for feature slices such as
+`prompt_compaction` and `title_bootstrap`.
 
 **Architecture:** `core_matrix` will introduce a feature registry, a
-schema-first policy layer, a dedicated runtime `feature_contract`, and a new
-`execute_feature` control-plane exchange. Feature slices will then plug into
-the shared platform by registering their policy schema, lifecycle rules,
-runtime capability key, orchestrator, and embedded executor.
+schema-first policy layer, a dedicated runtime `feature_contract`, a direct
+`execute_feature` control-plane exchange for direct features, and a
+workflow-intent materialization path for model-backed features. Feature slices
+will then plug into the shared platform by registering their policy schema,
+lifecycle rules, runtime capability key, optional consultation mode,
+execution mode, orchestrator, and embedded executor.
 
 **Tech Stack:** Ruby on Rails, Active Record, Minitest, JSON Schema, control
 plane mailbox contracts, embedded agents/features, `agents/fenix`, EasyTalk or
@@ -26,8 +28,13 @@ At the end of this plan:
 
 - `workspace.config.features.*` is defined by a schema-first contract layer
 - Fenix manifest exposes `feature_contract`
-- Core Matrix invokes internal runtime features through `execute_feature`
+- Core Matrix supports both direct feature invocation and workflow-backed
+  feature execution
+- the platform can run a direct consultation phase before workflow-backed
+  execution when a feature requires runtime guidance
 - prompt compaction and title bootstrap use the same platform primitives
+- Fenix is contractually required to implement `prompt_compaction`
+- `title_bootstrap` remains runtime-optional and embedded-first by default
 - internal product features are no longer modeled as ordinary tools
 
 ---
@@ -49,7 +56,11 @@ Add tests that expect:
 - unknown feature keys are rejected explicitly
 - manifest `feature_contract` entries are normalized separately from
   `tool_contract`
+- feature definitions declare `execution_mode`
+- feature definitions may declare `consultation_mode`
 - feature capability resolution supports both snapshot-frozen and live modes
+- `prompt_compaction` is marked runtime-required for Fenix
+- `title_bootstrap` remains runtime-optional
 
 **Step 2: Write failing invocation tests**
 
@@ -59,14 +70,17 @@ Add tests that expect:
 - `embedded_only` skips runtime entirely
 - `runtime_required` fails when capability is absent
 - runtime failure may fall back to embedded when the feature policy allows it
+- workflow-backed features materialize workflow work instead of going through
+  the direct feature exchange
 
 **Step 3: Extend the Fenix manifest test**
 
 Add failing expectations for:
 
 - top-level `feature_contract`
-- `prompt_compaction` feature capability entry
-- any reserved `title_bootstrap` capability entry if declared in this phase
+- required `prompt_compaction` feature capability entry
+- `prompt_compaction.consultation_mode = direct_required`
+- no requirement that `title_bootstrap` capability be present
 
 **Step 4: Run the targeted tests and verify they fail**
 
@@ -130,6 +144,11 @@ Use the shared strategy enum:
 - `embedded_only`
 - `runtime_first`
 - `runtime_required`
+
+Use these initial defaults:
+
+- `prompt_compaction.strategy = runtime_first`
+- `title_bootstrap.strategy = embedded_only`
 
 Attach UI-oriented metadata through schema extensions instead of hardcoding UI
 shape in controller/presenter code.
@@ -230,6 +249,13 @@ Update Fenix definition packaging so the manifest publishes a top-level
 
 Keep `tool_contract` for real tools only.
 
+For this first pass:
+
+- `prompt_compaction` must be present
+- `prompt_compaction.consultation_mode = direct_required`
+- `prompt_compaction.execution_mode = workflow_intent`
+- `title_bootstrap` may be omitted
+
 **Step 2: Freeze feature capabilities where required**
 
 Add capability snapshot support in Core Matrix for snapshot-frozen features.
@@ -261,7 +287,7 @@ PARALLEL_WORKERS=1 bin/rails test \
 
 Expected: feature capabilities are now a first-class manifest concept.
 
-### Task 5: Add The `execute_feature` Control-Plane Contract
+### Task 5: Add The Direct `execute_feature` Control-Plane Contract
 
 **Files:**
 - Create: `core_matrix/app/services/runtime_features/feature_request_exchange.rb`
@@ -279,15 +305,31 @@ Add tests that expect:
 - `execute_feature` is a distinct request kind
 - feature request payloads carry `feature_key`, input payload, and context
 - terminal reports normalize feature result vs feature failure cleanly
+- consultation-style requests can be issued without materializing workflow work
 
 **Step 2: Implement the Core Matrix exchange**
 
 Add `FeatureRequestExchange` that mirrors the existing agent request exchange
 shape without pretending features are tools.
 
+This direct exchange is only for Core Matrix-to-agent feature calls.
+
+Agent-initiated infrastructure queries, such as OpenAI-style input-token
+counting for candidate prompt payloads, should use authenticated AgentAPI
+resource endpoints instead of `execute_feature`. Those APIs complement static
+round-construction guidance but are not implemented through mailbox exchange.
+Concrete counting endpoints remain feature-slice work, not platform work.
+
 **Step 3: Implement the Fenix request handler**
 
 Add `Requests::ExecuteFeature` and route mailbox execution accordingly.
+
+Do **not** wire `prompt_compaction` through this path. `prompt_compaction`
+will use workflow-intent execution in Task 7.
+
+This task only establishes the direct feature exchange for features that are
+actually direct, or for consultation phases that precede workflow-backed
+execution.
 
 **Step 4: Run targeted tests and make them green**
 
@@ -327,6 +369,12 @@ Register the initial feature slices:
 - `prompt_compaction`
 - `title_bootstrap`
 
+The registry must carry runtime criticality explicitly:
+
+- `prompt_compaction`: `runtime_requirement = required_on_fenix`
+- `prompt_compaction`: `consultation_mode = direct_required`
+- `title_bootstrap`: `runtime_requirement = optional`
+
 **Step 2: Implement shared invocation**
 
 `RuntimeFeatures::Invoke` should:
@@ -334,7 +382,8 @@ Register the initial feature slices:
 - load the registry entry
 - resolve policy
 - resolve capability
-- decide runtime vs embedded path
+- run direct consultation when the registry entry requires it
+- decide direct invocation vs workflow-backed execution vs embedded path
 - handle fallback
 - return a typed result object
 
@@ -361,35 +410,86 @@ PARALLEL_WORKERS=1 bin/rails test \
 
 Expected: the platform can now invoke any registered feature consistently.
 
-### Task 7: Migrate `prompt_compaction` Onto The Platform
+### Task 7: Migrate `prompt_compaction` Onto The Platform As A Workflow-Backed Feature
 
 **Files:**
+- Create: `agents/fenix/app/services/features/prompt_compaction/respond_to_consultation.rb`
+- Create: `agents/fenix/app/services/features/prompt_compaction/execute_node.rb`
+- Modify: `agents/fenix/app/services/requests/execute_feature.rb`
+- Modify: `agents/fenix/app/services/runtime/manifest/definition_package.rb`
+- Create: `agents/fenix/test/services/features/prompt_compaction/respond_to_consultation_test.rb`
+- Create: `agents/fenix/test/services/features/prompt_compaction/execute_node_test.rb`
+- Modify: `agents/fenix/test/services/runtime/execute_mailbox_item_test.rb`
 - Modify: `core_matrix/app/services/provider_execution/prompt_compaction_policy.rb`
 - Modify: `core_matrix/app/services/provider_execution/prompt_budget_guard.rb`
 - Modify: `core_matrix/app/services/provider_execution/execute_round_loop.rb`
+- Modify: `core_matrix/app/services/provider_execution/persist_turn_step_yield.rb`
+- Modify: `core_matrix/app/services/workflows/re_enter_agent.rb`
 - Modify: `core_matrix/docs/plans/2026-04-14-prompt-budget-guard-design.md`
 - Modify: `core_matrix/docs/plans/2026-04-14-prompt-budget-guard-implementation.md`
 - Modify: `core_matrix/test/services/provider_execution/**`
 
 **Step 1: Re-express prompt compaction as a platform slice**
 
-Replace feature-specific policy/capability plumbing with platform calls.
+Replace feature-specific policy/capability plumbing with platform calls and a
+workflow-backed execution path.
 
-**Step 2: Add runtime and embedded executors**
+**Step 2: Implement the required Fenix runtime capability**
+
+Implement `agents/fenix` prompt compaction as the first concrete
+quality-critical runtime feature.
+
+The algorithm should follow the shared lessons from Claude Code, Codex, and
+OpenClaw:
+
+- consume Core Matrix budget diagnostics instead of owning authoritative token
+  estimation
+- preserve the newest selected user input verbatim
+- compact older transcript and imported context first
+- prefer trimming or summarizing bulky tool outputs before touching recent user
+  context
+- return structured compaction guidance during the direct consultation phase
+  (`skip`, `compact`, `reject`)
+- execute the actual compaction inside the materialized workflow node
+
+**Step 3: Materialize prompt compaction as workflow work**
+
+Update Core Matrix so prompt compaction is represented as workflow work:
+
+- `PromptBudgetGuard` is the sole trigger when preflight detects the request no
+  longer fits or reserve quality is at risk
+- Core Matrix first consults the runtime for compaction guidance
+- if the consultation says to compact, Core Matrix materializes the workflow
+  node
+- provider-overflow recovery may also trigger the same consultation + node
+  insertion once
+- the intent materializes a dedicated workflow node
+- the workflow node persists compaction artifacts and diagnostics
+- `Workflows::ReEnterAgent` returns to the normal agent loop after the node
+  completes
+
+**Step 4: Add runtime and embedded executors on the platform side**
 
 Prompt compaction should become a feature orchestrator plus:
 
-- runtime executor
+- workflow-backed runtime executor
 - embedded executor
 
-**Step 3: Remove the internal tool-shaped assumptions**
+Embedded execution is still required, but for Fenix it is a degraded fallback,
+not the primary quality path.
+
+**Step 5: Remove the internal tool-shaped assumptions**
 
 Prompt compaction should no longer depend on `compact_context` being treated as
 an ordinary tool.
 
-**Step 4: Run targeted tests and make them green**
+Missing `prompt_compaction` support on Fenix should fail manifest/runtime
+contract tests rather than being silently accepted as a healthy state.
 
-Run the prompt-budget slice tests plus platform tests.
+**Step 6: Run targeted tests and make them green**
+
+Run the prompt-budget slice tests plus platform tests and the new Fenix
+feature-executor tests.
 
 Expected: prompt compaction now depends on shared platform primitives only.
 
@@ -413,6 +513,8 @@ resolution.
 
 Make sure title bootstrap uses the shared platform while still resolving live
 policy and live capability at job execution time.
+
+Keep runtime capability optional and preserve embedded-first default behavior.
 
 **Step 3: Run targeted tests and make them green**
 
@@ -489,6 +591,7 @@ final platform vocabulary consistently:
 
 - `feature_contract`
 - `execute_feature`
+- `workflow_intent`
 - policy schema namespace
 - lifecycle names
 - strategy enum
