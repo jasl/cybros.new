@@ -14,6 +14,7 @@ module Acceptance
       "acceptance/scenarios/governed_mcp_validation.rb",
       "acceptance/scenarios/governed_tool_validation.rb",
       "acceptance/scenarios/human_interaction_wait_resume_validation.rb",
+      "acceptance/scenarios/live_supervision_sidechat_validation.rb",
       "acceptance/scenarios/provider_backed_turn_validation.rb",
       "acceptance/scenarios/subagent_wait_all_validation.rb",
     ].freeze
@@ -46,6 +47,10 @@ module Acceptance
       "acceptance/scenarios/human_interaction_wait_resume_validation.rb" => {
         mode: :internal_workflow,
         reason: "validates human-interaction wait/resume state transitions with no end-user app_api flow yet"
+      },
+      "acceptance/scenarios/live_supervision_sidechat_validation.rb" => {
+        mode: :hybrid_app_api,
+        reason: "uses app_api supervision session/message surfaces, while deterministic live waiting-work setup still has no product entrypoint"
       },
       "acceptance/scenarios/provider_backed_turn_validation.rb" => {
         mode: :app_api_surface,

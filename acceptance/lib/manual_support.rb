@@ -302,6 +302,32 @@ module Acceptance
       )
     end
 
+    def app_api_create_conversation_supervision_session!(conversation_id:, session_token:, responder_strategy: nil)
+      app_api_post_json(
+        "/app_api/conversations/#{conversation_id}/supervision_sessions",
+        {
+          responder_strategy: responder_strategy
+        }.compact,
+        session_token: session_token
+      )
+    end
+
+    def app_api_append_conversation_supervision_message!(conversation_id:, supervision_session_id:, content:,
+                                                         session_token:)
+      app_api_post_json(
+        "/app_api/conversations/#{conversation_id}/supervision_sessions/#{supervision_session_id}/messages",
+        { content: content },
+        session_token: session_token
+      )
+    end
+
+    def app_api_conversation_supervision_messages!(conversation_id:, supervision_session_id:, session_token:)
+      app_api_get_json(
+        "/app_api/conversations/#{conversation_id}/supervision_sessions/#{supervision_session_id}/messages",
+        session_token: session_token
+      )
+    end
+
     def wait_for_app_api_turn_terminal!(conversation_id:, turn_id:, session_token:, terminal_states: %w[completed failed canceled],
                                         timeout_seconds: 3600, poll_interval_seconds: 0.1)
       deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds

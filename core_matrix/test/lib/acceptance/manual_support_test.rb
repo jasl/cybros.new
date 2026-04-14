@@ -1288,6 +1288,111 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal "sess_123", captured.fetch(2)
   end
 
+  test "app_api_create_conversation_supervision_session! posts to the nested supervision session route" do
+    captured = nil
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_post_json,
+      lambda do |path, payload, session_token:|
+        captured = { path:, payload:, session_token: }
+        {
+          "method_id" => "conversation_supervision_session_create",
+          "conversation_id" => "conv_123",
+          "conversation_supervision_session" => {
+            "supervision_session_id" => "session_123",
+            "target_conversation_id" => "conv_123",
+            "responder_strategy" => "builtin",
+          },
+        }
+      end
+    ) do
+      result = Acceptance::ManualSupport.app_api_create_conversation_supervision_session!(
+        conversation_id: "conv_123",
+        responder_strategy: "builtin",
+        session_token: "session-token"
+      )
+
+      assert_equal "conversation_supervision_session_create", result.fetch("method_id")
+      assert_equal "session_123", result.dig("conversation_supervision_session", "supervision_session_id")
+    end
+
+    assert_equal "/app_api/conversations/conv_123/supervision_sessions", captured.fetch(:path)
+    assert_equal({ responder_strategy: "builtin" }, captured.fetch(:payload))
+    assert_equal "session-token", captured.fetch(:session_token)
+  end
+
+  test "app_api_append_conversation_supervision_message! posts to the nested supervision message route" do
+    captured = nil
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_post_json,
+      lambda do |path, payload, session_token:|
+        captured = { path:, payload:, session_token: }
+        {
+          "method_id" => "conversation_supervision_message_create",
+          "conversation_id" => "conv_123",
+          "supervision_session_id" => "session_123",
+          "machine_status" => { "overall_state" => "waiting" },
+          "human_sidechat" => { "content" => "Right now the conversation is waiting on operator input." },
+          "user_message" => { "role" => "user", "content" => "What are you waiting on right now?" },
+          "supervisor_message" => { "role" => "supervisor_agent", "content" => "Right now the conversation is waiting on operator input." },
+        }
+      end
+    ) do
+      result = Acceptance::ManualSupport.app_api_append_conversation_supervision_message!(
+        conversation_id: "conv_123",
+        supervision_session_id: "session_123",
+        content: "What are you waiting on right now?",
+        session_token: "session-token"
+      )
+
+      assert_equal "conversation_supervision_message_create", result.fetch("method_id")
+      assert_equal "waiting", result.dig("machine_status", "overall_state")
+      assert_equal "supervisor_agent", result.dig("supervisor_message", "role")
+    end
+
+    assert_equal "/app_api/conversations/conv_123/supervision_sessions/session_123/messages", captured.fetch(:path)
+    assert_equal({ content: "What are you waiting on right now?" }, captured.fetch(:payload))
+    assert_equal "session-token", captured.fetch(:session_token)
+  end
+
+  test "app_api_conversation_supervision_messages! gets the nested supervision message list route" do
+    captured = nil
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_get_json,
+      lambda do |path, session_token:, params: nil, headers: nil|
+        captured = { path:, session_token:, params:, headers: }
+        {
+          "method_id" => "conversation_supervision_message_list",
+          "conversation_id" => "conv_123",
+          "supervision_session_id" => "session_123",
+          "items" => [
+            { "role" => "user", "content" => "What are you waiting on right now?" },
+            { "role" => "supervisor_agent", "content" => "Right now the conversation is waiting on operator input." },
+          ],
+        }
+      end
+    ) do
+      result = Acceptance::ManualSupport.app_api_conversation_supervision_messages!(
+        conversation_id: "conv_123",
+        supervision_session_id: "session_123",
+        session_token: "session-token"
+      )
+
+      assert_equal "conversation_supervision_message_list", result.fetch("method_id")
+      assert_equal 2, result.fetch("items").length
+    end
+
+    assert_equal "/app_api/conversations/conv_123/supervision_sessions/session_123/messages", captured.fetch(:path)
+    assert_equal "session-token", captured.fetch(:session_token)
+    assert_nil captured.fetch(:params)
+    assert_nil captured.fetch(:headers)
+  end
+
   private
 
   def with_redefined_singleton_method(target, method_name, replacement)
