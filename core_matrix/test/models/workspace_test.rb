@@ -129,13 +129,11 @@ class WorkspaceTest < ActiveSupport::TestCase
     )
 
     assert workspace.config.is_a?(Hash)
-    assert_equal true, workspace.feature_config("title_bootstrap").fetch("enabled")
-    assert_equal "runtime_first", workspace.feature_config("title_bootstrap").fetch("mode")
-    assert_equal true, workspace.feature_config("prompt_compaction").fetch("enabled")
-    assert_equal "runtime_first", workspace.feature_config("prompt_compaction").fetch("mode")
+    assert_equal "embedded_only", workspace.feature_config("title_bootstrap").fetch("strategy")
+    assert_equal "runtime_first", workspace.feature_config("prompt_compaction").fetch("strategy")
   end
 
-  test "validates workspace config shape and feature modes" do
+  test "validates workspace config shape and feature strategies" do
     installation = create_installation!
     user = create_user!(installation: installation)
     agent = create_agent!(installation: installation)
@@ -161,15 +159,14 @@ class WorkspaceTest < ActiveSupport::TestCase
       config: {
         "features" => {
           "title_bootstrap" => {
-            "enabled" => true,
-            "mode" => "manual_only",
+            "strategy" => "manual_only",
           },
         },
       }
     )
 
     assert_not invalid_mode.valid?
-    assert_includes invalid_mode.errors[:config], "features.title_bootstrap.mode must be runtime_first or embedded_only"
+    assert_includes invalid_mode.errors[:config], "features.title_bootstrap.strategy must be one of disabled, embedded_only, runtime_first, runtime_required"
   end
 
   test "exposes feature config through the features container" do
@@ -183,21 +180,17 @@ class WorkspaceTest < ActiveSupport::TestCase
       config: {
         "features" => {
           "title_bootstrap" => {
-            "enabled" => false,
-            "mode" => "embedded_only",
+            "strategy" => "disabled",
           },
           "prompt_compaction" => {
-            "enabled" => true,
-            "mode" => "embedded_only",
+            "strategy" => "embedded_only",
           },
         },
       }
     )
 
-    assert_equal false, workspace.feature_config("title_bootstrap").fetch("enabled")
-    assert_equal "embedded_only", workspace.feature_config("title_bootstrap").fetch("mode")
-    assert_equal true, workspace.feature_config("prompt_compaction").fetch("enabled")
-    assert_equal "embedded_only", workspace.feature_config("prompt_compaction").fetch("mode")
+    assert_equal "disabled", workspace.feature_config("title_bootstrap").fetch("strategy")
+    assert_equal "embedded_only", workspace.feature_config("prompt_compaction").fetch("strategy")
   end
 
   test "accessible_to_user returns only owned workspaces whose agent remains visible" do

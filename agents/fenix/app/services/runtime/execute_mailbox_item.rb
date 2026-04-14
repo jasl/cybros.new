@@ -41,6 +41,8 @@ module Runtime
         Requests::PrepareRound.call(payload: mailbox_payload)
       when "execute_tool"
         Requests::ExecuteTool.call(payload: mailbox_payload)
+      when "execute_feature"
+        Requests::ExecuteFeature.call(payload: mailbox_payload)
       when "supervision_status_refresh", "supervision_guidance"
         Requests::ExecuteConversationControlRequest.call(payload: mailbox_payload)
       else

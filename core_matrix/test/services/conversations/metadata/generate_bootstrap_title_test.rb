@@ -34,6 +34,15 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
 
   test "runtime_first mode tries the runtime strategy before the embedded fallback" do
     context = create_workspace_context!
+    context[:workspace].update!(
+      config: {
+        "features" => {
+          "title_bootstrap" => {
+            "strategy" => "runtime_first",
+          },
+        },
+      }
+    )
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     message = build_user_message("Plan the launch checklist. Include rollback steps.")
     runtime_attempted = false
@@ -76,8 +85,7 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
       config: {
         "features" => {
           "title_bootstrap" => {
-            "enabled" => false,
-            "mode" => "embedded_only",
+            "strategy" => "disabled",
           },
         },
       }
@@ -117,6 +125,15 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
 
   test "missing runtime support falls back to embedded generation" do
     context = create_workspace_context!
+    context[:workspace].update!(
+      config: {
+        "features" => {
+          "title_bootstrap" => {
+            "strategy" => "runtime_first",
+          },
+        },
+      }
+    )
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     message = build_user_message("Draft the incident rollback checklist. Include owner handoff.")
     runtime_attempted = false
@@ -177,6 +194,50 @@ class Conversations::Metadata::GenerateBootstrapTitleTest < ActiveSupport::TestC
     )
 
     assert_equal "Embedded fallback title", title
+  ensure
+    Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call, original_runtime_call)
+    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call, original_embedded_call)
+  end
+
+  test "runtime_required leaves the placeholder path without embedded fallback when runtime is unavailable" do
+    context = create_workspace_context!
+    context[:workspace].update!(
+      config: {
+        "features" => {
+          "title_bootstrap" => {
+            "strategy" => "runtime_required",
+          },
+        },
+      }
+    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    message = build_user_message("Draft the incident rollback checklist. Include owner handoff.")
+    embedded_invoked = false
+
+    original_runtime_call = Conversations::Metadata::RuntimeBootstrapTitle.method(:call)
+    Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call) do |**_kwargs|
+      nil
+    end
+    original_embedded_call = EmbeddedAgents::Invoke.method(:call)
+    EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call) do |**_kwargs|
+      embedded_invoked = true
+      EmbeddedAgents::Result.new(
+        agent_key: "conversation_title",
+        status: "ok",
+        output: { "title" => "Embedded fallback title" },
+        metadata: { "source" => "modeled" },
+        responder_kind: "model"
+      )
+    end
+
+    title = Conversations::Metadata::GenerateBootstrapTitle.call(
+      conversation: conversation,
+      message: message,
+      agent_definition_version: context[:agent_definition_version]
+    )
+
+    assert_nil title
+    assert_equal false, embedded_invoked
   ensure
     Conversations::Metadata::RuntimeBootstrapTitle.singleton_class.send(:define_method, :call, original_runtime_call)
     EmbeddedAgents::Invoke.singleton_class.send(:define_method, :call, original_embedded_call)

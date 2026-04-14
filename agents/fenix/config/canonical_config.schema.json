@@ -50,38 +50,28 @@
           "title": "Title Bootstrap",
           "additionalProperties": false,
           "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": true,
-              "title": "Enable Title Bootstrap"
-            },
-            "mode": {
+            "strategy": {
               "type": "string",
-              "enum": ["runtime_first", "embedded_only"],
-              "default": "runtime_first",
-              "title": "Title Bootstrap Mode"
+              "enum": ["disabled", "embedded_only", "runtime_first", "runtime_required"],
+              "default": "embedded_only",
+              "title": "Title Bootstrap Strategy"
             }
           },
-          "required": ["enabled", "mode"]
+          "required": ["strategy"]
         },
         "prompt_compaction": {
           "type": "object",
           "title": "Prompt Compaction",
           "additionalProperties": false,
           "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": true,
-              "title": "Enable Prompt Compaction"
-            },
-            "mode": {
+            "strategy": {
               "type": "string",
-              "enum": ["runtime_first", "embedded_only"],
+              "enum": ["disabled", "embedded_only", "runtime_first", "runtime_required"],
               "default": "runtime_first",
-              "title": "Prompt Compaction Mode"
+              "title": "Prompt Compaction Strategy"
             }
           },
-          "required": ["enabled", "mode"]
+          "required": ["strategy"]
         }
       }
     },

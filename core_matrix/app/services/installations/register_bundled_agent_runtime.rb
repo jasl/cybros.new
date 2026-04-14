@@ -21,6 +21,16 @@ module Installations
       protocol_version: "2026-03-24",
       sdk_version: "fenix-0.1.0",
       protocol_methods: [],
+      feature_contract: [
+        {
+          "feature_key" => "title_bootstrap",
+          "execution_mode" => "direct",
+          "lifecycle" => "live",
+          "request_schema" => { "type" => "object" },
+          "response_schema" => { "type" => "object" },
+          "implementation_ref" => "fenix/title_bootstrap",
+        },
+      ],
       tool_contract: [],
       profile_policy: {},
       canonical_config_schema: {},
@@ -28,12 +38,10 @@ module Installations
       default_canonical_config: {
         "features" => {
           "title_bootstrap" => {
-            "enabled" => true,
-            "mode" => "runtime_first",
+            "strategy" => "embedded_only",
           },
           "prompt_compaction" => {
-            "enabled" => true,
-            "mode" => "runtime_first",
+            "strategy" => "runtime_first",
           },
         },
       },
@@ -303,6 +311,7 @@ module Installations
         "protocol_version" => @configuration[:protocol_version],
         "sdk_version" => @configuration[:sdk_version],
         "protocol_methods" => @configuration[:protocol_methods],
+        "feature_contract" => @configuration[:feature_contract],
         "tool_contract" => @configuration[:tool_contract],
         "profile_policy" => @configuration[:profile_policy],
         "canonical_config_schema" => @configuration[:canonical_config_schema],

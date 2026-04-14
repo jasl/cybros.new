@@ -147,8 +147,7 @@ class Conversations::Metadata::BootstrapTitleJobTest < ActiveSupport::TestCase
       config: {
         "features" => {
           "title_bootstrap" => {
-            "enabled" => false,
-            "mode" => "embedded_only",
+            "strategy" => "disabled",
           },
         },
       }

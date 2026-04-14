@@ -41,6 +41,30 @@ module Runtime
           "idempotency_policy" => "best_effort",
         },
       ].freeze
+      FEATURE_CONTRACT = [
+        {
+          "feature_key" => "title_bootstrap",
+          "execution_mode" => "direct",
+          "lifecycle" => "live",
+          "request_schema" => {
+            "type" => "object",
+            "additionalProperties" => false,
+            "properties" => {
+              "message_content" => { "type" => "string" },
+            },
+            "required" => ["message_content"],
+          },
+          "response_schema" => {
+            "type" => "object",
+            "additionalProperties" => false,
+            "properties" => {
+              "title" => { "type" => "string" },
+            },
+            "required" => ["title"],
+          },
+          "implementation_ref" => "fenix/title_bootstrap",
+        },
+      ].freeze
       PROTOCOL_METHOD_IDS = %w[
         agent_health
         capabilities_handshake
@@ -79,6 +103,7 @@ module Runtime
           "protocol_version" => PROTOCOL_VERSION,
           "sdk_version" => SDK_VERSION,
           "protocol_methods" => protocol_methods,
+          "feature_contract" => feature_contract,
           "tool_contract" => tool_contract,
           "profile_policy" => profile_policy,
           "canonical_config_schema" => canonical_config_schema,
@@ -100,6 +125,10 @@ module Runtime
 
       def tool_contract
         TOOL_CONTRACT.deep_dup
+      end
+
+      def feature_contract
+        FEATURE_CONTRACT.deep_dup
       end
 
       def profile_policy

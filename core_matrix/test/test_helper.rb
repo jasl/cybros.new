@@ -237,7 +237,7 @@ module ActiveSupport
       end
     end
 
-    def build_agent_definition_version(installation: Installation.first || create_installation!, agent: nil, version: nil, definition_fingerprint: nil, fingerprint: nil, protocol_version: "2026-04-03", sdk_version: "fenix-0.2.0", prompt_pack_ref: "fenix/default", prompt_pack_fingerprint: "prompt-pack-#{next_test_sequence}", program_manifest_fingerprint: "program-manifest-#{next_test_sequence}", protocol_methods_document: nil, protocol_methods: nil, tool_contract_document: nil, tool_contract: nil, profile_policy_document: nil, profile_policy: nil, canonical_config_schema_document: nil, canonical_config_schema: nil, conversation_override_schema_document: nil, conversation_override_schema: nil, default_canonical_config_document: nil, default_canonical_config: nil, reflected_surface_document: nil, reflected_surface: nil, **attrs)
+    def build_agent_definition_version(installation: Installation.first || create_installation!, agent: nil, version: nil, definition_fingerprint: nil, fingerprint: nil, protocol_version: "2026-04-03", sdk_version: "fenix-0.2.0", prompt_pack_ref: "fenix/default", prompt_pack_fingerprint: "prompt-pack-#{next_test_sequence}", program_manifest_fingerprint: "program-manifest-#{next_test_sequence}", protocol_methods_document: nil, protocol_methods: nil, feature_contract_document: nil, feature_contract: nil, tool_contract_document: nil, tool_contract: nil, profile_policy_document: nil, profile_policy: nil, canonical_config_schema_document: nil, canonical_config_schema: nil, conversation_override_schema_document: nil, conversation_override_schema: nil, default_canonical_config_document: nil, default_canonical_config: nil, reflected_surface_document: nil, reflected_surface: nil, **attrs)
       agent ||= create_agent!(installation: installation)
       version ||= agent.agent_definition_versions.maximum(:version).to_i + 1
       definition_fingerprint ||= fingerprint || "definition-#{next_test_sequence}"
@@ -253,6 +253,7 @@ module ActiveSupport
         prompt_pack_fingerprint: prompt_pack_fingerprint,
         program_manifest_fingerprint: program_manifest_fingerprint,
         protocol_methods_document: protocol_methods_document || create_json_document!(installation: installation, document_kind: "protocol_methods", payload: protocol_methods || default_protocol_methods("agent_health")),
+        feature_contract_document: feature_contract_document || create_json_document!(installation: installation, document_kind: "feature_contract", payload: feature_contract || []),
         tool_contract_document: tool_contract_document || create_json_document!(installation: installation, document_kind: "tool_contract", payload: tool_contract || default_tool_catalog("exec_command")),
         profile_policy_document: profile_policy_document || create_json_document!(installation: installation, document_kind: "profile_policy", payload: profile_policy || default_profile_policy),
         canonical_config_schema_document: canonical_config_schema_document || create_json_document!(installation: installation, document_kind: "config_schema", payload: canonical_config_schema || default_canonical_config_schema),
@@ -907,6 +908,16 @@ module ActiveSupport
           { "method_id" => "agent_health" },
           { "method_id" => "capabilities_handshake" },
         ],
+        feature_contract: [
+          {
+            "feature_key" => "title_bootstrap",
+            "execution_mode" => "direct",
+            "lifecycle" => "live",
+            "request_schema" => { "type" => "object" },
+            "response_schema" => { "type" => "object" },
+            "implementation_ref" => "fenix/title_bootstrap",
+          },
+        ],
         tool_contract: [
           {
             "tool_name" => "exec_command",
@@ -931,12 +942,10 @@ module ActiveSupport
           "sandbox" => "workspace-write",
           "features" => {
             "title_bootstrap" => {
-              "enabled" => true,
-              "mode" => "runtime_first",
+              "strategy" => "embedded_only",
             },
             "prompt_compaction" => {
-              "enabled" => true,
-              "mode" => "runtime_first",
+              "strategy" => "runtime_first",
             },
           },
         },

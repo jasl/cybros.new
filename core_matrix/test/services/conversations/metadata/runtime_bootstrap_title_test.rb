@@ -34,10 +34,9 @@ class Conversations::Metadata::RuntimeBootstrapTitleTest < ActiveSupport::TestCa
       agent: context[:agent],
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_title_bootstrap"),
       default_canonical_config: {
-        "metadata" => {
+        "features" => {
           "title_bootstrap" => {
-            "enabled" => true,
-            "mode" => "runtime_first",
+            "strategy" => "runtime_first",
           },
         },
       }

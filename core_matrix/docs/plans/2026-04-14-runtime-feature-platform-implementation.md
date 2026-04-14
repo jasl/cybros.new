@@ -30,7 +30,8 @@ At the end of this plan:
 - Core Matrix supports direct runtime feature invocation through
   `execute_feature`
 - Core Matrix supports shared runtime-vs-embedded orchestration
-- `title_bootstrap` uses the platform instead of slice-local runtime probing
+- the platform can register and orchestrate `title_bootstrap` as its first
+  concrete runtime feature
 - internal product features stop being modeled as ordinary tools
 
 ## Non-Goals
@@ -53,7 +54,8 @@ The implementation introduces:
 - capability resolution in `core_matrix`
 - direct `execute_feature` exchange
 - shared runtime-vs-embedded orchestration
-- `title_bootstrap` migration onto the platform
+- the platform foundations that `title_bootstrap` follow-up migration will
+  consume
 
 ## Tech Stack
 
@@ -97,7 +99,9 @@ Add failing expectations for:
 
 - top-level `feature_contract`
 - `title_bootstrap` may be advertised there
-- `tool_contract` remains reserved for real tools
+- `feature_contract` is normalized separately from `tool_contract`
+- prompt-compaction cleanup from `tool_contract` is deferred to the
+  request-preparation migration so phase ordering stays non-breaking
 
 **Step 4: Run the targeted tests and verify they fail**
 
@@ -195,16 +199,15 @@ contract layer.
 
 **Files:**
 - Create: `core_matrix/app/services/runtime_features/policy_resolver.rb`
-- Modify: `core_matrix/app/services/conversations/metadata/title_bootstrap_policy.rb`
-- Modify: `core_matrix/test/services/conversations/metadata/title_bootstrap_policy_test.rb`
+- Create: `core_matrix/test/services/runtime_features/policy_resolver_test.rb`
 
-**Step 1: Write failing policy-resolution tests**
+**Step 1: Write failing shared policy-resolution tests**
 
 Add tests that expect:
 
-- `title_bootstrap` policy resolves from the shared policy layer
-- `title_bootstrap` remains live-resolved
-- slice-local policy merging goes away
+- feature policy resolves from the shared schema-backed policy layer
+- workspace overrides win over runtime defaults and built-in defaults
+- normalized strategy values are returned without slice-local merge helpers
 
 **Step 2: Implement shared policy resolution**
 
@@ -214,12 +217,15 @@ Add a shared resolver that:
 - validates against the schema-backed policy model
 - returns normalized policy objects
 
+Do not migrate `title_bootstrap` slice call sites in this task. That remains in
+the dedicated follow-up plan.
+
 **Step 3: Run the targeted tests and make them green**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
-  test/services/conversations/metadata/title_bootstrap_policy_test.rb
+  test/services/runtime_features/policy_resolver_test.rb
 ```
 
 Expected: runtime-platform features now read policy through the shared layer.
@@ -241,7 +247,9 @@ Expected: runtime-platform features now read policy through the shared layer.
 Update Fenix definition packaging so the manifest publishes a top-level
 `feature_contract`.
 
-Keep `tool_contract` for real tools only.
+Do not move prompt-compaction transport onto `feature_contract` in this phase.
+The request-preparation follow-up will clean up the remaining pseudo-tool
+surface after `request_preparation_contract` exists.
 
 For this pass:
 
@@ -366,44 +374,26 @@ PARALLEL_WORKERS=1 bin/rails test \
 
 Expected: the platform can execute a concrete runtime feature end to end.
 
-### Task 7: Migrate `title_bootstrap` Onto The Platform
+### Task 7: Defer Slice Migration To The Dedicated Follow-Up Plan
 
-**Files:**
-- Modify: `core_matrix/app/services/conversations/metadata/runtime_bootstrap_title.rb`
-- Modify: `core_matrix/app/services/conversations/metadata/generate_bootstrap_title.rb`
-- Modify: `core_matrix/app/jobs/conversations/metadata/bootstrap_title_job.rb`
-- Modify: `core_matrix/test/services/conversations/metadata/runtime_bootstrap_title_test.rb`
-- Modify: `core_matrix/test/services/conversations/metadata/generate_bootstrap_title_test.rb`
-- Modify: `core_matrix/test/jobs/conversations/metadata/bootstrap_title_job_test.rb`
+This plan now stops at the shared platform boundary.
 
-**Step 1: Remove slice-local runtime probing**
+The remaining `title_bootstrap` slice migration is covered by:
 
-Replace `protocol_methods` and other slice-local capability checks with shared
-runtime-feature invocation.
+- [2026-04-14-conversation-title-bootstrap-design.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-14-conversation-title-bootstrap-design.md)
+- [2026-04-14-conversation-title-bootstrap-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-14-conversation-title-bootstrap-implementation.md)
 
-**Step 2: Preserve title-specific semantics**
+Treat that follow-up as the only source of truth for:
 
-Keep:
+- live policy and capability reads at job execution time
+- slice call-site migration from `protocol_methods` to `feature_contract`
+- direct `execute_feature` runtime invocation
+- slice call-site migration to `EmbeddedFeatures::TitleBootstrap::Invoke`
+- removal of remaining slice-local orchestration glue
 
-- live resolution
-- best-effort behavior
-- placeholder preservation
-- non-blocking failure handling
+This avoids duplicating migration steps across two plans.
 
-**Step 3: Run the targeted tests and make them green**
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-PARALLEL_WORKERS=1 bin/rails test \
-  test/services/conversations/metadata/runtime_bootstrap_title_test.rb \
-  test/services/conversations/metadata/generate_bootstrap_title_test.rb \
-  test/jobs/conversations/metadata/bootstrap_title_job_test.rb
-```
-
-Expected: `title_bootstrap` is now platform-backed without changing product
-behavior.
-
-### Task 8: Verify The Platform End To End
+### Task 8: Verify The Platform Foundations End To End
 
 **Step 1: Run focused runtime-feature verification**
 
@@ -414,10 +404,7 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/runtime_features/capability_resolver_test.rb \
   test/services/runtime_features/invoke_test.rb \
   test/services/runtime_features/feature_request_exchange_test.rb \
-  test/services/conversations/metadata/title_bootstrap_policy_test.rb \
-  test/services/conversations/metadata/runtime_bootstrap_title_test.rb \
-  test/services/conversations/metadata/generate_bootstrap_title_test.rb \
-  test/jobs/conversations/metadata/bootstrap_title_job_test.rb
+  test/services/runtime_features/policy_resolver_test.rb
 ```
 
 Then:
@@ -454,5 +441,6 @@ Inspect:
 - acceptance artifacts relevant to conversation creation and first-turn flows
 - resulting database state for placeholder-title and title-source transitions
 
-Expected: runtime-platform infrastructure and `title_bootstrap` behave
-correctly, without dragging prompt-compaction execution back into the platform.
+Expected: runtime-platform infrastructure is ready for the dedicated
+`title_bootstrap` slice follow-up, without dragging prompt-compaction
+execution back into the platform.

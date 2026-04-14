@@ -8,6 +8,7 @@ class AgentDefinitionVersion < ApplicationRecord
   belongs_to :installation
   belongs_to :agent
   belongs_to :protocol_methods_document, class_name: "JsonDocument"
+  belongs_to :feature_contract_document, class_name: "JsonDocument"
   belongs_to :tool_contract_document, class_name: "JsonDocument"
   belongs_to :profile_policy_document, class_name: "JsonDocument"
   belongs_to :canonical_config_schema_document, class_name: "JsonDocument"
@@ -31,6 +32,7 @@ class AgentDefinitionVersion < ApplicationRecord
   validate :agent_installation_match
   validate :document_installation_match
   validate :protocol_methods_contract_shape
+  validate :feature_contract_shape
   validate :tool_contract_shape
   validate :tool_contract_reserved_prefix_policy
 
@@ -44,6 +46,10 @@ class AgentDefinitionVersion < ApplicationRecord
 
   def fingerprint
     definition_fingerprint
+  end
+
+  def feature_contract
+    payload_array(feature_contract_document)
   end
 
   def tool_contract
@@ -278,6 +284,20 @@ class AgentDefinitionVersion < ApplicationRecord
     end
   end
 
+  def feature_contract_shape
+    feature_contract.each do |entry|
+      unless entry.is_a?(Hash) && entry["feature_key"].to_s.match?(METHOD_ID_PATTERN)
+        errors.add(:feature_contract_document, "must contain snake_case feature_key entries")
+        break
+      end
+
+      unless entry["execution_mode"].to_s == "direct"
+        errors.add(:feature_contract_document, "must contain supported execution_mode values")
+        break
+      end
+    end
+  end
+
   def tool_contract_shape
     tool_contract.each do |entry|
       unless entry.is_a?(Hash) && entry["tool_name"].to_s.match?(METHOD_ID_PATTERN)
@@ -306,6 +326,7 @@ class AgentDefinitionVersion < ApplicationRecord
   def document_associations
     %i[
       protocol_methods_document
+      feature_contract_document
       tool_contract_document
       profile_policy_document
       canonical_config_schema_document

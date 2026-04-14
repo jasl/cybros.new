@@ -21,6 +21,7 @@ module Runtime
           "endpoint_metadata" => endpoint_metadata,
           "agent_contract" => agent_contract,
           "protocol_methods" => definition_package.fetch("protocol_methods"),
+          "feature_contract" => definition_package.fetch("feature_contract"),
           "tool_contract" => definition_package.fetch("tool_contract"),
           "profile_policy" => definition_package.fetch("profile_policy"),
           "agent_plane" => agent_plane(definition_package),
@@ -49,6 +50,7 @@ module Runtime
           "methods" => %w[
             prepare_round
             execute_tool
+            execute_feature
             supervision_status_refresh
             supervision_guidance
           ],
@@ -63,6 +65,7 @@ module Runtime
         {
           "control_plane" => "agent",
           "protocol_methods" => definition_package.fetch("protocol_methods"),
+          "feature_contract" => definition_package.fetch("feature_contract"),
           "tool_contract" => definition_package.fetch("tool_contract"),
           "profile_policy" => definition_package.fetch("profile_policy"),
           "canonical_config_schema" => definition_package.fetch("canonical_config_schema"),

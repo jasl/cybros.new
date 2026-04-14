@@ -11,10 +11,11 @@ module Conversations
       end
 
       def call
-        WorkspaceFeatures::Resolver.call(
+        RuntimeFeatures::PolicyResolver.call(
+          feature_key: "title_bootstrap",
           workspace: @workspace,
           agent_definition_version: @agent_definition_version
-        ).fetch("title_bootstrap")
+        )
       end
     end
   end

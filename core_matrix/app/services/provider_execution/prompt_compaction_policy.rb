@@ -10,10 +10,11 @@ module ProviderExecution
     end
 
     def call
-      WorkspaceFeatures::Resolver.call(
+      RuntimeFeatures::PolicyResolver.call(
+        feature_key: "prompt_compaction",
         workspace: @workspace,
         agent_definition_version: @agent_definition_version
-      ).fetch("prompt_compaction")
+      )
     end
   end
 end

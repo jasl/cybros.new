@@ -7,8 +7,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       config: {
         "features" => {
           "prompt_compaction" => {
-            "enabled" => true,
-            "mode" => "embedded_only",
+            "strategy" => "embedded_only",
           },
         },
       }
@@ -20,8 +19,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       default_canonical_config: {
         "features" => {
           "prompt_compaction" => {
-            "enabled" => true,
-            "mode" => "runtime_first",
+            "strategy" => "runtime_first",
           },
         },
       }
@@ -43,8 +41,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     assert_equal(
       {
-        "enabled" => true,
-        "mode" => "embedded_only",
+        "strategy" => "embedded_only",
       },
       snapshot.provider_context.dig("feature_policies", "prompt_compaction")
     )
@@ -53,8 +50,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       config: {
         "features" => {
           "prompt_compaction" => {
-            "enabled" => true,
-            "mode" => "runtime_first",
+            "strategy" => "runtime_first",
           },
         },
       }
@@ -62,8 +58,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     assert_equal(
       {
-        "enabled" => true,
-        "mode" => "embedded_only",
+        "strategy" => "embedded_only",
       },
       snapshot.provider_context.dig("feature_policies", "prompt_compaction")
     )

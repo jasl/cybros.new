@@ -18,10 +18,12 @@ module Conversations
           workspace: @conversation.workspace,
           agent_definition_version: @agent_definition_version
         )
-        return nil unless policy.fetch("enabled")
+        return nil if policy.fetch("strategy") == "disabled"
 
         runtime_title = runtime_title_candidate(policy)
         return runtime_title if runtime_title.present?
+
+        return nil if policy.fetch("strategy") == "runtime_required"
 
         result = EmbeddedAgents::Invoke.call(
           agent_key: "conversation_title",
@@ -44,7 +46,7 @@ module Conversations
       private
 
       def runtime_title_candidate(policy)
-        return nil unless policy.fetch("mode") == "runtime_first"
+        return nil unless %w[runtime_first runtime_required].include?(policy.fetch("strategy"))
 
         Conversations::Metadata::RuntimeBootstrapTitle.call(
           conversation: @conversation,

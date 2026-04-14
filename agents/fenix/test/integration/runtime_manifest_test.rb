@@ -9,6 +9,7 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     definition_package = body.fetch("definition_package")
     protocol_method_ids = definition_package.fetch("protocol_methods").map { |entry| entry.fetch("method_id") }
+    feature_keys = definition_package.fetch("feature_contract").map { |entry| entry.fetch("feature_key") }
     agent_tool_names = definition_package.fetch("tool_contract").map { |entry| entry.fetch("tool_name") }
 
     assert_equal "fenix", body.fetch("agent_key")
@@ -19,6 +20,7 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_equal %w[
       prepare_round
       execute_tool
+      execute_feature
       supervision_status_refresh
       supervision_guidance
     ], body.dig("agent_contract", "methods")
@@ -26,6 +28,7 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_equal body.fetch("fingerprint"), definition_package.fetch("program_manifest_fingerprint")
     assert_equal body.fetch("protocol_version"), definition_package.fetch("protocol_version")
     assert_equal body.fetch("sdk_version"), definition_package.fetch("sdk_version")
+    assert_equal body.fetch("feature_contract"), definition_package.fetch("feature_contract")
     assert_equal body.fetch("tool_contract"), definition_package.fetch("tool_contract")
     assert_equal body.fetch("profile_policy"), definition_package.fetch("profile_policy")
     assert_equal body.fetch("canonical_config_schema"), definition_package.fetch("canonical_config_schema")
@@ -49,8 +52,10 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     refute_includes protocol_method_ids, "process_exited"
 
     assert_equal "agent", body.dig("agent_plane", "control_plane")
+    assert_equal body.fetch("feature_contract"), body.dig("agent_plane", "feature_contract")
     assert_equal body.fetch("tool_contract"), body.dig("agent_plane", "tool_contract")
     assert_equal body.fetch("profile_policy"), body.dig("agent_plane", "profile_policy")
+    assert_includes feature_keys, "title_bootstrap"
     assert_includes agent_tool_names, "compact_context"
     refute_includes agent_tool_names, "exec_command"
 
@@ -62,14 +67,10 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_equal "main", definition_package.dig("default_canonical_config", "interactive", "default_profile_key")
     assert_equal "role:main", definition_package.dig("default_canonical_config", "role_slots", "main", "selector")
     assert_equal "main", definition_package.dig("default_canonical_config", "role_slots", "summary", "fallback_role_slot")
-    assert_equal true, definition_package.dig("canonical_config_schema", "properties", "features", "properties", "title_bootstrap", "properties", "enabled", "default")
-    assert_equal "runtime_first", definition_package.dig("canonical_config_schema", "properties", "features", "properties", "title_bootstrap", "properties", "mode", "default")
-    assert_equal true, definition_package.dig("canonical_config_schema", "properties", "features", "properties", "prompt_compaction", "properties", "enabled", "default")
-    assert_equal "runtime_first", definition_package.dig("canonical_config_schema", "properties", "features", "properties", "prompt_compaction", "properties", "mode", "default")
-    assert_equal true, definition_package.dig("default_canonical_config", "features", "title_bootstrap", "enabled")
-    assert_equal "runtime_first", definition_package.dig("default_canonical_config", "features", "title_bootstrap", "mode")
-    assert_equal true, definition_package.dig("default_canonical_config", "features", "prompt_compaction", "enabled")
-    assert_equal "runtime_first", definition_package.dig("default_canonical_config", "features", "prompt_compaction", "mode")
+    assert_equal "embedded_only", definition_package.dig("canonical_config_schema", "properties", "features", "properties", "title_bootstrap", "properties", "strategy", "default")
+    assert_equal "runtime_first", definition_package.dig("canonical_config_schema", "properties", "features", "properties", "prompt_compaction", "properties", "strategy", "default")
+    assert_equal "embedded_only", definition_package.dig("default_canonical_config", "features", "title_bootstrap", "strategy")
+    assert_equal "runtime_first", definition_package.dig("default_canonical_config", "features", "prompt_compaction", "strategy")
     assert_equal true, definition_package.dig("default_canonical_config", "subagents", "enabled")
     assert_equal 3, definition_package.dig("default_canonical_config", "subagents", "max_depth")
     assert_equal "boolean", definition_package.dig("conversation_override_schema", "properties", "subagents", "properties", "enabled", "type")

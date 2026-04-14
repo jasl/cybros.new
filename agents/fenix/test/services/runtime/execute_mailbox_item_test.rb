@@ -121,6 +121,27 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     assert_equal "unsupported_tool", client.reported_payloads.last.dig("error_payload", "code")
   end
 
+  test "execute_feature agent requests emit a completed terminal report" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    result = Runtime::ExecuteMailboxItem.call(
+      mailbox_item: execute_feature_mailbox_item(
+        feature_key: "title_bootstrap",
+        input: {
+          "message_content" => "Plan the launch checklist. Include rollback steps.",
+        }
+      ),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal ["agent_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "execute_feature", client.reported_payloads.last.fetch("request_kind")
+    assert_equal "ok", client.reported_payloads.last.dig("response_payload", "status")
+    assert_equal "Plan the launch checklist", client.reported_payloads.last.dig("response_payload", "result", "title")
+  end
+
   test "supervision_status_refresh agent requests emit a completed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 
@@ -332,6 +353,29 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
         },
         "runtime_context" => {
           "agent_definition_version_id" => "agent-definition-version-1",
+        },
+      },
+    }
+  end
+
+  def execute_feature_mailbox_item(feature_key:, input:)
+    {
+      "item_type" => "agent_request",
+      "item_id" => "mailbox-item-feature-1",
+      "protocol_message_id" => "protocol-message-feature-1",
+      "logical_work_id" => "execute-feature:#{feature_key}:1",
+      "attempt_no" => 1,
+      "control_plane" => "agent",
+      "payload" => {
+        "request_kind" => "execute_feature",
+        "task" => {
+          "conversation_id" => "conversation-1",
+          "turn_id" => "turn-1",
+          "kind" => "feature",
+        },
+        "feature" => {
+          "feature_key" => feature_key,
+          "input" => input,
         },
       },
     }

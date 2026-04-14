@@ -5,6 +5,7 @@ module AgentControl
     REQUEST_KINDS = %w[
       prepare_round
       execute_tool
+      execute_feature
       supervision_status_refresh
       supervision_guidance
     ].freeze

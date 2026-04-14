@@ -1,7 +1,7 @@
 require "test_helper"
 
-class Conversations::Metadata::TitleBootstrapPolicyTest < ActiveSupport::TestCase
-  test "workspace config overrides runtime canonical defaults" do
+class RuntimeFeatures::PolicyResolverTest < ActiveSupport::TestCase
+  test "workspace overrides win over runtime defaults and built in defaults" do
     context = create_workspace_context!
     context[:workspace].update!(
       config: {
@@ -20,42 +20,29 @@ class Conversations::Metadata::TitleBootstrapPolicyTest < ActiveSupport::TestCas
           "title_bootstrap" => {
             "strategy" => "runtime_first",
           },
-        },
-      }
-    )
-
-    policy = Conversations::Metadata::TitleBootstrapPolicy.call(
-      workspace: context[:workspace],
-      agent_definition_version: agent_definition_version
-    )
-
-    assert_equal "runtime_required", policy.fetch("strategy")
-  end
-
-  test "runtime canonical config is used when workspace override is absent" do
-    context = create_workspace_context!
-    context[:workspace].update!(config: {})
-    agent_definition_version = create_agent_definition_version!(
-      installation: context[:installation],
-      agent: context[:agent],
-      default_canonical_config: {
-        "features" => {
-          "title_bootstrap" => {
-            "strategy" => "disabled",
+          "prompt_compaction" => {
+            "strategy" => "embedded_only",
           },
         },
       }
     )
 
-    policy = Conversations::Metadata::TitleBootstrapPolicy.call(
+    title_policy = RuntimeFeatures::PolicyResolver.call(
+      feature_key: "title_bootstrap",
+      workspace: context[:workspace],
+      agent_definition_version: agent_definition_version
+    )
+    prompt_policy = RuntimeFeatures::PolicyResolver.call(
+      feature_key: "prompt_compaction",
       workspace: context[:workspace],
       agent_definition_version: agent_definition_version
     )
 
-    assert_equal "disabled", policy.fetch("strategy")
+    assert_equal({ "strategy" => "runtime_required" }, title_policy)
+    assert_equal({ "strategy" => "embedded_only" }, prompt_policy)
   end
 
-  test "built-in fallback is embedded_only when no upstream config exists" do
+  test "falls back to built in defaults when no upstream config exists" do
     context = create_workspace_context!
     context[:workspace].update!(config: {})
     agent_definition_version = create_agent_definition_version!(
@@ -64,11 +51,12 @@ class Conversations::Metadata::TitleBootstrapPolicyTest < ActiveSupport::TestCas
       default_canonical_config: {}
     )
 
-    policy = Conversations::Metadata::TitleBootstrapPolicy.call(
+    policy = RuntimeFeatures::PolicyResolver.call(
+      feature_key: "title_bootstrap",
       workspace: context[:workspace],
       agent_definition_version: agent_definition_version
     )
 
-    assert_equal "embedded_only", policy.fetch("strategy")
+    assert_equal({ "strategy" => "embedded_only" }, policy)
   end
 end

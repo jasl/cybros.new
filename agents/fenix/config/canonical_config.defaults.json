@@ -22,12 +22,10 @@
   },
   "features": {
     "title_bootstrap": {
-      "enabled": true,
-      "mode": "runtime_first"
+      "strategy": "embedded_only"
     },
     "prompt_compaction": {
-      "enabled": true,
-      "mode": "runtime_first"
+      "strategy": "runtime_first"
     }
   },
   "subagents": {
