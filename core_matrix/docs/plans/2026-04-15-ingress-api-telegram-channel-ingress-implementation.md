@@ -1,19 +1,85 @@
 # IngressAPI Telegram-First And Weixin Channel Ingress Implementation Plan
 
-> Status note: this plan is the incremental path on the current topology. If
-> `2026-04-15-workspace-agent-decoupling-implementation.md` is executed first,
-> rebase this plan on `WorkspaceAgent`, `ChannelConnector`, and `IngressBinding`.
+> Status note: this plan is phase 2 and assumes
+> `2026-04-15-workspace-agent-decoupling-implementation.md` has already been
+> executed. Implement on top of `WorkspaceAgent`, `IngressBinding`, and
+> `ChannelConnector`. Do not preserve the legacy ingress-endpoint topology.
+
+## Execution Contract
+
+Mandatory execution rules:
+
+- do not add compatibility layers for the old workspace-coupled ingress model
+- do not backfill or preserve legacy ingress data shapes
+- if schema or migration history is rewritten, use the repository-standard
+  rebuild flow from `core_matrix`:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:drop
+rm db/schema.rb
+bin/rails db:create
+bin/rails db:migrate
+bin/rails db:reset
+```
+
+Before starting each task:
+
+- re-read the relevant design and implementation sections
+- confirm the task still matches the current branch state
+- if the docs are unclear but the intended business rule can be resolved,
+  update the docs first and only then implement
+- if the right behavior cannot be decided confidently, stop and discuss with
+  the user before coding
+
+When transport or business behavior is missing:
+
+- consult the referenced comparison projects
+- write the resolved rule back into the docs before implementation
+- do not let undocumented behavior land only in code
+
+Checkpoint protocol:
+
+- group tasks into milestones
+- after each milestone, run multi-angle static review using subagents or
+  equivalent reviewer passes across:
+  - transport/protocol correctness
+  - business-rule correctness
+  - data-shape and provenance correctness
+  - test-plan completeness
+- fix findings, then create a checkpoint commit
+
+Final quality bar:
+
+- implementation quality is more important than implementation speed
+- after all milestones are complete, run the full `core_matrix` verification
+  suite, the full acceptance suite including the 2048 capstone, and inspect
+  both exported artifacts and resulting database state
+
+## Milestones
+
+Recommended milestone grouping for this plan:
+
+1. Tasks 1-4: ingress substrate, schema, and AppAPI roots
+2. Tasks 5-7: channel-ingress turn path and Telegram delivery
+3. Tasks 8-9: Weixin bridge and shared artifact publication
+4. Task 10: final audit, full verification, acceptance, and data inspection
 
 **Goal:** Add a first-class `IngressAPI` boundary and ship Telegram DM as the
-first external conversation entry point for CoreMatrix, while keeping the
-shared ingress substrate and data model ready for a Weixin direct-message
-connector implemented through `lib/claw_bot_sdk`.
+first external conversation entry point for CoreMatrix on top of the new
+`WorkspaceAgent` topology, while keeping the shared ingress substrate and data
+model ready for a Weixin direct-message connector implemented through
+`lib/claw_bot_sdk`. The same implementation should also establish IM progress
+sync, command handling, and attachment/result delivery primitives that can be
+reused across transports.
 
-**Architecture:** Introduce a workspace-scoped `IngressEndpoint` root plus a
-user-managed channel domain (`ChannelAccount`, `ChannelSession`,
+**Architecture:** Introduce a mounted-agent-scoped `IngressBinding` root plus a
+user-managed channel domain (`ChannelConnector`, `ChannelSession`,
 `ChannelPairingRequest`, `ChannelInboundMessage`, `ChannelDelivery`) and a
 provenance-safe channel-ingress turn path. Keep transport-specific logic in
-`IngressAPI` adapters and preprocessors. Use `telegram-bot-ruby` for Telegram
+`IngressAPI` adapters and preprocessors. Reuse CoreMatrix runtime and
+supervision signals to support three outward-facing modes: `preview_stream`,
+`status_progress`, and `final_delivery`. Use `telegram-bot-ruby` for Telegram
 Bot API access. Put Weixin protocol, QR login, long-polling, `context_token`
 handling, and media transport behind `lib/claw_bot_sdk`.
 
@@ -54,7 +120,7 @@ Add a service test that expects `Turns::StartChannelIngressTurn` to:
 - set `source_ref_id` to the inbound message `public_id`
 - create a transcript-bearing `UserMessage`
 - carry workflow bootstrap state equivalent to accepted user entry
-- persist `origin_payload` with endpoint/session/message provenance
+- persist `origin_payload` with binding/session/message provenance
 
 **Step 2: Extend steer and queued-follow-up tests**
 
@@ -88,24 +154,24 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/jobs/conversations/metadata/bootstrap_title_job_test.rb
 ```
 
-### Task 2: Add The Workspace-Scoped Ingress Schema And Models
+### Task 2: Add The Mounted-Agent-Scoped Ingress Schema And Models
 
 **Files:**
-- Create: `core_matrix/db/migrate/20260415090000_create_ingress_endpoints.rb`
-- Create: `core_matrix/db/migrate/20260415090100_create_channel_accounts.rb`
+- Create: `core_matrix/db/migrate/20260415090000_create_ingress_bindings.rb`
+- Create: `core_matrix/db/migrate/20260415090100_create_channel_connectors.rb`
 - Create: `core_matrix/db/migrate/20260415090200_create_channel_sessions.rb`
 - Create: `core_matrix/db/migrate/20260415090300_create_channel_pairing_requests.rb`
 - Create: `core_matrix/db/migrate/20260415090400_create_channel_inbound_messages.rb`
 - Create: `core_matrix/db/migrate/20260415090500_create_channel_deliveries.rb`
-- Create: `core_matrix/app/models/ingress_endpoint.rb`
-- Create: `core_matrix/app/models/channel_account.rb`
+- Create: `core_matrix/app/models/ingress_binding.rb`
+- Create: `core_matrix/app/models/channel_connector.rb`
 - Create: `core_matrix/app/models/channel_session.rb`
 - Create: `core_matrix/app/models/channel_pairing_request.rb`
 - Create: `core_matrix/app/models/channel_inbound_message.rb`
 - Create: `core_matrix/app/models/channel_delivery.rb`
 - Modify: `core_matrix/docs/behavior/identifier-policy.md`
-- Create: `core_matrix/test/models/ingress_endpoint_test.rb`
-- Create: `core_matrix/test/models/channel_account_test.rb`
+- Create: `core_matrix/test/models/ingress_binding_test.rb`
+- Create: `core_matrix/test/models/channel_connector_test.rb`
 - Create: `core_matrix/test/models/channel_session_test.rb`
 - Create: `core_matrix/test/models/channel_pairing_request_test.rb`
 - Create: `core_matrix/test/models/channel_inbound_message_test.rb`
@@ -115,13 +181,13 @@ PARALLEL_WORKERS=1 bin/rails test \
 
 Add tests for:
 
-- workspace ownership consistency on `IngressEndpoint`
-- endpoint public ingress ids are unique
-- endpoint secrets are stored by digest, not plaintext
-- one active channel account per ingress endpoint in v1
+- mounted-agent ownership consistency on `IngressBinding`
+- binding public ingress ids are unique
+- binding secrets are stored by digest, not plaintext
+- one active channel connector per ingress binding in v1
 - unique session boundary per
-  `channel_account_id + peer_kind + peer_id + normalized_thread_key`
-- unique inbound event per `channel_account_id + external_event_key`
+  `channel_connector_id + peer_kind + peer_id + normalized_thread_key`
+- unique inbound event per `channel_connector_id + external_event_key`
 - one active pending pairing request per sender/account
 - public-id-only external references in JSON payloads and API-facing helpers
 
@@ -129,8 +195,8 @@ Add tests for:
 
 Add tables and indexes for:
 
-- `ingress_endpoints`
-- `channel_accounts`
+- `ingress_bindings`
+- `channel_connectors`
 - `channel_sessions`
 - `channel_pairing_requests`
 - `channel_inbound_messages`
@@ -138,10 +204,10 @@ Add tables and indexes for:
 
 Required schema shape:
 
-- `ingress_endpoints` must carry `workspace_id`,
+- `ingress_bindings` must carry `workspace_agent_id`,
   optional `default_execution_runtime_id`, `public_ingress_id`,
   `ingress_secret_digest`, and routing/manual-entry policy payloads
-- `channel_accounts` must carry `platform`, `driver`, `transport_kind`, and a
+- `channel_connectors` must carry `platform`, `driver`, `transport_kind`, and a
   JSON `runtime_state_payload`
 - `channel_sessions` must carry JSON `session_metadata`
 - external references surfaced outside the database must use `public_id`, not
@@ -157,7 +223,7 @@ Add:
 - associations
 - validations
 - minimal enums for lifecycle/binding/delivery states
-- helpers for issuing endpoint public ingress ids and secret tokens
+- helpers for issuing binding public ingress ids and secret tokens
 - JSON normalization where required
 
 Keep models small. Business orchestration stays in services.
@@ -168,52 +234,52 @@ Keep models small. Business orchestration stays in services.
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/rails db:test:prepare
 PARALLEL_WORKERS=1 bin/rails test \
-  test/models/ingress_endpoint_test.rb \
-  test/models/channel_account_test.rb \
+  test/models/ingress_binding_test.rb \
+  test/models/channel_connector_test.rb \
   test/models/channel_session_test.rb \
   test/models/channel_pairing_request_test.rb \
   test/models/channel_inbound_message_test.rb \
   test/models/channel_delivery_test.rb
 ```
 
-### Task 3: Add Workspace-Scoped AppAPI CRUD For Ingress Endpoints
+### Task 3: Add Workspace-Agent-Scoped AppAPI CRUD For Ingress Bindings
 
 **Files:**
 - Modify: `core_matrix/config/routes.rb`
-- Create: `core_matrix/app/controllers/app_api/workspaces/ingress_endpoints_controller.rb`
-- Create: `core_matrix/app/controllers/app_api/workspaces/ingress_endpoints/pairing_requests_controller.rb`
-- Create: `core_matrix/app/controllers/app_api/workspaces/ingress_endpoints/sessions_controller.rb`
-- Create: `core_matrix/test/requests/app_api/workspaces/ingress_endpoints_controller_test.rb`
-- Create: `core_matrix/test/requests/app_api/workspaces/ingress_endpoints/pairing_requests_controller_test.rb`
-- Create: `core_matrix/test/requests/app_api/workspaces/ingress_endpoints/sessions_controller_test.rb`
+- Create: `core_matrix/app/controllers/app_api/workspace_agents/ingress_bindings_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/workspace_agents/ingress_bindings/pairing_requests_controller.rb`
+- Create: `core_matrix/app/controllers/app_api/workspace_agents/ingress_bindings/sessions_controller.rb`
+- Create: `core_matrix/test/requests/app_api/workspace_agents/ingress_bindings_controller_test.rb`
+- Create: `core_matrix/test/requests/app_api/workspace_agents/ingress_bindings/pairing_requests_controller_test.rb`
+- Create: `core_matrix/test/requests/app_api/workspace_agents/ingress_bindings/sessions_controller_test.rb`
 
 **Step 1: Write failing request tests**
 
 Cover:
 
-- ingress endpoints are created under `/app_api/workspaces/:workspace_id/...`
-- users only choose execution runtime at endpoint creation time
-- the response returns the endpoint public ingress id and setup metadata
-- endpoint resources are user-scoped through the workspace
-- pairing requests and sessions are nested under the endpoint owner
+- ingress bindings are created under `/app_api/workspace_agents/:workspace_agent_id/...`
+- users only choose execution runtime at binding creation time
+- the response returns the binding public ingress id and setup metadata
+- binding resources are user-scoped through the workspace agent
+- pairing requests and sessions are nested under the binding owner
 
 **Step 2: Add the routes**
 
 Use nested routes aligned with existing AppAPI style:
 
-- `/app_api/workspaces/:workspace_id/ingress_endpoints`
-- `/app_api/workspaces/:workspace_id/ingress_endpoints/:ingress_endpoint_id/pairing_requests`
-- `/app_api/workspaces/:workspace_id/ingress_endpoints/:ingress_endpoint_id/sessions`
+- `/app_api/workspace_agents/:workspace_agent_id/ingress_bindings`
+- `/app_api/workspace_agents/:workspace_agent_id/ingress_bindings/:ingress_binding_id/pairing_requests`
+- `/app_api/workspace_agents/:workspace_agent_id/ingress_bindings/:ingress_binding_id/sessions`
 
-Here `:ingress_endpoint_id` continues the normal CoreMatrix convention and
-resolves the endpoint resource `public_id`. The machine-facing transport route
+Here `:ingress_binding_id` continues the normal CoreMatrix convention and
+resolves the binding resource `public_id`. The machine-facing transport route
 uses the separate `public_ingress_id`.
 
 **Step 3: Implement the controllers**
 
-The endpoint CRUD should let users:
+The binding CRUD should let users:
 
-- create/update/disable an endpoint
+- create/update/disable a binding
 - choose an optional default execution runtime
 - inspect the public ingress id
 - inspect any platform-specific setup instructions
@@ -221,16 +287,16 @@ The endpoint CRUD should let users:
 - inspect and rebind/unbind sessions
 
 In v1, this is the primary management surface. Do not expose free-floating
-channel-account CRUD at the top level.
+channel-connector CRUD at the top level.
 
 **Step 4: Run the targeted tests**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
-  test/requests/app_api/workspaces/ingress_endpoints_controller_test.rb \
-  test/requests/app_api/workspaces/ingress_endpoints/pairing_requests_controller_test.rb \
-  test/requests/app_api/workspaces/ingress_endpoints/sessions_controller_test.rb
+  test/requests/app_api/workspace_agents/ingress_bindings_controller_test.rb \
+  test/requests/app_api/workspace_agents/ingress_bindings/pairing_requests_controller_test.rb \
+  test/requests/app_api/workspace_agents/ingress_bindings/sessions_controller_test.rb
 ```
 
 ### Task 4: Build The Shared `IngressAPI` Contracts, Endpoint Resolution, And Pipeline Skeleton
@@ -249,11 +315,19 @@ PARALLEL_WORKERS=1 bin/rails test \
 - Create: `core_matrix/app/services/ingress_api/preprocessors/resolve_channel_session.rb`
 - Create: `core_matrix/app/services/ingress_api/preprocessors/authorize_and_pair.rb`
 - Create: `core_matrix/app/services/ingress_api/preprocessors/create_or_bind_conversation.rb`
+- Create: `core_matrix/app/services/ingress_api/preprocessors/dispatch_command.rb`
+- Create: `core_matrix/app/services/ingress_commands/parse.rb`
+- Create: `core_matrix/app/services/ingress_commands/authorize.rb`
+- Create: `core_matrix/app/services/ingress_commands/dispatch.rb`
 - Create: `core_matrix/app/services/ingress_api/preprocessors/coalesce_burst.rb`
 - Create: `core_matrix/app/services/ingress_api/preprocessors/materialize_attachments.rb`
 - Create: `core_matrix/app/services/ingress_api/preprocessors/resolve_dispatch_decision.rb`
 - Create: `core_matrix/test/services/ingress_api/receive_event_test.rb`
 - Create: `core_matrix/test/services/ingress_api/preprocessors/create_or_bind_conversation_test.rb`
+- Create: `core_matrix/test/services/ingress_api/preprocessors/dispatch_command_test.rb`
+- Create: `core_matrix/test/services/ingress_commands/parse_test.rb`
+- Create: `core_matrix/test/services/ingress_commands/authorize_test.rb`
+- Create: `core_matrix/test/services/ingress_commands/dispatch_test.rb`
 
 **Step 1: Write failing orchestration tests**
 
@@ -265,8 +339,10 @@ Add tests that expect:
 - the same `ReceiveEvent` service can be called from an HTTP controller or a
   connector runner
 - when an approved session is unbound, conversation creation uses
-  `IngressEndpoint.workspace` and resolves runtime from the endpoint/workspace
-  defaults
+  `IngressBinding.workspace_agent` and resolves runtime from the
+  binding/workspace-agent defaults
+- supported IM commands are classified and dispatched before normal chat
+  batching
 
 **Step 2: Add the `IngressAPI` base surface**
 
@@ -289,6 +365,13 @@ Implement:
 small result object indicating whether the event was rejected, batched, or
 materialized into turn work.
 
+Command-capable results should also be able to indicate that the event was
+handled through:
+
+- transcript entry
+- sidecar query
+- control dispatch
+
 **Step 4: Add the adapter boundary now**
 
 Introduce `IngressAPI::TransportAdapter` so transport-specific code can plug in
@@ -296,10 +379,15 @@ without changing the pipeline contract.
 
 The boundary should cover:
 
-- ingress endpoint and account verification/identification
+- ingress binding and channel connector verification/identification
 - payload normalization into `IngressEnvelope`
 - inbound media fetch
 - outbound text/media send
+
+Keep `DispatchCommand` in the shared pipeline so commands such as `/stop`,
+`/report`, and `/btw` are resolved before `CoalesceBurst`, but route the
+actual behavior through `IngressCommands::Parse`,
+`IngressCommands::Authorize`, and `IngressCommands::Dispatch`.
 
 **Step 5: Run the targeted tests**
 
@@ -307,7 +395,11 @@ The boundary should cover:
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
   test/services/ingress_api/receive_event_test.rb \
-  test/services/ingress_api/preprocessors/create_or_bind_conversation_test.rb
+  test/services/ingress_api/preprocessors/create_or_bind_conversation_test.rb \
+  test/services/ingress_api/preprocessors/dispatch_command_test.rb \
+  test/services/ingress_commands/parse_test.rb \
+  test/services/ingress_commands/authorize_test.rb \
+  test/services/ingress_commands/dispatch_test.rb
 ```
 
 ### Task 5: Add `Turns::StartChannelIngressTurn`, Provenance-Safe Follow-Up, And Bootstrap Wiring
@@ -342,7 +434,7 @@ Create `Turns::QueueChannelFollowUp` so the post-boundary path can preserve:
 
 - `origin_kind = "channel_ingress"`
 - `source_ref_type = "ChannelInboundMessage"`
-- upstream endpoint/session/message linkage in `origin_payload`
+- upstream binding/session/message linkage in `origin_payload`
 
 Keep `Turns::QueueFollowUp` for ordinary owner-user entry.
 
@@ -402,17 +494,17 @@ Add `gem "telegram-bot-ruby"` and keep the responsibility split explicit:
 - Bot API requests go through the gem
 - the gem does not own session, pairing, batching, or routing behavior
 
-**Step 2: Implement endpoint-scoped webhook entry**
+**Step 2: Implement binding-scoped webhook entry**
 
 Add:
 
-- `POST /ingress_api/telegram/endpoints/:public_ingress_id/updates`
+- `POST /ingress_api/telegram/bindings/:public_ingress_id/updates`
 
 Request verification should:
 
-- resolve the ingress endpoint from `public_ingress_id` in the path
-- resolve the attached Telegram channel account
-- verify `X-Telegram-Bot-Api-Secret-Token` against the endpoint secret
+- resolve the ingress binding from `public_ingress_id` in the path
+- resolve the attached Telegram channel connector
+- verify `X-Telegram-Bot-Api-Secret-Token` against the binding secret
 
 **Step 3: Normalize Telegram updates with explicit key mapping**
 
@@ -439,9 +531,13 @@ Keep v1 synchronous and deterministic.
 Add `SendTelegramReply` so outbound delivery uses `telegram-bot-ruby` for:
 
 - `sendMessage`
+- `editMessageText`
+- `sendChatAction`
 - `sendPhoto`
 - `sendDocument`
 - `getFile` support where needed for attachment download
+- optional `sendMessageDraft` transport support for preview experiments, kept
+  behind explicit transport selection
 - `setWebhook` helper logic if later surfaced in setup tooling
 
 **Step 6: Run the targeted tests**
@@ -473,6 +569,8 @@ PARALLEL_WORKERS=1 bin/rails test \
 - Create: `core_matrix/test/services/ingress_api/preprocessors/materialize_attachments_test.rb`
 - Create: `core_matrix/test/services/ingress_api/preprocessors/resolve_dispatch_decision_test.rb`
 - Create: `core_matrix/test/services/channel_deliveries/dispatch_conversation_output_test.rb`
+- Create: `core_matrix/test/services/ingress_api/telegram/progress_bridge_test.rb`
+- Create: `core_matrix/test/services/ingress_api/command_surface_test.rb`
 
 **Step 1: Write failing policy, batching, and first-contact tests**
 
@@ -482,10 +580,19 @@ Cover:
 - approved sender proceeds
 - two short text messages in the quiet period coalesce into one dispatch input
 - media-only message gets synthesized transcript text
-- unbound approved session creates a conversation from the endpoint workspace and
-  runtime defaults
+- unbound approved session creates a conversation from the binding's
+  `WorkspaceAgent` and runtime defaults
 - active-turn pre-boundary follow-up chooses `steer`
 - post-boundary follow-up chooses `queue`
+- in a shared group/thread conversation, same-sender follow-up may `steer`
+  but cross-sender follow-up must `queue`
+- `/stop` dispatches turn interrupt without entering the main transcript
+- in a shared group/thread conversation, `/stop` may interrupt only the active
+  work started by the same external sender
+- `/report` returns supervision-backed status without creating a new main turn
+- `/btw` asks a one-off sidecar question over the target conversation context
+  without mutating the main transcript
+- Telegram progress mode chooses editable preview transport plus typing/presence
 
 **Step 2: Implement DM session resolution and pairing**
 
@@ -501,6 +608,7 @@ Keep rules deterministic:
 
 - append text in arrival order
 - preserve source inbound message ids in context
+- only coalesce bursts from the same external sender in shared conversations
 - do not use LLM rewrite
 
 `ResolveDispatchDecision` should choose among:
@@ -510,17 +618,43 @@ Keep rules deterministic:
 - `queue_follow_up`
 - `reject`
 
-**Step 4: Hook outbound delivery after output persistence**
+Shared channel rule:
+
+- same-sender follow-up may choose `steer_current_turn`
+- cross-sender follow-up must choose `queue_follow_up`
+
+Command dispatch should choose among:
+
+- `control_command`
+- `sidecar_query`
+- `transcript_command`
+
+Shared control rule:
+
+- same-sender `/stop` may dispatch bounded interrupt behavior
+- cross-sender `/stop` must be rejected or ignored by policy
+
+**Step 4: Hook outbound delivery and progress after output persistence**
 
 After turn output is persisted:
 
 - detect whether the turn/conversation is bound to a `ChannelSession`
 - enqueue or invoke Telegram reply sending
 - persist outbound delivery facts
+- project `runtime.assistant_output.*` to Telegram preview delivery when the
+  transport supports it
+- project `runtime.agent_task.*`, `runtime.workflow_node.*`, and supervision
+  evidence to status/progress responses when the command or connector mode
+  asks for them
 
 Do not block transcript completion on outbound failure.
 
-**Step 5: Run the targeted tests**
+**Step 5: Deliver attachments and generated artifacts natively**
+
+Ensure Telegram delivery can project output attachments as native platform
+media/file sends instead of flattening everything into plain text links.
+
+**Step 6: Run the targeted tests**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
@@ -529,7 +663,9 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/ingress_api/preprocessors/coalesce_burst_test.rb \
   test/services/ingress_api/preprocessors/materialize_attachments_test.rb \
   test/services/ingress_api/preprocessors/resolve_dispatch_decision_test.rb \
-  test/services/channel_deliveries/dispatch_conversation_output_test.rb
+  test/services/channel_deliveries/dispatch_conversation_output_test.rb \
+  test/services/ingress_api/telegram/progress_bridge_test.rb \
+  test/services/ingress_api/command_surface_test.rb
 ```
 
 ### Task 8: Add The Weixin Bridge Foundation In `lib/claw_bot_sdk` And Wire It Through `IngressAPI`
@@ -546,7 +682,7 @@ PARALLEL_WORKERS=1 bin/rails test \
 - Create: `core_matrix/app/jobs/channel_connectors/weixin_poll_account_job.rb`
 - Create: `core_matrix/app/services/ingress_api/weixin/receive_polled_message.rb`
 - Create: `core_matrix/app/services/channel_deliveries/send_weixin_reply.rb`
-- Modify: `core_matrix/app/controllers/app_api/workspaces/ingress_endpoints_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/workspace_agents/ingress_bindings_controller.rb`
 - Modify: `core_matrix/app/services/channel_deliveries/dispatch_conversation_output.rb`
 - Create: `core_matrix/test/lib/claw_bot_sdk/weixin/client_test.rb`
 - Create: `core_matrix/test/lib/claw_bot_sdk/weixin/poller_test.rb`
@@ -565,7 +701,7 @@ build a Ruby bridge that covers:
 - outbound `sendmessage`
 - `getuploadurl`
 - `getconfig`
-- `sendtyping` if needed later
+- `sendtyping`
 - QR-login-oriented account lifecycle primitives
 
 Do not port:
@@ -579,7 +715,7 @@ Do not port:
 The bridge may keep short-lived in-memory caches, but durable state must be
 stored in CoreMatrix:
 
-- account-scoped state in `ChannelAccount.runtime_state_payload`
+- account-scoped state in `ChannelConnector.runtime_state_payload`
 - peer-scoped reply state such as `context_token` in
   `ChannelSession.session_metadata`
 
@@ -596,7 +732,7 @@ The bridge must return Ruby-native objects that expose:
 
 The poll runner should:
 
-- load the Weixin-enabled `ChannelAccount`
+- load the Weixin-enabled `ChannelConnector`
 - poll through `ClawBotSdk::Weixin::Poller`
 - feed each normalized message into `IngressAPI::ReceiveEvent`
 
@@ -610,11 +746,13 @@ dispatching turn work so reply state survives process restarts.
 
 - read `context_token` from the bound `ChannelSession`
 - send text or media through `ClawBotSdk::Weixin`
+- use typing plus explicit status/final-delivery messages instead of editable
+  preview streaming
 - persist outbound delivery metadata
 
-**Step 5: Extend endpoint management for Weixin lifecycle**
+**Step 5: Extend binding management for Weixin lifecycle**
 
-The workspace endpoint controller should expose Weixin-specific lifecycle
+The workspace-agent ingress-binding controller should expose Weixin-specific lifecycle
 actions where needed, such as:
 
 - start login
@@ -635,12 +773,104 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/channel_deliveries/send_weixin_reply_test.rb
 ```
 
-### Task 9: Run Internal Verification And Prepare Manual Integration
+### Task 9: Add Shared Conversation Artifact Ingress For App, Runtime, And IM Delivery
+
+**Files:**
+- Create: `core_matrix/app/services/attachments/create_for_message.rb`
+- Create: `core_matrix/app/controllers/app_api/conversations/attachments_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/base_controller.rb`
+- Modify: `core_matrix/config/routes.rb`
+- Modify: `core_matrix/app/services/channel_deliveries/dispatch_conversation_output.rb`
+- Modify: `core_matrix/app/services/channel_deliveries/send_telegram_reply.rb`
+- Modify: `core_matrix/app/services/channel_deliveries/send_weixin_reply.rb`
+- Create: `core_matrix/test/services/attachments/create_for_message_test.rb`
+- Create: `core_matrix/test/requests/app_api/conversations/attachments_controller_test.rb`
+- Modify or create transcript serialization tests as needed so app-facing
+  message payloads expose attachment metadata by `public_id`
+
+**Step 1: Write failing tests for the shared artifact path**
+
+Cover:
+
+- a user can upload a file into a conversation/message through AppAPI
+- a local generated file can be attached to an output message through a shared
+  service
+- channel delivery projects output attachments as native media/file sends
+- app-facing transcript or attachment endpoints can discover and download the
+  published artifact by `public_id`
+- oversize uploads or generated files are rejected before `MessageAttachment`
+  creation according to a configurable `max_bytes` policy with a default of
+  100 MB
+- over-count uploads or generated file batches are rejected before attachment
+  creation according to a configurable `max_count` policy with a default of 10
+- when an attachment is valid for conversation storage but too large for a
+  specific channel transport, delivery falls back explicitly instead of failing
+  silently
+- publication-role metadata identifies the primary deliverable attachment
+
+**Step 2: Implement the shared attachment-ingress service**
+
+Keep `MessageAttachment` as the storage primitive, but add one shared
+application service that can be reused by:
+
+- app-side uploads
+- runtime-generated local files
+- future ingress or automation attachment paths
+
+The AppAPI attachment surface should support the full conversation-artifact
+lifecycle:
+
+- upload a file into a message/conversation
+- discover attachment metadata from transcript-facing payloads
+- download a published attachment by `public_id`
+
+Artifact policy rules:
+
+- define one shared artifact-ingress byte-size limit for App uploads,
+  runtime-generated local files, and future inbound IM attachments
+- default that limit to 100 MB and make it configurable
+- reject oversize artifacts before blob attach / attachment row creation
+- define one shared artifact-ingress count limit for App uploads,
+  runtime-generated local files, and future inbound IM attachments
+- default that limit to 10 and make it configurable
+- reject over-count artifact batches before attachment row creation
+- keep transport-specific outbound size caps separate from conversation storage
+  policy
+- assign publication roles so one attachment can be treated as the primary
+  deliverable and others as source/evidence/preview attachments
+
+Default outbound publication rules:
+
+- images should be sent natively when the transport supports it
+- non-image files smaller than 1 MB should be sent natively when the transport
+  supports it
+- other files should default to a short-lived signed Active Storage download
+  URL that does not require app-session authentication
+
+Treat the conversation attachment as the canonical publication boundary. For
+deployable web apps, prefer attaching a packaged build output such as a Vite
+`dist/` bundle. Source archives remain optional secondary attachments.
+
+The artifact publish step may happen in a second round after the main work
+turn. That follow-up/export step should still attach into the same
+conversation transcript so app clients, IM connectors, and acceptance harnesses
+all consume the same published artifact record.
+
+**Step 3: Run the targeted tests**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+PARALLEL_WORKERS=1 bin/rails test \
+  test/services/attachments/create_for_message_test.rb \
+  test/requests/app_api/conversations/attachments_controller_test.rb
+```
+
+### Task 10: Run Final Audit, Full Verification, Acceptance, And Data Inspection
 
 **Files:**
 - Modify as needed from prior tasks only
 
-**Step 1: Run the ingress and turn suites**
+**Step 1: Run the focused ingress and turn suites**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
@@ -650,15 +880,15 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/turns/queue_follow_up_test.rb \
   test/integration/channel_ingress_follow_up_flow_test.rb \
   test/jobs/conversations/metadata/bootstrap_title_job_test.rb \
-  test/models/ingress_endpoint_test.rb \
-  test/models/channel_account_test.rb \
+  test/models/ingress_binding_test.rb \
+  test/models/channel_connector_test.rb \
   test/models/channel_session_test.rb \
   test/models/channel_pairing_request_test.rb \
   test/models/channel_inbound_message_test.rb \
   test/models/channel_delivery_test.rb \
-  test/requests/app_api/workspaces/ingress_endpoints_controller_test.rb \
-  test/requests/app_api/workspaces/ingress_endpoints/pairing_requests_controller_test.rb \
-  test/requests/app_api/workspaces/ingress_endpoints/sessions_controller_test.rb \
+  test/requests/app_api/workspace_agents/ingress_bindings_controller_test.rb \
+  test/requests/app_api/workspace_agents/ingress_bindings/pairing_requests_controller_test.rb \
+  test/requests/app_api/workspace_agents/ingress_bindings/sessions_controller_test.rb \
   test/services/ingress_api/receive_event_test.rb \
   test/services/ingress_api/preprocessors/create_or_bind_conversation_test.rb \
   test/requests/ingress_api/telegram/updates_controller_test.rb \
@@ -678,10 +908,12 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/lib/claw_bot_sdk/weixin/context_token_store_test.rb \
   test/jobs/channel_connectors/weixin_poll_account_job_test.rb \
   test/services/ingress_api/weixin/receive_polled_message_test.rb \
-  test/services/channel_deliveries/send_weixin_reply_test.rb
+  test/services/channel_deliveries/send_weixin_reply_test.rb \
+  test/services/attachments/create_for_message_test.rb \
+  test/requests/app_api/conversations/attachments_controller_test.rb
 ```
 
-**Step 2: Run the standard repository verification that does not require live accounts**
+**Step 2: Run the full standard CoreMatrix verification suite**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
@@ -691,18 +923,60 @@ bin/rubocop -f github
 bun run lint:js
 bin/rails db:test:prepare
 bin/rails test
+bin/rails test:system
 ```
 
 Do not claim Telegram or Weixin transport acceptance from these commands.
 
-**Step 3: Execute manual transport validation later**
+**Step 3: Run the full repository acceptance suite, including the 2048 capstone**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash acceptance/bin/run_active_suite.sh
+```
+
+Do not stop at command success. Inspect the produced acceptance artifacts.
+
+**Step 4: Inspect 2048 exported artifacts and resulting database state**
+
+Confirm at minimum:
+
+- the 2048 capstone publishes its final deliverable through the conversation as
+  a `MessageAttachment`
+- the published artifact matches the intended product boundary
+  - for a Vite-based app, prefer the built `dist/` package as the primary
+    deliverable
+- the acceptance flow retrieves the published artifact through app-facing
+  conversation attachment APIs rather than scraping a runtime-private working
+  directory
+- the exported artifact bundle is internally consistent with the acceptance
+  review data
+- inspect the generated acceptance bundle under `acceptance/artifacts/<stamp>/`
+  and confirm the review/evidence files point at the published conversation
+  artifact rather than a runtime-private output directory
+- the database contains the expected linked rows across:
+  - `conversations`
+  - `messages`
+  - `message_attachments`
+  - Active Storage blobs/attachments
+  - ingress binding / connector / session / delivery tables where applicable
+- attachment byte sizes, public ids, and conversation/message ancestry are
+  correct
+- the transcript-facing payload and the stored attachment rows agree on:
+  - attachment `public_id`
+  - filename
+  - content type
+  - byte size
+- no external-facing payload or acceptance artifact leaks bigint ids
+
+**Step 5: Execute manual transport validation later**
 
 Telegram manual checklist:
 
-- create a workspace ingress endpoint
+- create a workspace-agent ingress binding
 - attach Telegram credentials to it
-- configure Telegram webhook URL using the endpoint public ingress id
-- set the Telegram secret token to the CoreMatrix-issued endpoint secret
+- configure Telegram webhook URL using the binding public ingress id
+- set the Telegram secret token to the CoreMatrix-issued binding secret
 - send an unpaired DM and confirm a pairing request is created
 - approve pairing in `AppAPI`
 - send text-only follow-up bursts and confirm steer vs queue behavior
@@ -710,28 +984,33 @@ Telegram manual checklist:
 
 Weixin manual checklist:
 
-- create a workspace ingress endpoint
+- create a workspace-agent ingress binding
 - attach Weixin account config to it
-- complete QR login through the endpoint lifecycle flow
+- complete QR login through the binding lifecycle flow
 - start the poll runner
 - send a direct message and confirm normalization into channel-ingress turns
 - confirm `context_token` persistence on the bound session
 - send an image or file and confirm bridge-mediated media handling
 - confirm outbound text/media reply delivery
 
-**Step 4: Inspect resulting business data**
+**Step 6: Inspect resulting business data**
 
 Confirm:
 
 - resource references use `public_id` at external boundaries
-- machine-ingress routing uses `public_ingress_id` for endpoint webhook URLs or
+- machine-ingress routing uses `public_ingress_id` for binding webhook URLs or
   poller setup
 - channel-origin follow-up work never falls back to owner-user provenance
 - paired vs unpaired DM behavior matches the design
 - first-contact conversation creation resolves workspace/agent/runtime from the
-  ingress endpoint
+  ingress binding and mounted agent
 - Telegram delivery is handled through `telegram-bot-ruby`
 - Weixin durable connector state lives in CoreMatrix records, not ad hoc files
+- sidecar commands such as `/report` and `/btw` do not mutate the main
+  transcript
+- control commands such as `/stop` dispatch bounded control/interrupt behavior
+- artifact uploads and generated local files can be delivered back through IM
+  as native attachments
 
 ## External Preparation Checklist
 
@@ -753,7 +1032,7 @@ tests, and code/logic review are complete.
 
 Note:
 
-- CoreMatrix should issue the endpoint public ingress id and endpoint secret
+- CoreMatrix should issue the binding public ingress id and binding secret
   itself; the user should not have to invent either one manually.
 
 ### Weixin
@@ -796,12 +1075,13 @@ Note:
 Recommended order:
 
 1. shared provenance-safe turn entry and bootstrap
-2. workspace-scoped ingress endpoint and channel domain models
-3. workspace AppAPI CRUD for ingress endpoints
-4. shared `IngressAPI` contracts and adapter boundary
-5. Telegram transport and DM MVP
-6. Weixin bridge foundation and DM wiring
-7. manual channel validation
+2. mounted-agent-scoped ingress binding and channel domain models
+3. workspace-agent AppAPI CRUD for ingress bindings
+4. shared `IngressAPI` contracts, command routing, and adapter boundary
+5. Telegram transport, progress bridge, and DM MVP
+6. Weixin bridge foundation with typing/progress/final-delivery wiring
+7. shared artifact ingress and native attachment projection
+8. manual channel validation
 
 This keeps Telegram as the first usable entry point without forcing a redesign
 when Weixin is added next.

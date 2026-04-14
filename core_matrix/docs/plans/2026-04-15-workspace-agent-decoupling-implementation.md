@@ -2,6 +2,70 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+## Execution Contract
+
+This plan is intentionally destructive.
+
+Mandatory execution rules:
+
+- do not preserve compatibility with the pre-refactor topology
+- do not backfill legacy data
+- prefer direct schema cleanup and migration rewriting over compatibility
+  shims
+- when topology migrations are rewritten in place, use the repository-standard
+  rebuild flow from `core_matrix`:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails db:drop
+rm db/schema.rb
+bin/rails db:create
+bin/rails db:migrate
+bin/rails db:reset
+```
+
+Before starting each task:
+
+- re-read the relevant design and implementation sections
+- confirm the task is still coherent and executable against the current branch
+  state
+- if the docs are incomplete but the intended business logic is clear, update
+  the docs first and only then implement
+- if the docs are insufficient and the solution cannot be decided confidently,
+  stop and discuss with the user before coding
+
+When business flow details are missing:
+
+- consult the reference projects mentioned in the planning docs
+- write the resolved rule back into the docs before implementation
+- do not let undocumented business logic silently appear in code
+
+Checkpoint protocol:
+
+- treat related task groups as milestones rather than waiting until the end
+- after each milestone, run multi-angle static review using subagents or
+  equivalent reviewer passes across:
+  - architecture/layering
+  - business-rule compliance
+  - test-plan completeness
+  - migration/data-shape correctness
+- fix any findings, then create a checkpoint commit
+
+Final quality bar:
+
+- delivery quality is more important than implementation speed
+- after all plans are complete, run the full `core_matrix` verification suite,
+  the full acceptance suite including the 2048 capstone, and inspect both the
+  exported artifacts and the resulting database state
+
+## Milestones
+
+Recommended milestone grouping for this plan:
+
+1. Tasks 1-3: root topology and visibility model
+2. Tasks 4-6: interaction locking, runtime defaults, and AppAPI reshaping
+3. Tasks 7-9: ingress rebase, sidecar/artifact contracts, and phase checkpoint
+
 **Goal:** Refactor CoreMatrix so `Workspace` becomes the user's top-level
 personal space, `WorkspaceAgent` becomes the revocable mounted-agent context,
 `Conversation` hangs from that mount, and ingress can later attach to the mount
@@ -318,6 +382,12 @@ AppAPI should manage:
 - revocation state
 - runtime default
 - capability/entry policy
+- mounted interaction surfaces for:
+  - main transcript
+  - sidecar query
+  - control
+  - artifact ingress
+  - channel ingress
 
 Do not recreate `UserAgentBinding` under another name.
 
@@ -378,7 +448,84 @@ git add docs/plans app/models test
 git commit -m "refactor: rebase ingress on workspace agents and ingress bindings"
 ```
 
-### Task 8: Run Full Verification And Inspect The Refactored Business Shapes
+### Task 8: Establish Sidecar, Command, And Artifact Contracts On The New Mount Model
+
+**Files:**
+- Modify: `core_matrix/app/models/workspace_agent.rb`
+- Modify: `core_matrix/app/models/conversation.rb`
+- Modify: `core_matrix/docs/behavior/conversation-supervision-and-control.md`
+- Modify: `core_matrix/docs/plans/2026-04-15-ingress-api-channel-ingress-design.md`
+- Modify: `core_matrix/docs/plans/2026-04-15-ingress-api-telegram-channel-ingress-implementation.md`
+- Create: `core_matrix/test/services/conversations/interaction_lock_test.rb`
+- Create: `core_matrix/test/services/conversation_supervision/btw_contract_test.rb`
+
+**Step 1: Lock the mounted interaction surfaces in tests and docs**
+
+Cover the intended mounted-agent policy shape:
+
+- sidecar queries such as `/btw` and `/report` are not ordinary transcript turns
+- control commands such as `/stop` remain bounded control requests
+- artifact ingress is policy-gated separately from ordinary messaging
+- revoked mounts keep conversations visible but deny mutable surfaces
+- final artifact publication may happen in a later export/publish step instead
+  of the same turn that produced the work
+- shared channel conversations use sender-scoped follow-up rules: same sender
+  may steer, cross-sender input queues instead of steering
+- shared channel control commands are sender-scoped by default: a sender may
+  stop its own in-flight work but not another sender's work
+
+**Step 2: Define the policy and contract boundaries**
+
+Make the new topology explicit in documentation and policy payloads:
+
+- `WorkspaceAgent.entry_policy_payload` distinguishes:
+  - `main_transcript`
+  - `sidecar_query`
+  - `control`
+  - `artifact_ingress`
+  - `channel_ingress`
+  - `automation`
+- conversation locking semantics block mutable surfaces while preserving
+  historical visibility
+- `/btw` is defined as a one-off sidecar question over the target conversation
+  context and must not mutate the main transcript
+- `/report` is defined as a supervision-backed status query
+- `/regenerate` is defined as a capability-gated conversation action, not as a
+  synthetic user turn
+- command handling is factored through explicit parse/authorize/dispatch
+  extension points instead of growing a monolithic ingress preprocessor
+- deployable web outputs should prefer built artifacts such as `dist/` bundles
+  over raw workspace directories as the primary published deliverable
+- conversation attachments are the durable delivery boundary for later app/API
+  retrieval, including acceptance-style verification flows
+- sender identity remains part of dispatch semantics for shared channel
+  conversations, so batching and follow-up decisions cannot treat all external
+  participants as the same actor
+- artifact ingress policy includes a configurable `max_bytes` limit with a
+  default of 100 MB and rejects oversize files before attachment creation
+- artifact ingress policy includes a configurable `max_count` limit with a
+  default of 10 attachments per publish operation
+- published attachments expose explicit publication roles so one attachment can
+  be identified as the primary deliverable for acceptance and transport
+  fallback decisions
+
+**Step 3: Run the focused tests**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+PARALLEL_WORKERS=1 bin/rails test \
+  test/services/conversations/interaction_lock_test.rb \
+  test/services/conversation_supervision/btw_contract_test.rb
+```
+
+**Step 4: Commit**
+
+```bash
+git add app/models docs/behavior docs/plans test
+git commit -m "design: lock mounted sidecar and artifact surfaces"
+```
+
+### Task 9: Run Full Verification And Inspect The Refactored Business Shapes
 
 **Files:**
 - Modify as needed from prior tasks only

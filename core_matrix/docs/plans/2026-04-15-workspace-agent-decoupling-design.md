@@ -38,6 +38,9 @@ That coupling shows up in several product edge cases:
    workspace alone.
 6. Execution runtime selection belongs to the mounted agent context, not to the
    workspace as a generic concept.
+7. Mainline turns, sidecar questions, control commands, and artifact exchange
+   are separate interaction surfaces and should not be collapsed into one
+   transcript path.
 
 ## Recommended Topology
 
@@ -178,6 +181,212 @@ This gives double protection for IM:
 
 - ingress source can be denied by entry policy
 - incompatible interactive features can be disabled by capability policy
+
+Long-term, `entry_policy` should be able to distinguish at least these mounted
+interaction surfaces:
+
+- `main_transcript`
+- `sidecar_query`
+- `control`
+- `artifact_ingress`
+- `channel_ingress`
+- `automation`
+
+That lets CoreMatrix express policies such as:
+
+- app UI may open the main transcript, but IM may only use sidecar/control
+- IM may be allowed to stop or report, but not fork or branch
+- generated artifacts may still be deliverable even when a conversation is
+  locked for normal dialogue
+
+## Operational Sidecars, Commands, And Progress
+
+CoreMatrix should model several operator-facing interaction surfaces that do
+not all mutate the main transcript.
+
+### Main Transcript
+
+This is the ordinary conversation turn path.
+
+- user/app input
+- channel-ingress input
+- selected input/output lineage
+- workflow bootstrap and replay semantics
+
+When the main transcript is shared by multiple external senders, follow-up
+behavior must remain sender-scoped:
+
+- the mounted conversation may still be a shared conversation
+- same-sender follow-ups may steer or merge into that sender's active work
+- cross-sender follow-ups must never steer another sender's active turn and
+  should queue as later work instead
+
+### Sidecar Query
+
+This is a read-oriented question surface over the current conversation context.
+
+The first IM-driven example should be `/btw`, borrowed from Claude-style chat:
+
+- `/btw <question>`
+- answers a one-off question about the main conversation context
+- does not append a new user turn to the main transcript
+- should be backed by the same supervision/sidecar substrate already used for
+  `ConversationSupervision`
+
+`/report` is a specialized sidecar query:
+
+- it asks for the current work state, progress, blockers, or next steps
+- it should prefer supervision/runtime evidence over asking the main agent to
+  summarize itself from scratch
+
+### Control
+
+This is an imperative surface, not ordinary chat.
+
+Examples:
+
+- `/stop`
+- future `/resume`
+- future `/retry`
+
+These should route through bounded control requests instead of being interpreted
+as normal conversation content.
+
+For shared channel conversations, control authority should also be sender-scoped
+by default:
+
+- the same external sender may stop or control its own active work
+- a different external sender must not gain implicit authority over another
+  sender's in-flight work just by sharing the conversation surface
+
+### Regeneration
+
+`/regenerate` is compatible with IM conceptually, but it is still a mutation of
+the conversation's selected output state rather than an ordinary sidecar query.
+
+The long-term design should treat it as:
+
+- gated by capability policy
+- allowed only when the mounted agent and target conversation remain mutable
+- backed by an explicit conversation action surface, not by pretending it is a
+  fresh user turn
+
+### Progress Surfaces
+
+Progress delivery should also be modeled separately from the final transcript.
+
+CoreMatrix should support three distinct outward-facing progress modes:
+
+- `preview_stream`
+  - editable preview text when the transport supports edits or drafts
+- `status_progress`
+  - coarse progress cards/messages, typing indicators, report snapshots
+- `final_delivery`
+  - final text, files, images, and other deliverables
+
+The mounted-agent and ingress policy model should therefore be able to express
+what a given connector can do, instead of assuming every surface is a text
+turn.
+
+Command handling should also be extensible by construction. Long-term, command
+support should not stay embedded inside one ingress preprocessor. Prefer an
+explicit dispatcher boundary such as:
+
+- `IngressCommands::Parse`
+- `IngressCommands::Authorize`
+- `IngressCommands::Dispatch`
+
+That keeps future commands such as `/resume`, `/new`, or transport-specific
+helpers from bloating the ordinary chat-batching path.
+
+## Artifact Ingress And Egress
+
+CoreMatrix already has `MessageAttachment` as its storage primitive, but it
+lacks a first-class shared artifact-ingress surface.
+
+Long-term, artifact exchange should be treated as a product capability in its
+own right:
+
+- app users can upload a file into a conversation
+- runtimes can attach a generated local file to an output message
+- IM delivery can project those attachments back to Telegram/Weixin as native
+  media/file sends
+- acceptance and other external consumers can treat conversation attachments as
+  the final delivery boundary instead of scraping runtime-local working
+  directories
+
+This should not be modeled as transport-specific glue. The shared shape should
+be:
+
+- conversation-owned attachment storage remains `MessageAttachment`
+- the stored file lives in Rails Active Storage regardless of whether it was
+  uploaded by a human or published by a runtime-generated output
+- published attachments should carry an explicit publication role such as:
+  - `primary_deliverable`
+  - `source_bundle`
+  - `preview`
+  - `evidence`
+- a mounted-agent or conversation policy decides whether artifact ingress is
+  allowed
+- artifact ingress is also governed by a configurable maximum byte size
+  (`max_bytes`), with a default product limit of 100 MB
+- artifact ingress is also governed by a configurable maximum attachment count
+  (`max_count`), with a default product limit of 10 attachments per publish
+  operation
+- ingress/outbound connectors only translate attachments to platform-specific
+  transport formats
+
+Hard boundary rules:
+
+- App uploads, runtime-published local files, and inbound IM attachments must
+  all pass through the same artifact-ingress byte-size policy before creating a
+  `MessageAttachment`
+- the conversation/storage limit and the transport delivery limit are separate
+- the effective publish limit is the smallest applicable conversation or mount
+  policy limit
+- the effective publish count limit is the smallest applicable conversation or
+  mount policy limit
+- an artifact that exceeds the publish limit must be rejected before blob
+  attachment and must not appear as a partial transcript attachment row
+- an artifact batch that exceeds the publish count limit must be rejected
+  before attachment rows are created
+- a stored conversation attachment may still exceed a specific transport's
+  outbound limit; in that case the attachment remains in the conversation, but
+  the connector must fall back to a non-native delivery strategy
+
+Default delivery strategy should be explicit:
+
+- images should be sent as native media when the transport supports it
+- non-image files smaller than 1 MB should be sent as native attachments when
+  the transport supports it
+- other files should default to a short-lived signed download URL backed by
+  Active Storage
+
+This is especially important for:
+
+- generated webpages or HTML bundles
+- generated documents and reports
+- generated images
+- later richer media outputs
+
+For deployable web projects, the primary delivered artifact should normally be
+the built distribution payload rather than the raw working directory. For
+example, a Vite-based project should prefer its `dist/` bundle as the final
+attachment, with source code or workspace archives treated as optional
+secondary artifacts.
+
+Artifact publication also does not need to be fused into the same turn that did
+the work. A healthy long-term model should allow:
+
+- one turn to produce or revise the work in-place
+- a later export/publish action or follow-up turn to package and attach the
+  final artifact to the conversation
+
+That separation is especially useful for acceptance-grade flows such as the
+2048 capstone, where downstream automation should be able to download the
+published artifact from the conversation transcript through app-facing APIs,
+unpack it locally, and verify it without depending on runtime-private
+filesystem paths.
 
 ## Execution Runtime Model
 
