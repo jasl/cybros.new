@@ -102,6 +102,7 @@ class TestGeminiProtocol < Minitest::Test
     assert_equal 5, result.usage.fetch("total_tokens")
     assert_equal "responses", result.provider_format
     assert_equal "function_call", result.output_items.fetch(0).fetch("type")
+    assert_equal "calculator", result.tool_calls.fetch(0).fetch("name")
     assert_equal "sig_123", result.output_items.fetch(0).fetch("provider_payload").fetch("thoughtSignature")
     assert_equal "Be terse", request_body.fetch("systemInstruction").fetch("parts").fetch(0).fetch("text")
     assert_equal "Hello", request_body.fetch("contents").fetch(0).fetch("parts").fetch(0).fetch("text")
@@ -110,7 +111,7 @@ class TestGeminiProtocol < Minitest::Test
     assert_equal 2, request_body.fetch("tools").fetch(0).fetch("functionDeclarations").length
   end
 
-  def test_stream_uses_stream_generate_content_sse_and_yields_text_deltas
+  def test_stream_uses_stream_generate_content_sse_and_emits_text_and_tool_call_events
     adapter =
       Class.new(SimpleInference::HTTPAdapter) do
         attr_reader :last_request
@@ -123,8 +124,8 @@ class TestGeminiProtocol < Minitest::Test
           @last_request = env
 
           sse = +""
-          sse << %(data: {"candidates":[{"content":{"parts":[{"text":"Hel"}]}}]}\n\n)
-          sse << %(data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":2,"candidatesTokenCount":3,"totalTokenCount":5}}\n\n)
+          sse << "data: #{JSON.generate({ candidates: [{ content: { parts: [{ text: "Hel" }, { functionCall: { id: "call_123", name: "calculator", args: { expression: "2 +" } } }] } }] })}\n\n"
+          sse << "data: #{JSON.generate({ candidates: [{ content: { parts: [{ text: "Hello" }, { functionCall: { id: "call_123", name: "calculator", args: { expression: "2 + 2" } } }] }, finishReason: "STOP" }], usageMetadata: { promptTokenCount: 2, candidatesTokenCount: 3, totalTokenCount: 5 } })}\n\n"
 
           yield sse
 
@@ -141,11 +142,20 @@ class TestGeminiProtocol < Minitest::Test
 
     assert_includes adapter.last_request.fetch(:url), ":streamGenerateContent?alt=sse"
     text_deltas = events.grep(SimpleInference::Responses::Events::TextDelta).map(&:delta)
+    tool_delta = events.find { |event| event.is_a?(SimpleInference::Responses::Events::ToolCallDelta) }
+    tool_done = events.find { |event| event.is_a?(SimpleInference::Responses::Events::ToolCallDone) }
     completed = events.find { |event| event.is_a?(SimpleInference::Responses::Events::Completed) }
 
     assert_equal ["Hel", "lo"], text_deltas
+    refute_nil tool_delta
+    refute_nil tool_done
+    assert_equal "call_123", tool_delta.call_id
+    assert_equal "calculator", tool_delta.name
+    assert_equal "{\"expression\":\"2 +\"}", tool_delta.delta
+    assert_equal "{\"expression\":\"2 + 2\"}", tool_done.arguments
     refute_nil completed
     assert_equal "Hello", completed.result.output_text
+    assert_equal "calculator", completed.result.tool_calls.fetch(0).fetch("name")
     assert_equal 5, completed.result.usage.fetch("total_tokens")
   end
 end

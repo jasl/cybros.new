@@ -81,6 +81,7 @@ class TestAnthropicProtocol < Minitest::Test
     assert_equal "responses", result.provider_format
     assert_equal "function_call", result.output_items.fetch(1).fetch("type")
     assert_equal "calculator", result.output_items.fetch(1).fetch("name")
+    assert_equal "calculator", result.tool_calls.fetch(0).fetch("name")
     assert_equal "Be terse", request_body.fetch("system")
     assert_equal "Hello", request_body.fetch("messages").fetch(0).fetch("content").fetch(0).fetch("text")
     assert_equal "tool_use", request_body.fetch("messages").fetch(1).fetch("content").fetch(0).fetch("type")
@@ -111,8 +112,14 @@ class TestAnthropicProtocol < Minitest::Test
           sse << %(data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"lo"}}\n\n)
           sse << %(event: content_block_stop\n)
           sse << %(data: {"type":"content_block_stop","index":0}\n\n)
+          sse << %(event: content_block_start\n)
+          sse << %(data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_123","name":"calculator","input":""}}\n\n)
+          sse << %(event: content_block_delta\n)
+          sse << %(data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"expression\\":\\"2 + 2\\"}"}}\n\n)
+          sse << %(event: content_block_stop\n)
+          sse << %(data: {"type":"content_block_stop","index":1}\n\n)
           sse << %(event: message_delta\n)
-          sse << %(data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":3}}\n\n)
+          sse << %(data: {"type":"message_delta","delta":{"stop_reason":"tool_use","stop_sequence":null},"usage":{"output_tokens":3}}\n\n)
           sse << %(event: message_stop\n)
           sse << %(data: {"type":"message_stop"}\n\n)
 
@@ -136,6 +143,7 @@ class TestAnthropicProtocol < Minitest::Test
     assert_equal ["Hel", "lo"], text_deltas
     refute_nil completed
     assert_equal "Hello", completed.result.output_text
+    assert_equal "calculator", completed.result.tool_calls.fetch(0).fetch("name")
     assert_equal 3, completed.result.usage.fetch("output_tokens")
   end
 end

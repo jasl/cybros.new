@@ -26,7 +26,7 @@ module SimpleInference
           id: body["responseId"] || body["id"],
           output_text: extract_text(parts),
           output_items: output_items,
-          tool_calls: [],
+          tool_calls: SimpleInference::Responses::Result.tool_calls_from_output_items(output_items),
           usage: normalize_usage(body["usageMetadata"]),
           finish_reason: candidate["finishReason"],
           provider_response: response,
@@ -36,21 +36,41 @@ module SimpleInference
 
       def stream(model:, input:, **options)
         SimpleInference::Responses::Stream.new do |&emit|
+          streamed_tool_calls = {}
+          emitted_tool_call_done = {}
+
           result =
             stream_result(model: model, input: input, **options) do |event, state|
               emit.call(SimpleInference::Responses::Events::Raw.new(type: "gemini.generate_content.chunk", raw: event, snapshot: state[:output_items]))
 
-              next if state[:delta].to_s.empty?
-
-              emit.call(
-                SimpleInference::Responses::Events::TextDelta.new(
-                  delta: state[:delta],
-                  raw: event,
-                  snapshot: state[:output_text]
+              unless state[:delta].to_s.empty?
+                emit.call(
+                  SimpleInference::Responses::Events::TextDelta.new(
+                    delta: state[:delta],
+                    raw: event,
+                    snapshot: state[:output_text]
+                  )
                 )
+              end
+
+              emit_stream_tool_call_events!(
+                emit: emit,
+                output_items: state[:output_items],
+                streamed_tool_calls: streamed_tool_calls,
+                emitted_done: emitted_tool_call_done,
+                done: false,
+                raw: event
               )
             end
 
+          emit_stream_tool_call_events!(
+            emit: emit,
+            output_items: result.output_items,
+            streamed_tool_calls: streamed_tool_calls,
+            emitted_done: emitted_tool_call_done,
+            done: true,
+            raw: result.provider_response&.body
+          )
           emit.call(SimpleInference::Responses::Events::Completed.new(result: result, raw: result.provider_response&.body))
           result
         end
@@ -101,7 +121,7 @@ module SimpleInference
           id: response_body["responseId"] || response_body["id"],
           output_text: full,
           output_items: output_items,
-          tool_calls: [],
+          tool_calls: SimpleInference::Responses::Result.tool_calls_from_output_items(output_items),
           usage: normalize_usage(response_body["usageMetadata"]),
           finish_reason: candidate["finishReason"],
           provider_response: response,
@@ -279,6 +299,23 @@ module SimpleInference
         snapshot.delete_prefix(accumulated_text)
       end
 
+      def incremental_argument_delta(current_arguments, previous_arguments)
+        current = current_arguments.to_s
+        previous = previous_arguments.to_s
+        return "" if current.empty?
+        return current if previous.empty?
+        return current.delete_prefix(previous) if current.start_with?(previous)
+
+        prefix_length = 0
+        limit = [current.length, previous.length].min
+        while prefix_length < limit && current.getbyte(prefix_length) == previous.getbyte(prefix_length)
+          prefix_length += 1
+        end
+
+        delta = current.byteslice(prefix_length..)
+        delta.to_s.empty? ? current : delta.to_s
+      end
+
       def merge_output_items(existing_items, incoming_items)
         merged = duplicate_items(existing_items)
 
@@ -322,6 +359,52 @@ module SimpleInference
                 value
               end
           end
+        end
+      end
+
+      def emit_stream_tool_call_events!(emit:, output_items:, streamed_tool_calls:, emitted_done:, done:, raw:)
+        tool_calls = Array(output_items).filter_map do |item|
+          next unless item.is_a?(Hash)
+          next unless item["type"].to_s == "function_call"
+
+          stringify_hash(item)
+        end
+
+        tool_calls.each_with_index do |item, index|
+          item_id = item["id"] || item["call_id"] || "tool_call_#{index}"
+          previous = streamed_tool_calls[item_id] || {}
+          arguments = item["arguments"].to_s
+          previous_arguments = previous["arguments"].to_s
+          delta = incremental_argument_delta(arguments, previous_arguments)
+
+          unless delta.empty?
+            emit.call(
+              SimpleInference::Responses::Events::ToolCallDelta.new(
+                item_id: item_id,
+                call_id: item["call_id"] || item["id"],
+                name: item["name"],
+                delta: delta,
+                raw: raw,
+                snapshot: arguments
+              )
+            )
+          end
+
+          streamed_tool_calls[item_id] = duplicate_items([item]).first
+          next unless done
+          next if emitted_done[item_id]
+
+          emit.call(
+            SimpleInference::Responses::Events::ToolCallDone.new(
+              item_id: item_id,
+              call_id: item["call_id"] || item["id"],
+              name: item["name"],
+              arguments: arguments,
+              raw: raw,
+              snapshot: duplicate_items([item]).first
+            )
+          )
+          emitted_done[item_id] = true
         end
       end
 

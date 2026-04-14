@@ -31,7 +31,7 @@ module SimpleInference
           id: body["id"],
           output_text: result.respond_to?(:output_text) ? result.output_text : "",
           output_items: result.respond_to?(:output_items) ? result.output_items : [],
-          tool_calls: extract_responses_tool_calls(result.respond_to?(:output_items) ? result.output_items : []),
+          tool_calls: tool_calls_from_output_items(result.respond_to?(:output_items) ? result.output_items : []),
           usage: result.respond_to?(:usage) ? result.usage : nil,
           finish_reason: body["status"] || body["finish_reason"],
           provider_response: response,
@@ -57,7 +57,7 @@ module SimpleInference
         )
       end
 
-      private_class_method def self.extract_responses_tool_calls(output_items)
+      def self.tool_calls_from_output_items(output_items)
         Array(output_items).filter_map do |item|
           next unless item.is_a?(Hash)
           next unless item["type"].to_s == "function_call"
