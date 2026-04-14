@@ -20,8 +20,8 @@ existing implementation onto the shared runtime feature platform defined in:
 
 ## Goal
 
-Finish the `title_bootstrap` migration so the feature uses the same platform
-contracts as `prompt_compaction` while preserving its own lifecycle rules:
+Finish the `title_bootstrap` migration so the feature uses the shared runtime
+feature platform while preserving its own lifecycle rules:
 
 - live-resolved policy
 - live-resolved capability
@@ -66,7 +66,7 @@ The target platform shape is:
 {
   "features": {
     "title_bootstrap": {
-      "strategy": "runtime_first"
+      "strategy": "embedded_only"
     }
   }
 }
@@ -133,7 +133,7 @@ Recommended registry identity:
 - `runtime_capability_key`: `title_bootstrap`
 - `policy_lifecycle`: `live_resolved`
 - `capability_lifecycle`: `live_resolved`
-- `default_strategy`: `runtime_first`
+- `default_strategy`: `embedded_only`
 - `embedded_executor`: required
 
 ## Lifecycle Rules That Must Not Change
@@ -145,8 +145,8 @@ The migration should preserve these feature-owned semantics:
 - title bootstrap never blocks accepted-turn correctness
 - final failure never becomes a user-facing error state
 
-This feature must not inherit `prompt_compaction`'s snapshot-frozen execution
-model.
+This feature must not inherit the request-preparation subsystem's
+snapshot-frozen execution model.
 
 ## Runtime And Embedded Follow-Up Behavior
 
@@ -214,3 +214,7 @@ Follow-up verification should focus on the delta:
 
 The remaining work is to migrate it cleanly onto the shared runtime feature
 platform without regressing the behavior that has already landed.
+
+Unlike `prompt_compaction`, this follow-up intentionally stays on the direct
+runtime-feature path. Prompt compaction now lives in the request-preparation
+subsystem on purpose.

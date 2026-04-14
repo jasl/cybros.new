@@ -2,347 +2,287 @@
 
 ## Goal
 
-Introduce a shared `core_matrix` feature platform for product-owned runtime
-features that need all of the following:
+Introduce a shared `core_matrix` runtime feature platform for product-owned
+features whose execution is:
 
-- workspace-level policy
-- runtime capability discovery
-- feature-specific execution modes such as direct control-plane calls vs
-  workflow-backed execution
-- runtime-first execution or runtime-authored workflow participation with
-  embedded fallback
-- feature-specific lifecycle rules such as snapshot-frozen vs live-read
-- future schema publication for UI or external tooling
+- policy-driven at the workspace level
+- runtime-capability-aware
+- optionally runtime-backed
+- optionally embedded-backed
+- not part of the provider request-preparation critical path
 
-The first two feature slices on top of this platform are:
+This platform is the long-term home for features such as:
 
-- `prompt_compaction`
 - `title_bootstrap`
+- future metadata or post-processing features
+- other best-effort or directly-invoked product features
+
+It is **not** the primary execution model for prompt-budget enforcement or
+Core Matrix-assisted prompt compaction. Those belong to the dedicated request
+preparation subsystem described in:
+
+- [2026-04-14-prompt-budget-guard-design.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-14-prompt-budget-guard-design.md)
 
 ## Design Principles
 
-This design assumes the current branch allows intentional breaking changes and
-does not optimize for compatibility with interim contracts.
+This branch allows intentional breaking changes. The architecture should prefer
+clear long-term boundaries over compatibility with interim internal contracts.
 
 Priority order:
 
-1. coherent long-term architecture
-2. explicit domain boundaries
-3. product correctness and recoverability
+1. explicit domain boundaries
+2. product correctness and observability
+3. coherent long-term contracts
 4. implementation cost
-
-That means this design prefers replacing ad hoc partial abstractions instead of
-layering more compatibility logic on top of them.
 
 ## Scope
 
-This pass establishes a reusable platform for feature orchestration across
-`core_matrix` and `agents/fenix`.
+This platform establishes shared infrastructure for runtime-backed product
+features across `core_matrix` and `agents/fenix`.
 
 It includes:
 
-1. structured feature policy schemas
+1. schema-first feature-policy contracts under `workspace.config.features.*`
 2. runtime feature capability contracts in manifests
-3. a shared feature registry in `core_matrix`
-4. direct runtime feature invocation over the control plane where appropriate
-5. intent-backed workflow-node execution for model-backed features
-6. embedded fallback execution
-7. feature-owned lifecycle semantics
-8. schema publication for future UI consumers
+3. a shared runtime-feature registry in `core_matrix`
+4. direct runtime feature invocation over the control plane
+5. shared runtime-vs-embedded orchestration
+6. feature-owned lifecycle semantics such as live-resolved vs snapshot-frozen
+7. schema publication for future UI consumers
 
-It explicitly covers `prompt_compaction` and `title_bootstrap` as the first
-consumers.
+It does **not** include:
 
-## Non-Goals
+- prompt-budget guarding
+- provider request assembly
+- authoritative dispatch-time token decisions
+- workflow-backed prompt compaction
+- agent-facing token-counting APIs
 
-This pass does not:
-
-- keep backward compatibility with the current internal feature-as-tool
-  contract
-- preserve `enabled + mode` as the long-term policy shape
-- keep `WorkspaceFeatures::Schema` as the final abstraction
-- make every feature snapshot-frozen
-- require every feature to be runtime-capable
-- solve all future settings/configuration needs in one move
+Those are request-preparation concerns, even when they reuse the same
+`features.*` settings namespace.
 
 ## Current Baseline
 
-Today the codebase already has useful groundwork:
+Useful groundwork already exists:
 
 - `workspace.config.features.*`
 - `WorkspaceFeatures::Schema`
 - `WorkspaceFeatures::Resolver`
 - workspace policy show/update
 - canonical config defaults in Fenix
-- `provider_context.feature_policies.prompt_compaction`
+- live-read title-bootstrap policy resolution
 
-But the current shape is still transitional.
+The current shape is still transitional because:
 
-The main issues are:
-
-1. policy and capability are still mixed conceptually
-2. internal feature execution is still modeled as agent tool execution
-3. feature lifecycle behavior is implemented ad hoc per feature
-4. the policy schema is hand-written Ruby hash validation rather than a
-   first-class schema artifact
-5. there is no shared execution contract that distinguishes direct feature
-   calls from workflow-backed feature execution
+1. policy and capability are not modeled as separate contracts
+2. runtime capability is still partly inferred from ad hoc surfaces
+3. execution and fallback are still partially slice-local
+4. the policy schema is hand-written instead of schema-first
 
 ## Core Problem
 
-`prompt_compaction` and `title_bootstrap` are not ordinary tools.
-
-They are product features with:
+Features such as `title_bootstrap` are not ordinary tools. They have:
 
 - policy
 - capability
-- orchestration
-- fallback
-- lifecycle semantics
+- execution strategy
+- fallback semantics
+- lifecycle rules
 - feature-specific failure handling
 
-Treating them as simple booleans plus a couple of service objects creates
-duplicated orchestration logic and blurs the boundary between:
-
-- user/model-visible tools
-- internal product-owned features
-
-The platform should make that boundary explicit.
+Those concerns should be modeled explicitly. A shared platform avoids each
+feature growing its own bespoke runtime probe, invocation path, and fallback
+logic.
 
 ## Recommended Architecture
 
 ### 1. Separate Policy, Capability, And Execution
 
-The platform should model three distinct concepts:
+The platform should model three distinct concerns:
 
 - `policy`
   - what the workspace wants
 - `capability`
-  - what the current runtime/agent implementation can do
+  - what the current runtime advertises
 - `execution`
-  - what `core_matrix` decides to invoke for this particular feature
+  - what `core_matrix` decides to invoke for this specific feature call
 
-These must not share the same contract.
+These should not share the same wire contract.
 
-### 2. Replace `enabled + mode` With Structured Strategy Policies
+### 2. Keep `features.*` As The Shared Policy Namespace
 
-The long-term policy shape should become:
+The long-term workspace policy shape should remain structured:
 
 ```json
 {
   "features": {
-    "prompt_compaction": {
-      "strategy": "runtime_first"
-    },
     "title_bootstrap": {
       "strategy": "embedded_only"
+    },
+    "prompt_compaction": {
+      "strategy": "runtime_first"
     }
   }
 }
 ```
 
-Recommended common strategy enum:
+The shared strategy enum should be:
 
 - `disabled`
 - `embedded_only`
 - `runtime_first`
 - `runtime_required`
 
-This removes invalid mixed states such as:
+Important boundary:
 
-- `enabled = false` plus `mode = runtime_first`
+- the `features.*` namespace is shared across product-owned subsystems
+- the runtime feature platform consumes `features.title_bootstrap`
+- the request-preparation subsystem consumes `features.prompt_compaction`
 
-Feature-specific schemas may later add additional fields under the same feature
-node, but the strategy contract should be shared.
+Shared settings do not imply shared execution infrastructure.
 
 ### 3. Introduce A Feature Registry
 
-`core_matrix` should own a registry describing each supported feature.
+`core_matrix` should own a registry for runtime-platform features.
 
-Each registry entry should define:
+Each entry should define:
 
 - `feature_key`
 - `policy_schema_class`
 - `runtime_capability_key`
 - `runtime_requirement`
-- `consultation_mode`
-- `execution_mode`
 - `policy_lifecycle`
 - `capability_lifecycle`
+- `execution_mode`
 - `orchestrator_class`
 - `embedded_executor_class`
 - `runtime_failure_policy`
 - `result_contract`
 
-This keeps feature-specific behavior explicit while centralizing the platform
-rules.
-
-Example shape:
+Example:
 
 ```ruby
 RuntimeFeatures::Registry.register(
-  key: "prompt_compaction",
-  policy_schema: RuntimeFeatures::Policies::PromptCompaction,
-  runtime_capability_key: "prompt_compaction",
-  runtime_requirement: :required_on_fenix,
-  consultation_mode: :direct_required,
-  execution_mode: :workflow_intent,
-  policy_lifecycle: :snapshot_frozen,
-  capability_lifecycle: :snapshot_frozen,
-  orchestrator: RuntimeFeatures::PromptCompaction::Orchestrator,
-  embedded_executor: EmbeddedFeatures::PromptCompaction::Invoke
+  key: "title_bootstrap",
+  policy_schema: RuntimeFeaturePolicies::TitleBootstrapSchema,
+  runtime_capability_key: "title_bootstrap",
+  runtime_requirement: :optional,
+  policy_lifecycle: :live_resolved,
+  capability_lifecycle: :live_resolved,
+  execution_mode: :direct,
+  orchestrator: RuntimeFeatures::TitleBootstrap::Orchestrator,
+  embedded_executor: EmbeddedFeatures::TitleBootstrap::Invoke
 )
 ```
+
+This registry should cover runtime-platform features only. It should not own
+provider request-preparation orchestration.
 
 ### 4. Publish Policy Schemas As First-Class Artifacts
 
 The policy layer should become schema-first.
 
-The current hand-written validator in
-[schema.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workspace_features/schema.rb)
-is good as a transitional guard, but it is not the right final abstraction for
-long-lived product settings that must eventually drive UI.
-
-The platform should expose:
+Recommended direction:
 
 - one Ruby-side schema definition per feature
 - one bundled root schema for `workspace.config.features`
 - machine-readable JSON Schema output
-- optional UI metadata such as grouping, labels, controls, and help text
+- optional UI metadata such as labels, descriptions, and control hints
 
-### 5. Use An Internal EasyTalk-Based Schema Layer
+The current hand-written validator in
+[schema.rb](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workspace_features/schema.rb)
+is a transitional guard, not the desired final abstraction.
 
-The prior research note already pointed at `easy_talk` as the better candidate
-once `core_matrix` needs schema-first settings publication:
-[research note](/Users/jasl/Workspaces/Ruby/cybros/docs/research-notes/2026-03-24-core-matrix-structured-json-contracts-research-note.md).
+### 5. Use An Internal EasyTalk-Based Schema Wrapper
 
-The Tavern Kit reference confirms the useful pattern:
+The `easy_talk` evaluation still points to the right policy-layer direction:
 
-- product-specific wrapper layer
 - nested schema composition
 - root schema bundle
-- `x-ui` and similar extension metadata
+- extension metadata such as `x-ui`
 
-Recommended adoption approach:
+Recommended adoption:
 
-- do **not** spread raw `EasyTalk::*` usage across unrelated app code
-- do introduce a narrow internal wrapper, for example
-  `CoreMatrix::SchemaContracts` or `RuntimeFeatures::PolicySchemas`
-- that wrapper may depend on `easy_talk` directly or vendor a narrowed subset,
-  but the rest of the app should depend only on the product wrapper
-
-This keeps the platform in control of:
-
-- naming
-- schema extensions
-- JSON Schema publication
-- future UI bundle format
+- expose a narrow product-owned wrapper namespace such as
+  `RuntimeFeaturePolicies::*`
+- keep `easy_talk` out of unrelated app code
+- let the wrapper own JSON Schema publication and metadata conventions
 
 ### 6. Add A Dedicated Runtime Feature Contract
 
-Fenix manifest should gain a new top-level `feature_contract` instead of
-continuing to advertise internal product features through `tool_contract`.
+Fenix manifest should gain a top-level `feature_contract` for runtime-platform
+features.
 
-Each feature entry should include:
+Each entry should include:
 
 - `feature_key`
-- `consultation_mode`
 - `execution_mode`
 - `lifecycle`
-- `consultation_schema`
-- `intent_schema`
-- `artifact_schema`
+- `request_schema`
+- `response_schema`
 - `implementation_ref`
 
 Example:
 
 ```json
 {
-  "feature_key": "prompt_compaction",
-  "consultation_mode": "direct_required",
-  "execution_mode": "workflow_intent",
-  "lifecycle": "turn_scoped",
-  "consultation_schema": { "type": "object" },
-  "intent_schema": { "type": "object" },
-  "artifact_schema": { "type": "object" },
-  "implementation_ref": "fenix/prompt_compaction"
+  "feature_key": "title_bootstrap",
+  "execution_mode": "direct",
+  "lifecycle": "live",
+  "request_schema": { "type": "object" },
+  "response_schema": { "type": "object" },
+  "implementation_ref": "fenix/title_bootstrap"
 }
 ```
 
-This is a cleaner fit than pretending internal compaction is a normal agent
-tool.
+This contract is for direct runtime features. It is not the right home for
+prompt-compaction workflow execution.
 
-### 7. Add Dedicated Feature Execution Paths
+### 7. Keep Runtime Feature Execution Direct
 
-The platform should not force every feature through the same transport.
+The runtime feature platform should support direct control-plane execution for
+its features.
 
-It should support two execution paths plus an optional consultation hook:
+Recommended transport:
 
-1. direct feature execution
-   - for non-LLM or non-loop-shaping features
-   - modeled through `execute_feature`
-2. intent-backed workflow execution
-   - for model-backed features that should appear as workflow nodes and re-enter
-     the agent loop after completion
-   - modeled through yielded feature intents plus workflow-node materialization
+- `execute_feature`
 
-This keeps the control-plane model honest:
+That path is appropriate for:
 
-- tools are tools
-- direct features are direct features
-- workflow-backed features are workflow-backed features
+- best-effort metadata generation
+- product-owned runtime helpers that do not reshape the main agent loop
+- features whose execution does not need a dedicated workflow node
 
-Some features may also require a direct consultation phase before execution:
-
-- Core Matrix remains the authoritative trigger
-- runtime is asked whether and how the feature should proceed
-- Core Matrix then decides whether to materialize workflow work
-
-For the initial slices:
-
-- `prompt_compaction` must use `workflow_intent`
-- `prompt_compaction` should also expose a direct consultation hook
-- `title_bootstrap` may use direct feature execution or embedded execution
+It is not appropriate for model-backed prompt compaction, because Core Matrix
+assistance with compaction must be visible in workflow state.
 
 ### 8. Freeze Or Resolve Per Feature, Not Globally
 
-The platform must not force one lifecycle rule onto all features.
+Each runtime-platform feature declares its own lifecycle semantics.
 
-Each feature declares its own policy and capability lifecycle.
+Initial rule:
 
-Recommended initial rules:
-
-- `prompt_compaction`
-  - policy: `snapshot_frozen`
-  - capability: `snapshot_frozen`
 - `title_bootstrap`
   - policy: `live_resolved`
   - capability: `live_resolved`
 
-That means the platform must support both:
+The platform must support both:
 
-- execution-snapshot-backed resolution
-- live runtime resolution at invocation time
+- snapshot-backed access for future features that need it
+- live-resolved access for features like `title_bootstrap`
+
+The platform should not force one rule onto all features.
 
 ### 9. Standardize Orchestration And Fallback
 
-Every feature invocation should go through one orchestration path:
+Every runtime-platform invocation should go through one shared orchestration
+path:
 
 1. resolve effective policy
 2. resolve effective capability
-3. run consultation when the feature requires it
-4. select direct invocation vs workflow-backed execution vs embedded path
-5. invoke or materialize the selected path
-6. fall back to embedded according to feature policy
-7. return a typed result object with source, execution mode, and status
-
-The platform must still allow per-feature runtime criticality:
-
-- some features are genuinely runtime-optional
-- some features are runtime-required for specific runtimes such as Fenix
-
-That requirement must be explicit in the registry and enforced by manifest
-tests and bundled-runtime registration, not left as convention.
+3. select runtime vs embedded vs skip
+4. invoke the selected path
+5. normalize result and failure semantics
 
 The common result shape should include:
 
@@ -354,18 +294,14 @@ The common result shape should include:
   - `runtime`
   - `embedded`
   - `none`
-- `execution_mode`
-  - `direct`
-  - `workflow`
-  - `none`
 - `fallback_used`
 - `value`
 - `failure`
 
-### 10. Unify Failure Semantics
+### 10. Standardize Failure Semantics
 
-The platform should standardize a small set of runtime feature failure codes,
-for example:
+The platform should normalize a small set of runtime-feature failure codes,
+such as:
 
 - `feature_not_advertised`
 - `feature_not_allowed`
@@ -377,19 +313,14 @@ Each feature then decides whether these mean:
 
 - skip
 - fallback
-- fail the calling workflow
+- fail
 
-For example:
+For `title_bootstrap`:
 
-- `prompt_compaction`
-  - on Fenix, missing advertised capability is a contract failure, not a
-    healthy steady state
-  - runtime execution failure may still fall back once for resilience
-  - repeated failure may become a turn failure
-- `title_bootstrap`
-  - runtime support is optional
-  - `feature_unsupported` means fallback or skip according to strategy
-  - final failure is still best-effort and non-blocking
+- runtime support is optional
+- runtime failure is best-effort
+- embedded fallback remains the product guarantee
+- final failure remains non-blocking
 
 ## Platform Components
 
@@ -398,8 +329,6 @@ For example:
 Recommended home:
 
 - `core_matrix/app/models/runtime_feature_policies/**`
-  or
-- `core_matrix/lib/core_matrix/schema_contracts/**`
 
 Responsibilities:
 
@@ -407,6 +336,9 @@ Responsibilities:
 - emit JSON Schema bundle
 - validate workspace overrides
 - expose defaults and UI metadata
+
+This shared layer may still define `features.prompt_compaction`, but that does
+not make prompt compaction a runtime-platform feature.
 
 ### Registry Layer
 
@@ -416,21 +348,19 @@ Recommended home:
 
 Responsibilities:
 
-- register feature definitions
-- expose lifecycle/capability/orchestrator metadata
+- register runtime-platform feature definitions
+- expose lifecycle and orchestration metadata
 
 ### Capability Layer
 
 Recommended home:
 
-- `core_matrix/app/services/runtime_features/capability_contract.rb`
 - `core_matrix/app/services/runtime_features/capability_resolver.rb`
 
 Responsibilities:
 
 - normalize manifest `feature_contract`
-- project frozen capability snapshots when required
-- resolve live capabilities when required
+- resolve effective runtime capability
 
 ### Invocation Layer
 
@@ -441,63 +371,8 @@ Recommended home:
 
 Responsibilities:
 
-- send and receive feature control-plane requests
-- normalize runtime results and failures
-- support consultation-style direct requests for workflow-backed features when
-  the platform requires runtime guidance before materializing workflow work
-
-### Shared Advisory APIs
-
-Some agent-facing infrastructure queries should remain Core Matrix-owned instead
-of being reimplemented per runtime.
-
-The first concrete example is input-token counting for prompt construction:
-
-- a static per-round budget envelope delivered during prompt construction
-- an OpenAI-style input-token counting API exposed to agents over the
-  authenticated AgentAPI
-  surface
-- backed by Core Matrix token estimation and reserve logic
-- reusable outside the `prompt_compaction` slice
-- non-mutating and non-authoritative for final dispatch
-
-This keeps heavy tokenizer and budgeting infrastructure in Core Matrix while
-still giving specialized agents a way to proactively manage context.
-
-The two surfaces should be distinct:
-
-- `budget envelope`
-  - delivered with round-construction context
-  - includes selected model identity plus recommended and hard prompt-input
-    budget targets
-  - intended for up-front drafting guidance
-- `input-token counting API`
-  - invoked on demand with a concrete candidate provider-visible `input`
-    payload
-  - returns recalculated token diagnostics for that candidate
-  - intended for dynamic refinement while drafting
-
-Neither surface replaces the final dispatch-time guard.
-
-These agent-initiated counting APIs should not be modeled as mailbox work or as
-Core Matrix-to-agent `execute_feature` calls. They are agent-initiated,
-authenticated AgentAPI requests.
-
-### Workflow Intent Layer
-
-Recommended home:
-
-- `core_matrix/app/services/provider_execution/persist_turn_step_yield.rb`
-- `core_matrix/app/services/workflows/re_enter_agent.rb`
-- `core_matrix/app/services/runtime_features/intent_materializer.rb`
-
-Responsibilities:
-
-- accept runtime-authored workflow intents only for features that permit them
-- synthesize feature intents from Core Matrix guards or platform orchestrators
-  when the feature is Core Matrix-triggered
-- materialize workflow nodes and artifacts
-- resume normal agent execution after the feature node completes
+- send direct runtime-feature requests
+- normalize runtime-feature responses and failures
 
 ### Orchestration Layer
 
@@ -509,9 +384,8 @@ Recommended home:
 Responsibilities:
 
 - apply strategy
-- decide runtime vs embedded
-- apply fallback rules
-- return typed results
+- decide runtime vs embedded vs skip
+- return normalized result objects
 
 ### Embedded Execution Layer
 
@@ -523,86 +397,91 @@ Responsibilities:
 
 - product-owned fallback behavior
 - no runtime dependency
-- no protocol dependency
+- no provider-loop coupling
 
-## How The First Two Features Fit
+## Boundary With Request Preparation
 
-### `prompt_compaction`
+The request-preparation subsystem owns:
 
-Platform-specific characteristics:
+- budget envelope production
+- `POST /agent_api/responses/input_tokens`
+- authoritative dispatch-time token checks
+- prompt-compaction consultation
+- prompt-compaction workflow nodes
+- re-entry after compaction
 
-- execution-critical
-- snapshot-frozen
-- runtime-first by default
-- runtime capability required for Fenix
-- Core Matrix is the sole trigger
-- direct consultation before workflow insertion
-- workflow-backed execution
-- embedded fallback required
-- may produce turn failure if compaction cannot recover the request
+This boundary matters because the user and system constraints are different:
 
-`prompt_compaction` is the one feature in this initial platform that should be
-treated as quality-critical for the primary agent runtime. For Fenix, the
-runtime capability must exist and be validated as part of the runtime contract.
-The authoritative budget check belongs to Core Matrix, not the runtime agent.
-When Core Matrix detects that compaction is advisable or required, it should
-ask the runtime for compaction guidance, then insert a workflow node if the
-decision is to compact. If compaction requires an LLM call, that call should
-appear as a workflow node, not as an invisible synchronous control-plane side
-effect. Embedded compaction remains valuable, but only as a degraded fallback
-or for non-Fenix runtimes.
+- runtime-platform features may be direct and best-effort
+- Core Matrix-assisted compaction must leave workflow traces and be scheduled
+  by the workflow engine
 
-### `title_bootstrap`
+Prompt compaction may still reuse:
 
-Platform-specific characteristics:
+- the shared `features.*` policy namespace
+- shared schema publication
+- shared manifest vocabulary where useful
+
+But it should not be executed as an ordinary runtime feature.
+
+## How `title_bootstrap` Fits
+
+`title_bootstrap` is the first concrete runtime-platform consumer.
+
+It should be:
 
 - metadata-only
 - live-resolved
 - embedded-only by default
-- runtime capability optional
-- embedded fallback required
-- final failure is best-effort and non-blocking
+- runtime-optional
+- best-effort and non-blocking
 
-## Why This Is Better Than The Current Incremental Plan
+Its runtime invocation path should be:
 
-This version is more expensive, but materially cleaner:
+- direct `execute_feature` when runtime execution is allowed and advertised
+- embedded fallback otherwise
 
-- feature policy becomes a real product contract
-- UI schema publication becomes natural instead of bolted on later
-- runtime capability becomes separate from tool visibility
-- feature lifecycle becomes explicit instead of implicit
-- prompt compaction and title bootstrap stop inventing parallel orchestration
-  logic
-- future features can reuse the same platform
+## Why This Is Better
 
-Likely future consumers:
+This split is cleaner than forcing both `prompt_compaction` and
+`title_bootstrap` through the same abstraction:
+
+- `title_bootstrap` is a real runtime-platform feature
+- `prompt_compaction` is a request-preparation and workflow concern
+- the shared `features.*` namespace remains coherent
+- direct runtime features stop inheriting prompt-compaction complexity
+- prompt compaction stops inheriting direct-feature assumptions
+
+## Likely Future Runtime-Platform Consumers
 
 - conversation summary generation
 - intent distillation
 - response critique
-- safety post-processing
-- export summarization
+- lightweight post-processing
 
 ## Testing Strategy
 
-The platform should be tested at five levels:
+The runtime feature platform should be tested at five levels:
 
 1. policy schema bundle generation and validation
-2. manifest `feature_contract` parsing and freezing
-3. direct `execute_feature` exchange where relevant
-4. workflow-intent materialization and re-entry behavior
-5. feature-slice behavior for prompt compaction and title bootstrap
+2. manifest `feature_contract` parsing and resolution
+3. direct `execute_feature` exchange
+4. runtime-vs-embedded orchestration results
+5. concrete `title_bootstrap` behavior on top of the platform
 
 ## Summary
 
-The right long-term move is not to keep polishing feature-specific service
-stacks. It is to establish a real runtime feature platform where:
+The right long-term move is to keep a real runtime feature platform, but to
+scope it honestly.
 
-- policy is schema-first
-- capability is manifest-driven
-- execution is explicitly orchestrated
-- lifecycle is owned per feature
-- embedded fallback is a first-class product capability
+This platform should own:
 
-`easy_talk` is a good fit for the policy-schema layer inside this platform.
-It is not the platform itself.
+- schema-first `features.*` publication
+- runtime-platform capability discovery
+- direct runtime feature invocation
+- runtime-vs-embedded orchestration
+
+It should not own provider request-preparation critical-path behavior.
+
+`title_bootstrap` belongs here.
+`prompt_compaction` does not.

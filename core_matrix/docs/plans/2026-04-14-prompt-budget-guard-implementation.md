@@ -1,335 +1,159 @@
-# Prompt Compaction Feature Slice Implementation Plan
+# Prompt Budget Guard And Request Preparation Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-## Status
-
-This document now describes the `prompt_compaction` feature slice on top of
-the shared platform defined in:
-
-- [runtime-feature-platform-design.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-14-runtime-feature-platform-design.md)
-- [runtime-feature-platform-implementation.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-14-runtime-feature-platform-implementation.md)
-
-If the platform is being implemented in the same stream, complete platform
-Tasks 1 through 6 first. This slice should not reintroduce feature-specific
-policy resolution, manifest parsing, or `execute_tool`-shaped runtime calls.
-
 ## Goal
 
-Add authoritative prompt-budget protection for provider turns by implementing
-`prompt_compaction` as an execution-critical feature slice:
+Build a dedicated request-preparation subsystem for prompt-budget protection and
+Core Matrix-assisted prompt compaction.
 
-- token budgets are checked before dispatch
-- compaction policy is frozen per turn
-- model-backed compaction is represented as workflow work
-- Fenix is required to implement prompt-compaction consultation and workflow
-  execution support
-- missing or failing runtime support falls back to embedded compaction when the
-  frozen strategy allows it
-- provider overflow becomes a typed, user-recoverable failure instead of
-  `internal_unexpected_error`
+The subsystem must:
 
-## Architecture
-
-`ProviderExecution::ExecuteRoundLoop` remains the final authority before
-provider dispatch. The slice-specific pieces are:
-
-- `ProviderExecution::TokenEstimator`
-- `ProviderExecution::PromptBudgetGuard`
-- workflow-intent materialization for `prompt_compaction`
-- provider-overflow recovery and failure classification
-
-The shared platform owns:
-
-- policy schema under `features.prompt_compaction`
-- capability resolution from `feature_contract`
-- direct invocation only for direct features; `prompt_compaction` does not use
-  synchronous `execute_feature`
-- workflow-backed feature execution and embedded fallback selection
-- runtime failure normalization
-
-For this slice, Fenix is the primary runtime implementation, not an optional
-capability provider.
+- keep Core Matrix as the sole authoritative dispatch-time budget gate
+- provide a strong working fallback for simple agents
+- give sophisticated agents better drafting guidance and counting tools
+- force all Core Matrix-assisted compaction through workflow-visible execution
 
 ## Target Outcome
 
 At the end of this plan:
 
-- oversized turns are caught before provider dispatch whenever possible
-- the newest selected user input is never compacted away
-- Core Matrix is the sole trigger for prompt compaction
-- prompt construction receives a Core Matrix-owned budget envelope for the
-  selected model and available prompt budget
-- Fenix advertises `prompt_compaction`, responds to compaction consultations,
-  and executes the compaction workflow node as a required capability
-- the actual LLM compaction call appears as a workflow node
-- `runtime_first` prefers runtime compaction but only degrades to embedded on
-  bounded runtime failure
-- `runtime_required` fails explicitly when runtime capability is missing or the
-  runtime compaction request fails
-- prompt-size failures persist structured remediation metadata that the app can
-  use to guide retry
+- Core Matrix publishes a budget envelope during prompt construction
+- agents can call `POST /agent_api/responses/input_tokens`
+- Core Matrix performs authoritative dispatch-time budget guarding
+- prompt compaction uses a dedicated request-preparation contract, not the
+  runtime feature platform
+- prompt compaction consultation and workflow execution are available in Fenix
+- embedded compaction provides a strong fallback
+- provider overflow becomes explicit, recoverable failure metadata
+- deterministic tiny-context e2e coverage exists
 
-## Task Boundaries
+## Non-Goals
 
-This slice owns:
+This plan does not:
 
-- token estimation
-- guard decisions
-- prompt-construction budget envelope publication
-- the shared input-token counting API for proactive agent use
-- compaction workflow-node integration into round execution
-- bounded overflow recovery
-- prompt-size failure payloads
+- reimplement generic runtime-feature execution
+- move prompt compaction onto `execute_feature`
+- prevent agents from doing additional local budgeting or compaction on their
+  own before they ask Core Matrix for help
+- preserve compatibility with the interim feature-slice contract
 
-This slice does not own:
+## Architecture
 
-- policy schema infrastructure
-- feature registry or capability registry
-- generic feature orchestration semantics
+The implementation introduces:
 
-This slice does own the concrete Fenix `prompt_compaction` capability because
-quality depends on it, but that capability is split between direct
-consultation and workflow-backed execution rather than a single synchronous
-direct feature RPC.
+- a Core Matrix-owned token estimator
+- a budget envelope in `provider_context`
+- an AgentAPI counting endpoint shaped after OpenAI
+- an authoritative `PromptBudgetGuard`
+- a dedicated `request_preparation_contract` for prompt compaction
+- direct consultation before workflow insertion
+- workflow-backed compaction execution and re-entry
+- explicit failure and degradation diagnostics
+
+## Tech Stack
+
+Ruby on Rails, Minitest, control-plane mailbox contracts, AgentAPI endpoints,
+workflow nodes, embedded executors, fake/mock providers, `agents/fenix`.
 
 ---
 
-### Task 1: Lock Slice Contracts Before Wiring Round Execution
+### Task 1: Lock The Request-Preparation Contracts With Failing Tests
 
 **Files:**
-- Modify: `agents/fenix/test/integration/runtime_manifest_test.rb`
-- Create: `agents/fenix/test/services/features/prompt_compaction/respond_to_consultation_test.rb`
-- Create: `agents/fenix/test/services/features/prompt_compaction/execute_node_test.rb`
-- Modify: `agents/fenix/test/services/runtime/execute_mailbox_item_test.rb`
-- Modify: `agents/fenix/test/services/build_round_instructions_test.rb`
-- Modify: `agents/fenix/test/services/requests/prepare_round_test.rb`
-- Modify: `core_matrix/test/services/provider_execution/failure_classification_test.rb`
-- Modify: `core_matrix/test/services/provider_execution/execute_turn_step_test.rb`
-- Create: `core_matrix/test/services/provider_execution/prompt_budget_guard_test.rb`
 - Create: `core_matrix/test/services/provider_execution/token_estimator_test.rb`
-- Modify: `core_matrix/test/services/provider_execution/prepare_agent_round_test.rb`
+- Create: `core_matrix/test/services/provider_execution/prompt_budget_guard_test.rb`
 - Modify: `core_matrix/test/services/provider_execution/execute_round_loop_test.rb`
+- Modify: `core_matrix/test/services/provider_execution/execute_turn_step_test.rb`
 - Modify: `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
-- Modify: `core_matrix/test/services/provider_execution/build_request_context_test.rb`
+- Modify: `core_matrix/test/services/workflows/execute_node_test.rb`
+- Modify: `core_matrix/test/services/workflows/dispatch_runnable_nodes_test.rb`
+- Modify: `agents/fenix/test/integration/runtime_manifest_test.rb`
+- Modify: `agents/fenix/test/services/runtime/execute_mailbox_item_test.rb`
+- Create: `agents/fenix/test/services/requests/consult_prompt_compaction_test.rb`
+- Create: `agents/fenix/test/services/requests/execute_prompt_compaction_test.rb`
 
-**Step 1: Write failing `TokenEstimator` tests**
+**Step 1: Write failing Core Matrix guard tests**
 
-Cover the estimator fallback chain:
+Add tests that expect:
 
-- exact local tokenizer asset wins when available
-- `tiktoken` is used when no exact asset exists
-- heuristic fallback is used when neither tokenizer path is available
-- heuristic fallback intentionally over-estimates instead of under-estimating
+- Core Matrix computes authoritative guard decisions from the final
+  provider-visible candidate
+- the guard result is one of `allow`, `consult`, `compact_required`, `reject`
+- the newest selected user input may force immediate `reject`
+- `consult` and `compact_required` are distinct outcomes
+- prompt-compaction policy is frozen into the prepared round before guard
+  execution
 
-**Step 2: Write failing `PromptBudgetGuard` tests**
-
-Cover the four decision states:
-
-- `allow` below the soft threshold
-- `consult` when the request crosses the soft threshold or output reserve risk
-  appears but hard limits still allow a decision
-- `compact_required` when the request no longer fits and compaction is the only
-  remaining recovery path
-- `reject` when the newest selected user input alone exceeds the remaining hard
-  budget
-
-Also assert remediation metadata for:
-
-- `failure_scope = "current_message"`
-- `failure_scope = "full_context"`
-- `retry_mode`
-
-**Step 3: Write failing round-loop integration tests**
+**Step 2: Write failing round-loop boundary tests**
 
 Extend `execute_round_loop_test.rb` so it expects:
 
-- dispatch proceeds when the guard returns `allow`
-- the round consults Fenix when the guard returns `consult`
-- the round consults and then materializes `prompt_compaction` workflow work
-  when the final decision is to compact
-- the round may continue without compaction when consultation returns `skip`
-  and the request still fits hard-budget rules
-- the round raises a typed local failure when the guard returns `reject`
+- `consult` triggers runtime consultation when available
+- `compact_required` triggers workflow insertion
+- all Core Matrix-assisted compaction is represented as workflow work
+- workflow execution re-enters the normal agent loop
 
-Stub the consultation and workflow-materialization boundaries. Do not duplicate
-platform fallback tests here.
+Extend `execute_turn_step_test.rb`, `execute_node_test.rb`, and
+`dispatch_runnable_nodes_test.rb` so they expect:
 
-**Step 4: Write failing prompt-construction envelope tests**
+- a dedicated `prompt_compaction` node type is supported
+- the current `turn_step` can yield into a `prompt_compaction` node plus a
+  successor `turn_step`
+- the workflow engine can dispatch and execute that node type
+- the successor `turn_step` resumes from the compaction artifact instead of the
+  default transcript
 
-Extend `prepare_agent_round_test.rb`, `build_execution_snapshot_test.rb`,
-`build_round_instructions_test.rb`, and Fenix `prepare_round_test.rb` so they
-expect prompt construction to
-receive a Core Matrix-owned budget envelope through the existing
-`provider_context`.
+**Step 3: Write failing runtime-contract tests**
 
-Assert that:
+Extend Fenix manifest and request-preparation tests so they expect:
 
-- `provider_context.model_context` carries selected model identity
-  (`provider_handle`, `model_ref`, `api_model`, `tokenizer_hint`)
-- `provider_context.budget_hints.hard_limits` carries
-  `hard_input_token_limit`
-- `provider_context.budget_hints.advisory_hints` carries
-  `recommended_input_tokens`, `reserved_tokens`, `reserved_output_tokens`, and
-  `soft_threshold_tokens`
-- Fenix prompt construction can observe those fields without inventing its own
-  budgeting source of truth
+- top-level `request_preparation_contract`
+- `prompt_compaction` capability under that contract
+- consultation support
+- workflow-node execution support
+- `consult_prompt_compaction` and `execute_prompt_compaction` are valid
+  `agent_request` kinds handled by Fenix
 
-Also assert that this envelope is static build guidance and that dynamic budget
-re-checks still belong to the input-token counting API.
-
-**Step 5: Write failing Fenix contract tests**
-
-Add expectations that:
-
-- Fenix manifest always advertises `prompt_compaction`
-- prompt compaction declares `consultation_mode = direct_required`
-- prompt compaction declares `execution_mode = workflow_intent`
-- Fenix can respond to compaction consultations
-- Fenix can execute the compaction workflow node
-- missing prompt-compaction support is treated as a test failure, not as an
-  allowed optional capability
-
-**Step 6: Write failing overflow-classification tests**
-
-Extend `failure_classification_test.rb` so it expects:
-
-- HTTP `413` maps to a prompt-size failure
-- HTTP `400` / `422` bodies containing `prompt too long`, `context length`,
-  `maximum context length`, or `request too large` also map to prompt-size
-  failures
-- these failures are retryable by user action, not generic implementation
-  failures
-
-**Step 7: Write failing failure-persistence tests**
-
-Extend `execute_turn_step_test.rb` so persisted failure payloads include:
-
-- `retry_mode`
-- `editable_tail_input`
-- `failure_scope`
-- `turn_id`
-- `selected_input_message_id`
-- fallback source / degraded-runtime diagnostics when applicable
-
-**Step 8: Run the targeted tests and verify they fail**
-
-From `/Users/jasl/Workspaces/Ruby/cybros/core_matrix`:
+**Step 4: Run the targeted tests and verify they fail**
 
 ```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
   test/services/provider_execution/token_estimator_test.rb \
   test/services/provider_execution/prompt_budget_guard_test.rb \
-  test/services/provider_execution/prepare_agent_round_test.rb \
-  test/services/workflows/build_execution_snapshot_test.rb \
-  test/services/provider_execution/build_request_context_test.rb \
   test/services/provider_execution/execute_round_loop_test.rb \
-  test/services/provider_execution/failure_classification_test.rb \
-  test/services/provider_execution/execute_turn_step_test.rb
+  test/services/provider_execution/execute_turn_step_test.rb \
+  test/services/workflows/build_execution_snapshot_test.rb \
+  test/services/workflows/execute_node_test.rb \
+  test/services/workflows/dispatch_runnable_nodes_test.rb
 ```
 
-Then run:
-
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
-PARALLEL_WORKERS=1 bin/rails test \
-  test/integration/runtime_manifest_test.rb \
-  test/services/build_round_instructions_test.rb \
-  test/services/requests/prepare_round_test.rb \
-  test/services/runtime/execute_mailbox_item_test.rb \
-  test/services/features/prompt_compaction/respond_to_consultation_test.rb \
-  test/services/features/prompt_compaction/execute_node_test.rb
-```
-
-Expected: failures show the estimator and guard do not exist yet, round
-execution does not materialize compaction workflow work, Fenix does not yet
-implement the required runtime capability, and overflow is still classified
-generically.
-
-### Task 2: Implement Fenix Consultation And Workflow Execution
-
-**Files:**
-- Create: `agents/fenix/app/services/features/prompt_compaction/respond_to_consultation.rb`
-- Create: `agents/fenix/app/services/features/prompt_compaction/execute_node.rb`
-- Modify: `agents/fenix/app/services/requests/execute_feature.rb`
-- Modify: `agents/fenix/app/services/runtime/manifest/definition_package.rb`
-- Modify: `agents/fenix/test/integration/runtime_manifest_test.rb`
-- Modify: `agents/fenix/test/services/runtime/execute_mailbox_item_test.rb`
-- Create: `agents/fenix/test/services/features/prompt_compaction/respond_to_consultation_test.rb`
-- Create: `agents/fenix/test/services/features/prompt_compaction/execute_node_test.rb`
-
-**Step 1: Implement the consultation responder**
-
-Add a direct consultation handler that consumes the Core Matrix budget report
-and returns compaction guidance.
-
-Its algorithm should be informed by the patterns we saw in Claude Code, Codex,
-and OpenClaw:
-
-- use Core Matrix budget diagnostics as authoritative input
-- preserve the newest selected user input verbatim
-- compact older history and imports before touching recent user context
-- aggressively reduce bulky tool results before compacting primary transcript
-- prepare explicit diagnostics and preservation invariants
-
-The responder should return:
-
-- `decision` (`skip`, `compact`, `reject`)
-- compaction strategy / style guidance
-- prioritization hints
-- preservation invariants
-- diagnostics / rationale
-
-**Step 2: Implement workflow-node execution**
-
-Implement the actual compaction execution for the materialized workflow node.
-
-It should not invent open-ended recursive summarization loops.
-For v1, keep its strategy intentionally aligned with the embedded fallback:
-
-- same preservation invariants
-- same prioritization of bulky tool outputs before primary transcript
-- same stop conditions and diagnostics shape
-
-Back this with shared fixtures or golden tests so runtime and embedded paths do
-not drift accidentally.
-
-**Step 3: Wire Fenix manifest and direct consultation support**
-
-Make `prompt_compaction`:
-
-- advertised in `feature_contract`
-- declared as `consultation_mode = direct_required`
-- declared as `execution_mode = workflow_intent`
-- treated as required by Fenix integration tests
-
-**Step 4: Run the targeted Fenix tests and make them green**
+Then:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
 PARALLEL_WORKERS=1 bin/rails test \
   test/integration/runtime_manifest_test.rb \
   test/services/runtime/execute_mailbox_item_test.rb \
-  test/services/features/prompt_compaction/respond_to_consultation_test.rb \
-  test/services/features/prompt_compaction/execute_node_test.rb
+  test/services/requests/consult_prompt_compaction_test.rb \
+  test/services/requests/execute_prompt_compaction_test.rb
 ```
 
-Expected: Fenix now provides the required consultation and workflow execution
-path for prompt compaction.
-### Task 3: Implement Token Estimation And Guard Decisions
+Expected: failures show the request-preparation contracts and boundaries do not
+exist yet.
+
+### Task 2: Implement Token Estimation, Budget Envelope, And Counting API
 
 **Files:**
 - Create: `core_matrix/app/services/provider_execution/token_estimator.rb`
-- Create: `core_matrix/app/services/provider_execution/prompt_budget_guard.rb`
 - Create: `core_matrix/app/services/provider_execution/prompt_budget_advisory.rb`
 - Modify: `core_matrix/app/services/workflows/build_execution_snapshot.rb`
-- Modify: `core_matrix/app/services/provider_execution/execute_round_loop.rb`
 - Modify: `core_matrix/app/services/provider_execution/prepare_agent_round.rb`
 - Modify: `core_matrix/app/services/provider_execution/build_request_context.rb`
 - Modify: `core_matrix/config/routes.rb`
 - Create: `core_matrix/app/controllers/agent_api/responses/input_tokens_controller.rb`
 - Modify: `core_matrix/test/services/provider_execution/token_estimator_test.rb`
-- Modify: `core_matrix/test/services/provider_execution/prompt_budget_guard_test.rb`
 - Create: `core_matrix/test/services/provider_execution/prompt_budget_advisory_test.rb`
 - Modify: `core_matrix/test/services/provider_execution/prepare_agent_round_test.rb`
 - Modify: `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
@@ -337,21 +161,22 @@ path for prompt compaction.
 - Create: `core_matrix/test/requests/agent_api/responses/input_tokens_test.rb`
 - Modify: `agents/fenix/app/services/shared/control_plane/client.rb`
 - Modify: `agents/fenix/test/services/shared/control_plane/client_test.rb`
-- Modify: `core_matrix/test/services/provider_execution/execute_round_loop_test.rb`
+- Modify: `agents/fenix/test/services/build_round_instructions_test.rb`
+- Modify: `agents/fenix/test/services/requests/prepare_round_test.rb`
 
 **Step 1: Implement `TokenEstimator`**
 
 The estimator should accept:
 
-- final provider-visible messages
-- model or tokenizer hints
-- the relevant hard-budget context
+- provider-visible `input`
+- model identity and tokenizer hints
+- relevant budget context
 
 It should return:
 
 - `estimated_tokens`
 - `strategy`
-- any useful diagnostics for logging
+- diagnostics
 
 Fallback order:
 
@@ -359,47 +184,352 @@ Fallback order:
 2. `tiktoken`
 3. heuristic estimate
 
-**Step 2: Publish prompt-construction budget envelope**
+**Step 2: Publish the prompt-construction budget envelope**
 
-Update `BuildExecutionSnapshot` so the existing `provider_context` carries a
-stable Core Matrix-owned budget envelope before `PrepareAgentRound` forwards it
-to the runtime.
+Update `BuildExecutionSnapshot` so `provider_context` includes:
 
-The envelope should be expressed through:
-
-- `provider_context.model_context`
+- `model_context`
   - `provider_handle`
   - `model_ref`
   - `api_model`
   - `tokenizer_hint`
-- `provider_context.budget_hints.hard_limits`
+- `budget_hints.hard_limits`
   - `context_window_tokens`
   - `max_output_tokens`
   - `hard_input_token_limit`
-- `provider_context.budget_hints.advisory_hints`
-  - `recommended_compaction_threshold`
+- `budget_hints.advisory_hints`
   - `recommended_input_tokens`
+  - `recommended_compaction_threshold`
+  - `soft_threshold_tokens`
   - `reserved_tokens`
   - `reserved_output_tokens`
-  - `soft_threshold_tokens`
   - `context_soft_limit_ratio`
 
-Add targeted tests that prove:
+Add tests that prove:
 
 - the envelope is produced in `BuildExecutionSnapshot`
 - `PrepareAgentRound` forwards it without reshaping it
 - `BuildRequestContext` still exposes the correct dispatch-time hard/advisory
-  limits for the final guard
-- the envelope reflects the selected model definition
-- the envelope exposes recommended and hard prompt-input budgets distinctly
-- the input-token counting API remains a separate dynamic recalculation path
+  values
+- Fenix can consume the envelope during prompt construction
+- the prepared round carries frozen prompt-compaction policy for later guard,
+  consultation, and workflow use
 
-**Step 3: Implement `PromptBudgetGuard`**
+**Step 3: Expose the read-only counting API**
 
-Add explicit constants, not inline magic numbers, for:
+Implement:
 
-- soft-budget reserve behavior
-- heuristic safety multiplier or buffer
+- `POST /agent_api/responses/input_tokens`
+
+The endpoint should:
+
+- reuse the same estimator and budget logic
+- accept provider-visible `input`
+- support multimodal payload classes
+- return model identity, effective budgets, `reserved_tokens`, estimated token
+  usage, and `decision_hint`
+
+Fenix should gain a small control-plane client wrapper for this endpoint.
+
+**Step 4: Run the targeted tests and make them green**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+PARALLEL_WORKERS=1 bin/rails test \
+  test/services/provider_execution/token_estimator_test.rb \
+  test/services/provider_execution/prompt_budget_advisory_test.rb \
+  test/services/provider_execution/prepare_agent_round_test.rb \
+  test/services/workflows/build_execution_snapshot_test.rb \
+  test/services/provider_execution/build_request_context_test.rb \
+  test/requests/agent_api/responses/input_tokens_test.rb
+```
+
+Then:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
+PARALLEL_WORKERS=1 bin/rails test \
+  test/services/shared/control_plane/client_test.rb \
+  test/services/build_round_instructions_test.rb \
+  test/services/requests/prepare_round_test.rb
+```
+
+Expected: Core Matrix-owned budgeting surfaces are available before final
+dispatch.
+
+### Task 3: Add The Dedicated Prompt-Compaction Runtime Contract
+
+**Files:**
+- Modify: `agents/fenix/app/services/runtime/manifest/definition_package.rb`
+- Modify: `agents/fenix/config/canonical_config.defaults.json`
+- Modify: `agents/fenix/config/canonical_config.schema.json`
+- Modify: `agents/fenix/test/integration/runtime_manifest_test.rb`
+- Modify: `core_matrix/app/services/installations/register_bundled_agent_runtime.rb`
+- Create: `core_matrix/app/services/provider_execution/request_preparation_capability_resolver.rb`
+- Modify: `core_matrix/app/services/workflows/build_execution_snapshot.rb`
+- Modify: `core_matrix/test/services/installations/register_bundled_agent_runtime_test.rb`
+- Modify: `core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
+
+**Step 1: Add `request_preparation_contract`**
+
+Update Fenix definition packaging so the manifest publishes a top-level
+`request_preparation_contract`.
+
+The initial entry should be `prompt_compaction` with:
+
+- consultation support
+- workflow execution support
+- turn-scoped lifecycle metadata
+- implementation reference
+
+At the same time, keep Fenix runtime defaults aligned with the shared settings
+contract by ensuring canonical config still publishes:
+
+- `features.prompt_compaction.strategy = runtime_first`
+
+**Step 2: Resolve request-preparation capability in Core Matrix**
+
+Implement a Core Matrix-side resolver that:
+
+- normalizes `request_preparation_contract`
+- exposes effective prompt-compaction runtime capability for the current
+  prepared round
+- freezes that effective capability into the prepared round / execution
+  snapshot
+- does not depend on the runtime-feature platform
+
+**Step 3: Run the targeted tests and make them green**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+PARALLEL_WORKERS=1 bin/rails test \
+  test/services/installations/register_bundled_agent_runtime_test.rb \
+  test/services/workflows/build_execution_snapshot_test.rb
+```
+
+Then:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
+PARALLEL_WORKERS=1 bin/rails test test/integration/runtime_manifest_test.rb
+```
+
+Expected: prompt compaction now has a dedicated runtime contract separate from
+`feature_contract`.
+
+### Task 4: Add The Prompt-Compaction Agent-Request Exchange
+
+**Files:**
+- Modify: `core_matrix/app/services/agent_control/create_agent_request.rb`
+- Modify: `core_matrix/app/models/agent_control_mailbox_item.rb`
+- Modify: `core_matrix/app/services/provider_execution/agent_request_exchange.rb`
+- Create: `core_matrix/app/services/provider_execution/request_preparation_exchange.rb`
+- Modify: `core_matrix/test/services/agent_control/create_agent_request_test.rb`
+- Modify: `core_matrix/test/services/provider_execution/agent_request_exchange_test.rb`
+- Create: `core_matrix/test/services/provider_execution/request_preparation_exchange_test.rb`
+- Modify: `agents/fenix/app/services/runtime/execute_mailbox_item.rb`
+- Create: `agents/fenix/app/services/requests/consult_prompt_compaction.rb`
+- Create: `agents/fenix/app/services/requests/execute_prompt_compaction.rb`
+- Modify: `agents/fenix/test/services/runtime/execute_mailbox_item_test.rb`
+- Create: `agents/fenix/test/services/requests/consult_prompt_compaction_test.rb`
+- Create: `agents/fenix/test/services/requests/execute_prompt_compaction_test.rb`
+
+**Step 1: Extend `agent_request` kinds**
+
+Add two explicit request kinds:
+
+- `consult_prompt_compaction`
+- `execute_prompt_compaction`
+
+These should ride over the existing `agent_request` mailbox path, not
+`execution_assignment`.
+
+**Step 2: Reconstruct snapshot-backed payload consistently**
+
+Ensure agent-request payload reconstruction still hydrates:
+
+- `provider_context`
+- `agent_context`
+- task identifiers
+
+and carries explicit request payload needed for consultation or node execution.
+
+**Step 3: Add a dedicated request-preparation exchange**
+
+Introduce a Core Matrix-side exchange wrapper dedicated to prompt compaction so
+consultation and node execution do not get mixed into generic `prepare_round`
+or tool-execution call sites.
+
+**Step 4: Run the targeted tests and make them green**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+PARALLEL_WORKERS=1 bin/rails test \
+  test/services/agent_control/create_agent_request_test.rb \
+  test/services/provider_execution/agent_request_exchange_test.rb \
+  test/services/provider_execution/request_preparation_exchange_test.rb
+```
+
+Then:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
+PARALLEL_WORKERS=1 bin/rails test \
+  test/services/runtime/execute_mailbox_item_test.rb \
+  test/services/requests/consult_prompt_compaction_test.rb \
+  test/services/requests/execute_prompt_compaction_test.rb
+```
+
+Expected: prompt compaction runtime participation now fits the current
+agent-only Fenix transport model.
+
+### Task 5: Implement The Shared Baseline Compaction Strategy
+
+**Files:**
+- Create: `core_matrix/app/services/provider_execution/prompt_compaction_strategy.rb`
+- Create: `core_matrix/app/services/embedded_features/prompt_compaction/invoke.rb`
+- Create: `core_matrix/test/services/provider_execution/prompt_compaction_strategy_test.rb`
+- Create: `core_matrix/test/services/embedded_features/prompt_compaction/invoke_test.rb`
+- Create: shared fixture or golden-test files under an appropriate common test-support path
+
+**Step 1: Define the baseline invariants**
+
+The shared baseline must preserve:
+
+- newest selected user input verbatim
+- explicit user constraints
+- active task state and near-term plan
+- file paths, resources, and identifiers still in play
+- unresolved errors
+- pending tool outcomes
+
+It must prioritize reduction in this order:
+
+1. bulky tool outputs
+2. older transcript and imports
+3. only then less-critical older narrative context
+
+**Step 2: Implement the embedded executor**
+
+Build a Core Matrix embedded compactor that follows the baseline strategy and
+returns:
+
+- compacted payload
+- before/after estimates
+- stop reason
+- diagnostics
+
+**Step 3: Implement the Fenix consultation responder**
+
+The responder should:
+
+- consume Core Matrix guard diagnostics
+- return `skip`, `compact`, or `reject`
+- return prioritization and preservation guidance
+- stay aligned with the baseline strategy
+
+**Step 4: Implement the Fenix workflow-node executor**
+
+The runtime node executor should:
+
+- run the actual compaction logic for the materialized workflow node
+- use the same baseline invariants and fixture expectations as the embedded
+  executor
+- leave room for future Fenix-specific upgrades
+
+**Step 5: Run the targeted tests and make them green**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+PARALLEL_WORKERS=1 bin/rails test \
+  test/services/provider_execution/prompt_compaction_strategy_test.rb \
+  test/services/embedded_features/prompt_compaction/invoke_test.rb
+```
+
+Then:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
+PARALLEL_WORKERS=1 bin/rails test \
+  test/services/requests/consult_prompt_compaction_test.rb \
+  test/services/requests/execute_prompt_compaction_test.rb
+```
+
+Expected: Core Matrix and Fenix share the same baseline compaction contract.
+
+### Task 6: Add Workflow-Node Support And Ephemeral Context Handoff
+
+**Files:**
+- Create: `core_matrix/app/services/provider_execution/persist_turn_step_prompt_compaction_yield.rb`
+- Create: `core_matrix/app/services/provider_execution/load_prompt_compaction_context.rb`
+- Modify: `core_matrix/app/services/provider_execution/execute_turn_step.rb`
+- Modify: `core_matrix/app/services/workflows/execute_node.rb`
+- Modify: `core_matrix/app/services/workflows/dispatch_runnable_nodes.rb`
+- Modify: `core_matrix/test/services/provider_execution/execute_turn_step_test.rb`
+- Modify: `core_matrix/test/services/workflows/execute_node_test.rb`
+- Modify: `core_matrix/test/services/workflows/dispatch_runnable_nodes_test.rb`
+
+**Step 1: Add a dedicated yielded outcome for compaction**
+
+Extend the turn-step path so a guarded round can yield a third control result:
+
+- `prompt_compaction_yield`
+
+That outcome should:
+
+- complete the current `turn_step`
+- materialize a `prompt_compaction` node
+- materialize a successor `turn_step`
+- wire the graph edges explicitly
+
+**Step 2: Teach the workflow engine the new node type**
+
+Update workflow execution so:
+
+- `DispatchRunnableNodes` can queue `prompt_compaction`
+- `ExecuteNode` can execute `prompt_compaction`
+
+The node executor should choose runtime-backed vs embedded execution according
+to frozen policy and frozen request-preparation capability.
+
+**Step 3: Hand compacted context to the successor turn step**
+
+Persist an artifact such as:
+
+- `artifact_kind = "prompt_compaction_context"`
+
+and teach the successor `turn_step` to consume that artifact as its ephemeral
+transcript source instead of the default snapshot transcript.
+
+Do not rewrite durable transcript history in v1.
+
+**Step 4: Run the targeted tests and make them green**
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+PARALLEL_WORKERS=1 bin/rails test \
+  test/services/provider_execution/execute_turn_step_test.rb \
+  test/services/workflows/execute_node_test.rb \
+  test/services/workflows/dispatch_runnable_nodes_test.rb
+```
+
+Expected: prompt compaction now fits the existing workflow graph and node
+execution model.
+
+### Task 7: Implement `PromptBudgetGuard` And Pre-Dispatch Gating
+
+**Files:**
+- Create: `core_matrix/app/services/provider_execution/prompt_budget_guard.rb`
+- Modify: `core_matrix/app/services/provider_execution/execute_round_loop.rb`
+- Modify: `core_matrix/test/services/provider_execution/prompt_budget_guard_test.rb`
+- Modify: `core_matrix/test/services/provider_execution/execute_round_loop_test.rb`
+
+**Step 1: Implement the guard**
+
+Add explicit constants, not magic numbers, for:
+
+- reserve behavior
+- heuristic safety buffers
 - max compaction attempts
 - max overflow-recovery attempts
 
@@ -410,166 +540,100 @@ The guard result should expose at least:
 - `estimator_strategy`
 - `failure_scope`
 - `retry_mode`
+- diagnostics
 
-Decision meanings should be explicit:
-
-- `allow`
-- `consult`
-- `compact_required`
-- `reject`
-
-**Step 4: Expose shared input-token counting API**
-
-Implement a Core Matrix-owned input-token counting service that reuses the same
-estimator and budget rules but returns diagnostics without mutating workflow
-state.
-
-This service should be usable by agents that want to proactively manage context
-volume in scenarios such as roleplay or long-form writing. It remains advisory
-for prompt construction and must not replace the final dispatch-time guard.
-
-Expose it through an authenticated AgentAPI endpoint, for example:
-
-- `POST /agent_api/responses/input_tokens`
-
-The endpoint contract should accept:
-
-- selected model identity or a resolvable provider/model reference
-- `input` payload using the same provider-visible message/content structure the
-  runtime is preparing for dispatch
-- optional candidate context metadata used for diagnostics
-
-The endpoint should be designed to support multimodal provider-visible payloads
-so token counting for text, image, file, and audio-bearing inputs stays
-centralized in Core Matrix rather than being reimplemented in runtimes.
-
-The response should echo:
-
-- selected model identity
-- the effective recommended / hard prompt-input budget
-- `reserved_tokens`
-- estimated token usage for the candidate payload
-- decision hint and diagnostics
-
-Fenix should gain a small control-plane client wrapper for this endpoint so the
-runtime can query it while drafting prompts.
-
-**Step 5: Gate round execution before dispatch**
+**Step 2: Gate round execution before dispatch**
 
 Update `ExecuteRoundLoop` so it:
 
-- assembles the final provider-visible message list
+- assembles the final provider-visible candidate
 - runs `PromptBudgetGuard`
 - dispatches only on `allow`
-- routes `consult` into the compaction-consultation path
+- routes `consult` into consultation
 - routes `compact_required` into consultation followed by mandatory workflow
   insertion
-- continues after `consult` when the consultation returns `skip` and the
-  request still satisfies hard-budget rules
-- raises a typed local rejection on `reject`
+- rejects explicitly on `reject`
 
-At this stage, keep the compaction integration minimal and deterministic. The
-platform should be treated as a dependency boundary, not reimplemented here.
-The guard remains the single authoritative preflight decision-maker.
+At this stage, Core Matrix remains the sole authoritative preflight
+decision-maker.
 
-**Step 6: Run the targeted test set and make it green**
+**Step 3: Run the targeted tests and make them green**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
-  test/services/provider_execution/token_estimator_test.rb \
   test/services/provider_execution/prompt_budget_guard_test.rb \
-  test/services/provider_execution/prompt_budget_advisory_test.rb \
-  test/services/provider_execution/prepare_agent_round_test.rb \
-  test/services/workflows/build_execution_snapshot_test.rb \
-  test/services/provider_execution/build_request_context_test.rb \
-  test/requests/agent_api/responses/input_tokens_test.rb \
   test/services/provider_execution/execute_round_loop_test.rb
 ```
 
-Then run:
+Expected: pre-dispatch budget guarding is now authoritative.
 
-```bash
-cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
-PARALLEL_WORKERS=1 bin/rails test \
-  test/services/build_round_instructions_test.rb \
-  test/services/requests/prepare_round_test.rb \
-  test/services/shared/control_plane/client_test.rb
-```
-
-Expected: estimation and guard decisions are now authoritative before provider
-dispatch.
-
-### Task 4: Integrate Platform-Driven Compaction And Bounded Recovery
+### Task 8: Integrate Consultation, Workflow Insertion, And Bounded Recovery
 
 **Files:**
 - Modify: `core_matrix/app/services/provider_execution/execute_round_loop.rb`
-- Modify: `core_matrix/app/services/provider_execution/prompt_budget_guard.rb`
+- Modify: `core_matrix/app/services/provider_execution/execute_turn_step.rb`
+- Modify: `core_matrix/app/services/provider_execution/request_preparation_exchange.rb`
+- Modify: `core_matrix/app/services/provider_execution/persist_turn_step_prompt_compaction_yield.rb`
 - Modify: `core_matrix/test/services/provider_execution/execute_round_loop_test.rb`
-- Modify: `core_matrix/test/services/provider_execution/prompt_budget_guard_test.rb`
+- Modify: `core_matrix/test/services/provider_execution/execute_turn_step_test.rb`
 
-**Step 1: Add failing compaction-integration tests**
+**Step 1: Wire consultation**
 
-Extend `execute_round_loop_test.rb` so it expects:
+When the guard says `consult` or `compact_required`:
 
-- the runtime is consulted when the guard returns `consult`
-- a `prompt_compaction` workflow node or equivalent materialization request is
-  created when the consultation result says to compact or when compaction is
-  mandatory
-- the frozen policy and frozen capability snapshot are used
-- runtime-first compaction may fall back through the platform to embedded
-  compaction when the normalized platform result allows it
-- the compacted message list is re-estimated before dispatch
-- the workflow path re-enters the normal agent loop after compaction
-- degraded Fenix fallback is observable through `source`, `fallback_used`, and
-  `runtime_failure_code`
+- consult the runtime when request-preparation capability exists and policy
+  allows it
+- otherwise fall back to embedded baseline guidance
 
-These tests should stub the platform result shape instead of retesting platform
-internals.
+The consultation result may be:
 
-**Step 2: Wire consultation, workflow insertion, and re-entry**
+- `skip`
+- `compact`
+- `reject`
 
-Update `ExecuteRoundLoop` so the guarded compaction path:
+**Step 2: Materialize workflow work**
 
-- consults the runtime first
-- materializes or requests `prompt_compaction` workflow work when the final
-  decision is to compact
-- continues without compaction when the consultation result is `skip` and the
-  request still fits
-- passes the final provider-visible messages plus budget context
-- replaces only the current round payload
-- preserves the newest selected input message verbatim
-- carries forward node/artifact diagnostics including before/after estimates
+If the final decision is `compact`, Core Matrix must:
 
-**Step 3: Add bounded provider-overflow recovery**
+- materialize a `prompt_compaction` workflow node
+- materialize the successor `turn_step` at the same time
+- carry budget diagnostics and preservation invariants into the node
+- ensure execution happens through the workflow engine
+
+The node may execute via:
+
+- runtime-backed compaction
+- embedded compaction
+
+In both cases:
+
+- artifacts and diagnostics must persist
+- the successor `turn_step` must resume from the compaction artifact afterward
+
+**Step 3: Add bounded overflow recovery**
 
 Allow one explicit recovery loop when the provider still returns overflow:
 
-1. classify the provider error as prompt-size overflow
-2. re-enter compaction mode
-3. consult the runtime again with `consultation_reason = "overflow_recovery"`
-4. materialize the `prompt_compaction` workflow path again when the result says
-   to compact
-5. retry provider dispatch once
+1. classify overflow explicitly
+2. re-enter compaction mode with `consultation_reason = "overflow_recovery"`
+3. materialize another compaction node if needed
+4. retry dispatch once
 
-Stop after the hard attempt limit. Do not allow open-ended compaction cycles.
+Stop after the hard attempt limit.
 
 **Step 4: Run the targeted tests and make them green**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
-  test/services/provider_execution/prompt_budget_guard_test.rb \
-  test/services/provider_execution/execute_round_loop_test.rb
+  test/services/provider_execution/execute_round_loop_test.rb \
+  test/services/provider_execution/execute_turn_step_test.rb
 ```
 
-Expected: prompt compaction now flows through the shared feature platform with
-bounded retry behavior.
+Expected: Core Matrix-assisted compaction is now workflow-backed and bounded.
 
-In Fenix-backed runs, this path should treat runtime compaction as the expected
-quality path. Embedded compaction remains available only as a degraded rescue.
-
-### Task 5: Persist Explicit Prompt-Size Failures And Remediation Metadata
+### Task 9: Persist Explicit Failures, Remediation, And Degradation Diagnostics
 
 **Files:**
 - Modify: `core_matrix/app/services/provider_execution/failure_classification.rb`
@@ -580,8 +644,7 @@ quality path. Embedded compaction remains available only as a degraded rescue.
 
 **Step 1: Classify prompt-size failures explicitly**
 
-Map local and provider-side overflow signals into dedicated failure kinds such
-as:
+Map local and provider-side overflow signals into dedicated failure kinds:
 
 - `prompt_too_large_for_retry`
 - `context_window_exceeded_after_compaction`
@@ -590,16 +653,26 @@ Do not route these failures through `internal_unexpected_error`.
 
 **Step 2: Persist remediation metadata**
 
-Persist enough information for the app surface to drive retry UX:
+Persist enough information for app-driven retry UX:
 
 - whether the tail input is editable
 - whether the user must send a new message
-- whether the failure is caused by the current message alone or full context
-- the selected input message identity
-- whether the run degraded from runtime to embedded compaction
-- the normalized runtime failure code when degraded fallback occurred
+- whether failure is caused by current message alone or full context
+- selected input message `public_id`
+- whether runtime degraded to embedded compaction
+- normalized runtime failure code when degradation occurred
 
-**Step 3: Run the targeted tests and make them green**
+**Step 3: Persist degradation diagnostics**
+
+Ensure Fenix degradation is observable:
+
+- `source = embedded`
+- `fallback_used = true`
+- `runtime_failure_code`
+
+These must appear in persisted failure or artifact metadata, not just logs.
+
+**Step 4: Run the targeted tests and make them green**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
@@ -608,59 +681,56 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/provider_execution/execute_turn_step_test.rb
 ```
 
-Expected: prompt-size failures are explicit, recoverable, and app-readable.
+Expected: prompt-size failures are explicit, recoverable, and observable.
 
-### Task 6: Verify The Slice End To End
+### Task 10: Verify The Subsystem End To End
 
-**Files:**
-- Modify as needed: prompt-compaction docs or tests discovered during cleanup
-- Create/Modify as needed: integration or acceptance tests using tiny-context
-  provider definitions and fake adapters
-
-**Step 1: Run focused slice verification**
-
-From `/Users/jasl/Workspaces/Ruby/cybros/core_matrix`:
+**Step 1: Run focused subsystem verification**
 
 ```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
   test/services/provider_execution/token_estimator_test.rb \
+  test/services/provider_execution/prompt_budget_advisory_test.rb \
+  test/services/provider_execution/prompt_compaction_strategy_test.rb \
   test/services/provider_execution/prompt_budget_guard_test.rb \
   test/services/provider_execution/execute_round_loop_test.rb \
+  test/services/provider_execution/execute_turn_step_test.rb \
   test/services/provider_execution/failure_classification_test.rb \
-  test/services/provider_execution/execute_turn_step_test.rb
+  test/requests/agent_api/responses/input_tokens_test.rb
 ```
 
-Then run the focused Fenix verification:
+Then:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
 PARALLEL_WORKERS=1 bin/rails test \
   test/integration/runtime_manifest_test.rb \
   test/services/runtime/execute_mailbox_item_test.rb \
-  test/services/features/prompt_compaction/respond_to_consultation_test.rb \
-  test/services/features/prompt_compaction/execute_node_test.rb
+  test/services/requests/consult_prompt_compaction_test.rb \
+  test/services/requests/execute_prompt_compaction_test.rb \
+  test/services/shared/control_plane/client_test.rb
 ```
 
-**Step 1.5: Add a deterministic e2e path without real large-window models**
+**Step 2: Add and run deterministic tiny-context e2e coverage**
 
-Add one end-to-end test path that forces compaction deterministically by
-shrinking the model budget instead of relying on a real provider with a huge
-context window.
+Create one end-to-end test path that forces compaction deterministically:
 
-Recommended strategy:
-
-- use the existing fake/mock provider adapters under `core_matrix/test/support`
-- register a tiny test model definition with a very small
+- use existing fake/mock provider adapters
+- register a tiny test model definition with very small
   `context_window_tokens` and `max_output_tokens`
-- drive a turn through `PrepareAgentRound -> PromptBudgetGuard -> consultation ->
-  workflow node -> re-entry`
-- assert the workflow node/artifacts/failure metadata shape directly
+- drive:
+  - `PrepareAgentRound`
+  - budget guard
+  - consultation
+  - workflow node
+  - re-entry
+- assert workflow node, artifacts, degradation metadata, and failure payloads
+  directly
 
-Prefer this over real-LLM tests. If an acceptance-style path is needed, keep it
-behind the same fake-provider approach so the test stays deterministic and
-cheap.
+Prefer this over real-LLM tests.
 
-**Step 2: Run full `core_matrix` verification required by repo policy**
+**Step 3: Run full `core_matrix` verification**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
@@ -673,29 +743,29 @@ bin/rails test
 bin/rails test:system
 ```
 
-Then run full `agents/fenix` verification because this slice requires a real
-runtime implementation:
+**Step 4: Run full `agents/fenix` verification**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/agents/fenix
 bin/brakeman --no-pager
 bin/bundler-audit
 bin/rubocop -f github
-bin/rails db:test:prepare
 bin/rails test
 ```
 
-**Step 3: Run acceptance verification because this touches acceptance-critical turn behavior**
+**Step 5: Run acceptance verification**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
 ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash acceptance/bin/run_active_suite.sh
 ```
 
-Inspect both:
+Inspect:
 
-- acceptance artifacts relevant to provider-turn failure handling
-- resulting database state for failure payload shape and turn-step transitions
+- acceptance artifacts relevant to turn failure handling and workflow
+  transitions
+- resulting database state for prompt-size failures, workflow nodes, artifacts,
+  and degradation metadata
 
-Expected: prompt compaction behaves as a feature slice on top of the platform,
-and acceptance-critical loop behavior remains correct.
+Expected: prompt-budget protection and Core Matrix-assisted compaction behave
+correctly from draft construction through re-entry.

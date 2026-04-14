@@ -1,72 +1,93 @@
-# Prompt Compaction Feature Slice Design
+# Prompt Budget Guard And Request Preparation Design
 
 ## Status
 
-This document now describes the `prompt_compaction` feature slice on top of the
-shared runtime feature platform defined in:
+This document no longer models `prompt_compaction` as a normal runtime feature
+slice.
 
-- [runtime-feature-platform-design.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-14-runtime-feature-platform-design.md)
+The long-term architecture is:
 
-It no longer defines standalone infrastructure for policy, capability, or
-runtime orchestration.
+- `title_bootstrap` and similar product features live on the runtime feature
+  platform
+- prompt-budget protection and Core Matrix-assisted compaction live in a
+  dedicated request-preparation subsystem
+
+Related platform document:
+
+- [2026-04-14-runtime-feature-platform-design.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-14-runtime-feature-platform-design.md)
 
 ## Goal
 
-Add authoritative prompt-budget protection for `core_matrix` turns by
-implementing `prompt_compaction` as a first-class runtime feature:
+Add authoritative prompt-budget protection for `core_matrix` turns with a
+dedicated request-preparation subsystem that:
 
-- workspace policy controls strategy
-- capability is manifest-driven
-- execution is orchestrated by the shared platform
-- model-backed compaction executes as workflow work, not as a hidden
-  synchronous side effect
-- runtime-backed compaction falls back to embedded compaction only as a
-  degraded rescue path
-- provider overflow becomes an explicit, user-recoverable failure
+- gives light agents a working Core Matrix fallback
+- gives sophisticated agents better control during prompt construction
+- keeps Core Matrix as the sole authoritative dispatch-time budget gate
+- records all Core Matrix-assisted compaction as workflow work
+- turns provider overflow into explicit, user-recoverable failures
 
-## Slice Scope
+## Product Constraints
 
-This slice is responsible for:
+This design must satisfy two product constraints.
 
-1. the `prompt_compaction` feature policy contract
-2. the `prompt_compaction` runtime capability contract
-3. the feature-specific orchestration and fallback behavior
-4. integration with `ExecuteRoundLoop`
-5. explicit overflow classification and remediation metadata
+### 1. Agent Freedom
 
-It depends on the shared platform for:
+Agents may be simple or sophisticated.
 
-- policy schema publication
-- capability resolution
-- feature invocation
-- runtime failure normalization
+Simple agents should still work because Core Matrix provides:
 
-## Non-Goals
+- a budget envelope during prompt construction
+- authoritative budget guarding before dispatch
+- embedded compaction fallback
 
-This slice does not:
+Sophisticated agents may do more on their own, including:
 
-- define the shared feature platform itself
-- rewrite durable transcript history
-- keep the legacy internal-tool abstraction as the long-term model
-- make retry limits runtime-configurable
-- make token estimation perfect for every provider family
+- local token estimation
+- local prompt trimming
+- local compaction before the draft is handed back to Core Matrix
 
-## Feature Identity
+Core Matrix does not try to forbid those local choices.
 
-Recommended registry identity:
+### 2. Core Matrix Assistance Must Be Workflow-Visible
 
-- `feature_key`: `prompt_compaction`
-- `runtime_capability_key`: `prompt_compaction`
-- `runtime_requirement`: `required_on_fenix`
-- `consultation_mode`: `direct_required`
-- `policy_lifecycle`: `snapshot_frozen`
-- `capability_lifecycle`: `snapshot_frozen`
-- `default_strategy`: `runtime_first`
-- `embedded_executor`: required
+If the agent asks Core Matrix to help with compaction, or if Core Matrix
+decides it must intervene, that assistance must:
 
-## Policy Contract
+- be materialized as workflow work
+- be scheduled by the workflow engine
+- persist artifacts and diagnostics
+- re-enter the normal agent loop afterward
 
-The feature policy should live under:
+Read-only budgeting help is different:
+
+- `POST /agent_api/responses/input_tokens` is advisory infrastructure
+- it does not mutate workflow state
+- it does not count as compaction assistance
+
+## Scope
+
+This subsystem owns:
+
+1. budget-envelope production during prompt construction
+2. agent-facing input-token counting
+3. token estimation and reserve calculation
+4. authoritative dispatch-time budget guarding
+5. request-preparation runtime capability discovery for prompt compaction
+6. compaction consultation
+7. compaction workflow-node execution
+8. bounded overflow recovery
+9. explicit failure and remediation metadata
+
+It does not own:
+
+- generic runtime feature execution
+- title-bootstrap policy or invocation
+- agent-local prompt shaping that never asks Core Matrix for help
+
+## Shared Settings Contract
+
+`prompt_compaction` should keep using the shared workspace policy namespace:
 
 ```json
 {
@@ -78,80 +99,166 @@ The feature policy should live under:
 }
 ```
 
-Shared strategy meanings for this slice:
+Shared strategy meanings for this subsystem:
 
 - `disabled`
-  - do not attempt runtime or embedded compaction
-  - prompt-budget guard may still reject clearly oversized requests
+  - do not attempt Core Matrix-assisted compaction
+  - still reject obviously oversized requests when necessary
 - `embedded_only`
-  - use only embedded compaction
+  - use only Core Matrix embedded compaction when compaction is needed
 - `runtime_first`
-  - consult and execute runtime-backed compaction when capability is present
-  - fall back to embedded on supported fallback failures
+  - prefer runtime-authored consultation and runtime-backed workflow execution
+  - fall back to embedded when policy allows and runtime fails
 - `runtime_required`
-  - require runtime consultation and runtime execution success
+  - require runtime consultation and runtime-backed workflow execution
   - do not fall back to embedded
 
-## Capability Contract
+The policy schema may be published by the shared `features.*` schema layer, but
+execution remains request-preparation-specific.
 
-Fenix manifest should advertise `prompt_compaction` through `feature_contract`,
-not `tool_contract`.
+For execution semantics, effective `prompt_compaction` policy should be
+resolved and frozen per prepared round. The guard, consultation path,
+workflow-node execution, and overflow recovery loop should all operate against
+that frozen turn-scoped policy, not live workspace reads.
 
-The capability entry should include:
+## Dedicated Request-Preparation Capability Contract
 
-- `feature_key = "prompt_compaction"`
-- `consultation_mode = "direct_required"`
-- `execution_mode = "workflow_intent"`
-- `lifecycle = "turn_scoped"`
-- consultation schema for budget report plus compaction guidance
-- intent schema for budget context and preservation invariants
-- artifact schema for compacted payload plus diagnostics
+Prompt compaction should not be advertised through the runtime-feature
+platform's `feature_contract`.
 
-For Fenix, this capability is not optional. Missing `prompt_compaction`
-support should be treated as a runtime-contract defect, not as a normal
-degraded mode.
+Instead, Fenix manifest should gain a separate top-level contract, for example:
+
+- `request_preparation_contract`
+
+The initial entry should be:
+
+```json
+{
+  "prompt_compaction": {
+    "consultation_mode": "direct_optional",
+    "workflow_execution": "supported",
+    "lifecycle": "turn_scoped",
+    "consultation_schema": { "type": "object" },
+    "artifact_schema": { "type": "object" },
+    "implementation_ref": "fenix/prompt_compaction"
+  }
+}
+```
+
+Interpretation:
+
+- `consultation_mode`
+  - whether Core Matrix may ask the agent for compaction guidance before
+    materializing workflow work
+- `workflow_execution`
+  - whether the runtime can execute the materialized compaction node
+- `lifecycle = turn_scoped`
+  - capability is evaluated against the current prepared round / runtime
+
+The effective runtime capability should be frozen alongside the prepared round
+so consultation, workflow execution, and overflow recovery all operate against
+the same turn-scoped contract.
+
+For Fenix:
+
+- `prompt_compaction` support is expected
+- missing capability is a contract defect
+- embedded fallback remains available as degraded rescue, not as quality
+  equivalence
+
+For other runtimes:
+
+- the capability may be absent
+- Core Matrix embedded compaction remains a valid fallback path
+
+## Request-Preparation Transport
+
+Runtime participation in prompt compaction should use the existing
+`agent_request` control plane, not `execution_assignment`.
+
+This is important because Fenix is agent-only today:
+
+- `prepare_round` already runs over `agent_request`
+- Fenix currently rejects `execution_assignment`
+- prompt compaction is still agent-authored work even when it is scheduled by
+  the workflow engine
+
+Recommended request kinds:
+
+- `consult_prompt_compaction`
+  - direct consultation only
+  - no workflow mutation
+- `execute_prompt_compaction`
+  - executes the materialized `prompt_compaction` workflow node
+
+Core Matrix should introduce a dedicated request-preparation exchange on top of
+the existing mailbox primitives rather than overloading `execute_feature` or
+execution-runtime assignment.
 
 ## Prompt Construction Flow
 
-The prompt-building flow should be modeled explicitly:
+The request-preparation flow should be explicit:
 
-1. `PrepareAgentRound` asks the agent to build draft provider-visible messages
-   and forwards a Core Matrix-owned budget envelope inside the existing
-   `provider_context`
-2. the runtime may use that envelope plus the input-token counting API to shape draft
-   prompt construction more precisely without owning the final budget decision
-3. Core Matrix appends prior-tool continuation entries and assembles the final
-   provider request candidate
-4. Core Matrix runs the authoritative token and reserve check
-5. the guard decides one of:
+1. `PrepareAgentRound` asks the agent to build a draft provider-visible input
+   payload
+2. Core Matrix includes a stable budget envelope in `provider_context`
+3. the agent may:
+   - use the budget envelope only
+   - call `POST /agent_api/responses/input_tokens`
+   - do additional local estimation or trimming on its own
+4. the agent returns a draft input candidate to Core Matrix
+5. Core Matrix appends continuation or prior-tool context and assembles the
+   final provider request candidate
+6. Core Matrix runs the authoritative budget guard
+7. the guard returns one of:
    - `allow`
    - `consult`
    - `compact_required`
    - `reject`
-6. when the result is `consult` or `compact_required`, Core Matrix asks the
-   runtime agent for compaction guidance
-7. if the final decision is to compact, Core Matrix inserts a
-   `prompt_compaction` workflow node
-8. if the consultation declines compaction and the request still satisfies the
-   hard budget rules, Core Matrix may continue without compaction
-9. if the consultation declines compaction but the request no longer satisfies
-   the hard budget or reserve floor, Core Matrix fails explicitly
-10. the node executes compaction, persists artifacts, and then re-enters the
-   normal agent loop
-11. the next loop iteration rebuilds the provider request using the compacted
-   context
+8. if the result is `consult` or `compact_required`, Core Matrix may ask the
+   runtime for compaction guidance when runtime consultation is available and
+   policy allows it
+9. Core Matrix decides whether to:
+   - continue as-is
+   - insert a `prompt_compaction` workflow node
+   - reject explicitly
+10. if a workflow node is inserted, the workflow engine executes it using
+    runtime-backed or embedded compaction
+11. the node persists artifacts and diagnostics
+12. the workflow re-enters the normal agent loop
+13. the next loop iteration rebuilds provider-visible input using the compacted
+    context
 
-This keeps the authoritative trigger in Core Matrix while still letting the
-runtime shape the compaction strategy.
+Only Core Matrix may materialize Core Matrix-assisted compaction workflow work.
+
+## Workflow Fusion With The Agent Loop
+
+The current workflow engine already knows how to:
+
+- execute `turn_step`
+- execute `tool_call`
+- schedule runnable successors through graph edges
+
+Prompt compaction should integrate with that model directly instead of
+inventing a side channel.
+
+Recommended graph shape when compaction is chosen:
+
+1. the current `turn_step` completes with a yielded compaction outcome
+2. Core Matrix materializes a `prompt_compaction` node
+3. Core Matrix materializes a successor `turn_step` node
+4. edges become:
+   - current `turn_step` -> `prompt_compaction`
+   - `prompt_compaction` -> successor `turn_step`
+5. the workflow engine dispatches the `prompt_compaction` node
+6. after compaction completes, the successor `turn_step` becomes runnable
+
+This keeps compaction in the same workflow graph as the main agent loop.
 
 ## Budget Envelope During Prompt Construction
 
-At prompt-construction time, Core Matrix should provide the runtime with a
-stable budget envelope for the currently selected model so the agent can make
-better drafting decisions before the final guard runs.
-
-This envelope should be part of the normal round-construction payload, not an
-ad hoc side channel.
+Before prompt construction, Core Matrix should provide a stable budget envelope
+through the normal round payload.
 
 Recommended shape:
 
@@ -165,47 +272,51 @@ Recommended shape:
   - `max_output_tokens`
   - `hard_input_token_limit`
 - `provider_context.budget_hints.advisory_hints`
-  - `recommended_compaction_threshold`
   - `recommended_input_tokens`
+  - `recommended_compaction_threshold`
+  - `soft_threshold_tokens`
   - `reserved_tokens`
   - `reserved_output_tokens`
-  - `soft_threshold_tokens`
   - `context_soft_limit_ratio`
 
 Meanings:
 
 - `recommended_input_tokens`
-  - the budget Core Matrix wants the runtime to stay within for high-quality
-    dispatch without needing compaction
-- `reserved_tokens`
-  - the total token budget Core Matrix intentionally withholds from prompt
-    construction for output reserve and any safety buffer
+  - the prompt-input budget Core Matrix recommends for high-quality dispatch
 - `hard_input_token_limit`
-  - the largest prompt payload Core Matrix believes can still be dispatched for
-    the selected model after output reserve is honored
-- `provider_handle` / `model_ref` / `tokenizer_hint`
-  - enough information for the runtime to reason about prompt shape and call
-    the input-token counting API without independently owning tokenizer infrastructure
+  - the largest prompt-input budget Core Matrix believes is dispatchable after
+    honoring output reserve
+- `reserved_tokens`
+  - the total budget intentionally withheld from prompt input
+- `reserved_output_tokens`
+  - the output-specific portion of that reserve
 
-This envelope is guidance for prompt construction. It is not the final
-preflight decision.
+This envelope is static drafting guidance, not the final preflight decision.
 
-## Shared Input-Token Counting API
+## Agent-Facing Input-Token Counting API
 
-Beyond the automatic guard path, Core Matrix should expose a reusable
-agent-facing input-token counting API over the authenticated AgentAPI surface
-for agents that want to proactively manage how much context they include.
+Core Matrix should expose one reusable read-only counting endpoint:
 
-This API should:
+- `POST /agent_api/responses/input_tokens`
 
-- be Core Matrix-owned and authoritative
-- reuse the same token-estimation and reserve logic as `PromptBudgetGuard`
-- return advisory data only, not mutate workflow state
-- complement the budget envelope already supplied during prompt construction
-- be available to agents that want to proactively budget context for
-  roleplay/chat or writing-heavy scenarios
+This endpoint should:
 
-Recommended result shape:
+- be authenticated through the existing AgentAPI surface
+- be shaped after OpenAI's `POST /v1/responses/input_tokens`
+- accept the same broad class of provider-visible `input` payloads the runtime
+  is drafting
+- centralize multimodal counting for text, images, file references, and
+  audio-bearing inputs
+
+Recommended request fields:
+
+- `provider_handle`
+- `model_ref`
+- `api_model` when needed
+- `input`
+- optional candidate metadata for diagnostics
+
+Recommended response fields:
 
 - `provider_handle`
 - `model_ref`
@@ -219,287 +330,257 @@ Recommended result shape:
 - `hard_input_token_limit`
 - `reserved_tokens`
 - `reserved_output_tokens`
-- `decision_hint` (`allow`, `consult`, `compact_required`, `reject`)
+- `decision_hint`
 - diagnostics
 
-Recommended use:
+This endpoint is advisory:
 
-- the budget envelope gives the agent static construction guidance up front
-- the input-token counting API lets the agent re-check a concrete candidate
-  prompt or candidate set of context inclusions while it is still drafting
-- the final dispatch-time guard remains the only authoritative allow/compact/
-  reject gate
+- it helps agents that want to draft more carefully
+- it never replaces the final dispatch-time guard
+- it does not itself create workflow work
 
-Recommended transport:
+## Token Estimation Ownership
 
-- `POST /agent_api/responses/input_tokens`
-- authenticated with the existing agent connection credential
-- backed by the same estimator and reserve logic used by
-  `PromptBudgetGuard`
-- shaped after OpenAI's `POST /v1/responses/input_tokens` contract so the same
-  endpoint can reason about multimodal provider-visible payloads
+Core Matrix owns authoritative token estimation.
 
-Recommended request shape:
+Recommended fallback order:
 
-- `provider_handle`
-- `model_ref`
-- `api_model` when needed by the resolved provider adapter
-- `input`
-  - using the same provider-visible content structure the runtime is preparing
-    for dispatch
-- optional candidate metadata such as selected input message id or context tags
+1. exact local tokenizer asset
+2. `tiktoken`
+3. heuristic estimate
 
-The endpoint should accept the same broad classes of input payloads the final
-provider request may contain, including text, images, file references, and
-audio-bearing inputs when the selected provider/model supports them. This keeps
-multimodal token accounting centralized in Core Matrix instead of pushing
-format-specific counting logic into the runtime.
+Sophisticated agents are still free to do their own local estimates, but Core
+Matrix remains the source of truth for:
 
-This API is advisory for prompt construction. It must not replace the final
-dispatch-time guard.
+- workflow insertion
+- dispatch-time allow/consult/reject decisions
+- failure classification
+
+## Guard Decision Model
+
+The authoritative dispatch-time guard should return:
+
+- `decision`
+- `estimated_tokens`
+- `estimator_strategy`
+- `failure_scope`
+- `retry_mode`
+- diagnostics
+
+Decision meanings:
+
+- `allow`
+  - dispatch can proceed immediately
+- `consult`
+  - request still fits, but quality or reserve pressure suggests asking the
+    runtime for compaction guidance
+- `compact_required`
+  - Core Matrix-assisted compaction is required before dispatch
+- `reject`
+  - dispatch should fail immediately
+
+Immediate rejection applies when the newest selected user input is so large
+that compacting older context cannot recover the request within hard limits.
 
 ## Consultation Contract
 
-The actual LLM-backed compaction call should **not** go through synchronous
-`execute_feature`, but Core Matrix should use a direct consultation request to
-ask the runtime whether and how to compact.
+When the guard returns `consult` or `compact_required`, Core Matrix may send a
+direct consultation request to the runtime if the current
+`request_preparation_contract` advertises consultation support and policy
+permits runtime participation.
 
-The consultation payload should contain:
+The consultation request should include:
 
-- final provider-visible messages
-- `target_input_tokens`
-- `hard_context_limit`
-- `reserved_tokens`
-- `reserved_output_tokens`
-- hard and advisory budget hints
-- model/tokenizer hints
-- current selected input message identity
-- feature policy snapshot
-- preservation invariants
-- compaction attempt counters
-- the consultation reason (`soft_limit`, `reserve_risk`, `overflow_recovery`)
+- the current provider-visible input candidate
+- budget diagnostics from the guard
+- selected input message `public_id`
+- consultation reason
+- preservation invariants accumulated so far
 
-The consultation result should contain:
+The consultation response should include:
 
-- `decision`
-  - `skip`
-  - `compact`
-  - `reject`
-- compaction strategy / style guidance
+- `decision` (`skip`, `compact`, `reject`)
+- compaction style guidance
 - prioritization hints
 - preservation invariants
-- diagnostics or rationale
+- diagnostics / rationale
 
-## Workflow Execution Contract
+Important boundary:
 
-Once consultation indicates compaction should happen, `prompt_compaction`
-should be represented as workflow work:
+- the consultation may influence strategy
+- it does not itself execute compaction
+- it does not mutate workflow state
+
+If runtime consultation is unavailable, Core Matrix may continue with embedded
+baseline strategy selection.
+
+## Workflow-Backed Compaction
+
+Once Core Matrix decides to compact, the help must be represented as workflow
+work.
+
+Required behavior:
 
 1. Core Matrix materializes a dedicated `prompt_compaction` workflow node
-2. the node executes compaction, persists artifacts, and then re-enters the
-   normal agent loop
+2. the node is scheduled and executed by the workflow engine
+3. execution uses:
+   - runtime-backed compaction when the runtime capability exists and policy
+     allows it
+   - embedded compaction otherwise
+4. the node persists artifacts and diagnostics
+5. the successor `turn_step` consumes the compacted context artifact and
+   continues the loop
+6. durable transcript history remains unchanged
 
-The node input payload should contain:
+Core Matrix assistance with compaction must never be an invisible synchronous
+side effect.
 
-- final provider-visible messages
-- consultation result payload
-- `target_input_tokens`
-- `hard_context_limit`
-- `reserved_tokens`
-- `reserved_output_tokens`
-- current selected input message identity
-- feature policy snapshot
+## Ephemeral Compacted Context Handoff
+
+Compaction in v1 should not rewrite durable transcript history.
+
+Instead, the `prompt_compaction` node should persist an artifact that contains:
+
+- compacted provider-visible messages
+- before/after token estimates
 - preservation invariants
+- source and degradation diagnostics
 
-The workflow-node artifact/result should contain:
+The successor `turn_step` should consume that artifact as an ephemeral
+round-specific override when it rebuilds provider-visible input.
 
-- replacement messages
-- whether compaction changed anything
-- optional compaction diagnostics
-- `estimated_tokens_before`
-- `estimated_tokens_after`
-- `estimator_strategy`
-- `stop_reason`
-- `source`
-- `fallback_used`
-- estimator metadata
+Recommended handoff shape:
 
-## Slice-Specific Lifecycle Rules
+- `prompt_compaction` node persists `artifact_kind = "prompt_compaction_context"`
+- successor `turn_step` metadata includes:
+  - `prompt_compaction_artifact_key`
+  - `prompt_compaction_source_node_key`
 
-`prompt_compaction` is execution-critical and must run against the exact turn
-state that was frozen before provider dispatch.
+When a successor `turn_step` sees this metadata, its default transcript source
+should come from the compaction artifact rather than directly from
+`execution_snapshot.conversation_projection`.
 
-That means:
+## Baseline Compaction Strategy
 
-- policy is resolved once and frozen
-- capability is resolved once and frozen
-- compaction consultation and node execution run against the frozen
-  provider-visible round payload
-
-This feature must not read live workspace policy while a turn is already in
-flight.
-
-## Implementation Strategy Informed By Reference Systems
-
-The intended behavior here should follow the strongest common patterns from the
-reference systems we already reviewed:
-
-- Claude Code and OpenClaw both do preflight budgeting before provider dispatch
-  and compact before hitting a hard overflow path.
-- Codex and Claude Code preserve the newest user input and compact older
-  history instead of rewriting the current request.
-- OpenClaw aggressively targets bulky tool outputs and other non-primary
-  context first, which is the right bias for maintaining agent quality.
-- All three use bounded overflow recovery rather than open-ended retry loops.
-
-That gives the slice these concrete requirements:
-
-- budget before dispatch using soft and hard thresholds
-- preserve the newest selected user input verbatim
-- compact older transcript, imports, and oversized tool outputs first
-- retry once after explicit provider overflow, then fail explicitly
-- return compaction diagnostics instead of silently degrading behavior
-
-The preservation contract should explicitly require that compaction keeps:
-
-- the current user goal/request
-- explicit user constraints and prohibitions
-- referenced file paths, resources, and identifiers still needed for execution
-- unresolved errors, blockers, and failure context
-- pending tool outcomes or follow-up obligations
-- the active working plan or next-step queue when one exists
-
-For v1, the actual compaction strategy should be intentionally redundant:
-
-- Core Matrix embedded compaction and Fenix workflow-node compaction should
-  share the same baseline preservation and reduction rules
-- the two paths should be kept behaviorally aligned through shared fixtures or
-  golden tests
-- Fenix may later evolve a more scenario-specific algorithm, but the initial
-  implementation should not diverge gratuitously from the embedded fallback
-
-## Runtime And Embedded Behavior
-
-### Runtime Path
-
-When policy allows runtime execution and the frozen capability snapshot
-advertises `prompt_compaction`, the platform should prefer runtime-authored
-consultation plus runtime-backed workflow execution first.
-
-For Fenix, this is the expected quality path, not an optional optimization.
-That does not mean Fenix owns the authoritative budget calculation. Core Matrix
-does. Fenix participates by:
-
-1. advertising the capability
-2. responding to compaction consultation requests
-3. executing the compaction workflow node when Core Matrix inserts it
-
-### Embedded Path
-
-Embedded compaction is required for product resilience.
-
-The embedded executor should:
+The baseline strategy should stand on the patterns we observed in Claude Code,
+Codex, and OpenClaw:
 
 - preserve the newest selected user input verbatim
-- compact older context only
-- avoid durable transcript writes
-- produce a replacement message list for the current round only
+- preserve explicit user constraints and instructions
+- preserve active task state and near-term plan
+- preserve referenced file paths, resources, and identifiers
+- preserve unresolved errors and pending tool outcomes
+- compact older transcript before recent task-critical state
+- aggressively reduce bulky tool outputs before primary transcript
+- stop after bounded attempts with explicit diagnostics
 
-For Fenix, embedded compaction is an emergency fallback and must not be treated
-as quality-equivalent to the runtime implementation.
+The embedded compactor and Fenix compactor should share this same baseline
+contract and the same golden fixtures.
 
-### Runtime Failure Handling
+That gives:
 
-The runtime path should fall back to embedded compaction when strategy permits
-and the normalized platform failure is one of:
+- a strong working fallback in Core Matrix
+- a quality floor for simple runtimes
+- room for Fenix to later evolve a more specialized algorithm without changing
+  the minimum contract
 
-- `feature_not_advertised`
-- `feature_unsupported`
-- `feature_timeout`
-- `feature_runtime_error`
+## Runtime Vs Embedded Execution
 
-`runtime_required` should not fall back.
+Expected steady state for Fenix:
 
-For Fenix specifically, `feature_not_advertised` should be prevented by
-manifest and bundled-runtime contract tests. If it still appears at runtime, it
-should be treated as a contract breach with degraded fallback, not as a normal
-steady-state path.
+- runtime consultation available
+- runtime workflow-node execution available
+- Core Matrix authoritative guard triggers the process
 
-Any Fenix-backed fallback to embedded compaction should be observable in
-artifacts or failure metadata through at least:
+Expected fallback behavior:
 
-- `source = "embedded"`
-- `fallback_used = true`
-- `runtime_failure_code`
+- if consultation is unavailable, Core Matrix may use embedded default guidance
+- if runtime workflow execution is unavailable or fails and policy allows
+  fallback, Core Matrix should run embedded compaction instead
+- degraded fallback must be observable through persisted diagnostics
 
-## Guard Integration
+Embedded fallback on Fenix is resilience, not quality equivalence.
 
-`ProviderExecution::ExecuteRoundLoop` should remain the final authority before
-provider dispatch.
+## Overflow Recovery
 
-The slice-specific logic should be:
+The subsystem should allow one explicit overflow-recovery loop when the
+provider still returns a prompt-size overflow:
 
-1. estimate prompt tokens
-2. decide `allow`, `consult`, `compact_required`, or `reject`
-3. consult the runtime when the decision is `consult` or `compact_required`
-4. materialize a `prompt_compaction` workflow node when the final decision is
-   to compact
-5. re-estimate after the node completes
-6. dispatch only when the request fits
+1. classify the provider error as prompt-size overflow
+2. re-enter compaction mode with `consultation_reason = "overflow_recovery"`
+3. materialize another compaction workflow node if the result says to compact
+4. retry dispatch once
 
-The feature platform owns compaction orchestration; the guard owns the dispatch
-decision.
+Stop after the hard attempt limit.
 
-## Provider Overflow Recovery
-
-Preflight estimation can still miss.
-
-The slice should allow one bounded recovery loop:
-
-1. provider returns explicit overflow
-2. the round re-enters compaction mode
-3. Core Matrix consults the runtime again with `consultation_reason =
-   "overflow_recovery"`
-4. a `prompt_compaction` workflow node runs again when the result says to
-   compact
-5. provider request retries once
-
-If the second attempt still overflows, the round fails explicitly.
+No open-ended compaction loops.
 
 ## Failure Semantics
 
-This slice should map prompt-size failures into explicit product failures such
-as:
+Prompt-size failures must be explicit and app-readable.
+
+Recommended failure kinds:
 
 - `prompt_too_large_for_retry`
 - `context_window_exceeded_after_compaction`
 
-The failure payload should include:
+Persist remediation metadata that tells the app:
 
-- `retry_mode`
-- `editable_tail_input`
-- `failure_scope`
-- `turn_id`
-- `selected_input_message_id`
+- whether the tail input is editable
+- whether the user must send a new message
+- whether the failure is caused by the current message alone or full context
+- selected input message `public_id`
+- whether runtime degraded to embedded compaction
+- the normalized runtime failure code when degradation happened
+
+These failures should never collapse into `internal_unexpected_error`.
+
+## Observability
+
+The subsystem should persist or emit at least:
+
+- selected model identity
+- before/after token estimates
+- estimator strategy
+- whether runtime consultation occurred
+- whether compaction executed via runtime or embedded path
+- whether fallback was used
+- normalized runtime failure code
+- workflow node artifact references
+
+This is especially important on Fenix, where runtime compaction is the intended
+quality path.
+
+## Why This Split Is Better
+
+This design is cleaner than forcing prompt compaction through the generic
+runtime feature platform:
+
+- the provider request critical path stays explicit
+- read-only budgeting and workflow-backed compaction are modeled separately
+- agent freedom is preserved
+- Core Matrix fallback remains strong
+- Core Matrix-assisted compaction is always workflow-visible
 
 ## Testing Focus
 
-Prompt compaction should be tested at four levels:
+This subsystem should be tested at five levels:
 
-1. feature slice policy and capability projection
-2. workflow intent materialization, workflow node execution, and runtime vs
-   embedded fallback
-3. guard integration and bounded overflow recovery
-4. workflow failure payload, artifacts, and user remediation metadata
+1. token estimation and budget-envelope calculation
+2. agent-facing `responses/input_tokens`
+3. guard decisions and consultation triggering
+4. workflow-node materialization, execution, and re-entry
+5. explicit failure payloads, degradation diagnostics, and deterministic
+   tiny-context e2e coverage
 
 ## Summary
 
-`prompt_compaction` should no longer behave like a special-case internal tool.
-It should be implemented as a first-class runtime feature slice:
+Prompt compaction should not behave like a generic runtime feature.
 
-- snapshot-frozen
-- runtime-first
-- workflow-backed
-- embedded-backed
-- execution-critical
-- explicitly recoverable when provider overflow occurs
+It should be implemented as a request-preparation subsystem where:
+
+- agents may remain light or become sophisticated
+- Core Matrix owns authoritative budgeting
+- Core Matrix-assisted compaction is always workflow-backed
+- embedded compaction provides a working fallback
+- Fenix can still supply higher-quality consultation and execution

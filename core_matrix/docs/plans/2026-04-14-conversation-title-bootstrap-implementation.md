@@ -40,6 +40,13 @@ the transitional contracts around it:
 - embedded execution moves from legacy embedded-agent plumbing to the shared
   embedded-feature boundary
 
+The long-term default should be `features.title_bootstrap.strategy =
+embedded_only`. Runtime title generation remains optional rather than quality
+critical.
+
+Unlike `prompt_compaction`, this follow-up stays on the direct runtime-feature
+path. It does not participate in the request-preparation workflow-node model.
+
 ## Tech Stack
 
 Ruby on Rails, Active Record, Active Job, Minitest, workspace feature policy
