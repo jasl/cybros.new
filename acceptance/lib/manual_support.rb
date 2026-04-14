@@ -321,6 +321,51 @@ module Acceptance
       )
     end
 
+    def app_api_append_conversation_supervision_message_with_retry!(
+      conversation_id:,
+      supervision_session_id:,
+      content:,
+      session_token:,
+      max_attempts: 2,
+      retry_delay_seconds: 1.0
+    )
+      attempts = []
+      request_content = content
+      last_response = nil
+
+      max_attempts.times do |attempt_index|
+        last_response = app_api_append_conversation_supervision_message!(
+          conversation_id: conversation_id,
+          supervision_session_id: supervision_session_id,
+          content: request_content,
+          session_token: session_token
+        )
+
+        attempts << {
+          "attempt" => attempt_index + 1,
+          "request_content" => request_content,
+          "response" => last_response,
+        }
+
+        unless supervision_refusal_or_apology?(last_response.dig("human_sidechat", "content"))
+          return last_response.merge(
+            "accepted_attempt" => attempt_index + 1,
+            "retry_attempts" => attempts
+          )
+        end
+
+        break if attempt_index + 1 >= max_attempts
+
+        sleep(retry_delay_seconds) if retry_delay_seconds.positive?
+        request_content = supervision_retry_prompt(original_content: content)
+      end
+
+      last_response.merge(
+        "accepted_attempt" => nil,
+        "retry_attempts" => attempts
+      )
+    end
+
     def app_api_conversation_supervision_messages!(conversation_id:, supervision_session_id:, session_token:)
       app_api_get_json(
         "/app_api/conversations/#{conversation_id}/supervision_sessions/#{supervision_session_id}/messages",
@@ -412,6 +457,31 @@ module Acceptance
 
         sleep(poll_interval_seconds)
       end
+    end
+
+    def turn_live_activity_metrics(turn:, runtime_events:, feed:)
+      {
+        "provider_round_count" => turn.fetch("provider_round_count", 0).to_i,
+        "tool_call_count" => turn.fetch("tool_call_count", 0).to_i,
+        "command_run_count" => turn.fetch("command_run_count", 0).to_i,
+        "process_run_count" => turn.fetch("process_run_count", 0).to_i,
+        "runtime_event_count" => runtime_events.dig("summary", "event_count").to_i,
+        "feed_item_count" => Array(feed.fetch("items", [])).length,
+      }
+    end
+
+    def supervision_refusal_or_apology?(content)
+      text = content.to_s
+      text.match?(/I.?m sorry/i) || text.match?(/cannot assist/i)
+    end
+
+    def supervision_retry_prompt(original_content:)
+      <<~TEXT.squish
+        Based only on observable progress in this conversation, answer the same supervision request again in one or two short sentences.
+        Mention what the 2048 work is doing right now and the latest concrete change if available.
+        If a detail is unavailable, say that briefly instead of refusing.
+        Original request: #{original_content}
+      TEXT
     end
 
     def wait_for_turn_workflow_terminal!(turn_id:, timeout_seconds: 3600, poll_interval_seconds: 0.1,

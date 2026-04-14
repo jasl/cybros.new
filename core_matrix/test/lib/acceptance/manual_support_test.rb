@@ -1358,6 +1358,97 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal "session-token", captured.fetch(:session_token)
   end
 
+  test "app_api_append_conversation_supervision_message_with_retry! retries once when the first summary reply refuses" do
+    attempts = []
+    responses = [
+      {
+        "method_id" => "conversation_supervision_message_create",
+        "conversation_id" => "conv_123",
+        "supervision_session_id" => "session_123",
+        "human_sidechat" => { "content" => "I'm sorry, but I cannot assist with that request." },
+        "supervisor_message" => { "role" => "supervisor_agent", "content" => "I'm sorry, but I cannot assist with that request." },
+      },
+      {
+        "method_id" => "conversation_supervision_message_create",
+        "conversation_id" => "conv_123",
+        "supervision_session_id" => "session_123",
+        "human_sidechat" => { "content" => "Right now the 2048 work is monitoring a running shell command." },
+        "supervisor_message" => { "role" => "supervisor_agent", "content" => "Right now the 2048 work is monitoring a running shell command." },
+      },
+    ]
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_append_conversation_supervision_message!,
+      lambda do |conversation_id:, supervision_session_id:, content:, session_token:|
+        attempts << {
+          conversation_id: conversation_id,
+          supervision_session_id: supervision_session_id,
+          content: content,
+          session_token: session_token,
+        }
+        responses.fetch(attempts.length - 1)
+      end
+    ) do
+      result = Acceptance::ManualSupport.app_api_append_conversation_supervision_message_with_retry!(
+        conversation_id: "conv_123",
+        supervision_session_id: "session_123",
+        content: "What are you doing right now?",
+        session_token: "session-token",
+        max_attempts: 2,
+        retry_delay_seconds: 0.0
+      )
+
+      assert_equal "Right now the 2048 work is monitoring a running shell command.",
+        result.dig("human_sidechat", "content")
+      assert_equal 2, result.fetch("accepted_attempt")
+      assert_equal 2, result.fetch("retry_attempts").length
+      assert_equal "What are you doing right now?", result.fetch("retry_attempts").first.fetch("request_content")
+      assert_match(/observable progress/i, result.fetch("retry_attempts").last.fetch("request_content"))
+    end
+
+    assert_equal 2, attempts.length
+  end
+
+  test "app_api_append_conversation_supervision_message_with_retry! returns the first accepted reply without retrying" do
+    attempts = []
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_append_conversation_supervision_message!,
+      lambda do |conversation_id:, supervision_session_id:, content:, session_token:|
+        attempts << {
+          conversation_id: conversation_id,
+          supervision_session_id: supervision_session_id,
+          content: content,
+          session_token: session_token,
+        }
+        {
+          "method_id" => "conversation_supervision_message_create",
+          "conversation_id" => "conv_123",
+          "supervision_session_id" => "session_123",
+          "human_sidechat" => { "content" => "Right now the 2048 work is active." },
+          "supervisor_message" => { "role" => "supervisor_agent", "content" => "Right now the 2048 work is active." },
+        }
+      end
+    ) do
+      result = Acceptance::ManualSupport.app_api_append_conversation_supervision_message_with_retry!(
+        conversation_id: "conv_123",
+        supervision_session_id: "session_123",
+        content: "What are you doing right now?",
+        session_token: "session-token",
+        max_attempts: 2,
+        retry_delay_seconds: 0.0
+      )
+
+      assert_equal 1, result.fetch("accepted_attempt")
+      assert_equal 1, result.fetch("retry_attempts").length
+      assert_equal "What are you doing right now?", attempts.first.fetch(:content)
+    end
+
+    assert_equal 1, attempts.length
+  end
+
   test "app_api_conversation_supervision_messages! gets the nested supervision message list route" do
     captured = nil
 
@@ -1710,6 +1801,37 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
         end
       end
     end
+  end
+
+  test "turn_live_activity_metrics summarizes the live progress counters" do
+    metrics = Acceptance::ManualSupport.turn_live_activity_metrics(
+      turn: {
+        "provider_round_count" => 3,
+        "tool_call_count" => 5,
+        "command_run_count" => 2,
+        "process_run_count" => 1,
+      },
+      runtime_events: {
+        "summary" => {
+          "event_count" => 11,
+        },
+      },
+      feed: {
+        "items" => [{ "id" => "a" }, { "id" => "b" }, { "id" => "c" }],
+      }
+    )
+
+    assert_equal(
+      {
+        "provider_round_count" => 3,
+        "tool_call_count" => 5,
+        "command_run_count" => 2,
+        "process_run_count" => 1,
+        "runtime_event_count" => 11,
+        "feed_item_count" => 3,
+      },
+      metrics
+    )
   end
 
   test "app_api_conversation_transcript! uses the nested transcript route" do

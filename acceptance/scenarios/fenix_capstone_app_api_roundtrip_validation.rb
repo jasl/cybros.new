@@ -92,10 +92,22 @@ turn_runtime_events = nil
 turn_feed = nil
 live_activity = nil
 supervision_session = nil
-supervision_probe = nil
+live_activity_snapshots = []
+supervision_probes = []
 supervision_messages = nil
 transcript_before = nil
 transcript_after = nil
+probe_questions = [
+  "Please tell me what the 2048 work is doing right now and what changed most recently, if known.",
+  "Please tell me what the 2048 work is doing right now and what part is currently in progress.",
+  "Please tell me what the 2048 work is doing right now and the latest concrete step you can observe.",
+  "Please tell me what the 2048 work is doing right now and whether anything is blocked or waiting.",
+  "Please tell me what the 2048 work is doing right now and how it has progressed so far during this turn."
+]
+probe_interval_seconds = 1.0
+probe_change_timeout_seconds = 8.0
+probe_max_attempts = 3
+probe_retry_delay_seconds = 1.0
 
 Acceptance::ManualSupport.with_fenix_control_worker!(
   agent_connection_credential: bundled_registration.agent_connection_credential,
@@ -129,6 +141,7 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
         runtime_events.dig("summary", "event_count").to_i >= 3 ||
         Array(feed.fetch("items", [])).length >= 3
     end
+    live_activity_snapshots << live_activity
     transcript_before = Acceptance::ManualSupport.app_api_conversation_transcript!(
       conversation_id: conversation_id,
       session_token: app_api_session_token
@@ -138,12 +151,66 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
       responder_strategy: "summary_model",
       session_token: app_api_session_token
     )
-    supervision_probe = Acceptance::ManualSupport.app_api_append_conversation_supervision_message!(
-      conversation_id: conversation_id,
-      supervision_session_id: supervision_session.dig("conversation_supervision_session", "supervision_session_id"),
-      content: "What part of the 2048 game are you implementing right now, and what changed most recently?",
-      session_token: app_api_session_token
-    )
+    probe_questions.each_with_index do |question, index|
+      if index.positive?
+        previous_metrics = Acceptance::ManualSupport.turn_live_activity_metrics(
+          turn: live_activity.fetch("turn"),
+          runtime_events: live_activity.fetch("runtime_events"),
+          feed: live_activity.fetch("feed")
+        )
+        deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + probe_change_timeout_seconds
+
+        loop do
+          sleep(probe_interval_seconds)
+          turns_payload = Acceptance::ManualSupport.app_api_conversation_diagnostics_turns!(
+            conversation_id: conversation_id,
+            session_token: app_api_session_token
+          )
+          turn_snapshot = turns_payload.fetch("items").find { |candidate| candidate.fetch("turn_id") == turn_id }
+          raise "turn #{turn_id} was not visible while collecting live supervision probes" if turn_snapshot.nil?
+
+          lifecycle_state = turn_snapshot.fetch("lifecycle_state")
+          if %w[completed failed canceled].include?(lifecycle_state)
+            raise "turn #{turn_id} reached terminal state before all live supervision probes were collected"
+          end
+
+          runtime_events = Acceptance::ManualSupport.app_api_conversation_turn_runtime_events!(
+            conversation_id: conversation_id,
+            turn_id: turn_id,
+            session_token: app_api_session_token
+          )
+          feed_payload = Acceptance::ManualSupport.app_api_conversation_feed!(
+            conversation_id: conversation_id,
+            session_token: app_api_session_token
+          )
+          live_activity = {
+            "turn" => turn_snapshot,
+            "turns" => turns_payload.fetch("items"),
+            "runtime_events" => runtime_events,
+            "feed" => feed_payload,
+          }
+
+          current_metrics = Acceptance::ManualSupport.turn_live_activity_metrics(
+            turn: turn_snapshot,
+            runtime_events: runtime_events,
+            feed: feed_payload
+          )
+          break if current_metrics != previous_metrics
+          break if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+        end
+
+        live_activity_snapshots << live_activity
+      end
+
+      supervision_probes << Acceptance::ManualSupport.app_api_append_conversation_supervision_message_with_retry!(
+        conversation_id: conversation_id,
+        supervision_session_id: supervision_session.dig("conversation_supervision_session", "supervision_session_id"),
+        content: question,
+        session_token: app_api_session_token,
+        max_attempts: probe_max_attempts,
+        retry_delay_seconds: probe_retry_delay_seconds
+      )
+    end
     supervision_messages = Acceptance::ManualSupport.app_api_conversation_supervision_messages!(
       conversation_id: conversation_id,
       supervision_session_id: supervision_session.dig("conversation_supervision_session", "supervision_session_id"),
@@ -201,9 +268,9 @@ write_json(artifact_dir.join("evidence", "conversation-debug-export.json"), debu
 write_json(artifact_dir.join("evidence", "conversation-turn-runtime-events.json"), turn_runtime_events)
 write_json(artifact_dir.join("evidence", "conversation-turn-feed.json"), turn_feed)
 write_json(artifact_dir.join("evidence", "conversation-supervision-session.json"), supervision_session)
-write_json(artifact_dir.join("evidence", "conversation-supervision-probe.json"), supervision_probe)
+write_json(artifact_dir.join("evidence", "conversation-supervision-probes.json"), supervision_probes)
 write_json(artifact_dir.join("evidence", "conversation-supervision-messages.json"), supervision_messages)
-write_json(artifact_dir.join("evidence", "conversation-live-activity.json"), live_activity)
+write_json(artifact_dir.join("evidence", "conversation-live-activity.json"), live_activity_snapshots)
 write_json(artifact_dir.join("evidence", "runtime-validation.json"), runtime_validation)
 write_json(artifact_dir.join("evidence", "conversation-debug-export-download.json"), debug_export_download)
 write_json(artifact_dir.join("evidence", "conversation-export-download.json"), export_download)
@@ -246,14 +313,53 @@ selected_output_message = debug_payload.fetch("conversation_payload")
 supervision_session_id = supervision_session.dig("conversation_supervision_session", "supervision_session_id")
 export_supervision_messages = debug_payload.fetch("conversation_supervision_messages")
   .select { |message| message.fetch("supervision_session_id") == supervision_session_id }
-status_probe_content = supervision_probe.dig("human_sidechat", "content").to_s
 message_roles = supervision_messages.fetch("items").map { |item| item.fetch("role") }
+all_supervisor_transcript_responses = supervision_messages.fetch("items")
+  .select { |item| item.fetch("role") == "supervisor_agent" }
+  .map { |item| item.fetch("content") }
+supervisor_responses = supervision_probes.map { |probe| probe.dig("human_sidechat", "content") }
 transcript_before_ids = transcript_before.fetch("items").map { |item| item.fetch("id") }
 transcript_after_ids = transcript_after.fetch("items").map { |item| item.fetch("id") }
-recent_change_covered =
-  status_probe_content.match?(/most recently/i) ||
-  status_probe_content.match?(/recent change/i) ||
-  status_probe_content.match?(/no more specific recent change available/i)
+live_activity_metrics = live_activity_snapshots.map do |snapshot|
+  Acceptance::ManualSupport.turn_live_activity_metrics(
+    turn: snapshot.fetch("turn"),
+    runtime_events: snapshot.fetch("runtime_events"),
+    feed: snapshot.fetch("feed")
+  )
+end
+metrics_changed_rounds = live_activity_metrics.each_cons(2).count do |previous_metrics, current_metrics|
+  previous_metrics != current_metrics
+end
+progress_dimensions = %w[
+  provider_round_count
+  tool_call_count
+  command_run_count
+  process_run_count
+  runtime_event_count
+  feed_item_count
+]
+progress_dimensions_advanced = progress_dimensions.select do |key|
+  live_activity_metrics.last.fetch(key) > live_activity_metrics.first.fetch(key)
+end
+progress_signal_count = supervisor_responses.count do |content|
+  content.match?(/most recent|recent change|recently|progress|completed|created|started|finished|next step|blocked|waiting|working through|in progress/i)
+end
+refusal_or_apology_leak = supervisor_responses.any? do |content|
+  content.match?(/I.?m sorry/i) || content.match?(/cannot assist/i)
+end
+transcript_refusal_or_apology_leak = all_supervisor_transcript_responses.any? do |content|
+  content.match?(/I.?m sorry/i) || content.match?(/cannot assist/i)
+end
+game_work_reference_count = supervisor_responses.count do |content|
+  content.match?(/2048|game|board|tile|move|project|app/i)
+end
+live_wording_present = supervisor_responses.all? { |content| content.match?(/right now|currently/i) }
+completion_leak = supervisor_responses.any? { |content| content.match?(/execution runtime completed|turn completed/i) }
+minimum_message_count = probe_questions.length * 2
+alternating_roles = message_roles.each_slice(2).all? { |pair| pair == %w[user supervisor_agent] }
+all_probes_accepted = supervision_probes.all? { |probe| probe.fetch("accepted_attempt").present? }
+retry_round_count = supervision_probes.count { |probe| probe.fetch("accepted_attempt").to_i > 1 }
+total_retry_attempts = supervision_probes.sum { |probe| probe.fetch("retry_attempts").length } - supervision_probes.length
 observed_conversation_state = {
   "conversation_state" => terminal.fetch("conversation").fetch("lifecycle_state"),
   "workflow_lifecycle_state" => workflow_run.fetch("lifecycle_state"),
@@ -272,17 +378,29 @@ passed = dag_shape_passed &&
     playwright_validation: playwright_validation
   ) &&
   conversation_export_path.exist? &&
-  live_activity.fetch("turn").fetch("lifecycle_state") == "active" &&
-  (Acceptance::ManualSupport.runtime_activity_present?(live_activity.fetch("runtime_events")) ||
-    Acceptance::ManualSupport.feed_activity_present?(live_activity.fetch("feed"))) &&
-  status_probe_content.match?(/right now|currently/i) &&
-  status_probe_content.match?(/2048|game|board|tile|move/i) &&
-  recent_change_covered &&
-  !status_probe_content.match?(/execution runtime completed|turn completed/i) &&
+  live_activity_snapshots.length == probe_questions.length &&
+  live_activity_snapshots.none? do |snapshot|
+    %w[completed failed canceled].include?(snapshot.fetch("turn").fetch("lifecycle_state"))
+  end &&
+  live_activity_snapshots.any? { |snapshot| snapshot.fetch("turn").fetch("lifecycle_state") == "active" } &&
+  live_activity_snapshots.all? do |snapshot|
+    Acceptance::ManualSupport.runtime_activity_present?(snapshot.fetch("runtime_events")) ||
+      Acceptance::ManualSupport.feed_activity_present?(snapshot.fetch("feed"))
+  end &&
+  all_probes_accepted &&
+  metrics_changed_rounds >= 2 &&
+  progress_dimensions_advanced.length >= 2 &&
+  live_wording_present &&
+  game_work_reference_count >= 4 &&
+  progress_signal_count >= 3 &&
+  !refusal_or_apology_leak &&
+  !completion_leak &&
   transcript_before_ids == transcript_after_ids &&
-  message_roles == %w[user supervisor_agent] &&
-  export_supervision_messages.length == 2 &&
-  export_supervision_messages.map { |message| message.fetch("role") } == message_roles
+  supervision_messages.fetch("items").length >= minimum_message_count &&
+  export_supervision_messages.length == supervision_messages.fetch("items").length &&
+  alternating_roles &&
+  export_supervision_messages.map { |message| message.fetch("role") } == message_roles &&
+  supervisor_responses.uniq.length >= 4
 
 write_text(
   artifact_dir.join("review", "summary.md"),
@@ -306,9 +424,16 @@ write_text(
     - runtime events review: `#{artifact_dir.join("review", "runtime-events.md")}`
     - supervision feed review: `#{artifact_dir.join("review", "supervision-feed.md")}`
     - supervision sidechat review: `#{artifact_dir.join("review", "supervision-sidechat.md")}`
-    - live sidechat asked while turn active: `#{live_activity.fetch("turn").fetch("lifecycle_state") == "active"}`
-    - sidechat response referenced game work: `#{status_probe_content.match?(/2048|game|board|tile|move/i).present?}`
-    - sidechat response covered recent-change semantics: `#{recent_change_covered}`
+    - live sidechat rounds while turn in progress: `#{live_activity_snapshots.length}`
+    - accepted live sidechat rounds: `#{supervision_probes.length}`
+    - live sidechat metric-changing transitions: `#{metrics_changed_rounds}`
+    - live sidechat progress dimensions advanced: `#{progress_dimensions_advanced.join(", ")}`
+    - live sidechat retry rounds: `#{retry_round_count}`
+    - live sidechat extra retry attempts: `#{total_retry_attempts}`
+    - sidechat responses grounded in game/project work: `#{game_work_reference_count}`
+    - sidechat responses with progress semantics: `#{progress_signal_count}`
+    - accepted sidechat refusal or apology leak: `#{refusal_or_apology_leak}`
+    - transcript sidechat refusal or apology leak: `#{transcript_refusal_or_apology_leak}`
   MD
 )
 
@@ -338,10 +463,19 @@ result = Acceptance::ManualSupport.scenario_result(
     "conversation_debug_export_path" => conversation_debug_export_path.to_s,
     "selected_output_message_id" => selected_output_message&.fetch("message_public_id", nil),
     "selected_output_content" => selected_output_message&.fetch("content", nil),
-    "live_activity" => live_activity,
+    "live_activity" => live_activity_snapshots,
+    "live_activity_metrics" => live_activity_metrics,
+    "live_activity_metrics_changed_rounds" => metrics_changed_rounds,
+    "live_activity_progress_dimensions_advanced" => progress_dimensions_advanced,
     "supervision_session_id" => supervision_session_id,
-    "supervision_probe_content" => status_probe_content,
-    "supervision_recent_change_covered" => recent_change_covered,
+    "supervision_probe_questions" => probe_questions,
+    "supervision_probe_contents" => supervisor_responses,
+    "supervision_probe_retry_round_count" => retry_round_count,
+    "supervision_probe_extra_retry_attempts" => total_retry_attempts,
+    "supervision_game_work_reference_count" => game_work_reference_count,
+    "supervision_progress_signal_count" => progress_signal_count,
+    "supervision_refusal_or_apology_leak" => refusal_or_apology_leak,
+    "supervision_transcript_refusal_or_apology_leak" => transcript_refusal_or_apology_leak,
     "supervision_message_roles" => message_roles,
     "transcript_before_ids" => transcript_before_ids,
     "transcript_after_ids" => transcript_after_ids,
