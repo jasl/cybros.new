@@ -12,6 +12,8 @@ class CreateAgentVersioningCore < ActiveRecord::Migration[8.2]
       t.string :prompt_pack_ref, null: false
       t.string :prompt_pack_fingerprint, null: false
       t.references :protocol_methods_document, null: false, foreign_key: { to_table: :json_documents }
+      t.references :feature_contract_document, null: false, foreign_key: { to_table: :json_documents }
+      t.references :request_preparation_contract_document, null: false, foreign_key: { to_table: :json_documents }
       t.references :tool_contract_document, null: false, foreign_key: { to_table: :json_documents }
       t.references :profile_policy_document, null: false, foreign_key: { to_table: :json_documents }
       t.references :canonical_config_schema_document, null: false, foreign_key: { to_table: :json_documents }
