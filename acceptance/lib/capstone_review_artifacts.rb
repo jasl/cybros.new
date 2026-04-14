@@ -8,6 +8,44 @@ module Acceptance
   module CapstoneReviewArtifacts
     module_function
 
+    def install_live_supervision_sidechat!(
+      artifact_dir:,
+      conversation_debug_export_path:,
+      debug_payload:,
+      conversation_id:,
+      turn_id:,
+      workflow_run_id:,
+      observed_conversation_state:,
+      status_probe_content:,
+      blocker_probe_content:
+    )
+      artifact_dir = Pathname.new(artifact_dir)
+      review_dir = artifact_dir.join("review")
+      FileUtils.mkdir_p(review_dir)
+
+      write_text(review_dir.join("diagnostics-summary.md"), build_diagnostics_summary(debug_payload.fetch("diagnostics")))
+      write_text(
+        review_dir.join("supervision-sidechat.md"),
+        build_supervision_sidechat_transcript(debug_payload:)
+      )
+      write_text(
+        review_dir.join("summary.md"),
+        build_live_supervision_summary(
+          conversation_id:,
+          turn_id:,
+          workflow_run_id:,
+          observed_conversation_state:,
+          status_probe_content:,
+          blocker_probe_content:,
+          conversation_debug_export_path:
+        )
+      )
+      write_text(
+        review_dir.join("index.md"),
+        build_live_supervision_review_index(conversation_debug_export_path:)
+      )
+    end
+
     def install!(artifact_dir:, conversation_export_path:, conversation_debug_export_path:, turn_feed:, turn_runtime_events:, debug_payload:)
       artifact_dir = Pathname.new(artifact_dir)
       review_dir = artifact_dir.join("review")
@@ -37,6 +75,55 @@ module Acceptance
           conversation_export_path: conversation_export_path
         )
       )
+    end
+
+    def build_live_supervision_review_index(conversation_debug_export_path:)
+      [
+        "# Review Index",
+        "",
+        "Primary review entry points for the live supervision sidechat artifact bundle:",
+        "",
+        "- [Summary](summary.md)",
+        "- [Diagnostics Summary](diagnostics-summary.md)",
+        "- [Supervision Sidechat](supervision-sidechat.md)",
+        "",
+        "Exports:",
+        "",
+        "- `#{conversation_debug_export_path}`",
+        ""
+      ].join("\n")
+    end
+
+    def build_live_supervision_summary(
+      conversation_id:,
+      turn_id:,
+      workflow_run_id:,
+      observed_conversation_state:,
+      status_probe_content:,
+      blocker_probe_content:,
+      conversation_debug_export_path:
+    )
+      [
+        "# Live Supervision Sidechat Summary",
+        "",
+        "- conversation id: `#{conversation_id}`",
+        "- turn id: `#{turn_id}`",
+        "- workflow run id: `#{workflow_run_id}`",
+        "- conversation lifecycle: `#{observed_conversation_state.fetch("conversation_state", "unknown")}`",
+        "- turn lifecycle: `#{observed_conversation_state.fetch("turn_lifecycle_state", "unknown")}`",
+        "- workflow wait state: `#{observed_conversation_state.fetch("workflow_wait_state", "unknown")}`",
+        "- machine status: `#{observed_conversation_state.fetch("machine_status", "unknown")}`",
+        "- debug export path: `#{conversation_debug_export_path}`",
+        "",
+        "Progress probe:",
+        "",
+        status_probe_content,
+        "",
+        "Blocker probe:",
+        "",
+        blocker_probe_content,
+        ""
+      ].join("\n")
     end
 
     def build_review_index(transcript_present:, transcript_html_present:, conversation_debug_export_path:, conversation_export_path:)

@@ -210,6 +210,18 @@ message_roles = supervision_messages.fetch("items").map { |item| item.fetch("rol
 transcript_before_ids = transcript_before.fetch("items").map { |item| item.fetch("id") }
 transcript_after_ids = transcript_after.fetch("items").map { |item| item.fetch("id") }
 
+Acceptance::CapstoneReviewArtifacts.install_live_supervision_sidechat!(
+  artifact_dir: artifact_dir,
+  conversation_debug_export_path: debug_export_path,
+  debug_payload: debug_payload,
+  conversation_id: conversation.public_id,
+  turn_id: turn.public_id,
+  workflow_run_id: workflow_run.public_id,
+  observed_conversation_state: observed_conversation_state,
+  status_probe_content: status_content,
+  blocker_probe_content: blocker_content
+)
+
 result = Acceptance::ManualSupport.scenario_result(
   scenario: "live_supervision_sidechat_validation",
   expected_dag_shape: expected_dag_shape,
