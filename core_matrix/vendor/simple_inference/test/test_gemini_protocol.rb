@@ -158,4 +158,76 @@ class TestGeminiProtocol < Minitest::Test
     assert_equal "calculator", completed.result.tool_calls.fetch(0).fetch("name")
     assert_equal 5, completed.result.usage.fetch("total_tokens")
   end
+
+  def test_create_normalizes_gemini_tool_schema_and_tool_choice
+    adapter = Class.new(SimpleInference::HTTPAdapter) do
+      attr_reader :last_request
+
+      def call(env)
+        @last_request = env
+
+        {
+          status: 200,
+          headers: { "content-type" => "application/json" },
+          body: JSON.generate(
+            {
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      { text: "ok" },
+                    ],
+                  },
+                  finishReason: "STOP",
+                },
+              ],
+            }
+          ),
+        }
+      end
+    end.new
+
+    protocol = SimpleInference::Protocols::GeminiGenerateContent.new(base_url: "https://generativelanguage.googleapis.com", api_key: "secret", adapter: adapter)
+    protocol.create(
+      model: "gemini-2.5-pro",
+      input: "Hello",
+      tool_choice: { type: "function", function: { name: "calculator" } },
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "calculator",
+            description: "Solve arithmetic",
+            parameters: {
+              type: "object",
+              properties: {
+                expression: {
+                  anyOf: [
+                    { type: "string" },
+                    { type: "null" },
+                  ],
+                  description: "Math expression",
+                },
+              },
+              required: [:expression],
+            },
+          },
+        },
+      ]
+    )
+
+    request_body = JSON.parse(adapter.last_request.fetch(:body))
+    declaration = request_body.fetch("tools").fetch(0).fetch("functionDeclarations").fetch(0)
+    schema = declaration.fetch("parameters")
+    property = schema.fetch("properties").fetch("expression")
+    tool_config = request_body.fetch("toolConfig").fetch("functionCallingConfig")
+
+    assert_equal "OBJECT", schema.fetch("type")
+    assert_equal ["expression"], schema.fetch("required")
+    assert_equal "STRING", property.fetch("type")
+    assert_equal true, property.fetch("nullable")
+    assert_equal "Math expression", property.fetch("description")
+    assert_equal "any", tool_config.fetch("mode")
+    assert_equal ["calculator"], tool_config.fetch("allowedFunctionNames")
+  end
 end

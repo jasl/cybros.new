@@ -146,4 +146,63 @@ class TestAnthropicProtocol < Minitest::Test
     assert_equal "calculator", completed.result.tool_calls.fetch(0).fetch("name")
     assert_equal 3, completed.result.usage.fetch("output_tokens")
   end
+
+  def test_create_maps_tool_choice_parallel_control_and_default_input_schema
+    adapter = Class.new(SimpleInference::HTTPAdapter) do
+      attr_reader :last_request
+
+      def call(env)
+        @last_request = env
+
+        {
+          status: 200,
+          headers: { "content-type" => "application/json" },
+          body: JSON.generate(
+            {
+              id: "msg_123",
+              content: [
+                { type: "text", text: "ok" },
+              ],
+              stop_reason: "end_turn",
+              usage: {
+                input_tokens: 1,
+                output_tokens: 1,
+              },
+            }
+          ),
+        }
+      end
+    end.new
+
+    protocol = SimpleInference::Protocols::AnthropicMessages.new(base_url: "https://api.anthropic.com", api_key: "secret", adapter: adapter)
+    protocol.create(
+      model: "claude-opus-4-1",
+      input: "Hello",
+      tool_choice: { type: "function", function: { name: "calculator" } },
+      parallel_tool_calls: false,
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "calculator",
+            description: "Solve arithmetic",
+          },
+        },
+      ]
+    )
+
+    request_body = JSON.parse(adapter.last_request.fetch(:body))
+    tool = request_body.fetch("tools").fetch(0)
+    tool_choice = request_body.fetch("tool_choice")
+
+    assert_equal "calculator", tool.fetch("name")
+    assert_equal "object", tool.fetch("input_schema").fetch("type")
+    assert_equal({}, tool.fetch("input_schema").fetch("properties"))
+    assert_equal [], tool.fetch("input_schema").fetch("required")
+    assert_equal false, tool.fetch("input_schema").fetch("additionalProperties")
+    assert_equal true, tool.fetch("input_schema").fetch("strict")
+    assert_equal "tool", tool_choice.fetch("type")
+    assert_equal "calculator", tool_choice.fetch("name")
+    assert_equal true, tool_choice.fetch("disable_parallel_tool_use")
+  end
 end

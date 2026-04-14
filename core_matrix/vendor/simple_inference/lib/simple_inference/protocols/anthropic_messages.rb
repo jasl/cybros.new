@@ -333,6 +333,15 @@ module SimpleInference
 
         tools = normalize_tools(options[:tools] || options["tools"])
         body[:tools] = tools if tools.any?
+        tool_choice = build_tool_choice(
+          tool_choice: options[:tool_choice] || options["tool_choice"],
+          parallel_tool_calls: if options.key?(:parallel_tool_calls)
+                                 options[:parallel_tool_calls]
+                               elsif options.key?("parallel_tool_calls")
+                                 options["parallel_tool_calls"]
+                               end
+        )
+        body[:tool_choice] = tool_choice if tool_choice
 
         body[:temperature] = options[:temperature] if options.key?(:temperature)
         body[:top_p] = options[:top_p] if options.key?(:top_p)
@@ -502,9 +511,56 @@ module SimpleInference
           {
             name: function["name"],
             description: function["description"],
-            input_schema: function["parameters"] || normalized["parameters"],
+            input_schema: function["parameters"] || normalized["parameters"] || default_input_schema,
           }.compact
         end
+      end
+
+      def build_tool_choice(tool_choice:, parallel_tool_calls:)
+        return nil if tool_choice.nil? && parallel_tool_calls.nil?
+
+        normalized_choice = normalize_tool_choice(tool_choice) || "auto"
+        choice = {
+          type: case normalized_choice
+                when "auto", "none"
+                  normalized_choice
+                when "required"
+                  "any"
+                else
+                  "tool"
+                end,
+        }
+        choice[:name] = normalized_choice if choice[:type] == "tool"
+        choice[:disable_parallel_tool_use] = !parallel_tool_calls if !parallel_tool_calls.nil? && choice[:type] != "none"
+        choice
+      end
+
+      def normalize_tool_choice(tool_choice)
+        return nil if tool_choice.nil?
+
+        case tool_choice
+        when Hash
+          normalized = deep_stringify_hash(tool_choice)
+          type = normalized["type"].to_s
+          return normalized.dig("function", "name") if type == "function" && normalized["function"].is_a?(Hash)
+          return normalized["name"] if type == "function"
+          type unless type.empty?
+        when Symbol
+          tool_choice.to_s
+        else
+          value = tool_choice.to_s
+          value.empty? ? nil : value
+        end
+      end
+
+      def default_input_schema
+        {
+          type: "object",
+          properties: {},
+          required: [],
+          additionalProperties: false,
+          strict: true,
+        }
       end
 
       def normalize_output_items(content)
@@ -581,6 +637,22 @@ module SimpleInference
               duplicate_hash(entry)
             when Array
               entry.map { |item| item.is_a?(Hash) ? duplicate_hash(item) : item }
+            else
+              entry
+            end
+        end
+      end
+
+      def deep_stringify_hash(value)
+        return {} unless value.is_a?(Hash)
+
+        value.each_with_object({}) do |(key, entry), out|
+          out[key.to_s] =
+            case entry
+            when Hash
+              deep_stringify_hash(entry)
+            when Array
+              entry.map { |item| item.is_a?(Hash) ? deep_stringify_hash(item) : item }
             else
               entry
             end

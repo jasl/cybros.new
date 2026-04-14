@@ -181,6 +181,8 @@ module SimpleInference
 
         tools = normalize_tools(options[:tools] || options["tools"])
         body[:tools] = tools if tools.any?
+        tool_config = build_tool_config(options[:tool_choice] || options["tool_choice"])
+        body[:toolConfig] = tool_config if tool_config
 
         generation_config = {}
         generation_config[:maxOutputTokens] = options[:max_output_tokens] if options.key?(:max_output_tokens)
@@ -608,13 +610,170 @@ module SimpleInference
           {
             name: function["name"],
             description: function["description"],
-            parameters: function["parameters"] || normalized["parameters"],
+            parameters: convert_tool_schema_to_gemini(function["parameters"] || normalized["parameters"]),
           }.compact
         end
 
         return [] if declarations.empty?
 
         [{ functionDeclarations: declarations }]
+      end
+
+      def build_tool_config(tool_choice)
+        normalized_choice = normalize_tool_choice(tool_choice)
+        return nil if normalized_choice.nil?
+
+        config = {
+          mode: forced_tool_choice?(normalized_choice) ? "any" : normalized_choice,
+        }
+        config[:allowedFunctionNames] = [normalized_choice] if specific_tool_choice?(normalized_choice)
+        { functionCallingConfig: config }
+      end
+
+      def normalize_tool_choice(tool_choice)
+        return nil if tool_choice.nil?
+
+        case tool_choice
+        when Hash
+          normalized = deep_stringify_hash(tool_choice)
+          type = normalized["type"].to_s
+          return normalized.dig("function", "name") if type == "function" && normalized["function"].is_a?(Hash)
+          return normalized["name"] if type == "function"
+          return type unless type.empty?
+        when Symbol
+          return tool_choice.to_s
+        else
+          value = tool_choice.to_s
+          return nil if value.empty?
+
+          return value
+        end
+
+        nil
+      end
+
+      def forced_tool_choice?(tool_choice)
+        tool_choice == "required" || specific_tool_choice?(tool_choice)
+      end
+
+      def specific_tool_choice?(tool_choice)
+        !%w[auto none required].include?(tool_choice)
+      end
+
+      def convert_tool_schema_to_gemini(schema)
+        return nil unless schema.is_a?(Hash)
+
+        normalized_schema = deep_stringify_hash(schema)
+        unless normalized_schema["type"].to_s == "object"
+          raise SimpleInference::ValidationError, "Gemini tool parameters must be objects"
+        end
+
+        {
+          type: "OBJECT",
+          properties: normalized_schema.fetch("properties", {}).transform_values { |property| convert_tool_property(property) },
+          required: Array(normalized_schema["required"]).map(&:to_s),
+        }
+      end
+
+      def convert_tool_property(property_schema)
+        raw_schema = deep_stringify_hash(property_schema)
+        working_schema = normalize_any_of_schema(raw_schema) || raw_schema
+        type = gemini_schema_type(working_schema["type"])
+
+        property = { type: type }
+        copy_tool_attributes(property, raw_schema, %w[description enum format nullable maximum minimum multipleOf])
+        copy_tool_attributes(property, working_schema, %w[description enum format nullable maximum minimum multipleOf])
+
+        case type
+        when "ARRAY"
+          items_schema = working_schema["items"] || raw_schema["items"] || { "type" => "string" }
+          property[:items] = convert_tool_property(items_schema)
+          copy_tool_attributes(property, working_schema, %w[minItems maxItems])
+          copy_tool_attributes(property, raw_schema, %w[minItems maxItems])
+        when "OBJECT"
+          property[:properties] = working_schema.fetch("properties", {}).transform_values { |child| convert_tool_property(child) }
+          required = working_schema["required"] || raw_schema["required"]
+          property[:required] = Array(required).map(&:to_s) if required
+        end
+
+        property
+      end
+
+      def copy_tool_attributes(target, source, attributes)
+        attributes.each do |attribute|
+          value = schema_value(source, attribute)
+          next if value.nil?
+
+          target[attribute.to_sym] = value
+        end
+      end
+
+      def normalize_any_of_schema(schema)
+        any_of = schema["anyOf"] || schema[:anyOf]
+        return nil unless any_of.is_a?(Array) && any_of.any?
+
+        normalized_entries = any_of.map { |entry| deep_stringify_hash(entry) }
+        null_entries, non_null_entries = normalized_entries.partition { |entry| schema_type(entry).to_s == "null" }
+
+        if non_null_entries.size == 1 && null_entries.any?
+          normalized = deep_stringify_hash(non_null_entries.first)
+          normalized["nullable"] = true
+          normalized
+        elsif non_null_entries.any?
+          deep_stringify_hash(non_null_entries.first)
+        else
+          { "type" => "string", "nullable" => true }
+        end
+      end
+
+      def schema_value(source, attribute)
+        case attribute
+        when "multipleOf"
+          source["multipleOf"] || source[:multipleOf] || source["multiple_of"] || source[:multiple_of]
+        when "minItems"
+          source["minItems"] || source[:minItems] || source["min_items"] || source[:min_items]
+        when "maxItems"
+          source["maxItems"] || source[:maxItems] || source["max_items"] || source[:max_items]
+        else
+          source[attribute] || source[attribute.to_sym]
+        end
+      end
+
+      def schema_type(schema)
+        schema["type"] || schema[:type]
+      end
+
+      def gemini_schema_type(type)
+        case type.to_s.downcase
+        when "integer"
+          "INTEGER"
+        when "number", "float", "double"
+          "NUMBER"
+        when "boolean"
+          "BOOLEAN"
+        when "array"
+          "ARRAY"
+        when "object"
+          "OBJECT"
+        else
+          "STRING"
+        end
+      end
+
+      def deep_stringify_hash(value)
+        return {} unless value.is_a?(Hash)
+
+        value.each_with_object({}) do |(key, entry), out|
+          out[key.to_s] =
+            case entry
+            when Hash
+              deep_stringify_hash(entry)
+            when Array
+              entry.map { |item| item.is_a?(Hash) ? deep_stringify_hash(item) : item }
+            else
+              entry
+            end
+        end
       end
 
       def normalize_output_items(parts)
