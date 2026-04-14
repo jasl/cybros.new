@@ -230,6 +230,88 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     assert_match(/shell command finished|shell command/i, content)
   end
 
+  test "answers completion questions from active work state and visible plan progress" do
+    fixture = fresh_turn_todo_plan_fixture!(waiting: false)
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Have you completed all the work yet?"
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/still active work right now/i, content)
+    assert_match(/1\/2/, content)
+    assert_match(/rendering the frozen supervision snapshot/i, content)
+  end
+
+  test "answers completion questions from idle terminal state without claiming business success" do
+    fixture = fresh_turn_todo_plan_fixture!(waiting: false)
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    snapshot.update!(
+      machine_status_payload: snapshot.machine_status_payload.merge(
+        "overall_state" => "idle",
+        "last_terminal_state" => "completed",
+        "current_focus_summary" => nil,
+        "waiting_summary" => nil,
+        "blocked_summary" => nil,
+        "runtime_evidence" => {}
+      )
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Did you finish all the tasks?"
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/no active work right now/i, content)
+    assert_match(/latest work segment completed/i, content)
+    refute_match(/\byes\b/i, content)
+  end
+
+  test "answers completion questions from blocked state with a neutral blocker summary" do
+    fixture = fresh_turn_todo_plan_fixture!(waiting: false)
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    snapshot.update!(
+      machine_status_payload: snapshot.machine_status_payload.merge(
+        "overall_state" => "blocked",
+        "blocked_summary" => "Waiting for operator confirmation before continuing the validation.",
+        "waiting_summary" => nil
+      )
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Have you finished everything?"
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/still active work right now/i, content)
+    assert_match(/blocked/i, content)
+    assert_match(/operator confirmation/i, content)
+  end
+
   test "uses waiting summaries from the frozen payload without leaking raw wait tokens" do
     fixture = fresh_fixture!(waiting: false)
     session = create_conversation_supervision_session!(fixture)

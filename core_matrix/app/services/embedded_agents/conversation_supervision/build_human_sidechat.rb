@@ -2,11 +2,13 @@ module EmbeddedAgents
   module ConversationSupervision
     class BuildHumanSidechat
       BLOCKER_KEYWORDS = %w[blocked blocker waiting wait stuck].freeze
+      COMPLETION_KEYWORDS = %w[complete completed finish finished done].freeze
       CURRENT_STATUS_KEYWORDS = %w[current doing now status happening active].freeze
       NEXT_STEP_KEYWORDS = %w[next then after following].freeze
       RECENT_CHANGE_KEYWORDS = %w[recent recently latest changed change progress progressed progressing].freeze
       SUBAGENT_KEYWORDS = %w[subagent child delegate worker delegated].freeze
       CONVERSATION_FACT_KEYWORDS = %w[agree agreed committed establish established fact already context].freeze
+      CHINESE_COMPLETION_KEYWORDS = %w[完成 做完 结束 搞定].freeze
 
       def self.call(...)
         new(...).call
@@ -38,6 +40,7 @@ module EmbeddedAgents
 
       def primary_sentences
         case intent
+        when :completion_status then completion_status_sentences
         when :blocker then [blocker_sentence]
         when :subagent_status then [subagent_sentence]
         when :conversation_fact then [conversation_fact_sentence]
@@ -52,12 +55,116 @@ module EmbeddedAgents
             :conversation_fact
           elsif matches?(SUBAGENT_KEYWORDS)
             :subagent_status
+          elsif completion_question?
+            :completion_status
           elsif matches?(BLOCKER_KEYWORDS)
             :blocker
           else
             :general_status
           end
         end
+      end
+
+      def completion_question?
+        COMPLETION_KEYWORDS.any? { |keyword| normalized_question.include?(keyword) } ||
+          CHINESE_COMPLETION_KEYWORDS.any? { |keyword| normalized_chinese_question.include?(keyword) }
+      end
+
+      def completion_status_sentences
+        [completion_state_sentence, completion_plan_sentence].compact
+      end
+
+      def completion_state_sentence
+        chinese_question? ? chinese_completion_state_sentence : english_completion_state_sentence
+      end
+
+      def english_completion_state_sentence
+        state = prompt_payload.fetch("overall_state")
+        focus = current_focus_summary
+
+        case state
+        when "idle"
+          case prompt_payload["last_terminal_state"]
+          when "completed"
+            "There is no active work right now. The latest work segment completed."
+          when "failed"
+            "There is no active work right now. The latest work segment failed."
+          when "interrupted", "canceled"
+            "There is no active work right now. The latest work segment was interrupted."
+          else
+            "There is no active work right now."
+          end
+        when "waiting"
+          waiting = trim_terminal_punctuation(prompt_payload["waiting_summary"].presence || "The conversation is waiting on a dependency to clear")
+          "There is still active work right now. #{waiting}."
+        when "blocked"
+          blocked = trim_terminal_punctuation(prompt_payload["blocked_summary"].presence || "Waiting for the blocker to clear")
+          "There is still active work right now. The conversation is currently blocked. #{blocked}."
+        when "queued"
+          return "There is still active work right now. The conversation is queued to work on this task: #{focus}." if focus.present?
+
+          "There is still active work right now. The conversation is queued to continue."
+        else
+          return "There is still active work right now." if focus.blank?
+          return "There is still active work right now. The conversation is currently #{lowercase_initial(focus)}." if activity_focus?(focus)
+          return "There is still active work right now. The conversation is working on this task: #{focus}." if request_like_focus?(focus)
+
+          "There is still active work right now. The conversation is working on #{focus.downcase}."
+        end
+      end
+
+      def chinese_completion_state_sentence
+        state = prompt_payload.fetch("overall_state")
+        focus = current_focus_summary
+
+        case state
+        when "idle"
+          case prompt_payload["last_terminal_state"]
+          when "completed"
+            "当前没有活跃工作。最近一段执行已完成。"
+          when "failed"
+            "当前没有活跃工作，但最近一段执行以失败结束。"
+          when "interrupted", "canceled"
+            "当前没有活跃工作，但最近一段执行已中断。"
+          else
+            "当前没有活跃工作。"
+          end
+        when "waiting"
+          waiting = trim_terminal_punctuation(prompt_payload["waiting_summary"].presence || "当前正在等待依赖解除")
+          "当前仍有活跃工作，正在等待。#{waiting}。"
+        when "blocked"
+          blocked = trim_terminal_punctuation(prompt_payload["blocked_summary"].presence || "当前被阻塞")
+          "当前仍有活跃工作，当前被阻塞。#{blocked}。"
+        when "queued"
+          return "当前仍有活跃工作，正排队处理这项任务：#{focus}。" if focus.present?
+
+          "当前仍有活跃工作，正排队等待执行。"
+        else
+          return "当前仍有活跃工作。" if focus.blank?
+
+          "当前仍有活跃工作，当前焦点是：#{focus}。"
+        end
+      end
+
+      def completion_plan_sentence
+        plan = prompt_payload["primary_turn_todo_plan"].to_h
+        return if plan.blank?
+
+        completed_count = plan["completed_item_count"].to_i
+        total_count = plan["total_item_count"].to_i
+        current_item_title = plan["current_item_title"].presence
+
+        if chinese_question?
+          return %(可见计划已完成 #{completed_count}/#{total_count} 项，当前项是“#{current_item_title}”。) if total_count.positive? && current_item_title.present?
+          return %(可见计划已完成 #{completed_count}/#{total_count} 项。) if total_count.positive?
+          return %(当前可见计划项是“#{current_item_title}”。) if current_item_title.present?
+        else
+          return %(The visible plan shows #{completed_count}/#{total_count} items completed, and the current item is "#{current_item_title}".) if total_count.positive? && current_item_title.present?
+          return "The visible plan shows #{completed_count}/#{total_count} items completed." if total_count.positive?
+          return %(The current visible plan item is "#{current_item_title}".) if current_item_title.present?
+        end
+
+        nil
       end
 
       def status_sentences
@@ -95,6 +202,10 @@ module EmbeddedAgents
 
       def normalized_question
         @normalized_question ||= @question.downcase
+      end
+
+      def normalized_chinese_question
+        @normalized_chinese_question ||= @question.gsub(/[[:space:][:punct:]“”‘’！？。、「」『』（）【】]/, "")
       end
 
       def current_status_sentence
@@ -211,6 +322,10 @@ module EmbeddedAgents
           .scan(/[a-z0-9]+/)
           .map { |term| term.sub(/ing\z/, "").sub(/s\z/, "") }
           .reject { |term| term.blank? || %w[a an already and before for has have in is of on the this to turn what with].include?(term) }
+      end
+
+      def chinese_question?
+        @question.match?(/\p{Han}/)
       end
 
       def current_focus_summary

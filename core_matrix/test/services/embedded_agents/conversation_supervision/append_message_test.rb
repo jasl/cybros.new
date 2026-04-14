@@ -167,6 +167,30 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
     EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.singleton_class.send(:define_method, :call, original_summary)
   end
 
+  test "keeps a chinese completion-status reply on the builtin path through the hybrid strategy" do
+    fixture = fresh_turn_todo_plan_fixture!(waiting: false)
+    session = EmbeddedAgents::ConversationSupervision::CreateSession.call(
+      actor: fixture.fetch(:user),
+      conversation: fixture.fetch(:conversation)
+    )
+
+    original_call = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**_kwargs|
+      raise "summary model should not run for a builtin chinese completion-status reply"
+    end
+
+    result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      content: "你完成所有任务了吗？"
+    )
+
+    assert_equal "builtin", result.fetch("responder_kind")
+    assert_match(/当前仍有活跃工作|当前没有活跃工作/, result.dig("human_sidechat", "content"))
+  ensure
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
+  end
+
   test "requires the session initiator and rejects closed supervision sessions" do
     fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture)

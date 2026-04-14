@@ -2,6 +2,7 @@ module EmbeddedAgents
   module ConversationSupervision
     module Responders
       class BuildPromptPayload
+        ACTIVE_PLAN_ITEM_STATUSES = %w[pending in_progress blocked failed].freeze
         PLAN_TRANSITION_EVENT_KINDS = %w[
           turn_todo_item_started
           turn_todo_item_completed
@@ -54,8 +55,13 @@ module EmbeddedAgents
         def compact_turn_todo_plan(plan_view, include_current_item:)
           return if plan_view.blank?
 
+          counts = plan_view["counts"].to_h.deep_stringify_keys
           compacted = {
+            "status" => plan_view["status"],
             "goal_summary" => plan_view["goal_summary"],
+            "active_item_count" => ACTIVE_PLAN_ITEM_STATUSES.sum { |status| counts.fetch(status, 0).to_i },
+            "completed_item_count" => counts.fetch("completed", 0).to_i,
+            "total_item_count" => counts.values.sum { |value| value.to_i },
           }
           return compacted.compact unless include_current_item
 
