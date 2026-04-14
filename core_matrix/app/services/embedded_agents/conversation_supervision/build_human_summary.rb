@@ -28,45 +28,55 @@ module EmbeddedAgents
           end
         when "waiting"
           waiting = prompt_payload["waiting_summary"].presence || "It is waiting for a dependency to clear."
-          return "Right now the conversation is #{lowercase_initial(focus)}." if descriptive_focus?(focus)
+          return "Right now the conversation is #{lowercase_initial(focus)}." if activity_focus?(focus)
 
           "Right now the conversation is waiting. #{waiting}"
         when "blocked"
           blocked = prompt_payload["blocked_summary"].presence || "It is blocked until a failure is resolved."
-          return "Right now the conversation is #{lowercase_initial(focus)}." if descriptive_focus?(focus)
+          return "Right now the conversation is #{lowercase_initial(focus)}." if activity_focus?(focus)
 
           "Right now the conversation is blocked. #{blocked}"
         else
           return "Right now the conversation is #{state}." if focus.blank?
-          return "Right now the conversation is #{lowercase_initial(focus)}." if descriptive_focus?(focus)
+          return "Right now the conversation is #{lowercase_initial(focus)}." if activity_focus?(focus)
+          return "Right now the conversation is working on this task: #{focus}." if request_like_focus?(focus)
 
           "Right now the conversation is working on #{focus.downcase}."
         end
       end
 
       def recent_change_sentence
-        summary =
-          prompt_payload["recent_progress_summary"].presence ||
-          prompt_payload.dig("runtime_facts", "recent_progress_summary").presence ||
-          latest_meaningful_plan_transition
+        summary = preferred_recent_progress_summary
         return if summary.blank?
 
         "Most recently, #{trim_terminal_punctuation(summary).downcase}."
       end
 
+      def preferred_recent_progress_summary
+        primary_summary = prompt_payload["recent_progress_summary"].presence
+        runtime_summary = prompt_payload.dig("runtime_facts", "recent_progress_summary").presence
+
+        if low_signal_recent_progress?(primary_summary) && runtime_summary.present?
+          runtime_summary
+        else
+          primary_summary || runtime_summary || latest_meaningful_plan_transition
+        end
+      end
+
       def current_focus_summary
-        focus =
+        current_focus = prompt_payload["current_focus_summary"].presence
+        runtime_focus = prompt_payload.dig("runtime_facts", "active_focus_summary").presence
+        fallback_focus =
           [
-          prompt_payload["current_focus_summary"],
-          prompt_payload.dig("primary_turn_todo_plan", "current_item_title"),
-          prompt_payload["request_summary"],
-          prompt_payload.dig("primary_turn_todo_plan", "goal_summary"),
+            prompt_payload.dig("primary_turn_todo_plan", "current_item_title"),
+            prompt_payload["request_summary"],
+            prompt_payload.dig("primary_turn_todo_plan", "goal_summary"),
           ].find(&:present?)
 
-        if generic_current_turn_focus?(focus)
-          prompt_payload.dig("runtime_facts", "active_focus_summary").presence || focus
+        if generic_current_turn_focus?(current_focus)
+          runtime_focus || fallback_focus || current_focus
         else
-          focus || prompt_payload.dig("runtime_facts", "active_focus_summary").presence
+          current_focus || fallback_focus || runtime_focus
         end
       end
 
@@ -81,8 +91,16 @@ module EmbeddedAgents
         nil
       end
 
-      def descriptive_focus?(text)
-        text.to_s.match?(/\A(?:build|building|check|checking|verify|verifying|write|writing|add|adding|implement|implementing|fix|fixing|run|running|prepare|preparing|wait|waiting|continue|continuing|review|reviewing|investigate|investigating|inspect|inspecting|monitor|monitoring|resolve|resolving|work|working)\b/i)
+      def activity_focus?(text)
+        text.to_s.match?(/\A(?:building|checking|verifying|writing|adding|implementing|fixing|running|preparing|wait|waiting|continuing|reviewing|investigating|inspecting|monitoring|resolving|working)\b/i)
+      end
+
+      def request_like_focus?(text)
+        text.to_s.match?(/\A(?:build|check|verify|write|add|implement|fix|run|prepare|continue|review|investigate|inspect|monitor|resolve|work)\b/i)
+      end
+
+      def low_signal_recent_progress?(text)
+        text.to_s.match?(/\A(?:Execution runtime completed the requested tool call|The turn completed|Hit a blocker|Cleared the blocker)\.?\z/i)
       end
 
       def generic_current_turn_focus?(text)

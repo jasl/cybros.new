@@ -4,7 +4,6 @@ module EmbeddedAgents
       class Hybrid
         GENERIC_RESPONSE_PATTERNS = [
           /\ARight now the conversation is (?:running|waiting|blocked|queued|idle)\.?\z/i,
-          /\bworking through the current turn\b/i,
           /\bno active blocker in this snapshot\b/i,
           /\bdoes not include a matching conversation fact\b/i,
         ].freeze
@@ -48,8 +47,19 @@ module EmbeddedAgents
           return false if content.blank?
           return false if chinese_question? && ascii_only?(content)
           return false if GENERIC_RESPONSE_PATTERNS.any? { |pattern| content.match?(pattern) }
+          return false if generic_current_turn_response?(content) && !concrete_progress_signal?(content)
 
           true
+        end
+
+        def generic_current_turn_response?(content)
+          content.match?(/\bworking through the current turn\b/i)
+        end
+
+        def concrete_progress_signal?(content)
+          content.match?(%r{/[[:alnum:]_.\-]+}) ||
+            content.match?(/\b(?:shell command|process|child task|browser content|test-and-build|npm|vite|workspace|2048)\b/i) ||
+            content.match?(/\b(?:most recently|latest concrete step|blocked|waiting|finished|running)\b/i)
         end
 
         def chinese_question?

@@ -131,6 +131,42 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
     ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
   end
 
+  test "keeps the builtin reply through the hybrid strategy when generic current-turn wording still includes concrete progress signals" do
+    fixture = fresh_provider_backed_fixture!
+    session = EmbeddedAgents::ConversationSupervision::CreateSession.call(
+      actor: fixture.fetch(:user),
+      conversation: fixture.fetch(:conversation)
+    )
+    builtin_output = {
+      "machine_status" => {},
+      "human_sidechat" => {
+        "content" => "It is currently working through the current turn on the React 2048 game task. The latest concrete step visible is that a shell command just completed in the game project directory.",
+      },
+      "responder_kind" => "builtin",
+    }
+
+    original_builtin = EmbeddedAgents::ConversationSupervision::Responders::Builtin.method(:call)
+    original_summary = EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.method(:call)
+    EmbeddedAgents::ConversationSupervision::Responders::Builtin.singleton_class.send(:define_method, :call) do |**_kwargs|
+      builtin_output
+    end
+    EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.singleton_class.send(:define_method, :call) do |**_kwargs|
+      raise "summary model should not run when builtin already exposes concrete progress"
+    end
+
+    result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      content: "Please tell me what you are doing right now and the latest concrete step you can observe."
+    )
+
+    assert_equal "builtin", result.fetch("responder_kind")
+    assert_match(/latest concrete step|shell command/i, result.dig("human_sidechat", "content"))
+  ensure
+    EmbeddedAgents::ConversationSupervision::Responders::Builtin.singleton_class.send(:define_method, :call, original_builtin)
+    EmbeddedAgents::ConversationSupervision::Responders::SummaryModel.singleton_class.send(:define_method, :call, original_summary)
+  end
+
   test "requires the session initiator and rejects closed supervision sessions" do
     fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture)

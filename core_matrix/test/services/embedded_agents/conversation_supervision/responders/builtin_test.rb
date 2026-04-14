@@ -158,6 +158,78 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     refute_match(/working through the current turn/i, content)
   end
 
+  test "falls back to the request summary when the frozen focus is generic and runtime facts are absent" do
+    fixture = fresh_provider_backed_fixture!
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+    machine_status = snapshot.machine_status_payload.deep_dup
+    machine_status["current_focus_summary"] = "Working through the current turn"
+    machine_status["recent_progress_summary"] = nil
+    machine_status["runtime_evidence"] = {}
+    snapshot.update!(machine_status_payload: machine_status)
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "What are you doing right now?"
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/working on this task/i, content)
+    assert_match(/2048 acceptance supervision bundle/i, content)
+    refute_match(/working through the current turn/i, content)
+    refute_match(/\bis build the\b/i, content)
+  end
+
+  test "prefers runtime recent progress over low-signal terminal scaffolding summaries" do
+    fixture = fresh_provider_backed_fixture!
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+    machine_status = snapshot.machine_status_payload.deep_dup
+    machine_status["overall_state"] = "queued"
+    machine_status["current_focus_summary"] = "Working through the current turn"
+    machine_status["recent_progress_summary"] = "Execution runtime completed the requested tool call."
+    snapshot.update!(machine_status_payload: machine_status)
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Please tell me what the 2048 work is doing right now and the latest concrete step you can observe."
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/most recently, a shell command finished/i, content)
+    refute_match(/execution runtime completed the requested tool call/i, content)
+  end
+
+  test "treats progress questions as asking for recent observable change" do
+    fixture = fresh_provider_backed_fixture!
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Please tell me what the 2048 work is doing right now and how it has progressed so far during this turn."
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/most recently/i, content)
+    assert_match(/shell command finished|shell command/i, content)
+  end
+
   test "uses waiting summaries from the frozen payload without leaking raw wait tokens" do
     fixture = fresh_fixture!(waiting: false)
     session = create_conversation_supervision_session!(fixture)
