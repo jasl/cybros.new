@@ -3,7 +3,9 @@ require "test_helper"
 class ProviderExecution::BuildHttpAdapterTest < ActiveSupport::TestCase
   test "builds the pooled httpx adapter for configured real provider keys" do
     %w[
+      anthropic_messages
       codex_subscription_responses
+      gemini_generate_content
       openai_responses
       openrouter_chat_completions
       local_openai_compatible_chat_completions

@@ -9,6 +9,7 @@ class ProviderExecution::PromptBudgetGuardTest < ActiveSupport::TestCase
       "wire_api" => "chat_completions",
       "transport" => "https",
       "tokenizer_hint" => "o200k_base",
+      "capabilities" => {},
       "execution_settings" => {},
       "hard_limits" => {
         "hard_input_token_limit" => 120,
@@ -39,6 +40,7 @@ class ProviderExecution::PromptBudgetGuardTest < ActiveSupport::TestCase
       "wire_api" => "chat_completions",
       "transport" => "https",
       "tokenizer_hint" => "o200k_base",
+      "capabilities" => {},
       "execution_settings" => {},
       "hard_limits" => {
         "hard_input_token_limit" => 120,
@@ -69,6 +71,7 @@ class ProviderExecution::PromptBudgetGuardTest < ActiveSupport::TestCase
       "wire_api" => "chat_completions",
       "transport" => "https",
       "tokenizer_hint" => "o200k_base",
+      "capabilities" => {},
       "execution_settings" => {},
       "hard_limits" => {
         "hard_input_token_limit" => 80,
@@ -103,6 +106,7 @@ class ProviderExecution::PromptBudgetGuardTest < ActiveSupport::TestCase
       "wire_api" => "chat_completions",
       "transport" => "https",
       "tokenizer_hint" => "o200k_base",
+      "capabilities" => {},
       "execution_settings" => {},
       "hard_limits" => {
         "hard_input_token_limit" => 20,

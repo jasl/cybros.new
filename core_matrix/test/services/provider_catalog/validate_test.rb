@@ -60,6 +60,10 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
                   text_output: true,
                   tool_calls: true,
                   structured_output: true,
+                  streaming: true,
+                  conversation_state: true,
+                  provider_builtin_tools: true,
+                  image_generation: false,
                   multimodal_inputs: {
                     image: true,
                     audio: "sometimes",
@@ -187,6 +191,45 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
       },
       model.fetch(:request_defaults)
     )
+  end
+
+  test "preserves extended capability flags in the normalized model contract" do
+    catalog = validate_catalog(
+      version: 1,
+      providers: {
+        "openai" => valid_provider_definition(
+          models: {
+            "gpt-5.3-chat-latest" => valid_model_definition(
+              capabilities: {
+                text_output: true,
+                tool_calls: true,
+                structured_output: true,
+                streaming: true,
+                conversation_state: true,
+                provider_builtin_tools: true,
+                image_generation: true,
+                multimodal_inputs: {
+                  image: true,
+                  audio: false,
+                  video: false,
+                  file: true,
+                },
+              }
+            ),
+          }
+        ),
+      },
+      model_roles: {
+        "main" => ["openai/gpt-5.3-chat-latest"],
+      }
+    )
+
+    capabilities = catalog.fetch(:providers).fetch("openai").fetch(:models).fetch("gpt-5.3-chat-latest").fetch(:capabilities)
+
+    assert_equal true, capabilities.fetch(:streaming)
+    assert_equal true, capabilities.fetch(:conversation_state)
+    assert_equal true, capabilities.fetch(:provider_builtin_tools)
+    assert_equal true, capabilities.fetch(:image_generation)
   end
 
   test "accepts disabled models that remain referenced from model roles" do
@@ -422,6 +465,10 @@ class ProviderCatalog::ValidateTest < ActiveSupport::TestCase
         text_output: true,
         tool_calls: true,
         structured_output: true,
+        streaming: true,
+        conversation_state: true,
+        provider_builtin_tools: true,
+        image_generation: false,
         multimodal_inputs: {
           image: true,
           audio: false,

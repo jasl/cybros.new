@@ -162,6 +162,10 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal "codex_subscription", snapshot.model_context.fetch("provider_handle")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("model_ref")
     assert_equal "gpt-5.4", snapshot.model_context.fetch("api_model")
+    assert_equal true, snapshot.model_context.fetch("capabilities").fetch("streaming")
+    assert_equal true, snapshot.model_context.fetch("capabilities").fetch("conversation_state")
+    assert_equal true, snapshot.model_context.fetch("capabilities").fetch("provider_builtin_tools")
+    assert_equal false, snapshot.model_context.fetch("capabilities").fetch("image_generation")
     assert_equal "responses", snapshot.provider_execution.fetch("wire_api")
     assert_equal(
       {

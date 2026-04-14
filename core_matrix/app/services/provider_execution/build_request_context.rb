@@ -24,6 +24,7 @@ module ProviderExecution
         "wire_api" => provider_execution.fetch("wire_api"),
         "transport" => model_context.fetch("transport"),
         "tokenizer_hint" => model_context.fetch("tokenizer_hint"),
+        "capabilities" => deep_stringify(model_context.fetch("capabilities", {})),
         "execution_settings" => provider_execution.fetch("execution_settings"),
         "hard_limits" => budget_hints.fetch("hard_limits"),
         "advisory_hints" => budget_hints.fetch("advisory_hints"),

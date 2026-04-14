@@ -17,6 +17,7 @@ class ProviderRequestContext
   ].freeze
 
   REQUIRED_HASH_KEYS = %w[
+    capabilities
     execution_settings
     hard_limits
     advisory_hints

@@ -17,6 +17,7 @@ module ProviderExecution
         "arguments" => @tool_call.fetch("arguments", {}),
         "provider_format" => @tool_call["provider_format"],
         "provider_item_id" => @tool_call["provider_item_id"],
+        "provider_payload" => @tool_call["provider_payload"],
         "result" => @routed_result.result,
       }
     end

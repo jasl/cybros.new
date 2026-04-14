@@ -9,6 +9,10 @@ class ProviderRequestContextTest < ActiveSupport::TestCase
       "wire_api" => "responses",
       "transport" => "https",
       "tokenizer_hint" => "o200k_base",
+      "capabilities" => {
+        "streaming" => true,
+        "provider_builtin_tools" => false,
+      },
       "execution_settings" => { "reasoning_effort" => "high" },
       "hard_limits" => { "context_window_tokens" => 272_000, "max_output_tokens" => 128_000 },
       "advisory_hints" => { "recommended_compaction_threshold" => 217_600 },
@@ -22,6 +26,7 @@ class ProviderRequestContextTest < ActiveSupport::TestCase
     assert_equal "responses", context.wire_api
     assert_equal "https", context.transport
     assert_equal "o200k_base", context.tokenizer_hint
+    assert_equal({ "streaming" => true, "provider_builtin_tools" => false }, context.capabilities)
     assert_equal({ "reasoning_effort" => "high" }, context.execution_settings)
     assert_equal(
       {
@@ -31,6 +36,10 @@ class ProviderRequestContextTest < ActiveSupport::TestCase
         "wire_api" => "responses",
         "transport" => "https",
         "tokenizer_hint" => "o200k_base",
+        "capabilities" => {
+          "streaming" => true,
+          "provider_builtin_tools" => false,
+        },
         "execution_settings" => { "reasoning_effort" => "high" },
         "hard_limits" => { "context_window_tokens" => 272_000, "max_output_tokens" => 128_000 },
         "advisory_hints" => { "recommended_compaction_threshold" => 217_600 },
@@ -49,6 +58,10 @@ class ProviderRequestContextTest < ActiveSupport::TestCase
       "wire_api" => "responses",
       "transport" => "https",
       "tokenizer_hint" => "o200k_base",
+      "capabilities" => {
+        "streaming" => true,
+        "provider_builtin_tools" => false,
+      },
       "execution_settings" => { "reasoning_effort" => "high" },
       "hard_limits" => { "context_window_tokens" => 272_000, "max_output_tokens" => 128_000 },
       "advisory_hints" => { "recommended_compaction_threshold" => 217_600 },
@@ -68,6 +81,7 @@ class ProviderRequestContextTest < ActiveSupport::TestCase
         "wire_api" => "responses",
         "transport" => "https",
         "tokenizer_hint" => "o200k_base",
+        "capabilities" => {},
         "execution_settings" => {},
         "hard_limits" => {},
         "advisory_hints" => {},

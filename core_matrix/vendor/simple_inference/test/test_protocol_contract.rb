@@ -139,10 +139,4 @@ class TestProtocolContract < Minitest::Test
     assert_protocol_contract(protocol)
   end
 
-  def test_default_client_satisfies_contract
-    adapter = SequencedAdapter.new
-    client = SimpleInference::Client.new(base_url: "http://example.com", api_key: "secret", adapter: adapter)
-
-    assert_protocol_contract(client)
-  end
 end

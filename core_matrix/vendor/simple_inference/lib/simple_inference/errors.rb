@@ -3,6 +3,8 @@
 module SimpleInference
   class Error < StandardError; end
 
+  class CapabilityError < Error; end
+
   class ValidationError < Error; end
 
   class ConfigurationError < ValidationError; end

@@ -27,6 +27,7 @@ class ProviderExecution::LoadPriorToolResultsTest < ActiveSupport::TestCase
             "tool_name" => "calculator",
             "arguments" => { "expression" => "2 + 2" },
             "provider_format" => "chat_completions",
+            "provider_payload" => { "thoughtSignature" => "sig_123" },
           },
         },
         {
@@ -79,6 +80,7 @@ class ProviderExecution::LoadPriorToolResultsTest < ActiveSupport::TestCase
 
     assert_equal 1, prior_tool_results.length
     assert_equal "call-calculator-1", prior_tool_results.first.fetch("tool_call_id")
+    assert_equal({ "thoughtSignature" => "sig_123" }, prior_tool_results.first.fetch("provider_payload"))
     assert_equal({ "value" => 4 }, prior_tool_results.first.fetch("result"))
   end
 

@@ -7,7 +7,15 @@ module ProviderCatalog
     MODEL_REF_FORMAT = /\A[a-z0-9][a-z0-9._-]*\z/
     ROLE_NAME_FORMAT = /\A[a-z0-9][a-z0-9_]*\z/
     REQUIRED_MULTIMODAL_INPUTS = %w[image audio video file].freeze
-    REQUIRED_CAPABILITY_FLAGS = %w[text_output tool_calls structured_output].freeze
+    REQUIRED_CAPABILITY_FLAGS = %w[
+      text_output
+      tool_calls
+      structured_output
+      streaming
+      conversation_state
+      provider_builtin_tools
+      image_generation
+    ].freeze
 
     def self.call(...)
       new(...).call
@@ -118,6 +126,10 @@ module ProviderCatalog
         text_output: capabilities["text_output"],
         tool_calls: capabilities["tool_calls"],
         structured_output: capabilities["structured_output"],
+        streaming: capabilities["streaming"],
+        conversation_state: capabilities["conversation_state"],
+        provider_builtin_tools: capabilities["provider_builtin_tools"],
+        image_generation: capabilities["image_generation"],
         multimodal_inputs: {
           image: multimodal_inputs["image"],
           audio: multimodal_inputs["audio"],

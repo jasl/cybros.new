@@ -37,6 +37,25 @@ module SimpleInference
         post_json(@responses_path, params)
       end
 
+      def create(model:, input:, **params)
+        SimpleInference::Responses::Result.from_openai_responses(
+          responses(model: model, input: input, stream: false, **params)
+        )
+      end
+
+      def stream(model:, input:, **params)
+        SimpleInference::Responses::Stream.new do |&emit|
+          raw_result =
+            responses(model: model, input: input, stream: true, **params) do |delta|
+              emit.call(SimpleInference::Responses::Events::TextDelta.new(delta: delta))
+            end
+
+          result = SimpleInference::Responses::Result.from_openai_responses(raw_result)
+          emit.call(SimpleInference::Responses::Events::Completed.new(result: result, raw: result.provider_response&.body))
+          result
+        end
+      end
+
       # POST /responses (streaming)
       #
       # Yields parsed JSON events from an OpenAI-style SSE stream (`text/event-stream`).

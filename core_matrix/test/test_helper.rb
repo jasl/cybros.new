@@ -113,6 +113,10 @@ module ActiveSupport
           text_output: true,
           tool_calls: true,
           structured_output: true,
+          streaming: true,
+          conversation_state: false,
+          provider_builtin_tools: false,
+          image_generation: false,
           multimodal_inputs: multimodal_inputs || {
             image: true,
             audio: false,

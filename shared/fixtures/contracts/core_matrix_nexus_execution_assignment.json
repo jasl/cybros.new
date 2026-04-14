@@ -90,6 +90,21 @@
         "api_model": "gpt-5.4",
         "model_ref": "gpt-5.4",
         "transport": "https",
+        "capabilities": {
+          "streaming": true,
+          "tool_calls": true,
+          "text_output": true,
+          "image_generation": false,
+          "multimodal_inputs": {
+            "file": true,
+            "audio": false,
+            "image": true,
+            "video": false
+          },
+          "structured_output": true,
+          "conversation_state": true,
+          "provider_builtin_tools": true
+        },
         "model_metadata": {},
         "tokenizer_hint": "o200k_base",
         "provider_handle": "codex_subscription",

@@ -127,6 +127,7 @@ module Workflows
         "wire_api" => provider_definition.fetch(:wire_api),
         "transport" => provider_definition.fetch(:transport),
         "tokenizer_hint" => model_definition.fetch(:tokenizer_hint),
+        "capabilities" => deep_stringify(model_definition.fetch(:capabilities, {})),
         "provider_metadata" => deep_stringify(provider_definition.fetch(:metadata, {})),
         "model_metadata" => deep_stringify(model_definition.fetch(:metadata, {})),
       }

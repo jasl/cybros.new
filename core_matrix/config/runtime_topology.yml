@@ -5,6 +5,13 @@ dispatchers:
     batch_size: 500
 
 llm_queues:
+  anthropic:
+    queue: llm_anthropic
+    threads_env: SQ_THREADS_LLM_ANTHROPIC
+    default_threads: 4
+    processes_env: SQ_PROCESSES_LLM_ANTHROPIC
+    default_processes: 1
+    polling_interval: 0.1
   codex_subscription:
     queue: llm_codex_subscription
     threads_env: SQ_THREADS_LLM_CODEX_SUBSCRIPTION
@@ -31,6 +38,13 @@ llm_queues:
     threads_env: SQ_THREADS_LLM_DEV
     default_threads: 6
     processes_env: SQ_PROCESSES_LLM_DEV
+    default_processes: 1
+    polling_interval: 0.1
+  gemini:
+    queue: llm_gemini
+    threads_env: SQ_THREADS_LLM_GEMINI
+    default_threads: 4
+    processes_env: SQ_PROCESSES_LLM_GEMINI
     default_processes: 1
     polling_interval: 0.1
   local:

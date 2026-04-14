@@ -12,40 +12,38 @@ module ProviderExecution
     end
 
     def call
-      if @provider_result.respond_to?(:output_items)
-        normalize_responses_result
-      else
-        normalize_chat_result
+      unless @provider_result.is_a?(SimpleInference::Responses::Result)
+        raise TypeError, "provider_result must be a SimpleInference::Responses::Result"
       end
+
+      normalize_responses_result
     end
 
     private
 
-    def normalize_chat_result
-      body = @provider_result.response&.body
-      message = body.is_a?(Hash) ? body.dig("choices", 0, "message") : nil
-
+    def normalize_responses_result
       {
-        "output_text" => @provider_result.content.to_s,
-        "tool_calls" => Array(message&.fetch("tool_calls", nil)).map { |tool_call| normalize_chat_tool_call(tool_call) },
+        "output_text" => @provider_result.output_text.to_s,
+        "tool_calls" => normalize_tool_calls,
         "finish_reason" => @provider_result.finish_reason,
         "usage" => normalize_usage(@provider_result.usage),
       }
     end
 
-    def normalize_responses_result
-      {
-        "output_text" => @provider_result.output_text.to_s,
-        "tool_calls" => Array(@provider_result.output_items).filter_map { |item| normalize_responses_tool_call(item) },
-        "usage" => normalize_usage(@provider_result.usage),
-      }
+    def normalize_tool_calls
+      if @provider_result.provider_format.to_s == "chat_completions"
+        Array(@provider_result.tool_calls).map { |tool_call| normalize_chat_tool_call(tool_call) }
+      else
+        Array(@provider_result.output_items).filter_map { |item| normalize_responses_tool_call(item) }
+      end
     end
 
     def normalize_chat_tool_call(tool_call)
       {
-        "call_id" => tool_call.fetch("id"),
-        "tool_name" => tool_call.dig("function", "name"),
-        "arguments" => parse_arguments!(tool_call.dig("function", "arguments"), call_id: tool_call.fetch("id")),
+        "call_id" => tool_call.fetch("id", tool_call.fetch("call_id", nil)),
+        "tool_name" => tool_call.dig("function", "name") || tool_call["name"],
+        "arguments" => parse_arguments!(tool_call.dig("function", "arguments") || tool_call["arguments"], call_id: tool_call.fetch("id", tool_call.fetch("call_id", "unknown"))),
+        "provider_payload" => tool_call["provider_payload"],
         "provider_format" => "chat_completions",
       }
     end
@@ -59,6 +57,7 @@ module ProviderExecution
         "tool_name" => item.fetch("name"),
         "arguments" => parse_arguments!(item["arguments"], call_id: item.fetch("call_id")),
         "provider_item_id" => item["id"],
+        "provider_payload" => item["provider_payload"],
         "provider_format" => "responses",
       }
     end

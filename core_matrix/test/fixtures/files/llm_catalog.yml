@@ -38,6 +38,10 @@ providers:
           text_output: true
           tool_calls: true
           structured_output: true
+          streaming: true
+          conversation_state: true
+          provider_builtin_tools: true
+          image_generation: false
           multimodal_inputs:
             image: true
             audio: false
@@ -58,6 +62,10 @@ providers:
           text_output: true
           tool_calls: true
           structured_output: true
+          streaming: true
+          conversation_state: true
+          provider_builtin_tools: true
+          image_generation: false
           multimodal_inputs:
             image: true
             audio: false
@@ -100,6 +108,10 @@ providers:
           text_output: true
           tool_calls: true
           structured_output: true
+          streaming: true
+          conversation_state: true
+          provider_builtin_tools: true
+          image_generation: false
           multimodal_inputs:
             image: true
             audio: false
@@ -119,6 +131,10 @@ providers:
           text_output: true
           tool_calls: true
           structured_output: true
+          streaming: true
+          conversation_state: true
+          provider_builtin_tools: true
+          image_generation: false
           multimodal_inputs:
             image: true
             audio: false
@@ -161,6 +177,10 @@ providers:
           text_output: true
           tool_calls: true
           structured_output: true
+          streaming: true
+          conversation_state: false
+          provider_builtin_tools: false
+          image_generation: false
           multimodal_inputs:
             image: false
             audio: false
@@ -180,6 +200,148 @@ providers:
           text_output: true
           tool_calls: true
           structured_output: true
+          streaming: true
+          conversation_state: false
+          provider_builtin_tools: false
+          image_generation: false
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+
+  gemini:
+    display_name: Gemini
+    enabled: true
+    environments:
+      - development
+      - test
+      - production
+    adapter_key: gemini_generate_content
+    base_url: https://generativelanguage.googleapis.com
+    headers: {}
+    wire_api: responses
+    transport: https
+    responses_path: /v1beta/models
+    requires_credential: true
+    credential_kind: api_key
+    metadata:
+      provider_family: gemini
+      owner_scope: installation
+    admission_control:
+      max_concurrent_requests: 2
+      cooldown_seconds: 20
+    models:
+      gemini-2.5-pro:
+        enabled: true
+        display_name: Gemini 2.5 Pro
+        api_model: gemini-2.5-pro
+        tokenizer_hint: gemini
+        context_window_tokens: 1048576
+        max_output_tokens: 65536
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          streaming: true
+          conversation_state: false
+          provider_builtin_tools: false
+          image_generation: false
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+      gemini-2.5-flash:
+        enabled: true
+        display_name: Gemini 2.5 Flash
+        api_model: gemini-2.5-flash
+        tokenizer_hint: gemini
+        context_window_tokens: 1048576
+        max_output_tokens: 65536
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          streaming: true
+          conversation_state: false
+          provider_builtin_tools: false
+          image_generation: false
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+
+  anthropic:
+    display_name: Anthropic
+    enabled: true
+    environments:
+      - development
+      - test
+      - production
+    adapter_key: anthropic_messages
+    base_url: https://api.anthropic.com
+    headers: {}
+    wire_api: responses
+    transport: https
+    responses_path: /v1/messages
+    requires_credential: true
+    credential_kind: api_key
+    metadata:
+      provider_family: anthropic
+      owner_scope: installation
+    admission_control:
+      max_concurrent_requests: 2
+      cooldown_seconds: 20
+    models:
+      claude-opus-4:
+        enabled: true
+        display_name: Claude Opus 4
+        api_model: claude-opus-4-20250514
+        tokenizer_hint: claude
+        context_window_tokens: 200000
+        max_output_tokens: 32000
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          streaming: true
+          conversation_state: false
+          provider_builtin_tools: false
+          image_generation: false
+          multimodal_inputs:
+            image: false
+            audio: false
+            video: false
+            file: false
+      claude-sonnet-4:
+        enabled: true
+        display_name: Claude Sonnet 4
+        api_model: claude-sonnet-4-20250514
+        tokenizer_hint: claude
+        context_window_tokens: 200000
+        max_output_tokens: 32000
+        context_soft_limit_ratio: 0.8
+        request_defaults: {}
+        metadata: {}
+        capabilities:
+          text_output: true
+          tool_calls: true
+          structured_output: true
+          streaming: true
+          conversation_state: false
+          provider_builtin_tools: false
+          image_generation: false
           multimodal_inputs:
             image: false
             audio: false
@@ -221,6 +383,10 @@ providers:
           text_output: true
           tool_calls: true
           structured_output: true
+          streaming: true
+          conversation_state: false
+          provider_builtin_tools: false
+          image_generation: false
           multimodal_inputs:
             image: true
             audio: false
@@ -240,6 +406,10 @@ providers:
           text_output: true
           tool_calls: true
           structured_output: true
+          streaming: true
+          conversation_state: false
+          provider_builtin_tools: false
+          image_generation: false
           multimodal_inputs:
             image: true
             audio: false
@@ -282,6 +452,10 @@ providers:
           text_output: true
           tool_calls: true
           structured_output: false
+          streaming: true
+          conversation_state: false
+          provider_builtin_tools: false
+          image_generation: false
           multimodal_inputs:
             image: false
             audio: false

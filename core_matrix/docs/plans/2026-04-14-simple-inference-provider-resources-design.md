@@ -54,6 +54,7 @@ This design does not require in this first implementation pass:
 - image editing or image variations
 - embeddings, audio, moderation, or transcription redesign
 - full `core_matrix` product adoption of Gemini / Anthropic selectors on day one
+- full catalog-driven image task routing for every future provider on day one
 
 ## Reference Material
 
@@ -95,6 +96,40 @@ Today `simple_inference` is split across:
 
 - `SimpleInference::Client` for `chat_completions`
 - `SimpleInference::Protocols::OpenAIResponses` for `responses`
+
+At the same time, `core_matrix` has already moved part of the provider contract
+forward in two important ways:
+
+- `core_matrix/config/llm_catalog.yml` is now schema-validated at load time
+- provider and model metadata are normalized into `ProviderRequestContext`, but
+  that context still does not include a capability snapshot
+
+The validated catalog currently guarantees these model capability fields:
+
+- `text_output`
+- `tool_calls`
+- `structured_output`
+- `multimodal_inputs.image`
+- `multimodal_inputs.audio`
+- `multimodal_inputs.video`
+- `multimodal_inputs.file`
+
+It does not yet represent:
+
+- `streaming`
+- `conversation_state`
+- `provider_builtin_tools`
+- `image_generation`
+- resource-specific routing metadata beyond provider-level `wire_api` and
+  `responses_path`
+
+Mock infrastructure is also behind the desired API surface:
+
+- `MockLLM` currently exposes `GET /models` and `POST /chat/completions`
+- there is no mock `POST /responses`
+- there is no mock image-generation endpoint
+- the dev catalog can label a mock provider as `responses`, but there is no
+  dedicated wire-level mock Responses controller backing that path
 
 This creates several structural problems:
 
@@ -234,6 +269,14 @@ Rules:
   planner must strip or reject corresponding fields
 - provider-specific built-in tools must be treated separately from ordinary
   function tools
+
+Implementation note:
+
+- this is a schema expansion from the current catalog contract, not merely a
+  reinterpretation of fields that already exist
+- `ProviderCatalog::Validate`, fixture catalogs, and any request-settings
+  validation tied to `wire_api` must be updated before the planner can rely on
+  the additional capability flags
 
 ### 4. OpenAI Behavior Is Canonical Where Applicable
 
@@ -546,6 +589,13 @@ from catalog data.
 `core_matrix` should not infer model support from provider family or model name
 when the catalog already states the answer.
 
+Important baseline distinction:
+
+- catalog validation already knows about a limited capability schema
+- runtime request dispatch does not yet consume that schema directly
+- this migration therefore requires both context-shape expansion and dispatch
+  rewiring; it is not just a call-site cleanup
+
 ### 3. Expand Catalog Capabilities
 
 Recommended additions to `llm_catalog.yml` model capability schema:
@@ -554,6 +604,12 @@ Recommended additions to `llm_catalog.yml` model capability schema:
 - `streaming`
 - `conversation_state`
 - `provider_builtin_tools`
+
+Likely companion additions:
+
+- resource-level routing hints where provider-level `wire_api` is too coarse
+- explicit image-generation capability or provider-family metadata for image
+  models that should not inherit text defaults
 
 This is especially important for:
 
@@ -636,24 +692,37 @@ Add focused tests for:
 2. capability-gated request dispatch
 3. normalized response result handling
 4. image-generation request routing
+5. MockLLM responses and image endpoints using the new canonical wire shapes
 
-This design does not require broad acceptance-suite execution unless the final
-implementation touches acceptance-critical loop bootstrap, runtime event
-streams, or app-facing roundtrip paths described in `AGENTS.md`.
+Execution requirement for this rollout:
+
+- run the full `core_matrix` verification suite
+- run `bundle exec rake` in `core_matrix/vendor/simple_inference`
+- run `ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash acceptance/bin/run_active_suite.sh`
+  from the repo root before claiming completion
+
+This is stricter than the minimum design requirement because the approved
+execution scope explicitly includes end-to-end validation and acceptance
+coverage.
 
 ## Migration Sequence
 
 Recommended order:
 
-1. add new capability / profile objects
-2. add resource objects and normalized result classes
-3. move current OpenAI responses implementation under the new resource contract
-4. add OpenAI images support
-5. add OpenRouter image generation support
-6. add Gemini responses support
-7. add Anthropic responses support
-8. migrate `core_matrix` dispatch and normalization to the new resource API
-9. delete old helper-oriented entry points
+1. expand catalog capability schema and request-context shape
+2. add new capability / profile objects
+3. add resource objects and normalized result classes
+4. move current OpenAI responses implementation under the new resource contract
+5. add a real MockLLM `responses` endpoint and align mock streaming to the
+   modern Responses shape
+6. add OpenAI images support
+7. add OpenRouter image generation support
+8. add Gemini responses support
+9. add Anthropic responses support
+10. migrate `core_matrix` dispatch and normalization to the new resource API
+11. update MockLLM and test helpers for the new canonical request and response
+    shapes, including multimodal inputs where covered
+12. delete old helper-oriented entry points
 
 ## Decision Summary
 

@@ -611,12 +611,14 @@ module ProviderExecution
       }
       provider_item_id = entry["provider_item_id"]
       function_call["id"] = provider_item_id if provider_item_id.present?
+      function_call["provider_payload"] = entry["provider_payload"] if entry["provider_payload"].is_a?(Hash)
 
       [
         function_call,
         {
           "type" => "function_call_output",
           "call_id" => call_id,
+          "name" => entry.fetch("tool_name"),
           "output" => serialize_tool_result(entry.fetch("result")),
         },
       ]

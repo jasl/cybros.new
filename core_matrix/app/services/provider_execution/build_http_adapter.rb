@@ -5,7 +5,9 @@ module ProviderExecution
       mock_llm_responses
     ].freeze
     HTTPX_ADAPTER_KEYS = %w[
+      anthropic_messages
       codex_subscription_responses
+      gemini_generate_content
       local_openai_compatible_chat_completions
       openai_responses
       openrouter_chat_completions

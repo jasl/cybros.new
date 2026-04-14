@@ -49,6 +49,24 @@ class ProviderExecution::BuildRequestContextTest < ActiveSupport::TestCase
     assert_equal "o200k_base", request_context.tokenizer_hint
     assert_equal(
       {
+        "text_output" => true,
+        "tool_calls" => true,
+        "structured_output" => true,
+        "streaming" => true,
+        "conversation_state" => false,
+        "provider_builtin_tools" => false,
+        "image_generation" => false,
+        "multimodal_inputs" => {
+          "image" => true,
+          "audio" => false,
+          "video" => false,
+          "file" => true,
+        },
+      },
+      request_context.capabilities
+    )
+    assert_equal(
+      {
         "temperature" => 0.4,
         "top_p" => 0.95,
         "top_k" => 20,

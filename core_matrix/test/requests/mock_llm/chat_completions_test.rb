@@ -32,4 +32,22 @@ class MockLLMChatCompletionsTest < ActionDispatch::IntegrationTest
     assert_equal "rate_limited", response.parsed_body.dig("error", "message")
     assert_equal "rate_limit_error", response.parsed_body.dig("error", "type")
   end
+
+  test "extracts prompt text from structured content parts" do
+    post "/mock_llm/v1/chat/completions", params: {
+      model: "vision-model",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: "!md structured hello" },
+            { type: "input_image", image_url: "data:image/png;base64,abc" },
+          ],
+        },
+      ],
+    }, as: :json
+
+    assert_response :success
+    assert_match "# Mock Markdown", response.parsed_body.dig("choices", 0, "message", "content")
+  end
 end

@@ -10,6 +10,9 @@ class ProviderExecution::NormalizeProviderResponseTest < ActiveSupport::TestCase
               {
                 "id" => "call_1",
                 "type" => "function",
+                "provider_payload" => {
+                  "vendor" => "openai",
+                },
                 "function" => {
                   "name" => "calculator",
                   "arguments" => "{\"expression\":\"2 + 2\"}",
@@ -21,16 +24,20 @@ class ProviderExecution::NormalizeProviderResponseTest < ActiveSupport::TestCase
         },
       ],
     }
-    provider_result = SimpleInference::OpenAI::ChatResult.new(
-      content: "",
+    provider_result = SimpleInference::Responses::Result.new(
+      id: "chatcmpl_1",
+      output_text: "",
+      output_items: [],
+      tool_calls: body.dig("choices", 0, "message", "tool_calls"),
       usage: { prompt_tokens: 3, completion_tokens: 1, total_tokens: 4 },
       finish_reason: "tool_calls",
-      response: SimpleInference::Response.new(
+      provider_response: SimpleInference::Response.new(
         status: 200,
         headers: {},
         body: body,
         raw_body: JSON.generate(body)
-      )
+      ),
+      provider_format: "chat_completions"
     )
 
     normalized = ProviderExecution::NormalizeProviderResponse.call(provider_result:)
@@ -41,6 +48,7 @@ class ProviderExecution::NormalizeProviderResponseTest < ActiveSupport::TestCase
     assert_equal "call_1", normalized.fetch("tool_calls").first.fetch("call_id")
     assert_equal "calculator", normalized.fetch("tool_calls").first.fetch("tool_name")
     assert_equal({ "expression" => "2 + 2" }, normalized.fetch("tool_calls").first.fetch("arguments"))
+    assert_equal({ "vendor" => "openai" }, normalized.fetch("tool_calls").first.fetch("provider_payload"))
   end
 
   test "normalizes responses-api function_call output items into a shared shape" do
@@ -51,6 +59,7 @@ class ProviderExecution::NormalizeProviderResponseTest < ActiveSupport::TestCase
       "wire_api" => "responses",
       "transport" => "http",
       "tokenizer_hint" => "o200k_base",
+      "capabilities" => {},
       "execution_settings" => {},
       "hard_limits" => {},
       "advisory_hints" => {},
@@ -61,7 +70,8 @@ class ProviderExecution::NormalizeProviderResponseTest < ActiveSupport::TestCase
       },
       "model_metadata" => {}
     )
-    provider_result = SimpleInference::Protocols::OpenAIResponses::ResponsesResult.new(
+    provider_result = SimpleInference::Responses::Result.new(
+      id: "resp_1",
       output_text: "",
       output_items: [
         {
@@ -70,10 +80,16 @@ class ProviderExecution::NormalizeProviderResponseTest < ActiveSupport::TestCase
           "call_id" => "call_1",
           "name" => "workspace_write_file",
           "arguments" => "{\"path\":\"notes.txt\"}",
+          "provider_payload" => {
+            "thoughtSignature" => "sig_123",
+          },
         },
       ],
+      tool_calls: [],
       usage: { "input_tokens" => 5, "output_tokens" => 2, "total_tokens" => 7 },
-      response: nil
+      finish_reason: "completed",
+      provider_response: nil,
+      provider_format: "responses"
     )
 
     normalized = ProviderExecution::NormalizeProviderResponse.call(
@@ -86,6 +102,7 @@ class ProviderExecution::NormalizeProviderResponseTest < ActiveSupport::TestCase
     assert_equal "call_1", normalized.fetch("tool_calls").first.fetch("call_id")
     assert_equal "workspace_write_file", normalized.fetch("tool_calls").first.fetch("tool_name")
     assert_equal({ "path" => "notes.txt" }, normalized.fetch("tool_calls").first.fetch("arguments"))
+    assert_equal({ "thoughtSignature" => "sig_123" }, normalized.fetch("tool_calls").first.fetch("provider_payload"))
     assert_equal(
       {
         "input_tokens" => 5,

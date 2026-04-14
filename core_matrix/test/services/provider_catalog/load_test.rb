@@ -18,7 +18,9 @@ class ProviderCatalog::LoadTest < ActiveSupport::TestCase
 
       catalog = ProviderCatalog::Load.call(path: File.join(dir, "config", "llm_catalog.yml"))
 
-      assert_equal %w[codex_subscription dev local openai openrouter], catalog.providers.keys.sort
+      assert_equal %w[anthropic codex_subscription dev gemini local openai openrouter], catalog.providers.keys.sort
+      assert_equal "api_key", catalog.provider("anthropic").fetch(:credential_kind)
+      assert_equal "api_key", catalog.provider("gemini").fetch(:credential_kind)
       assert_equal "api_key", catalog.provider("openai").fetch(:credential_kind)
       assert_equal "api_key", catalog.provider("openrouter").fetch(:credential_kind)
       assert_equal "oauth_codex", catalog.provider("codex_subscription").fetch(:credential_kind)
@@ -31,6 +33,8 @@ class ProviderCatalog::LoadTest < ActiveSupport::TestCase
 
       openai_model = catalog.model("openai", "gpt-5.3-chat-latest")
       codex_coding_model = catalog.model("codex_subscription", "gpt-5.3-codex")
+      gemini_model = catalog.model("gemini", "gemini-2.5-pro")
+      anthropic_model = catalog.model("anthropic", "claude-opus-4")
       local_model = catalog.model("local", "qwen3-14b")
 
       assert_equal "GPT-5.3 Instant", openai_model.fetch(:display_name)
@@ -43,6 +47,8 @@ class ProviderCatalog::LoadTest < ActiveSupport::TestCase
       assert_equal false, openai_model.dig(:capabilities, :multimodal_inputs, :video)
       assert_equal true, openai_model.dig(:capabilities, :multimodal_inputs, :file)
       assert_equal "gpt-5.3-codex", codex_coding_model.fetch(:api_model)
+      assert_equal "gemini-2.5-pro", gemini_model.fetch(:api_model)
+      assert_equal true, anthropic_model.dig(:capabilities, :tool_calls)
       assert_equal 131_072, local_model.fetch(:context_window_tokens)
       assert_equal 32_768, local_model.fetch(:max_output_tokens)
     end
@@ -89,6 +95,10 @@ class ProviderCatalog::LoadTest < ActiveSupport::TestCase
                   text_output: true
                   tool_calls: true
                   structured_output: true
+                  streaming: true
+                  conversation_state: true
+                  provider_builtin_tools: true
+                  image_generation: false
                   multimodal_inputs:
                     image: true
                     audio: false
@@ -190,6 +200,10 @@ class ProviderCatalog::LoadTest < ActiveSupport::TestCase
                   text_output: true
                   tool_calls: true
                   structured_output: true
+                  streaming: true
+                  conversation_state: true
+                  provider_builtin_tools: true
+                  image_generation: false
                   multimodal_inputs:
                     image: true
                     audio: false

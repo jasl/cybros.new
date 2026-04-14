@@ -80,23 +80,21 @@ module ProviderExecution
       provider_definition = @effective_catalog.provider(@request_context.provider_handle)
       adapter = @adapter || ProviderExecution::BuildHttpAdapter.call(provider_definition: provider_definition)
 
-      case @request_context.wire_api
-      when "responses"
-        SimpleInference::Protocols::OpenAIResponses.new(
-          base_url: provider_definition.fetch(:base_url),
-          api_key: credential_secret_for(provider_definition),
-          headers: provider_definition.fetch(:headers, {}),
+      SimpleInference::Client.new(
+        base_url: provider_definition.fetch(:base_url),
+        api_key: credential_secret_for(provider_definition),
+        headers: provider_definition.fetch(:headers, {}),
+        adapter: adapter,
+        provider_profile: {
+          adapter_key: provider_definition.fetch(:adapter_key),
+          wire_api: @request_context.wire_api,
           responses_path: provider_definition.fetch(:responses_path),
-          adapter: adapter
-        )
-      else
-        SimpleInference::Client.new(
-          base_url: provider_definition.fetch(:base_url),
-          api_key: credential_secret_for(provider_definition),
-          headers: provider_definition.fetch(:headers, {}),
-          adapter: adapter
-        )
-      end
+        },
+        model_profile: {
+          api_model: @request_context.api_model,
+          capabilities: @request_context.capabilities,
+        }
+      )
     end
 
     def credential_secret_for(provider_definition)
@@ -132,7 +130,8 @@ module ProviderExecution
           "type",
           "output",
           "arguments",
-          "id"
+          "id",
+          "provider_payload"
         )
         normalized["role"] = normalize_provider_role(normalized["role"])
         tool_call_id = candidate["tool_call_id"] || candidate[:tool_call_id]
@@ -157,26 +156,7 @@ module ProviderExecution
       ProviderUsage::NormalizeMetrics.call(usage:, request_context: @request_context)
     end
 
-    def dispatch_chat_request
-      request = {
-        model: @request_context.api_model,
-        messages: @messages,
-        max_tokens: @request_context.hard_limits["max_output_tokens"],
-        **@request_context.execution_settings.symbolize_keys,
-      }
-      request[:tools] = @tools if @tools.present?
-      request[:tool_choice] = @tool_choice if @tool_choice.present?
-
-      if stream_chat_request?
-        build_client.chat(**request, stream: true, include_usage: true) do |delta|
-          handle_delta(delta)
-        end
-      else
-        build_client.chat(**request)
-      end
-    end
-
-    def dispatch_responses_request
+    def dispatch_generation_request
       request = {
         model: @request_context.api_model,
         input: @messages,
@@ -186,12 +166,14 @@ module ProviderExecution
       request[:tools] = @tools if @tools.present?
       request[:tool_choice] = @tool_choice if @tool_choice.present?
 
-      if @on_delta.present?
-        build_client.responses(**request, stream: true, include_usage: true) do |delta|
-          handle_delta(delta)
+      if stream_request?
+        stream = build_client.responses.stream(**request, include_usage: true)
+        stream.each do |event|
+          handle_delta(event.delta) if event.is_a?(SimpleInference::Responses::Events::TextDelta)
         end
+        stream.get_final_result
       else
-        build_client.responses(**request)
+        build_client.responses.create(**request)
       end
     end
 
@@ -201,13 +183,7 @@ module ProviderExecution
       begin
         attempt += 1
         @received_delta = false
-
-        case @request_context.wire_api
-        when "responses"
-          dispatch_responses_request
-        else
-          dispatch_chat_request
-        end
+        dispatch_generation_request
       rescue *RETRYABLE_PROVIDER_ERRORS => error
         raise if @received_delta
         raise if attempt >= MAX_TRANSIENT_REQUEST_ATTEMPTS
@@ -217,16 +193,13 @@ module ProviderExecution
     end
 
     def provider_result_content(provider_result)
-      if provider_result.respond_to?(:output_text)
-        provider_result.output_text.to_s
-      else
-        provider_result.content.to_s
-      end
+      provider_result.output_text.to_s
     end
 
     def provider_request_id_for(provider_result)
-      provider_result.response.headers["x-request-id"] ||
-        provider_result.response.body&.fetch("id", nil) ||
+      response = provider_result.provider_response
+      response&.headers&.fetch("x-request-id", nil) ||
+        response&.body&.fetch("id", nil) ||
         @provider_request_id
     end
 
@@ -249,7 +222,7 @@ module ProviderExecution
       normalized_entry
     end
 
-    def stream_chat_request?
+    def stream_request?
       @on_delta.present?
     end
 

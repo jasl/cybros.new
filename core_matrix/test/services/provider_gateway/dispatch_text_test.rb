@@ -320,10 +320,161 @@ class ProviderGateway::DispatchTextTest < ActiveSupport::TestCase
     ProviderCredentials::RefreshOAuthCredential.singleton_class.define_method(:call, original_refresh) if original_refresh
   end
 
+  test "dispatches explicit gemini candidates through the native generate-content adapter" do
+    installation = fresh_installation!
+    create_api_key_provider_access!(installation:, provider_handle: "gemini")
+
+    catalog = build_test_provider_catalog_from(test_provider_catalog_definition.deep_dup)
+    adapter = Class.new(SimpleInference::HTTPAdapter) do
+      attr_reader :requests
+
+      def initialize
+        @requests = []
+      end
+
+      def call(env)
+        @requests << env
+
+        {
+          status: 200,
+          headers: {
+            "content-type" => "application/json",
+            "x-request-id" => "provider-gateway-gemini-1",
+          },
+          body: JSON.generate(
+            {
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      { text: "Gemini draft" },
+                    ],
+                  },
+                  finishReason: "STOP",
+                },
+              ],
+              usageMetadata: {
+                promptTokenCount: 5,
+                candidatesTokenCount: 2,
+                totalTokenCount: 7,
+              },
+            }
+          ),
+        }
+      end
+    end.new
+
+    result = ProviderGateway::DispatchText.call(
+      installation: installation,
+      selector: "candidate:gemini/gemini-2.5-pro",
+      messages: [
+        { "role" => "system", "content" => "Be terse." },
+        { "role" => "user", "content" => "Draft a title." },
+      ],
+      max_output_tokens: 24,
+      adapter: adapter,
+      catalog: catalog,
+      governor: FakeGovernor,
+      lease_renew_interval_seconds: 0.01
+    )
+
+    request_body = JSON.parse(adapter.requests.last.fetch(:body))
+
+    assert_equal "Gemini draft", result.content
+    assert_equal "provider-gateway-gemini-1", result.provider_request_id
+    assert_equal "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent", adapter.requests.last.fetch(:url)
+    assert_equal "Be terse.", request_body.fetch("systemInstruction").fetch("parts").fetch(0).fetch("text")
+    assert_equal "Draft a title.", request_body.fetch("contents").fetch(0).fetch("parts").fetch(0).fetch("text")
+  end
+
+  test "dispatches explicit anthropic candidates through the native messages adapter" do
+    installation = fresh_installation!
+    create_api_key_provider_access!(installation:, provider_handle: "anthropic")
+
+    catalog = build_test_provider_catalog_from(test_provider_catalog_definition.deep_dup)
+    adapter = Class.new(SimpleInference::HTTPAdapter) do
+      attr_reader :requests
+
+      def initialize
+        @requests = []
+      end
+
+      def call(env)
+        @requests << env
+
+        {
+          status: 200,
+          headers: {
+            "content-type" => "application/json",
+            "x-request-id" => "provider-gateway-anthropic-1",
+          },
+          body: JSON.generate(
+            {
+              id: "msg_123",
+              content: [
+                {
+                  type: "text",
+                  text: "Claude draft",
+                },
+              ],
+              usage: {
+                input_tokens: 5,
+                output_tokens: 2,
+              },
+            }
+          ),
+        }
+      end
+    end.new
+
+    result = ProviderGateway::DispatchText.call(
+      installation: installation,
+      selector: "candidate:anthropic/claude-opus-4",
+      messages: [
+        { "role" => "system", "content" => "Be terse." },
+        { "role" => "user", "content" => "Draft a title." },
+      ],
+      max_output_tokens: 24,
+      adapter: adapter,
+      catalog: catalog,
+      governor: FakeGovernor,
+      lease_renew_interval_seconds: 0.01
+    )
+
+    request_body = JSON.parse(adapter.requests.last.fetch(:body))
+
+    assert_equal "Claude draft", result.content
+    assert_equal "provider-gateway-anthropic-1", result.provider_request_id
+    assert_equal "https://api.anthropic.com/v1/messages", adapter.requests.last.fetch(:url)
+    assert_equal "Be terse.", request_body.fetch("system")
+    assert_equal "Draft a title.", request_body.fetch("messages").fetch(0).fetch("content").fetch(0).fetch("text")
+  end
+
   private
 
   def fresh_installation!
     delete_all_table_rows!
     create_installation!
+  end
+
+  def create_api_key_provider_access!(installation:, provider_handle:)
+    ProviderEntitlement.create!(
+      installation: installation,
+      provider_handle: provider_handle,
+      entitlement_key: "#{provider_handle}_window",
+      window_kind: "rolling_five_hours",
+      window_seconds: 5.hours.to_i,
+      quota_limit: 200_000,
+      active: true,
+      metadata: {}
+    )
+    ProviderCredential.create!(
+      installation: installation,
+      provider_handle: provider_handle,
+      credential_kind: "api_key",
+      secret: "sk-#{provider_handle}-#{next_test_sequence}",
+      last_rotated_at: Time.current,
+      metadata: {}
+    )
   end
 end

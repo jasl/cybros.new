@@ -83,7 +83,7 @@ module MockLLM
 
       def last_user_prompt(messages)
         last_user = messages.reverse.find { |message| message.is_a?(Hash) && message["role"].to_s == "user" }
-        last_user&.fetch("content", nil).to_s
+        extract_text_content(last_user&.fetch("content", nil))
       end
 
       def parse_mock_controls(prompt)
@@ -231,7 +231,7 @@ module MockLLM
             if !last_user_index.nil? && index == last_user_index
               prompt_override.to_s.length
             else
-              message.fetch("content", "").to_s.length
+              extract_text_content(message.fetch("content", nil)).length
             end
           end
 
@@ -335,6 +335,26 @@ module MockLLM
 
       def write_sse_event(event_hash)
         response.stream.write("data: #{JSON.generate(event_hash)}\n\n")
+      end
+
+      def extract_text_content(content)
+        case content
+        when String
+          content
+        when Array
+          content.map { |entry| extract_text_content(entry) }.join
+        when Hash
+          type = content["type"].to_s
+
+          case type
+          when "text", "input_text", "output_text"
+            content["text"].to_s
+          else
+            extract_text_content(content["content"] || content["text"] || "")
+          end
+        else
+          content.to_s
+        end
       end
     end
   end

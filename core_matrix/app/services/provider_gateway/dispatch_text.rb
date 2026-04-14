@@ -121,6 +121,7 @@ module ProviderGateway
           "wire_api" => provider_definition.fetch(:wire_api),
           "transport" => provider_definition.fetch(:transport),
           "tokenizer_hint" => model_definition.fetch(:tokenizer_hint),
+          "capabilities" => model_definition.fetch(:capabilities, {}).deep_stringify_keys,
           "execution_settings" => execution_settings,
           "hard_limits" => {
             "max_output_tokens" => [@max_output_tokens, model_definition.fetch(:max_output_tokens)].min,
@@ -145,23 +146,21 @@ module ProviderGateway
       provider_definition = @effective_catalog.provider(request_context.provider_handle)
       adapter = @adapter || ProviderExecution::BuildHttpAdapter.call(provider_definition: provider_definition)
 
-      case request_context.wire_api
-      when "responses"
-        SimpleInference::Protocols::OpenAIResponses.new(
-          base_url: provider_definition.fetch(:base_url),
-          api_key: credential_secret_for(provider_definition),
-          headers: provider_definition.fetch(:headers, {}),
+      SimpleInference::Client.new(
+        base_url: provider_definition.fetch(:base_url),
+        api_key: credential_secret_for(provider_definition),
+        headers: provider_definition.fetch(:headers, {}),
+        adapter: adapter,
+        provider_profile: {
+          adapter_key: provider_definition.fetch(:adapter_key),
+          wire_api: request_context.wire_api,
           responses_path: provider_definition.fetch(:responses_path),
-          adapter: adapter
-        )
-      else
-        SimpleInference::Client.new(
-          base_url: provider_definition.fetch(:base_url),
-          api_key: credential_secret_for(provider_definition),
-          headers: provider_definition.fetch(:headers, {}),
-          adapter: adapter
-        )
-      end
+        },
+        model_profile: {
+          api_model: request_context.api_model,
+          capabilities: request_context.capabilities,
+        }
+      )
     end
 
     def credential_secret_for(provider_definition)
@@ -188,13 +187,7 @@ module ProviderGateway
       begin
         attempt += 1
         @received_delta = false
-
-        case request_context.wire_api
-        when "responses"
-          dispatch_responses_request
-        else
-          dispatch_chat_request
-        end
+        dispatch_generation_request
       rescue *RETRYABLE_PROVIDER_ERRORS => error
         raise if @received_delta
         raise if attempt >= MAX_TRANSIENT_REQUEST_ATTEMPTS
@@ -203,18 +196,7 @@ module ProviderGateway
       end
     end
 
-    def dispatch_chat_request
-      request = {
-        model: request_context.api_model,
-        messages: @messages,
-        max_tokens: request_context.hard_limits["max_output_tokens"],
-        **request_context.execution_settings.symbolize_keys,
-      }
-
-      build_client.chat(**request)
-    end
-
-    def dispatch_responses_request
+    def dispatch_generation_request
       request = {
         model: request_context.api_model,
         input: @messages,
@@ -222,7 +204,7 @@ module ProviderGateway
         **request_context.execution_settings.symbolize_keys,
       }
 
-      build_client.responses(**request)
+      build_client.responses.create(**request)
     end
 
     def normalize_messages(messages)
@@ -240,7 +222,8 @@ module ProviderGateway
           "type",
           "output",
           "arguments",
-          "id"
+          "id",
+          "provider_payload"
         )
         normalized["role"] = normalize_provider_role(normalized["role"])
         tool_call_id = candidate["tool_call_id"] || candidate[:tool_call_id]
@@ -266,16 +249,13 @@ module ProviderGateway
     end
 
     def provider_result_content(provider_result)
-      if provider_result.respond_to?(:output_text)
-        provider_result.output_text.to_s
-      else
-        provider_result.content.to_s
-      end
+      provider_result.output_text.to_s
     end
 
     def provider_request_id_for(provider_result)
-      provider_result.response.headers["x-request-id"] ||
-        provider_result.response.body&.fetch("id", nil) ||
+      response = provider_result.provider_response
+      response&.headers&.fetch("x-request-id", nil) ||
+        response&.body&.fetch("id", nil) ||
         @provider_request_id
     end
 

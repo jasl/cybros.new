@@ -131,6 +131,8 @@ Rails.application.routes.draw do
     namespace :mock_llm do
       namespace :v1 do
         post "chat/completions", to: "chat_completions#create"
+        post "responses", to: "responses#create"
+        post "images/generations", to: "images#create"
         get "models", to: "models#index"
       end
     end
