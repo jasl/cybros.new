@@ -47,15 +47,36 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
     assert_equal [context[:workspace].public_id], response.parsed_body.fetch("workspaces").map { |item| item.fetch("workspace_id") }
   end
 
+  test "does not list revoked mounts in the agent workspace surface" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    context[:workspace_agent].update!(
+      lifecycle_state: "revoked",
+      revoked_at: Time.current,
+      revoked_reason_kind: "agent_visibility_revoked"
+    )
+
+    get "/app_api/agents/#{context[:agent].public_id}/workspaces",
+      headers: app_api_headers(session.plaintext_token)
+
+    assert_response :success
+    assert_equal [], response.parsed_body.fetch("workspaces")
+    assert_equal "virtual", response.parsed_body.fetch("default_workspace_ref").fetch("state")
+  end
+
   test "lists materialized workspaces within six SQL queries" do
     context = create_workspace_context!
     context[:workspace].update!(is_default: true)
-    create_workspace!(
+    workspace = create_workspace!(
       installation: context[:installation],
       user: context[:user],
-      agent: context[:agent],
-      default_execution_runtime: context[:execution_runtime],
       name: "Secondary Workspace"
+    )
+    create_workspace_agent!(
+      installation: context[:installation],
+      workspace: workspace,
+      agent: context[:agent],
+      default_execution_runtime: context[:execution_runtime]
     )
     session = create_session!(user: context[:user])
 

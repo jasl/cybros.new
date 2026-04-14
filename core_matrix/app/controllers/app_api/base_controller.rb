@@ -46,7 +46,9 @@ module AppAPI
     end
 
     def workspace_lookup_scope
-      Workspace.accessible_to_user(current_user).eager_load(:agent, :default_execution_runtime)
+      Workspace
+        .accessible_to_user(current_user)
+        .includes(workspace_agents: [:agent, :default_execution_runtime])
     end
 
     def agent_lookup_scope
@@ -58,8 +60,17 @@ module AppAPI
     end
 
     def conversation_lookup_scope(workspace: nil)
-      scope = Conversation.accessible_to_user(current_user)
-      scope = scope.where(workspace_id: workspace.id) if workspace.present?
+      scope = Conversation
+        .joins(:workspace_agent, :workspace)
+        .where(
+          installation_id: current_user.installation_id,
+          deletion_state: "retained",
+          workspaces: {
+            user_id: current_user.id,
+            privacy: "private",
+          }
+        )
+      scope = scope.where(workspace_agents: { workspace_id: workspace.id }) if workspace.present?
       scope
     end
 

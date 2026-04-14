@@ -1,86 +1,27 @@
 require "test_helper"
 
 class UserAgentBindingTest < ActiveSupport::TestCase
-  test "enforces one binding per user and agent" do
-    installation = create_installation!
-    user = create_user!(installation: installation)
-    agent = create_agent!(installation: installation)
-
-    create_user_agent_binding!(
-      installation: installation,
-      user: user,
-      agent: agent
-    )
-
-    duplicate = UserAgentBinding.new(
-      installation: installation,
-      user: user,
-      agent: agent,
-      preferences: {}
-    )
-
-    assert_not duplicate.valid?
-    assert_includes duplicate.errors[:user_id], "has already been taken"
+  test "removes the legacy binding model from the target topology" do
+    assert_not Rails.root.join("app/models/user_agent_binding.rb").exist?,
+      "Task 2 must delete app/models/user_agent_binding.rb as part of the destructive topology rewrite"
   end
 
-  test "requires the owner to bind private agents" do
-    installation = create_installation!
-    owner_user = create_user!(installation: installation)
-    other_user = create_user!(
-      installation: installation,
-      identity: create_identity!,
-      display_name: "Other User"
-    )
-    agent = create_agent!(
-      installation: installation,
-      key: "private-agent",
-      visibility: "private",
-      owner_user: owner_user
-    )
-
-    invalid_binding = UserAgentBinding.new(
-      installation: installation,
-      user: other_user,
-      agent: agent,
-      preferences: {}
-    )
-
-    assert_not invalid_binding.valid?
-    assert_includes invalid_binding.errors[:user], "must own the private agent"
+  test "removes the legacy enablement service from the target topology" do
+    assert_not Rails.root.join("app/services/user_agent_bindings/enable.rb").exist?,
+      "Task 2 must delete app/services/user_agent_bindings/enable.rb so new workspace roots do not depend on bindings"
   end
 
-  test "shares the same workspace ownership boundary keys as workspaces" do
+  test "personal workspaces are valid without a user-agent binding row" do
     installation = create_installation!
     user = create_user!(installation: installation)
-    agent = create_agent!(installation: installation)
-    binding = create_user_agent_binding!(
+    workspace = Workspace.new(
       installation: installation,
       user: user,
-      agent: agent
-    )
-    default_workspace = Workspace.create!(
-      installation: installation,
-      user: user,
-      agent: agent,
-      name: "Default Workspace",
-      privacy: "private",
-      is_default: true
-    )
-    Workspace.create!(
-      installation: installation,
-      user: user,
-      agent: agent,
-      name: "Project Workspace",
+      name: "Binding Free Workspace",
       privacy: "private"
     )
 
-    scoped_workspaces = Workspace.where(
-      installation_id: binding.installation_id,
-      user_id: binding.user_id,
-      agent_id: binding.agent_id
-    )
-
-    assert_equal [default_workspace.id], scoped_workspaces.where(is_default: true).pluck(:id)
-    assert_equal default_workspace, scoped_workspaces.find_by(is_default: true)
+    assert workspace.valid?, workspace.errors.full_messages.to_sentence
+    assert_raises(NameError) { UserAgentBinding }
   end
 end

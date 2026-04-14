@@ -76,11 +76,11 @@ CoreMatrix should borrow the normalized event and batching ideas, but should not
 copy Hermes' large base-adapter object. In CoreMatrix those concerns belong in
 application services and connector runtimes, not in transport adapters.
 
-### `telegram-bot-ruby`
+### `telegram-bot-rb/telegram-bot`
 
-`telegram-bot-ruby` is a good fit for Telegram because it provides a Bot API
-wrapper and typed payload support while still letting CoreMatrix own the webhook
-controller and routing model.
+The `telegram-bot-rb/telegram-bot` project is a good fit for Telegram because
+the Ruby gem `telegram-bot` provides a Bot API wrapper and typed payload support
+while still letting CoreMatrix own the webhook controller and routing model.
 
 Important implications:
 
@@ -88,9 +88,8 @@ Important implications:
 - the gem should be used for Bot API calls such as `setWebhook`, `sendMessage`,
   `sendPhoto`, `sendDocument`, `getFile`, `sendChatAction`, and
   `editMessageText`
-- the wrapper also exposes Bot API `sendMessageDraft`, but Telegram draft
-  transport should remain optional rather than becoming the default preview
-  path
+- if CoreMatrix later experiments with Bot API `sendMessageDraft`, keep it as
+  an adapter-level optional path rather than a required preview dependency
 - webhook verification, envelope normalization, batching, pairing, and turn
   entry still belong to CoreMatrix
 
@@ -151,7 +150,7 @@ Telegram should support all three modes:
 - `preview_stream`
   - preferred transport: `sendMessage + editMessageText`
   - `sendChatAction` for typing/presence
-  - optional transport: `sendMessageDraft`
+  - optional transport: draft APIs only behind explicit adapter support
 - `status_progress`
   - explicit status or tool-progress placeholders when needed
 - `final_delivery`
@@ -244,7 +243,7 @@ Telegram is a webhook-style transport:
 - inbound shape
   - `POST /ingress_api/telegram/bindings/:public_ingress_id/updates`
 - transport library
-  - `gem "telegram-bot-ruby"`
+  - `gem "telegram-bot"`
 - outbound shape
   - Bot API calls through the gem
 - attachment shape
@@ -595,7 +594,7 @@ adapter contract:
 ### Telegram Adapter
 
 - implemented directly in Rails app/services
-- uses `telegram-bot-ruby` for Bot API requests
+- uses the Ruby gem `telegram-bot` for Bot API requests
 - owns webhook JSON normalization and Bot API file fetch/send behavior
 - identifies the ingress binding from `public_ingress_id` in the webhook path
 - verifies the request with a binding-scoped secret token
@@ -626,8 +625,17 @@ Routing rules:
 Conversation rules:
 
 - create a normal interactive root conversation
-- default to `owner_addressable` in v1
-- allow app-side and external-side input concurrently in v1
+- snapshot the mounted entry policy onto the created root conversation
+- ordinary channel-created root conversations should allow:
+  - `main_transcript`
+  - `sidecar_query`
+  - `control`
+  - `artifact_ingress`
+  - `channel_ingress`
+- ordinary channel-created root conversations should keep `agent_internal`
+  denied unless a later child-conversation policy override opens it explicitly
+- app-side and external-side input may both remain allowed in v1 on mutable
+  conversations
 - if later product needs "external-only input", add a separate manual-entry
   policy on `IngressBinding` or `ChannelSession`
 
@@ -635,8 +643,10 @@ Implementation note:
 
 - new channel-ingress entry must enqueue the same workflow bootstrap path as
   ordinary user entry
-- if title bootstrap should apply to channel-created conversations, current
-  `manual_user`-only title bootstrap logic must be generalized explicitly
+- first transcript-bearing channel-ingress turns should bootstrap titles in the
+  same way as first manual-user turns
+- command-only paths such as `/report`, `/btw`, or `/stop` must not trigger
+  title bootstrap because they do not create a new main-transcript user turn
 
 ## Turn Entry Integration
 
@@ -1038,7 +1048,7 @@ Build:
 
 Build:
 
-- `telegram-bot-ruby` integration
+- `telegram-bot` integration
 - binding-scoped Telegram webhook controller
 - binding-scoped webhook URL and secret verification
 - DM pairing

@@ -11,7 +11,7 @@ module Workspaces
     def call
       Workspace
         .accessible_to_user(@user)
-        .includes(:default_execution_runtime, :agent)
+        .includes(workspace_agents: :default_execution_runtime)
         .order(is_default: :desc, name: :asc, id: :asc)
         .to_a
     end

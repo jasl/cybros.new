@@ -79,12 +79,13 @@ user-managed channel domain (`ChannelConnector`, `ChannelSession`,
 provenance-safe channel-ingress turn path. Keep transport-specific logic in
 `IngressAPI` adapters and preprocessors. Reuse CoreMatrix runtime and
 supervision signals to support three outward-facing modes: `preview_stream`,
-`status_progress`, and `final_delivery`. Use `telegram-bot-ruby` for Telegram
-Bot API access. Put Weixin protocol, QR login, long-polling, `context_token`
-handling, and media transport behind `lib/claw_bot_sdk`.
+`status_progress`, and `final_delivery`. Use the `telegram-bot-rb/telegram-bot`
+project via the Ruby gem `telegram-bot` for Telegram Bot API access. Put
+Weixin protocol, QR login, long-polling, `context_token` handling, and media
+transport behind `lib/claw_bot_sdk`.
 
 **Tech Stack:** Ruby on Rails, Minitest, Active Record migrations, Active
-Storage, Active Job, `telegram-bot-ruby`, existing CoreMatrix
+Storage, Active Job, `telegram-bot`, existing CoreMatrix
 turn/workflow/attachment infrastructure, and a Ruby bridge in
 `lib/claw_bot_sdk` for Weixin.
 
@@ -134,10 +135,11 @@ Add failing expectations that:
 
 **Step 3: Add title-bootstrap coverage**
 
-Cover the intended rule explicitly:
+Lock the intended rule explicitly:
 
-- either channel-ingress first turns should bootstrap titles
-- or they should not, but the behavior must be intentional and documented
+- first transcript-bearing channel-ingress turns bootstrap titles
+- command-only paths such as `/report`, `/btw`, and `/stop` do not
+  bootstrap titles because they do not append a new main-transcript user turn
 
 This prevents silent drift because current title bootstrap logic is
 `manual_user`-only.
@@ -467,7 +469,7 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/jobs/conversations/metadata/bootstrap_title_job_test.rb
 ```
 
-### Task 6: Integrate Telegram Transport With `telegram-bot-ruby`
+### Task 6: Integrate Telegram Transport With `telegram-bot`
 
 **Files:**
 - Modify: `core_matrix/Gemfile`
@@ -488,11 +490,14 @@ PARALLEL_WORKERS=1 bin/rails test \
 
 **Step 1: Add the gem and lock the boundary**
 
-Add `gem "telegram-bot-ruby"` and keep the responsibility split explicit:
+Add `gem "telegram-bot"` and keep the responsibility split explicit:
 
 - webhook server remains CoreMatrix code
 - Bot API requests go through the gem
 - the gem does not own session, pairing, batching, or routing behavior
+- if preview-draft experiments later use Bot API draft methods, keep them
+  behind optional adapter support rather than making them a required gem-level
+  contract for v1
 
 **Step 2: Implement binding-scoped webhook entry**
 
@@ -528,7 +533,7 @@ Keep v1 synchronous and deterministic.
 
 **Step 5: Implement outbound delivery through the gem**
 
-Add `SendTelegramReply` so outbound delivery uses `telegram-bot-ruby` for:
+Add `SendTelegramReply` so outbound delivery uses `telegram-bot` for:
 
 - `sendMessage`
 - `editMessageText`
@@ -1004,7 +1009,7 @@ Confirm:
 - paired vs unpaired DM behavior matches the design
 - first-contact conversation creation resolves workspace/agent/runtime from the
   ingress binding and mounted agent
-- Telegram delivery is handled through `telegram-bot-ruby`
+- Telegram delivery is handled through `telegram-bot`
 - Weixin durable connector state lives in CoreMatrix records, not ad hoc files
 - sidecar commands such as `/report` and `/btw` do not mutate the main
   transcript

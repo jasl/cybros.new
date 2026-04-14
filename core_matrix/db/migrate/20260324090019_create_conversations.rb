@@ -3,6 +3,7 @@ class CreateConversations < ActiveRecord::Migration[8.2]
     create_table :conversations do |t|
       t.references :installation, null: false, foreign_key: true
       t.references :user, foreign_key: true
+      t.references :workspace_agent, null: false, foreign_key: false
       t.references :workspace, null: false, foreign_key: true
       t.references :agent, null: false, foreign_key: true
       t.references :current_execution_runtime, foreign_key: { to_table: :execution_runtimes }
@@ -16,6 +17,7 @@ class CreateConversations < ActiveRecord::Migration[8.2]
       t.string :kind, null: false
       t.string :purpose, null: false
       t.string :addressability, null: false, default: "owner_addressable"
+      t.string :interaction_lock_state, null: false, default: "mutable"
       t.string :lifecycle_state, null: false
       t.string :deletion_state, null: false, default: "retained"
       t.string :execution_continuity_state, null: false, default: "not_started"
@@ -50,6 +52,7 @@ class CreateConversations < ActiveRecord::Migration[8.2]
     end
 
     add_index :conversations, [:workspace_id, :purpose, :lifecycle_state], name: "idx_conversations_workspace_purpose_lifecycle"
+    add_index :conversations, [:workspace_agent_id, :lifecycle_state], name: "idx_conversations_workspace_agent_lifecycle"
     add_index :conversations, [:agent_id, :lifecycle_state], name: "idx_conversations_agent_lifecycle"
     add_index :conversations,
       [:installation_id, :user_id, :deletion_state, :lifecycle_state, :last_activity_at],
@@ -81,6 +84,9 @@ class CreateConversations < ActiveRecord::Migration[8.2]
     add_check_constraint :conversations,
       "(summary_lock_state IN ('unlocked', 'user_locked'))",
       name: "chk_conversations_summary_lock_state"
+    add_check_constraint :conversations,
+      "(interaction_lock_state IN ('mutable', 'locked_agent_access_revoked', 'archived', 'deleted'))",
+      name: "chk_conversations_interaction_lock_state"
     add_check_constraint :conversations,
       "((deletion_state = 'retained' AND deleted_at IS NULL) OR (deletion_state IN ('pending_delete', 'deleted') AND deleted_at IS NOT NULL))",
       name: "chk_conversations_deleted_at_consistency"

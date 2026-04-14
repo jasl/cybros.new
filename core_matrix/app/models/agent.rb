@@ -14,7 +14,7 @@ class Agent < ApplicationRecord
   has_many :onboarding_sessions, foreign_key: :target_agent_id, dependent: :restrict_with_exception
   has_many :agent_definition_versions, dependent: :restrict_with_exception
   has_one :agent_config_state, dependent: :restrict_with_exception
-  has_many :user_agent_bindings, dependent: :restrict_with_exception
+  has_many :workspace_agents, dependent: :restrict_with_exception
   has_many :conversations, dependent: :restrict_with_exception
   has_many :agent_connections, dependent: :restrict_with_exception
   has_one :active_agent_connection,

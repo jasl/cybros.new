@@ -2,12 +2,16 @@ module Conversations
   module CreationSupport
     private
 
-    def create_root_conversation!(workspace:, agent:, purpose:, execution_runtime: nil)
-      capability_projection = WorkspacePolicies::Capabilities.projection_attributes_for(workspace: workspace)
+    def create_root_conversation!(workspace_agent:, workspace:, agent:, purpose:, execution_runtime: nil)
+      capability_projection = WorkspacePolicies::Capabilities.projection_attributes_for(
+        workspace: workspace,
+        agent: agent
+      )
 
       conversation = Conversation.create!(
         installation: workspace.installation,
         user: workspace.user,
+        workspace_agent: workspace_agent,
         workspace: workspace,
         agent: agent,
         title: I18n.t("conversations.defaults.untitled_title"),
@@ -34,6 +38,7 @@ module Conversations
       Conversation.new(
         installation: parent.installation,
         user: parent.user,
+        workspace_agent: parent.workspace_agent,
         workspace: parent.workspace,
         agent: parent.agent,
         current_execution_runtime: parent.current_execution_runtime,
@@ -53,6 +58,7 @@ module Conversations
     def refresh_child_conversation_from_parent!(conversation:, parent:)
       conversation.installation = parent.installation
       conversation.user = parent.user
+      conversation.workspace_agent = parent.workspace_agent
       conversation.workspace = parent.workspace
       conversation.agent = parent.agent
       conversation.current_execution_runtime = parent.current_execution_runtime

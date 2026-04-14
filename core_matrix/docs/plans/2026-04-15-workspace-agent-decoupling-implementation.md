@@ -148,7 +148,11 @@ git commit -m "test: lock workspace agent target topology"
 - Modify: `core_matrix/app/models/workspace.rb`
 - Create: `core_matrix/app/models/workspace_agent.rb`
 - Modify: `core_matrix/app/models/conversation.rb`
+- Modify: `core_matrix/app/models/agent.rb`
+- Modify: `core_matrix/app/models/user.rb`
+- Modify: `core_matrix/app/models/installation.rb`
 - Delete: `core_matrix/app/models/user_agent_binding.rb`
+- Delete: `core_matrix/app/services/user_agent_bindings/enable.rb`
 - Modify: `core_matrix/test/test_helper.rb`
 
 **Step 1: Introduce the new table and columns**
@@ -181,6 +185,8 @@ Implement:
 - `Workspace` as user-owned top-level root
 - `WorkspaceAgent` as the mounted agent aggregate
 - `Conversation` validation against `workspace_agent`
+- removal of model-level `UserAgentBinding` associations so the app boots cleanly
+  after the old aggregate is deleted
 
 Keep external lookups on `public_id` only.
 
@@ -265,11 +271,20 @@ git commit -m "refactor: separate workspace visibility from agent entitlement"
 **Files:**
 - Modify: `core_matrix/app/models/conversation.rb`
 - Modify: `core_matrix/app/services/subagent_connections/validate_addressability.rb`
+- Modify: `core_matrix/app/services/subagent_connections/send_message.rb`
+- Modify: `core_matrix/app/services/subagent_connections/spawn.rb`
 - Modify: `core_matrix/app/services/turns/start_user_turn.rb`
+- Modify: `core_matrix/app/services/turns/start_agent_turn.rb`
 - Modify: `core_matrix/app/services/turns/accept_pending_user_turn.rb`
 - Modify: `core_matrix/app/services/turns/queue_follow_up.rb`
+- Modify: `core_matrix/app/services/conversations/create_fork.rb`
+- Modify: `core_matrix/app/services/conversation_exports/build_conversation_payload.rb`
 - Modify: `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
 - Create: `core_matrix/test/services/conversations/interaction_lock_test.rb`
+- Modify: `core_matrix/test/services/turns/start_agent_turn_test.rb`
+- Modify: `core_matrix/test/services/subagent_connections/send_message_test.rb`
+- Modify: `core_matrix/test/services/subagent_connections/spawn_test.rb`
+- Modify: `core_matrix/test/services/subagent_connections/validate_addressability_test.rb`
 
 **Step 1: Write failing behavior tests**
 
@@ -278,8 +293,10 @@ Cover:
 - revoked conversation remains readable
 - revoked conversation rejects new owner turns
 - revoked conversation rejects follow-up queueing
-- internal subagent-only semantics are no longer modeled by
+- ordinary owner/UI mutability is no longer modeled by
   `owner_addressable/agent_addressable`
+- agent-internal child conversations still preserve a distinct bounded entry
+  surface after `addressability` removal
 
 **Step 2: Implement the new model**
 
@@ -292,6 +309,15 @@ Replace or supersede `addressability` with:
   - `deleted`
 
 Introduce explicit entry-policy checks instead of overloading addressability.
+
+Required replacement rule:
+
+- ordinary root conversations should use mount/conversation entry policy to
+  decide `main_transcript`, `sidecar_query`, `control`, `artifact_ingress`,
+  `channel_ingress`, and `automation`
+- child conversations that are currently `agent_addressable` must migrate to an
+  explicit `agent_internal`-only policy shape instead of becoming owner- or
+  channel-addressable by accident
 
 **Step 3: Run the focused tests**
 
@@ -359,10 +385,25 @@ git commit -m "refactor: move runtime and capability defaults to workspace agent
 **Files:**
 - Modify: `core_matrix/config/routes.rb`
 - Create: `core_matrix/app/controllers/app_api/workspaces/workspace_agents_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/agents/homes_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/agents/workspaces_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversations_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/conversations/messages_controller.rb`
 - Modify: existing workspace policy and launch controllers as needed
+- Modify: `core_matrix/app/services/app_surface/queries/agent_home.rb`
 - Modify: `core_matrix/app/services/app_surface/presenters/workspace_presenter.rb`
 - Modify: `core_matrix/app/services/app_surface/presenters/agent_presenter.rb`
+- Modify: `core_matrix/app/services/workspaces/resolve_default_reference.rb`
+- Modify: `core_matrix/app/services/workspaces/create_default.rb`
+- Modify: `core_matrix/app/services/workspaces/materialize_default.rb`
+- Modify: `core_matrix/app/services/workbench/create_conversation_from_agent.rb`
+- Modify: `core_matrix/app/services/workbench/send_message.rb`
 - Create: `core_matrix/test/requests/app_api/workspaces/workspace_agents_controller_test.rb`
+- Modify: `core_matrix/test/requests/app_api/agent_homes_test.rb`
+- Modify: `core_matrix/test/requests/app_api/workspaces_test.rb`
+- Modify: `core_matrix/test/requests/app_api/conversations_test.rb`
+- Modify: `core_matrix/test/services/workbench/create_conversation_from_agent_test.rb`
+- Modify: `core_matrix/test/services/workbench/send_message_test.rb`
 
 **Step 1: Write failing request tests**
 
@@ -372,6 +413,10 @@ Cover:
 - mount can choose a default execution runtime
 - mount can be revoked/disabled
 - revoked mount keeps workspace visible but prevents interactive launch
+- the old `default_workspace_ref` / virtual-default-workspace contract is
+  intentionally removed
+- browser launch and follow-up message APIs resolve through `workspace_agent_id`
+  instead of `agent_id` plus an implicit default workspace flow
 
 **Step 2: Implement the new management surface**
 
@@ -391,6 +436,14 @@ AppAPI should manage:
 
 Do not recreate `UserAgentBinding` under another name.
 
+This task also intentionally removes the old agent-centric browser surface:
+
+- retire or rewrite `/app_api/agents/:agent_id/home`
+- retire or rewrite `/app_api/agents/:agent_id/workspaces`
+- stop returning `default_workspace_ref`
+- stop materializing a default workspace as a hidden side effect of conversation
+  creation
+
 **Step 3: Run the focused tests**
 
 ```bash
@@ -406,42 +459,41 @@ git add config/routes.rb app/controllers/app_api app/services/app_surface test
 git commit -m "feat: add workspace agent management surface"
 ```
 
-### Task 7: Rebase Ingress On `WorkspaceAgent` And `IngressBinding`
+### Task 7: Freeze The Ingress Rebase Contract On `WorkspaceAgent` And `IngressBinding`
 
 **Files:**
 - Modify: `core_matrix/docs/plans/2026-04-15-ingress-api-channel-ingress-design.md`
 - Modify: `core_matrix/docs/plans/2026-04-15-ingress-api-telegram-channel-ingress-implementation.md`
-- Create or Rename: ingress endpoint models/controllers/services to `IngressBinding`
-- Create: `core_matrix/app/models/channel_connector.rb`
-- Modify: `core_matrix/app/models/channel_session.rb`
-- Modify: `core_matrix/test/services/ingress_api/preprocessors/create_or_bind_conversation_test.rb`
+- Modify: `core_matrix/docs/behavior/identifier-policy.md`
 
-**Step 1: Write failing ingress tests against the new root**
+At checkpoint `b523b53b`, there is no landed `IngressAPI` / `IngressEndpoint`
+code path to rename yet. This task is therefore a documentation-and-contract
+freeze, not the phase-2 ingress implementation itself.
 
-Cover:
+**Step 1: Rebase the ingress documents onto the new topology**
 
-- ingress binding belongs to `WorkspaceAgent`
-- revoked workspace-agent disables ingress binding
-- ingress can still read the historical conversation binding but cannot create
-  new turns after revocation
+- replace any remaining legacy ingress resource names such as
+  `IngressEndpoint` / `ChannelAccount`
+- make phase 2 assume `WorkspaceAgent`, `IngressBinding`, and
+  `ChannelConnector` from the start
+- remove any remaining references that still talk about
+  `Conversation.addressability` as the IM mutability boundary
 
-**Step 2: Replace endpoint semantics**
+**Step 2: Verify the documentation contract**
 
-Make:
-
-- `ChannelConnector` own transport credentials/state
-- `IngressBinding` own the external route and secret
-- conversation creation resolve through `WorkspaceAgent`
-
-**Step 3: Run the focused tests**
+Use a focused text audit rather than app tests:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-PARALLEL_WORKERS=1 bin/rails test \
-  test/services/ingress_api/preprocessors/create_or_bind_conversation_test.rb
+rg -n "IngressEndpoint|ChannelAccount|owner_addressable|agent_addressable" \
+  docs/plans/2026-04-15-ingress-api-channel-ingress-design.md \
+  docs/plans/2026-04-15-ingress-api-telegram-channel-ingress-implementation.md \
+  docs/behavior/identifier-policy.md
 ```
 
-**Step 4: Commit**
+Expected: no remaining legacy ingress-root terminology in those target docs.
+
+**Step 3: Commit**
 
 ```bash
 git add docs/plans app/models test
@@ -484,6 +536,7 @@ Make the new topology explicit in documentation and policy payloads:
   - `control`
   - `artifact_ingress`
   - `channel_ingress`
+  - `agent_internal`
   - `automation`
 - conversation locking semantics block mutable surfaces while preserving
   historical visibility

@@ -32,6 +32,15 @@ class Conversation < ApplicationRecord
       agent_addressable: "agent_addressable",
     },
     validate: true
+  enum :interaction_lock_state,
+    {
+      mutable: "mutable",
+      locked_agent_access_revoked: "locked_agent_access_revoked",
+      archived: "archived",
+      deleted: "deleted",
+    },
+    validate: true,
+    prefix: :interaction_lock
   enum :lifecycle_state,
     {
       active: "active",
@@ -98,6 +107,7 @@ class Conversation < ApplicationRecord
 
   belongs_to :installation
   belongs_to :user, optional: true
+  belongs_to :workspace_agent
   belongs_to :workspace
   belongs_to :agent
   belongs_to :current_execution_epoch, class_name: "ConversationExecutionEpoch", optional: true
@@ -183,10 +193,11 @@ class Conversation < ApplicationRecord
       deletion_state: "retained"
     )
       .where(workspace_id: Workspace.accessible_to_user(user).select(:id))
-      .where(agent_id: Agent.visible_to_user(user).select(:id))
   end
 
   validate :workspace_installation_match
+  validate :workspace_agent_installation_match
+  validate :workspace_agent_active_for_new_conversation, on: :create
   validate :user_installation_match
   validate :agent_installation_match
   validate :workspace_user_match
@@ -319,6 +330,20 @@ class Conversation < ApplicationRecord
     errors.add(:workspace, "must belong to the same installation")
   end
 
+  def workspace_agent_installation_match
+    return if workspace_agent.blank?
+    return if workspace_agent.installation_id == installation_id
+
+    errors.add(:workspace_agent, "must belong to the same installation")
+  end
+
+  def workspace_agent_active_for_new_conversation
+    return if workspace_agent.blank?
+    return if workspace_agent.active?
+
+    errors.add(:workspace_agent, "must be active for new conversations")
+  end
+
   def user_installation_match
     return if user.blank?
     return if user.installation_id == installation_id
@@ -341,10 +366,15 @@ class Conversation < ApplicationRecord
   end
 
   def workspace_agent_match
-    return if workspace.blank? || agent.blank?
-    return if workspace.agent_id == agent_id
+    return if workspace_agent.blank?
 
-    errors.add(:agent, "must match the workspace agent")
+    if workspace.present? && workspace_agent.workspace_id != workspace_id
+      errors.add(:workspace, "must match the workspace agent workspace")
+    end
+
+    if agent.present? && workspace_agent.agent_id != agent_id
+      errors.add(:agent, "must match the workspace agent")
+    end
   end
 
   def parent_lineage_rules
@@ -472,6 +502,7 @@ class Conversation < ApplicationRecord
 
     self.current_execution_runtime =
       parent_conversation&.current_execution_runtime ||
+      workspace_agent&.default_execution_runtime ||
       workspace&.default_execution_runtime ||
       agent&.default_execution_runtime
   end

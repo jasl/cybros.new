@@ -10,7 +10,6 @@ class User < ApplicationRecord
   has_many :owned_agents, class_name: "Agent", foreign_key: :owner_user_id, dependent: :nullify, inverse_of: :owner_user
   has_many :owned_execution_runtimes, class_name: "ExecutionRuntime", foreign_key: :owner_user_id, dependent: :nullify, inverse_of: :owner_user
   has_many :sessions, dependent: :destroy
-  has_many :user_agent_bindings, dependent: :destroy
   has_many :workspaces, dependent: :destroy
 
   validates :role, presence: true, inclusion: { in: ROLES }

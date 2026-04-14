@@ -35,14 +35,14 @@ module WorkspacePolicies
       normalize_capabilities(workspace.disabled_capabilities)
     end
 
-    def effective_for(workspace:)
-      available = available_for(agent: workspace.agent)
+    def effective_for(workspace:, agent: nil)
+      available = available_for(agent: agent || workspace.agent)
       disabled = disabled_for(workspace:) & available
       normalize_dependencies(available - disabled)
     end
 
-    def projection_attributes_for(workspace:)
-      available = available_for(agent: workspace.agent)
+    def projection_attributes_for(workspace:, agent: nil)
+      available = available_for(agent: agent || workspace.agent)
       disabled = disabled_for(workspace:) & available
       effective = normalize_dependencies(available - disabled)
 

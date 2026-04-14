@@ -28,12 +28,24 @@ module Workspaces
     end
 
     def call
-      workspace = @workspace || Workspace.find_by(
-        installation_id: @user.installation_id,
-        user: @user,
-        agent: @agent,
-        is_default: true
-      )
+      workspace = @workspace || Workspace
+        .joins(:workspace_agents)
+        .where(
+          installation_id: @user.installation_id,
+          user: @user,
+          is_default: true,
+          workspace_agents: {
+            agent_id: @agent.id,
+            lifecycle_state: "active",
+          }
+        )
+        .distinct
+        .first
+
+      mounted_runtime = workspace
+        &.workspace_agents
+        &.find { |workspace_agent| workspace_agent.agent_id == @agent.id && workspace_agent.active? }
+        &.default_execution_runtime
 
       Result.new(
         state: workspace.present? ? "materialized" : "virtual",
@@ -43,7 +55,7 @@ module Workspaces
         user_id: @user.public_id,
         name: workspace&.name || @name,
         privacy: workspace&.privacy || "private",
-        default_execution_runtime_id: workspace&.default_execution_runtime&.public_id || @agent.default_execution_runtime&.public_id
+        default_execution_runtime_id: mounted_runtime&.public_id || @agent.default_execution_runtime&.public_id
       )
     end
   end

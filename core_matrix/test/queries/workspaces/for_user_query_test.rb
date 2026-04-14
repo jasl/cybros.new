@@ -35,23 +35,18 @@ class Workspaces::ForUserQueryTest < ActiveSupport::TestCase
     assert_equal [default_workspace, project_workspace], result
   end
 
-  test "hides workspaces whose bound resources are no longer usable by the owner" do
+  test "keeps workspaces visible when their only mounted agent is revoked" do
     context = create_workspace_context!
-    replacement_owner = create_user!(
-      installation: context[:installation],
-      identity: create_identity!,
-      display_name: "Replacement Owner"
-    )
 
     assert_equal [context[:workspace]], Workspaces::ForUserQuery.call(user: context[:user])
 
-    context[:agent].update!(
-      visibility: "private",
-      provisioning_origin: "user_created",
-      owner_user: replacement_owner
+    context[:workspace_agent].update!(
+      lifecycle_state: "revoked",
+      revoked_at: Time.current,
+      revoked_reason_kind: "agent_visibility_revoked"
     )
 
-    assert_equal [], Workspaces::ForUserQuery.call(user: context[:user])
+    assert_equal [context[:workspace]], Workspaces::ForUserQuery.call(user: context[:user])
   end
 
   test "keeps workspaces visible when the default execution runtime becomes unusable" do

@@ -59,6 +59,29 @@ Suggested responsibilities:
 This means a single workspace may later host multiple mounted agents if the
 product wants that, but the design does not require immediate multi-agent UI.
 
+### App Surface Consequences
+
+The current app surface still assumes an agent-centric default-workspace flow:
+
+- `/app_api/agents/:agent_id/home`
+- `/app_api/agents/:agent_id/workspaces`
+- `default_workspace_ref`
+- conversation launch that starts from `agent_id` and optionally materializes a
+  default workspace on first use
+
+That shape does not fit the post-refactor topology.
+
+After this destructive refactor:
+
+- the browser/app management root should be `Workspace` plus nested
+  `WorkspaceAgent`
+- the old virtual default-workspace reference should be removed instead of
+  preserved as a compatibility shim
+- interactive launch and later message-send entry should resolve through a
+  concrete `workspace_agent_id`
+- app-facing visibility should show owned workspaces even when one mounted
+  agent becomes revoked
+
 ### `WorkspaceAgent`
 
 Introduce a new aggregate root representing one agent mounted into one
@@ -155,16 +178,11 @@ The current `Conversation.addressability` model is too narrow for the future.
 Long-term recommendation:
 
 - remove `Conversation.addressability`
-- replace it with explicit entry policy
+- replace it with explicit entry policy plus separate interaction locking
 
-Suggested entry-policy dimensions:
-
-- `app_ui`
-- `channel_ingress`
-- `agent_internal`
-- `automation`
-
-Each source can be `allow` or `deny`.
+The coarse source list `app_ui / channel_ingress / agent_internal / automation`
+is not enough for the current product shape. The mounted policy should use
+surface-scoped keys directly.
 
 Capability policy should move up to `WorkspaceAgent`, because that is where
 "this user using this agent in this space" actually lives.
@@ -176,20 +194,22 @@ Suggested model:
   - default UI/control capabilities
 - `Conversation`
   - snapshots or overrides those defaults when created
+  - can narrow them further for child-conversation or channel-specific cases
 
 This gives double protection for IM:
 
 - ingress source can be denied by entry policy
 - incompatible interactive features can be disabled by capability policy
 
-Long-term, `entry_policy` should be able to distinguish at least these mounted
-interaction surfaces:
+Long-term, `entry_policy` should distinguish at least these interaction
+surfaces:
 
 - `main_transcript`
 - `sidecar_query`
 - `control`
 - `artifact_ingress`
 - `channel_ingress`
+- `agent_internal`
 - `automation`
 
 That lets CoreMatrix express policies such as:
@@ -198,6 +218,13 @@ That lets CoreMatrix express policies such as:
 - IM may be allowed to stop or report, but not fork or branch
 - generated artifacts may still be deliverable even when a conversation is
   locked for normal dialogue
+- subagent child conversations may allow only `agent_internal` while denying
+  owner or channel transcript entry
+
+This last rule is the required replacement for today's
+`Conversation.addressability = agent_addressable` behavior. Removing
+`addressability` must not collapse the agent-internal child-conversation
+boundary into the same mutable surface used by the owner or IM ingress.
 
 ## Operational Sidecars, Commands, And Progress
 

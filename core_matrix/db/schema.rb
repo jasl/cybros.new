@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -836,6 +836,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
     t.string "execution_continuity_state", default: "not_started", null: false
     t.bigint "historical_anchor_message_id"
     t.bigint "installation_id", null: false
+    t.string "interaction_lock_state", default: "mutable", null: false
     t.string "interactive_selector_mode", default: "auto", null: false
     t.string "interactive_selector_model_ref"
     t.string "interactive_selector_provider_handle"
@@ -863,6 +864,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
     t.datetime "title_updated_at"
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.bigint "workspace_agent_id", null: false
     t.bigint "workspace_id", null: false
     t.index ["agent_id", "lifecycle_state"], name: "idx_conversations_agent_lifecycle"
     t.index ["agent_id"], name: "index_conversations_on_agent_id"
@@ -880,11 +882,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
     t.index ["parent_conversation_id"], name: "index_conversations_on_parent_conversation_id"
     t.index ["public_id"], name: "index_conversations_on_public_id", unique: true
     t.index ["user_id"], name: "index_conversations_on_user_id"
+    t.index ["workspace_agent_id", "lifecycle_state"], name: "idx_conversations_workspace_agent_lifecycle"
+    t.index ["workspace_agent_id"], name: "index_conversations_on_workspace_agent_id"
     t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
     t.check_constraint "current_execution_epoch_id IS NULL AND execution_continuity_state::text = 'not_started'::text OR current_execution_epoch_id IS NOT NULL AND (execution_continuity_state::text = ANY (ARRAY['ready'::character varying, 'handoff_pending'::character varying, 'handoff_blocked'::character varying]::text[]))", name: "chk_conversations_execution_continuity_state"
     t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying, 'deleted'::character varying]::text[])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
     t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying, 'pending_delete'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_deletion_state"
+    t.check_constraint "interaction_lock_state::text = ANY (ARRAY['mutable'::character varying, 'locked_agent_access_revoked'::character varying, 'archived'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_interaction_lock_state"
     t.check_constraint "summary_lock_state::text = ANY (ARRAY['unlocked'::character varying, 'user_locked'::character varying]::text[])", name: "chk_conversations_summary_lock_state"
     t.check_constraint "summary_source::text = ANY (ARRAY['none'::character varying, 'bootstrap'::character varying, 'generated'::character varying, 'agent'::character varying, 'user'::character varying]::text[])", name: "chk_conversations_summary_source"
     t.check_constraint "title_lock_state::text = ANY (ARRAY['unlocked'::character varying, 'user_locked'::character varying]::text[])", name: "chk_conversations_title_lock_state"
@@ -1938,20 +1943,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
     t.index ["workspace_id"], name: "index_usage_rollups_on_workspace_id"
   end
 
-  create_table "user_agent_bindings", force: :cascade do |t|
-    t.bigint "agent_id", null: false
-    t.datetime "created_at", null: false
-    t.bigint "installation_id", null: false
-    t.jsonb "preferences", default: {}, null: false
-    t.datetime "updated_at", null: false
-    t.bigint "user_id", null: false
-    t.index ["agent_id"], name: "index_user_agent_bindings_on_agent_id"
-    t.index ["installation_id", "user_id"], name: "index_user_agent_bindings_on_installation_id_and_user_id"
-    t.index ["installation_id"], name: "index_user_agent_bindings_on_installation_id"
-    t.index ["user_id", "agent_id"], name: "index_user_agent_bindings_on_user_id_and_agent_id", unique: true
-    t.index ["user_id"], name: "index_user_agent_bindings_on_user_id"
-  end
-
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "display_name", null: false
@@ -2155,11 +2146,30 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_workflow_runs_cancellation_pairing"
   end
 
-  create_table "workspaces", force: :cascade do |t|
+  create_table "workspace_agents", force: :cascade do |t|
     t.bigint "agent_id", null: false
-    t.jsonb "config", default: {}, null: false
+    t.jsonb "capability_policy_payload", default: {}, null: false
     t.datetime "created_at", null: false
     t.bigint "default_execution_runtime_id"
+    t.jsonb "entry_policy_payload", default: {}, null: false
+    t.bigint "installation_id", null: false
+    t.string "lifecycle_state", default: "active", null: false
+    t.uuid "public_id", default: -> { "uuidv7()" }, null: false
+    t.datetime "revoked_at"
+    t.string "revoked_reason_kind"
+    t.datetime "updated_at", null: false
+    t.bigint "workspace_id", null: false
+    t.index ["agent_id"], name: "index_workspace_agents_on_agent_id"
+    t.index ["default_execution_runtime_id"], name: "index_workspace_agents_on_default_execution_runtime_id"
+    t.index ["installation_id"], name: "index_workspace_agents_on_installation_id"
+    t.index ["public_id"], name: "index_workspace_agents_on_public_id", unique: true
+    t.index ["workspace_id", "agent_id"], name: "idx_workspace_agents_active_workspace_agent", unique: true, where: "((lifecycle_state)::text = 'active'::text)"
+    t.index ["workspace_id"], name: "index_workspace_agents_on_workspace_id"
+  end
+
+  create_table "workspaces", force: :cascade do |t|
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
     t.jsonb "disabled_capabilities", default: [], null: false
     t.bigint "installation_id", null: false
     t.boolean "is_default", default: false, null: false
@@ -2168,10 +2178,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
-    t.index ["agent_id"], name: "index_workspaces_on_agent_id"
-    t.index ["default_execution_runtime_id"], name: "index_workspaces_on_default_execution_runtime_id"
-    t.index ["installation_id", "user_id", "agent_id"], name: "idx_workspaces_default_per_user_agent", unique: true, where: "is_default"
-    t.index ["installation_id", "user_id", "agent_id"], name: "idx_workspaces_installation_user_agent"
+    t.index ["installation_id", "user_id"], name: "idx_workspaces_default_per_user", unique: true, where: "is_default"
     t.index ["installation_id", "user_id"], name: "index_workspaces_on_installation_id_and_user_id"
     t.index ["installation_id"], name: "index_workspaces_on_installation_id"
     t.index ["public_id"], name: "index_workspaces_on_public_id", unique: true
@@ -2340,6 +2347,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
   add_foreign_key "conversations", "turns", column: "latest_turn_id"
   add_foreign_key "conversations", "users"
   add_foreign_key "conversations", "workflow_runs", column: "latest_active_workflow_run_id"
+  add_foreign_key "conversations", "workspace_agents"
   add_foreign_key "conversations", "workspaces"
   add_foreign_key "execution_capability_snapshots", "agent_definition_versions"
   add_foreign_key "execution_capability_snapshots", "conversations", column: "owner_conversation_id"
@@ -2512,9 +2520,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
   add_foreign_key "usage_rollups", "installations"
   add_foreign_key "usage_rollups", "users"
   add_foreign_key "usage_rollups", "workspaces"
-  add_foreign_key "user_agent_bindings", "agents"
-  add_foreign_key "user_agent_bindings", "installations"
-  add_foreign_key "user_agent_bindings", "users"
   add_foreign_key "users", "identities"
   add_foreign_key "users", "installations"
   add_foreign_key "workflow_artifacts", "conversations"
@@ -2554,8 +2559,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_06_120000) do
   add_foreign_key "workflow_runs", "turns"
   add_foreign_key "workflow_runs", "users"
   add_foreign_key "workflow_runs", "workspaces"
-  add_foreign_key "workspaces", "agents"
-  add_foreign_key "workspaces", "execution_runtimes", column: "default_execution_runtime_id"
+  add_foreign_key "workspace_agents", "agents"
+  add_foreign_key "workspace_agents", "execution_runtimes", column: "default_execution_runtime_id"
+  add_foreign_key "workspace_agents", "installations"
+  add_foreign_key "workspace_agents", "workspaces"
   add_foreign_key "workspaces", "installations"
   add_foreign_key "workspaces", "users"
 end

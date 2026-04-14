@@ -1,7 +1,7 @@
 require "test_helper"
 
 class AppApiAgentHomesTest < ActionDispatch::IntegrationTest
-  test "shows a virtual default workspace without creating a binding or workspace" do
+  test "shows a virtual default workspace without creating a mount or workspace" do
     installation = create_installation!
     user = create_user!(installation: installation)
     session = create_session!(user: user)
@@ -15,7 +15,7 @@ class AppApiAgentHomesTest < ActionDispatch::IntegrationTest
     )
     create_agent_connection!(installation: installation, agent: agent)
 
-    assert_no_difference(["UserAgentBinding.count", "Workspace.count"]) do
+    assert_no_difference(["WorkspaceAgent.count", "Workspace.count"]) do
       get "/app_api/agents/#{agent.public_id}/home",
         headers: app_api_headers(session.plaintext_token)
     end
@@ -81,15 +81,37 @@ class AppApiAgentHomesTest < ActionDispatch::IntegrationTest
     assert_equal "virtual", response.parsed_body.fetch("default_workspace_ref").fetch("state")
   end
 
+  test "does not return revoked mounts as launchable workspaces" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    context[:workspace].update!(is_default: true)
+    context[:workspace_agent].update!(
+      lifecycle_state: "revoked",
+      revoked_at: Time.current,
+      revoked_reason_kind: "owner_revoked"
+    )
+
+    get "/app_api/agents/#{context[:agent].public_id}/home",
+      headers: app_api_headers(session.plaintext_token)
+
+    assert_response :success
+    assert_equal [], response.parsed_body.fetch("workspaces")
+    assert_equal "virtual", response.parsed_body.fetch("default_workspace_ref").fetch("state")
+  end
+
   test "loads a materialized agent home within seven SQL queries" do
     context = create_workspace_context!
     context[:workspace].update!(is_default: true)
-    create_workspace!(
+    secondary_workspace = create_workspace!(
       installation: context[:installation],
       user: context[:user],
-      agent: context[:agent],
-      default_execution_runtime: context[:execution_runtime],
       name: "Secondary Workspace"
+    )
+    create_workspace_agent!(
+      installation: context[:installation],
+      workspace: secondary_workspace,
+      agent: context[:agent],
+      default_execution_runtime: context[:execution_runtime]
     )
     session = create_session!(user: context[:user])
 

@@ -665,30 +665,40 @@ module ActiveSupport
       )
     end
 
-    def create_user_agent_binding!(installation: create_installation!, user: create_user!(installation: installation), agent: create_agent!(installation: installation), preferences: {}, **attrs)
-      UserAgentBinding.create!({
-        installation: installation,
-        user: user,
-        agent: agent,
-        preferences: preferences,
-      }.merge(attrs))
-    end
-
     def create_workspace!(installation: create_installation!, user: create_user!(installation: installation), agent: nil, default_execution_runtime: nil, name: "Workspace #{next_test_sequence}", privacy: "private", is_default: false, config: nil, **attrs)
-      agent ||= create_agent!(installation: installation)
-
       workspace_attributes = {
         installation: installation,
         user: user,
-        agent: agent,
-        default_execution_runtime: default_execution_runtime,
         name: name,
         privacy: privacy,
         is_default: is_default,
       }
       workspace_attributes[:config] = config unless config.nil?
 
-      Workspace.create!(workspace_attributes.merge(attrs))
+      workspace = Workspace.create!(workspace_attributes.merge(attrs))
+
+      if agent.present? || default_execution_runtime.present?
+        create_workspace_agent!(
+          installation: installation,
+          workspace: workspace,
+          agent: agent || create_agent!(installation: installation),
+          default_execution_runtime: default_execution_runtime
+        )
+      end
+
+      workspace
+    end
+
+    def create_workspace_agent!(installation: create_installation!, workspace: create_workspace!(installation: installation), agent: create_agent!(installation: installation), default_execution_runtime: nil, lifecycle_state: "active", capability_policy_payload: {}, entry_policy_payload: {}, **attrs)
+      WorkspaceAgent.create!({
+        installation: installation,
+        workspace: workspace,
+        agent: agent,
+        default_execution_runtime: default_execution_runtime,
+        lifecycle_state: lifecycle_state,
+        capability_policy_payload: capability_policy_payload,
+        entry_policy_payload: entry_policy_payload,
+      }.merge(attrs))
     end
 
     def create_workspace_context!
@@ -713,14 +723,15 @@ module ActiveSupport
         installation: installation,
         execution_runtime: execution_runtime
       )
-      user_agent_binding = create_user_agent_binding!(
-        installation: installation,
-        user: user,
-        agent: agent
-      )
       workspace = create_workspace!(
         installation: installation,
         user: user,
+        name: "Workspace #{next_test_sequence}",
+        privacy: "private"
+      )
+      workspace_agent = create_workspace_agent!(
+        installation: installation,
+        workspace: workspace,
         agent: agent,
         default_execution_runtime: execution_runtime
       )
@@ -733,8 +744,8 @@ module ActiveSupport
         agent_definition_version: agent_definition_version,
         agent_connection: agent_connection,
         execution_runtime_connection: execution_runtime_connection,
-        user_agent_binding: user_agent_binding,
         workspace: workspace,
+        workspace_agent: workspace_agent,
       }
     end
 
