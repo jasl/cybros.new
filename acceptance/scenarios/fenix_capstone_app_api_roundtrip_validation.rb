@@ -148,7 +148,7 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
     )
     supervision_session = Acceptance::ManualSupport.app_api_create_conversation_supervision_session!(
       conversation_id: conversation_id,
-      responder_strategy: "summary_model",
+      responder_strategy: "hybrid",
       session_token: app_api_session_token
     )
     probe_questions.each_with_index do |question, index|

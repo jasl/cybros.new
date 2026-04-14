@@ -75,6 +75,62 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
     assert_equal result.dig("human_sidechat", "content"), session.conversation_supervision_messages.order(:created_at).last.content
   end
 
+  test "uses the builtin responder through the hybrid strategy when structured evidence is already specific" do
+    fixture = fresh_provider_backed_fixture!
+    session = EmbeddedAgents::ConversationSupervision::CreateSession.call(
+      actor: fixture.fetch(:user),
+      conversation: fixture.fetch(:conversation)
+    )
+
+    original_call = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**_kwargs|
+      raise "summary model should not run for a specific hybrid supervision reply"
+    end
+
+    result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      content: "Please tell me what you are doing right now and what changed most recently."
+    )
+
+    assert_equal "builtin", result.fetch("responder_kind")
+    assert_match(/shell command|test-and-build|workspace\/game-2048/i, result.dig("human_sidechat", "content"))
+  ensure
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
+  end
+
+  test "falls back to the summary model through the hybrid strategy when the builtin answer is low-confidence for a chinese status probe" do
+    fixture = fresh_provider_backed_fixture!
+    session = EmbeddedAgents::ConversationSupervision::CreateSession.call(
+      actor: fixture.fetch(:user),
+      conversation: fixture.fetch(:conversation)
+    )
+
+    original_call = ProviderGateway::DispatchText.method(:call)
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call) do |**_kwargs|
+      Struct.new(:content, :usage, :provider_request_id, keyword_init: true).new(
+        content: "现在这段对话正在等待 /workspace/game-2048 里的测试和构建检查完成。最近一次变化是，前一个 shell 命令已经完成。",
+        usage: {
+          "input_tokens" => 28,
+          "output_tokens" => 18,
+          "total_tokens" => 46,
+        },
+        provider_request_id: "provider-gateway-supervision-hybrid-zh-1"
+      )
+    end
+
+    result = EmbeddedAgents::ConversationSupervision::AppendMessage.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session,
+      content: "请告诉我现在在做什么，最近有什么变化？"
+    )
+
+    assert_equal "summary_model", result.fetch("responder_kind")
+    assert_match(/现在|最近/, result.dig("human_sidechat", "content"))
+  ensure
+    ProviderGateway::DispatchText.singleton_class.send(:define_method, :call, original_call)
+  end
+
   test "requires the session initiator and rejects closed supervision sessions" do
     fixture = fresh_fixture!
     session = create_conversation_supervision_session!(fixture)
@@ -192,7 +248,7 @@ class EmbeddedAgents::ConversationSupervision::AppendMessageTest < ActiveSupport
 
     content = result.dig("human_sidechat", "content")
 
-    assert_match(/2048|acceptance|supervisor informed/i, content)
+    assert_match(/2048|shell command|test-and-build|workspace\/game-2048/i, content)
     refute_match(/provider round|exec_command|command_run_wait/i, content)
   end
 

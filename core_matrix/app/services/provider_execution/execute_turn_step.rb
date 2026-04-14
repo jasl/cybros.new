@@ -47,7 +47,8 @@ module ProviderExecution
         effective_catalog: @effective_catalog,
         agent_request_exchange: @agent_request_exchange,
         request_preparation_exchange: @request_preparation_exchange,
-        on_output_delta: streaming_output_enabled? ? method(:handle_output_delta) : nil
+        on_output_delta: streaming_output_enabled? ? method(:handle_output_delta) : nil,
+        on_stream_event: streaming_output_enabled? ? method(:handle_stream_event) : nil
       )
 
       if loop_result.final?
@@ -228,6 +229,10 @@ module ProviderExecution
       output_stream.push(delta, flush: true)
     end
 
+    def handle_stream_event(event)
+      assistant_tool_call_stream.record(event)
+    end
+
     def finalize_output_stream!(loop_result:, result:)
       return unless streaming_output_enabled?
 
@@ -248,6 +253,10 @@ module ProviderExecution
       return unless output_stream.started?
 
       output_stream.fail!(code:, message:)
+    end
+
+    def assistant_tool_call_stream
+      @assistant_tool_call_stream ||= ProviderExecution::AssistantToolCallStream.new(workflow_node: @workflow_node)
     end
 
     def streaming_output_enabled?

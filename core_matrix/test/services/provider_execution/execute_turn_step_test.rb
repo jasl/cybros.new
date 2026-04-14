@@ -106,6 +106,100 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     end
   end
 
+  class StreamingToolPlanningAdapter < SimpleInference::HTTPAdapter
+    attr_reader :last_request
+
+    def call_stream(env)
+      @last_request = env
+
+      chunks = [
+        {
+          "id" => "chatcmpl-tool-planning-1",
+          "object" => "chat.completion.chunk",
+          "created" => 1,
+          "model" => "mock-model",
+          "choices" => [
+            {
+              "index" => 0,
+              "delta" => {
+                "role" => "assistant",
+                "content" => "Need to wait for the build. ",
+              },
+              "finish_reason" => nil,
+            },
+          ],
+        },
+        {
+          "id" => "chatcmpl-tool-planning-1",
+          "object" => "chat.completion.chunk",
+          "created" => 1,
+          "model" => "mock-model",
+          "choices" => [
+            {
+              "index" => 0,
+              "delta" => {
+                "tool_calls" => [
+                  {
+                    "index" => 0,
+                    "id" => "call_wait_build_1",
+                    "type" => "function",
+                    "function" => {
+                      "name" => "command_run_wait",
+                      "arguments" => "{\"command_summary\":\"the test-and-build check in /workspace/game-2048\"",
+                    },
+                  },
+                ],
+              },
+              "finish_reason" => nil,
+            },
+          ],
+        },
+        {
+          "id" => "chatcmpl-tool-planning-1",
+          "object" => "chat.completion.chunk",
+          "created" => 1,
+          "model" => "mock-model",
+          "choices" => [
+            {
+              "index" => 0,
+              "delta" => {
+                "tool_calls" => [
+                  {
+                    "index" => 0,
+                    "function" => {
+                      "arguments" => "}",
+                    },
+                  },
+                ],
+              },
+              "finish_reason" => "tool_calls",
+            },
+          ],
+          "usage" => {
+            "prompt_tokens" => 12,
+            "completion_tokens" => 6,
+            "total_tokens" => 18,
+          },
+        },
+      ]
+
+      sse = +""
+      chunks.each { |chunk| sse << "data: #{JSON.generate(chunk)}\n\n" }
+      sse << "data: [DONE]\n\n"
+
+      yield sse
+
+      {
+        status: 200,
+        headers: {
+          "content-type" => "text/event-stream",
+          "x-request-id" => "execute-turn-step-tool-planning-request-1",
+        },
+        body: nil,
+      }
+    end
+  end
+
   test "uses the persisted execution snapshot contract for provider request context" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
@@ -328,15 +422,68 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
         "runtime.assistant_output.started",
         "runtime.assistant_output.delta",
         "runtime.assistant_output.delta",
+        "runtime.assistant_tool_call.delta",
+        "runtime.assistant_tool_call.completed",
         "runtime.assistant_output.failed",
         "runtime.workflow_node.completed",
       ],
       broadcasts.map { |payload| payload.fetch("event_kind") }
     )
 
-    failed_payload = broadcasts.fifth.fetch("payload")
+    failed_payload = broadcasts.fetch(6).fetch("payload")
     assert_equal "tool_continuation", failed_payload.fetch("code")
     assert_match(/superseded by tool continuation/, failed_payload.fetch("message"))
+  end
+
+  test "emits assistant tool-call runtime events while streaming a tool continuation" do
+    catalog = build_mock_chat_catalog
+    adapter = StreamingToolPlanningAdapter.new
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog,
+      tool_contract: default_tool_catalog("command_run_wait")
+    )
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
+    stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
+
+    broadcasts = capture_broadcasts(stream_name) do
+      with_stubbed_provider_catalog(catalog) do
+        ProviderExecution::ExecuteTurnStep.call(
+          workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "turn_step"),
+          messages: turn_step_messages_for(workflow_run),
+          adapter: adapter,
+          agent_request_exchange: agent_request_exchange
+        )
+      end
+    end
+
+    assistant_tool_events = broadcasts.select { |payload| payload.fetch("event_kind").start_with?("runtime.assistant_tool_call.") }
+
+    assert_equal(
+      [
+        "runtime.assistant_tool_call.delta",
+        "runtime.assistant_tool_call.completed",
+      ],
+      assistant_tool_events.map { |payload| payload.fetch("event_kind") }
+    )
+
+    delta_payload = assistant_tool_events.first.fetch("payload")
+    completed_payload = assistant_tool_events.second.fetch("payload")
+
+    assert_equal "command_run_wait", delta_payload.fetch("tool_name")
+    assert_match(/test-and-build check|workspace\/game-2048/i, delta_payload.fetch("summary"))
+    assert_equal "command_run_wait", completed_payload.fetch("tool_name")
+    assert_match(/test-and-build check|workspace\/game-2048/i, completed_payload.fetch("summary"))
+    refute_includes completed_payload.keys, "arguments"
+
+    runtime_projection = ConversationEvent.live_projection(conversation: workflow_run.conversation)
+      .select { |event| event.event_kind.start_with?("runtime.assistant_tool_call.") }
+
+    assert_equal 1, runtime_projection.length
+    assert_equal "runtime.assistant_tool_call.completed", runtime_projection.first.event_kind
+    assert_equal "command_run_wait", runtime_projection.first.payload.fetch("tool_name")
   end
 
   test "fails a live assistant output stream when malformed streamed tool arguments raise after deltas begin" do
@@ -376,12 +523,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
         "runtime.assistant_output.started",
         "runtime.assistant_output.delta",
         "runtime.assistant_output.delta",
+        "runtime.assistant_tool_call.delta",
+        "runtime.assistant_tool_call.completed",
         "runtime.assistant_output.failed",
       ],
       broadcasts.map { |payload| payload.fetch("event_kind") }
     )
 
-    failed_payload = broadcasts.fifth.fetch("payload")
+    failed_payload = broadcasts.fetch(6).fetch("payload")
     assert_equal "provider_execution_failed", failed_payload.fetch("code")
     assert_match(/invalid tool call arguments/, failed_payload.fetch("message"))
   end

@@ -5,6 +5,7 @@ module ConversationRuntime
       "runtime.agent_task." => "agent_task_run_id",
       "runtime.process_run." => "process_run_id",
       "runtime.tool_invocation." => "tool_invocation_id",
+      "runtime.assistant_tool_call." => "stream_id",
     }.freeze
     REDACTED_PAYLOAD_KEYS = {
       "runtime.process_run.output" => %w[text],

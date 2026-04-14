@@ -24,6 +24,114 @@ module SimpleInference
     # under `SimpleInference::Protocols::*`, keeping provider-specific request/response
     # shapes out of shared application code.
     class OpenAICompatible < Base
+      def create(model:, input:, **options)
+        result = chat(
+          model: model,
+          messages: responses_messages_for(input, options),
+          stream: false,
+          **responses_chat_options(options)
+        )
+
+        SimpleInference::Responses::Result.from_openai_chat(result)
+      end
+
+      def stream(model:, input:, include_usage: true, **options)
+        messages = responses_messages_for(input, options)
+        chat_options = responses_chat_options(options)
+        stream_options = chat_options[:stream_options] || chat_options["stream_options"] || {}
+        stream_options = stream_options.dup
+
+        if include_usage
+          stream_options[:include_usage] = true unless stream_options.key?(:include_usage) || stream_options.key?("include_usage")
+        end
+
+        chat_options[:stream_options] = stream_options unless stream_options.empty?
+
+        SimpleInference::Responses::Stream.new do |&emit|
+          full = +""
+          finish_reason = nil
+          last_usage = nil
+          collected_logprobs = []
+          streamed_tool_calls = []
+          emitted_done = {}
+
+          response =
+            chat_completions_stream(model: model, messages: messages, **chat_options) do |event|
+              emit.call(
+                SimpleInference::Responses::Events::Raw.new(
+                  type: "chat.completion.chunk",
+                  raw: event,
+                  snapshot: duplicate_tool_calls(streamed_tool_calls)
+                )
+              )
+
+              delta = OpenAI.chat_completion_chunk_delta(event)
+              if delta
+                full << delta
+                emit.call(
+                  SimpleInference::Responses::Events::TextDelta.new(
+                    delta: delta,
+                    raw: event,
+                    snapshot: full
+                  )
+                )
+              end
+
+              fr = event.is_a?(Hash) ? event.dig("choices", 0, "finish_reason") : nil
+              finish_reason = fr if fr
+
+              chunk_logprobs = event.is_a?(Hash) ? event.dig("choices", 0, "logprobs", "content") : nil
+              if chunk_logprobs.is_a?(Array)
+                collected_logprobs.concat(chunk_logprobs)
+              end
+
+              usage = OpenAI.chat_completion_usage(event)
+              last_usage = usage if usage
+
+              merge_stream_tool_calls!(streamed_tool_calls, event)
+              emit_stream_tool_call_events!(
+                emit: emit,
+                event: event,
+                streamed_tool_calls: streamed_tool_calls,
+                emitted_done: emitted_done
+              )
+            end
+
+          response_usage = last_usage || OpenAI.chat_completion_usage(response)
+          response_finish_reason = finish_reason || OpenAI.chat_completion_finish_reason(response)
+          synthesized_body = synthesize_stream_chat_completion_body(
+            content: full,
+            finish_reason: response_finish_reason,
+            usage: response_usage,
+            logprobs: collected_logprobs,
+            tool_calls: streamed_tool_calls
+          )
+          response = Response.new(
+            status: response.status,
+            headers: response.headers,
+            body: response.body || synthesized_body,
+            raw_body: response.raw_body
+          )
+
+          emit_remaining_stream_tool_call_done_events!(
+            emit: emit,
+            streamed_tool_calls: streamed_tool_calls,
+            emitted_done: emitted_done
+          )
+
+          chat_result = OpenAI::ChatResult.new(
+            content: full,
+            usage: response_usage,
+            finish_reason: response_finish_reason,
+            logprobs: collected_logprobs.empty? ? OpenAI.chat_completion_logprobs(response) : collected_logprobs,
+            response: response
+          )
+          result = SimpleInference::Responses::Result.from_openai_chat(chat_result)
+          emit.call(SimpleInference::Responses::Events::Completed.new(result: result, raw: result.provider_response&.body))
+          result
+        end
+      end
+
       # POST /v1/chat/completions
       # params: { model: "model-name", messages: [...], ... }
       def chat_completions(**params)
@@ -523,6 +631,91 @@ module SimpleInference
           usage.map { |entry| stringify_usage(entry) }
         else
           usage
+        end
+      end
+
+      def responses_messages_for(input, options)
+        return input if input.is_a?(Array)
+
+        messages = []
+        instructions = options[:instructions] || options["instructions"]
+        messages << { role: "system", content: instructions.to_s } unless instructions.to_s.strip.empty?
+        messages << { role: "user", content: input }
+        messages
+      end
+
+      def responses_chat_options(options)
+        options.reject { |key, _| key.to_s == "instructions" }
+      end
+
+      def emit_stream_tool_call_events!(emit:, event:, streamed_tool_calls:, emitted_done:)
+        tool_calls = event.is_a?(Hash) ? event.dig("choices", 0, "delta", "tool_calls") : nil
+
+        Array(tool_calls).each_with_index do |entry, fallback_index|
+          next unless entry.is_a?(Hash)
+
+          index = entry.fetch("index", fallback_index).to_i
+          current = streamed_tool_calls[index] || {}
+          function = current["function"].is_a?(Hash) ? current["function"] : {}
+          item_id = current["id"] || entry["id"] || "tool_call_#{index}"
+
+          emit.call(
+            SimpleInference::Responses::Events::ToolCallDelta.new(
+              item_id: item_id,
+              call_id: current["id"] || entry["id"],
+              name: function["name"],
+              delta: entry.dig("function", "arguments").to_s,
+              raw: event,
+              snapshot: function["arguments"].to_s
+            )
+          )
+        end
+
+        return unless event.is_a?(Hash) && event.dig("choices", 0, "finish_reason").to_s == "tool_calls"
+
+        emit_remaining_stream_tool_call_done_events!(
+          emit: emit,
+          streamed_tool_calls: streamed_tool_calls,
+          emitted_done: emitted_done
+        )
+      end
+
+      def emit_remaining_stream_tool_call_done_events!(emit:, streamed_tool_calls:, emitted_done:)
+        streamed_tool_calls.each_with_index do |entry, index|
+          next unless entry.is_a?(Hash)
+
+          item_id = entry["id"] || "tool_call_#{index}"
+          next if emitted_done[item_id]
+
+          function = entry["function"].is_a?(Hash) ? entry["function"] : {}
+          emit.call(
+            SimpleInference::Responses::Events::ToolCallDone.new(
+              item_id: item_id,
+              call_id: entry["id"],
+              name: function["name"],
+              arguments: function["arguments"].to_s,
+              snapshot: duplicate_hash(entry)
+            )
+          )
+          emitted_done[item_id] = true
+        end
+      end
+
+      def duplicate_tool_calls(tool_calls)
+        Array(tool_calls).map { |entry| duplicate_hash(entry) }
+      end
+
+      def duplicate_hash(value)
+        value.each_with_object({}) do |(key, entry), copy|
+          copy[key] =
+            case entry
+            when Hash
+              duplicate_hash(entry)
+            when Array
+              entry.map { |item| item.is_a?(Hash) ? duplicate_hash(item) : item }
+            else
+              entry
+            end
         end
       end
 

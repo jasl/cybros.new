@@ -178,16 +178,18 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
 
     prompt_payload = JSON.parse(dispatched.fetch(:messages).last.fetch("content"))
 
-    assert_equal "Monitoring a running shell command in /workspace/game-2048",
+    assert_equal "Waiting for the test-and-build check in /workspace/game-2048",
       prompt_payload.dig("supervision", "current_focus_summary")
     assert_nil prompt_payload.dig("supervision", "primary_turn_todo_plan")
     assert_equal "/workspace/game-2048",
       prompt_payload.dig("supervision", "runtime_evidence", "active_command", "cwd")
-    assert_equal "Monitoring a running shell command in /workspace/game-2048",
+    assert_equal "command_run_wait",
+      prompt_payload.dig("supervision", "runtime_evidence", "active_tool_call", "tool_name")
+    assert_equal "Waiting for the test-and-build check in /workspace/game-2048",
       prompt_payload.dig("supervision", "runtime_facts", "active_focus_summary")
     assert_equal "A shell command finished in /workspace/game-2048.",
       prompt_payload.dig("supervision", "runtime_facts", "recent_progress_summary")
-    refute_match(/provider round|command_run_wait|exec_command|React app|game files|test-and-build check/i, prompt_payload.to_json)
+    refute_match(/provider round|React app|game files/i, prompt_payload.to_json)
   end
 
   test "includes runtime facts and prompt guidance when current focus falls back to the generic current-turn wording" do
@@ -232,7 +234,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::SummaryModelTest < Ac
 
     assert_equal "Working through the current turn",
       prompt_payload.dig("supervision", "current_focus_summary")
-    assert_equal "Monitoring a running shell command in /workspace/game-2048",
+    assert_equal "Waiting for the test-and-build check in /workspace/game-2048",
       prompt_payload.dig("supervision", "runtime_facts", "active_focus_summary")
     assert_equal "A shell command finished in /workspace/game-2048.",
       prompt_payload.dig("supervision", "runtime_facts", "recent_progress_summary")

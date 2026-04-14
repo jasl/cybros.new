@@ -80,6 +80,101 @@ class TestResourcesContract < Minitest::Test
     end
   end
 
+  class ChatStreamingToolAdapter < SimpleInference::HTTPAdapter
+    attr_reader :requests
+
+    def initialize
+      @requests = []
+    end
+
+    def call_stream(env)
+      @requests << env
+
+      chunks = [
+        {
+          "id" => "chatcmpl_stream_123",
+          "object" => "chat.completion.chunk",
+          "created" => 1,
+          "model" => "openai/gpt-5.4",
+          "choices" => [
+            {
+              "index" => 0,
+              "delta" => {
+                "role" => "assistant",
+                "content" => "Need to run a command. ",
+              },
+              "finish_reason" => nil,
+            },
+          ],
+        },
+        {
+          "id" => "chatcmpl_stream_123",
+          "object" => "chat.completion.chunk",
+          "created" => 1,
+          "model" => "openai/gpt-5.4",
+          "choices" => [
+            {
+              "index" => 0,
+              "delta" => {
+                "tool_calls" => [
+                  {
+                    "index" => 0,
+                    "id" => "call_shell_1",
+                    "type" => "function",
+                    "function" => {
+                      "name" => "exec_command",
+                      "arguments" => "{\"command_line\":\"cd /workspace/game-2048 && npm test",
+                    },
+                  },
+                ],
+              },
+              "finish_reason" => nil,
+            },
+          ],
+        },
+        {
+          "id" => "chatcmpl_stream_123",
+          "object" => "chat.completion.chunk",
+          "created" => 1,
+          "model" => "openai/gpt-5.4",
+          "choices" => [
+            {
+              "index" => 0,
+              "delta" => {
+                "tool_calls" => [
+                  {
+                    "index" => 0,
+                    "function" => {
+                      "arguments" => " && npm run build\"}",
+                    },
+                  },
+                ],
+              },
+              "finish_reason" => "tool_calls",
+            },
+          ],
+          "usage" => {
+            "prompt_tokens" => 3,
+            "completion_tokens" => 4,
+            "total_tokens" => 7,
+          },
+        },
+      ]
+
+      sse = +""
+      chunks.each { |chunk| sse << "data: #{JSON.generate(chunk)}\n\n" }
+      sse << "data: [DONE]\n\n"
+
+      yield sse
+
+      {
+        status: 200,
+        headers: { "content-type" => "text/event-stream" },
+        body: nil,
+      }
+    end
+  end
+
   def test_responses_create_uses_responses_protocol_for_responses_profiles
     adapter = ResponsesAdapter.new
     client = SimpleInference::Client.new(
@@ -242,6 +337,35 @@ class TestResourcesContract < Minitest::Test
     assert_includes event_types, "response.completed"
     assert_equal "Hello", stream.get_output_text
     assert_equal "Hello", stream.get_final_result.output_text
+  end
+
+  def test_responses_stream_emits_tool_call_events_for_chat_completions_profiles
+    adapter = ChatStreamingToolAdapter.new
+    client = SimpleInference::Client.new(
+      base_url: "http://example.com",
+      api_key: "secret",
+      adapter: adapter,
+      provider_profile: {
+        wire_api: "chat_completions",
+      }
+    )
+
+    events = client.responses.stream(model: "openai/gpt-5.4", input: "Hello").to_a
+
+    tool_delta = events.find { |event| event.is_a?(SimpleInference::Responses::Events::ToolCallDelta) }
+    tool_done = events.find { |event| event.is_a?(SimpleInference::Responses::Events::ToolCallDone) }
+    completed = events.find { |event| event.is_a?(SimpleInference::Responses::Events::Completed) }
+
+    refute_nil tool_delta
+    refute_nil tool_done
+    refute_nil completed
+    assert_equal "call_shell_1", tool_delta.call_id
+    assert_equal "exec_command", tool_delta.name
+    assert_equal "call_shell_1", tool_done.call_id
+    assert_equal "exec_command", tool_done.name
+    assert_equal "{\"command_line\":\"cd /workspace/game-2048 && npm test && npm run build\"}", tool_done.arguments
+    assert_equal "Need to run a command. ", completed.result.output_text
+    assert_equal "exec_command", completed.result.tool_calls.first.dig("function", "name")
   end
 
   def test_responses_create_rejects_builtin_tools_when_disabled_for_request

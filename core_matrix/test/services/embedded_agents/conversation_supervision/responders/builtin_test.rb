@@ -128,9 +128,9 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
 
     content = response.dig("human_sidechat", "content")
 
-    assert_match(/shell command/i, content)
+    assert_match(/waiting for the test-and-build check/i, content)
     assert_match(%r{/workspace/game-2048}, content)
-    refute_match(/provider round|command_run_wait|exec_command|React app|game files|test-and-build check/i, content)
+    refute_match(/provider round|command_run_wait|exec_command|React app|game files/i, content)
   end
 
   test "uses runtime facts when the frozen focus falls back to the generic current-turn wording" do
@@ -153,7 +153,7 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
 
     content = response.dig("human_sidechat", "content")
 
-    assert_match(/monitoring a running shell command/i, content)
+    assert_match(/waiting for the test-and-build check/i, content)
     assert_match(/most recently, a shell command finished in \/workspace\/game-2048/i, content)
     refute_match(/working through the current turn/i, content)
   end

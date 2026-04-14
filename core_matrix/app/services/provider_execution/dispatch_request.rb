@@ -32,7 +32,7 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_run:, request_context:, messages:, tools: nil, tool_choice: nil, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid, on_delta: nil, workflow_node: nil)
+    def initialize(workflow_run:, request_context:, messages:, tools: nil, tool_choice: nil, adapter: nil, catalog: nil, effective_catalog: nil, provider_request_id: SecureRandom.uuid, on_delta: nil, on_stream_event: nil, workflow_node: nil)
       @workflow_run = workflow_run
       @request_context = ProviderRequestContext.wrap(request_context)
       @messages = normalize_messages(messages)
@@ -43,6 +43,7 @@ module ProviderExecution
       @effective_catalog = effective_catalog if effective_catalog.present?
       @provider_request_id = provider_request_id
       @on_delta = on_delta
+      @on_stream_event = on_stream_event
       @workflow_node = workflow_node
     end
 
@@ -169,6 +170,7 @@ module ProviderExecution
       if stream_request?
         stream = build_client.responses.stream(**request, include_usage: true)
         stream.each do |event|
+          @on_stream_event&.call(event)
           handle_delta(event.delta) if event.is_a?(SimpleInference::Responses::Events::TextDelta)
         end
         stream.get_final_result
@@ -223,7 +225,7 @@ module ProviderExecution
     end
 
     def stream_request?
-      @on_delta.present? && streaming_capability_enabled?
+      (@on_delta.present? || @on_stream_event.present?) && streaming_capability_enabled?
     end
 
     def handle_delta(delta)

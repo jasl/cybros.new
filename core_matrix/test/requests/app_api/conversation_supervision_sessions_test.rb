@@ -22,7 +22,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     assert_equal fixture[:conversation].public_id, response_body.dig("conversation_supervision_session", "target_conversation_id")
     assert_equal fixture[:user].public_id, response_body.dig("conversation_supervision_session", "initiator_id")
     assert_equal "open", response_body.dig("conversation_supervision_session", "lifecycle_state")
-    assert_equal "summary_model", response_body.dig("conversation_supervision_session", "responder_strategy")
+    assert_equal "hybrid", response_body.dig("conversation_supervision_session", "responder_strategy")
     assert_equal({
       "supervision_enabled" => true,
       "detailed_progress_enabled" => true,

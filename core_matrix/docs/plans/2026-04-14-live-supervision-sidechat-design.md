@@ -54,12 +54,29 @@ After this follow-up:
   export/review coverage
 - a new hybrid acceptance scenario exercises **live** supervision sidechat
   during an active/waiting turn
+- the default supervision responder strategy is `hybrid`, so builtin
+  snapshot-grounded narration runs first and the modeled summary path is only a
+  fallback when builtin output is too generic
 - that scenario must use app_api supervision endpoints, not internal shortcut
   helpers, for session/message creation
 - the scenario must verify that the answer reflects in-flight work rather than
   terminal work
 - the scenario must export the conversation while the turn is still in a live
   wait state and confirm the supervision transcript survives export
+
+## Additional Constraints
+
+This follow-up should improve operator-facing progress detail without paying for
+extra agent narration or destabilizing the loop.
+
+That means:
+
+- do not ask the main agent to emit extra breadcrumb prose just for supervision
+- prefer structured runtime evidence over additional model calls
+- keep supervision transcript clean by exposing tool-planning state as runtime
+  events, not as synthetic transcript messages
+- treat cost or latency regressions as design failures even if acceptance stays
+  green
 
 ## Recommended Approach
 
@@ -155,6 +172,42 @@ state, then verify:
 This is the durable proof that live-sidechat survives export even when the turn
 has not yet completed.
 
+### 6. Prefer structured runtime evidence over chain-of-thought style narration
+
+Improve the supervision signal at the runtime layer first.
+
+In practice that means exposing provider-side tool planning as typed runtime
+events such as:
+
+- `runtime.assistant_tool_call.delta`
+- `runtime.assistant_tool_call.completed`
+
+Those events should carry sanitized, operator-useful fields like:
+
+- tool name
+- provider round index
+- command preview
+- cwd
+- short status summary
+
+This gives supervision a better answer to “what is it doing now?” without
+asking the main agent to narrate its thoughts.
+
+### 7. Use a hybrid responder strategy instead of a summary-model-first strategy
+
+For common supervision questions, the cheapest and most reliable answer path is
+deterministic snapshot rendering:
+
+- current work
+- recent change
+- blockers / waiting
+- next justified step
+- child task status
+
+Only fall back to the modeled summary path when builtin output is too generic
+or mismatched to the user’s language. This keeps token growth modest while
+raising sidechat specificity.
+
 ## Alternatives Considered
 
 ### A. Make 2048 capstone itself ask during generation
@@ -182,6 +235,13 @@ Rejected.
 That would conflate two different concerns and lose the explicit artifact
 coverage now provided by the capstone.
 
+### D. Ask the main agent to expose more internal reasoning
+
+Rejected.
+
+That would increase token burn, risk perturbing the loop, and still produce a
+less trustworthy supervision signal than observed runtime/tool activity.
+
 ## Risks
 
 ### Acceptance race if the scenario uses a transient running state
@@ -207,6 +267,23 @@ Mitigation:
   - the sidechat response text reflects current waiting/progress semantics
   - the export contains the exact persisted transcript rows
 
+### Sidechat stays fluent but generic
+
+Mitigation:
+
+- make `hybrid` the default responder strategy
+- expose active/recent tool-call evidence inside the frozen snapshot
+- tighten acceptance review so it checks for concrete project/work signals and
+  refusal leakage
+
+### Better supervision details accidentally slow the loop
+
+Mitigation:
+
+- keep the richer signal path deterministic and local to runtime evidence
+- allow modeled fallback only when builtin output is low-confidence
+- verify with load smoke, target, stress, and the full 2048 capstone
+
 ## Testing Strategy
 
 The implementation should lock four layers:
@@ -216,6 +293,8 @@ The implementation should lock four layers:
    exchange
 3. debug export preserves the live sidechat session/message transcript
 4. the active acceptance suite includes this scenario and stays green
+5. the 2048 capstone shows more specific sidechat answers without apology or
+   refusal leakage
 
 ## Success Criteria
 
@@ -227,6 +306,9 @@ This follow-up is successful when:
   active/waiting work
 - the answer is grounded in current progress/blocker semantics, not terminal
   summary semantics
+- the shipped responder default is `hybrid`, not `summary_model`
+- supervision gains structured active/recent tool-call evidence without adding
+  transcript noise
 - debug export preserves the live sidechat transcript
 - the full `core_matrix` verification suite and full active acceptance suite,
   including the 2048 capstone, both pass

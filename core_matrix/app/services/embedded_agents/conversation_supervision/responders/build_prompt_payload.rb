@@ -92,6 +92,8 @@ module EmbeddedAgents
           @machine_status.fetch("runtime_evidence", {}).to_h.deep_stringify_keys.slice(
             "workflow_wait_state"
           ).merge(
+            "active_tool_call" => compact_runtime_tool_call(@machine_status.dig("runtime_evidence", "active_tool_call")),
+            "recent_tool_call" => compact_runtime_tool_call(@machine_status.dig("runtime_evidence", "recent_tool_call")),
             "active_command" => compact_runtime_item(@machine_status.dig("runtime_evidence", "active_command")),
             "recent_command" => compact_runtime_item(@machine_status.dig("runtime_evidence", "recent_command")),
             "active_process" => compact_runtime_item(@machine_status.dig("runtime_evidence", "active_process")),
@@ -109,7 +111,9 @@ module EmbeddedAgents
         end
 
         def active_runtime_focus_summary
-          if (process = @machine_status.dig("runtime_evidence", "active_process")).present?
+          if (tool_call = @machine_status.dig("runtime_evidence", "active_tool_call")).present?
+            tool_call["summary"]
+          elsif (process = @machine_status.dig("runtime_evidence", "active_process")).present?
             "Monitoring a running process#{location_phrase(process)}"
           elsif (command = @machine_status.dig("runtime_evidence", "active_command")).present?
             "Monitoring a running shell command#{location_phrase(command)}"
@@ -117,7 +121,9 @@ module EmbeddedAgents
         end
 
         def recent_runtime_progress_summary
-          if (process = @machine_status.dig("runtime_evidence", "recent_process")).present?
+          if (tool_call = @machine_status.dig("runtime_evidence", "recent_tool_call")).present?
+            tool_call["summary"]
+          elsif (process = @machine_status.dig("runtime_evidence", "recent_process")).present?
             summarize_terminal_runtime_item(
               item: process,
               noun: "process",
@@ -150,6 +156,19 @@ module EmbeddedAgents
 
         def compact_runtime_item(item)
           item.to_h.deep_stringify_keys.slice("cwd", "command_preview", "lifecycle_state", "started_at", "ended_at").presence
+        end
+
+        def compact_runtime_tool_call(item)
+          item.to_h.deep_stringify_keys.slice(
+            "tool_name",
+            "summary",
+            "cwd",
+            "command_preview",
+            "lifecycle_state",
+            "started_at",
+            "ended_at",
+            "provider_round_index"
+          ).presence
         end
       end
     end

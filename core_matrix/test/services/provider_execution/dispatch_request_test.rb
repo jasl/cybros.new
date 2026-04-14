@@ -49,6 +49,104 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
     end
   end
 
+  class StreamingToolEventsAdapter < SimpleInference::HTTPAdapter
+    attr_reader :stream_requests
+
+    def initialize
+      @stream_requests = []
+    end
+
+    def call_stream(env)
+      @stream_requests << env
+
+      chunks = [
+        {
+          "id" => "chatcmpl-tool-events-1",
+          "object" => "chat.completion.chunk",
+          "created" => 1,
+          "model" => "mock-model",
+          "choices" => [
+            {
+              "index" => 0,
+              "delta" => {
+                "role" => "assistant",
+                "content" => "Need to wait. ",
+              },
+              "finish_reason" => nil,
+            },
+          ],
+        },
+        {
+          "id" => "chatcmpl-tool-events-1",
+          "object" => "chat.completion.chunk",
+          "created" => 1,
+          "model" => "mock-model",
+          "choices" => [
+            {
+              "index" => 0,
+              "delta" => {
+                "tool_calls" => [
+                  {
+                    "index" => 0,
+                    "id" => "call_wait_1",
+                    "type" => "function",
+                    "function" => {
+                      "name" => "command_run_wait",
+                      "arguments" => "{\"command_summary\":\"the test-and-build check in /workspace/game-2048\"",
+                    },
+                  },
+                ],
+              },
+              "finish_reason" => nil,
+            },
+          ],
+        },
+        {
+          "id" => "chatcmpl-tool-events-1",
+          "object" => "chat.completion.chunk",
+          "created" => 1,
+          "model" => "mock-model",
+          "choices" => [
+            {
+              "index" => 0,
+              "delta" => {
+                "tool_calls" => [
+                  {
+                    "index" => 0,
+                    "function" => {
+                      "arguments" => "}",
+                    },
+                  },
+                ],
+              },
+              "finish_reason" => "tool_calls",
+            },
+          ],
+          "usage" => {
+            "prompt_tokens" => 12,
+            "completion_tokens" => 6,
+            "total_tokens" => 18,
+          },
+        },
+      ]
+
+      sse = +""
+      chunks.each { |chunk| sse << "data: #{JSON.generate(chunk)}\n\n" }
+      sse << "data: [DONE]\n\n"
+
+      yield sse
+
+      {
+        status: 200,
+        headers: {
+          "content-type" => "text/event-stream",
+          "x-request-id" => "tracking-chat-tool-stream-request-1",
+        },
+        body: nil,
+      }
+    end
+  end
+
   class TrackingResponsesAdapter < SimpleInference::HTTPAdapter
     attr_reader :call_requests, :stream_requests
 
@@ -273,6 +371,43 @@ class ProviderExecution::DispatchRequestTest < ActiveSupport::TestCase
       },
       result.usage
     )
+  end
+
+  test "streams provider chat tool-call events through the typed responses stream contract" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    request_context = build_request_context_for(workflow_run, catalog: catalog)
+    adapter = StreamingToolEventsAdapter.new
+    deltas = []
+    events = []
+
+    result = ProviderExecution::DispatchRequest.call(
+      workflow_run: workflow_run,
+      request_context: request_context,
+      messages: turn_step_messages_for(workflow_run),
+      adapter: adapter,
+      catalog: catalog,
+      provider_request_id: "provider-request-stream-tool-events-1",
+      on_delta: ->(delta) { deltas << delta },
+      on_stream_event: ->(event) { events << event }
+    )
+
+    tool_delta = events.find { |event| event.is_a?(SimpleInference::Responses::Events::ToolCallDelta) }
+    tool_done = events.find { |event| event.is_a?(SimpleInference::Responses::Events::ToolCallDone) }
+
+    assert_equal ["Need to wait. "], deltas
+    refute_nil tool_delta
+    refute_nil tool_done
+    assert_equal "call_wait_1", tool_delta.call_id
+    assert_equal "command_run_wait", tool_delta.name
+    assert_equal "call_wait_1", tool_done.call_id
+    assert_equal "{\"command_summary\":\"the test-and-build check in /workspace/game-2048\"}", tool_done.arguments
+    assert_equal "Need to wait. ", result.content
   end
 
   test "passes tools and tool_choice through chat-completions requests" do

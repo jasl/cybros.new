@@ -10,6 +10,7 @@ class ConversationSupervisionSession < ApplicationRecord
     validate: true
   enum :responder_strategy,
     {
+      hybrid: "hybrid",
       summary_model: "summary_model",
       builtin: "builtin",
     },

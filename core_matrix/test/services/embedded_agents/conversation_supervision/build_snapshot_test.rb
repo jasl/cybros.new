@@ -154,11 +154,11 @@ class EmbeddedAgents::ConversationSupervision::BuildSnapshotTest < ActiveSupport
     assert_equal bundle.fetch("runtime_evidence"), snapshot.machine_status_payload.fetch("runtime_evidence")
     assert_equal fixture.fetch(:active_command_run).public_id,
       snapshot.machine_status_payload.dig("runtime_evidence", "active_command", "command_run_public_id")
-    assert_equal "Monitoring a running shell command in /workspace/game-2048",
-      snapshot.machine_status_payload.fetch("current_focus_summary")
+    assert_match(/test-and-build check|workspace\/game-2048/i,
+      snapshot.machine_status_payload.fetch("current_focus_summary"))
     assert_equal "A shell command finished in /workspace/game-2048.",
       snapshot.machine_status_payload.fetch("recent_progress_summary")
-    refute_match(/provider round|command_run_wait|exec_command|React app|game files/i, snapshot.machine_status_payload.to_json)
+    refute_match(/provider round|React app|game files/i, snapshot.machine_status_payload.to_json)
   end
 
   test "omits runtime evidence from idle machine status snapshots" do

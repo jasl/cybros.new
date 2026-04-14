@@ -421,6 +421,7 @@ module Conversations
 
     def generic_runtime_current_focus_summary
       return if suppress_runtime_evidence_for_task_run? && !basic_task_run_fallback?
+      return runtime_evidence.dig("active_tool_call", "summary") if runtime_evidence.dig("active_tool_call", "summary").present?
       return summarize_active_process(runtime_evidence["active_process"]) if runtime_evidence["active_process"].present?
       return summarize_active_command(runtime_evidence["active_command"]) if runtime_evidence["active_command"].present?
       return "Working through the current turn" if workflow_progressing_without_task?
@@ -432,6 +433,7 @@ module Conversations
 
     def generic_runtime_recent_progress_summary
       return if suppress_runtime_evidence_for_task_run?
+      return runtime_evidence.dig("recent_tool_call", "summary") if runtime_evidence.dig("recent_tool_call", "summary").present?
       return summarize_terminal_process(runtime_evidence["recent_process"]) if runtime_evidence["recent_process"].present?
       return summarize_terminal_command(runtime_evidence["recent_command"]) if runtime_evidence["recent_command"].present?
 
@@ -450,6 +452,7 @@ module Conversations
     end
 
     def generic_runtime_waiting_summary
+      return "#{runtime_evidence.dig("active_tool_call", "summary")}." if runtime_evidence.dig("active_tool_call", "summary").present?
       return "Waiting for a running process#{location_phrase(runtime_evidence["active_process"])} to finish." if runtime_evidence["active_process"].present?
       return "Waiting for a running shell command#{location_phrase(runtime_evidence["active_command"])} to finish." if runtime_evidence["active_command"].present?
       return "Waiting for the current workflow step to unblock." if workflow_run&.waiting?

@@ -503,7 +503,7 @@ module Acceptance
       }
     end
 
-    def create_conversation_supervision_session!(conversation_id:, actor:, responder_strategy: 'summary_model')
+    def create_conversation_supervision_session!(conversation_id:, actor:, responder_strategy: 'hybrid')
       conversation = Conversation.find_by_public_id!(conversation_id)
       session = EmbeddedAgents::ConversationSupervision::CreateSession.call(
         actor: actor,

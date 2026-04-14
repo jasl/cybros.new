@@ -500,11 +500,12 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "workflow_run", state.current_owner_kind
     assert state.request_summary.present?
     assert_nil state.status_payload["current_turn_plan_summary"]
-    assert_equal "Monitoring a running shell command in /workspace/game-2048", state.current_focus_summary
-    assert_equal "A shell command finished in /workspace/game-2048.", state.recent_progress_summary
+    assert_match(/test-and-build check|waiting for .*shell command|workspace\/game-2048/i, state.current_focus_summary)
+    assert_match(/shell command.*finished|workspace\/game-2048/i, state.recent_progress_summary)
+    assert_equal "command_run_wait", state.status_payload.dig("runtime_evidence", "active_tool_call", "tool_name")
     assert_equal fixture.fetch(:active_command_run).public_id,
       state.status_payload.dig("runtime_evidence", "active_command", "command_run_public_id")
-    refute_match(/React app|game files|test-and-build|preview server|command_run_wait|provider round/i, state.attributes.to_json)
+    refute_match(/React app|game files|preview server|provider round/i, state.attributes.to_json)
   end
 
   test "uses the task-run work-state report before coarse runtime fallback when no turn todo plan exists" do
@@ -590,7 +591,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
     assert_equal "agent_task_run", state.current_owner_kind
     assert_equal agent_task_run.public_id, state.current_owner_public_id
     assert_equal "Replace the observation schema", state.request_summary
-    assert_equal "Monitoring a running shell command in /workspace/game-2048", state.current_focus_summary
+    assert_equal "Waiting for the test-and-build check in /workspace/game-2048", state.current_focus_summary
     assert_nil state.recent_progress_summary
     assert_nil state.status_payload["runtime_evidence"]
   end
@@ -742,7 +743,7 @@ class Conversations::UpdateSupervisionStateTest < ActiveSupport::TestCase
       occurred_at: Time.current
     )
 
-    assert_equal "Monitoring a running shell command in /workspace", state.current_focus_summary
+    assert_equal "Waiting for a running shell command in /workspace", state.current_focus_summary
     assert_nil state.recent_progress_summary
     assert_equal command_execution.fetch(:command_run).public_id,
       state.status_payload.dig("runtime_evidence", "active_command", "command_run_public_id")
