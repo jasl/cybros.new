@@ -361,6 +361,59 @@ module Acceptance
       end
     end
 
+    def wait_for_app_api_turn_live_activity!(conversation_id:, turn_id:, session_token:,
+                                             timeout_seconds: 300, poll_interval_seconds: 0.2,
+                                             &readiness_block)
+      deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+      loop do
+        turns_payload = app_api_conversation_diagnostics_turns!(
+          conversation_id: conversation_id,
+          session_token: session_token
+        )
+        turn = turns_payload.fetch("items").find { |candidate| candidate.fetch("turn_id") == turn_id }
+
+        if turn.present?
+          lifecycle_state = turn.fetch("lifecycle_state")
+          if lifecycle_state == "active"
+            runtime_events = app_api_conversation_turn_runtime_events!(
+              conversation_id: conversation_id,
+              turn_id: turn_id,
+              session_token: session_token
+            )
+            feed_payload = app_api_conversation_feed!(
+              conversation_id: conversation_id,
+              session_token: session_token
+            )
+
+            ready =
+              if readiness_block
+                readiness_block.call(turn: turn, runtime_events: runtime_events, feed: feed_payload)
+              else
+                runtime_activity_present?(runtime_events) || feed_activity_present?(feed_payload)
+              end
+
+            if ready
+              return {
+                "turn" => turn,
+                "turns" => turns_payload.fetch("items"),
+                "runtime_events" => runtime_events,
+                "feed" => feed_payload,
+              }
+            end
+          elsif %w[completed failed canceled].include?(lifecycle_state)
+            raise "turn #{turn_id} reached terminal state before live activity was observed"
+          end
+        end
+
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+          raise "timed out waiting for app api turn #{turn_id} to emit live activity"
+        end
+
+        sleep(poll_interval_seconds)
+      end
+    end
+
     def wait_for_turn_workflow_terminal!(turn_id:, timeout_seconds: 3600, poll_interval_seconds: 0.1,
                                          inline_if_queued: true, catalog: nil)
       turn = Turn.find_by_public_id!(turn_id)
@@ -505,6 +558,17 @@ module Acceptance
       end
 
       entries
+    end
+
+    def runtime_activity_present?(runtime_events_payload)
+      return false if runtime_events_payload.blank?
+
+      runtime_events_payload.dig("summary", "event_count").to_i.positive? ||
+        Array(runtime_events_payload["segments"]).any? { |segment| Array(segment["events"]).any? }
+    end
+
+    def feed_activity_present?(feed_payload)
+      Array(feed_payload&.fetch("items", [])).any?
     end
 
     def app_api_import_conversation_bundle!(workspace_id:, zip_path:, session_token:, timeout_seconds: 60)

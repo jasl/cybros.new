@@ -90,8 +90,12 @@ turn_id = nil
 terminal = nil
 turn_runtime_events = nil
 turn_feed = nil
+live_activity = nil
 supervision_session = nil
 supervision_probe = nil
+supervision_messages = nil
+transcript_before = nil
+transcript_after = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker!(
   agent_connection_credential: bundled_registration.agent_connection_credential,
@@ -113,6 +117,42 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
     )
     conversation_id = created.dig("conversation", "conversation_id")
     turn_id = created.fetch("turn_id")
+    live_activity = Acceptance::ManualSupport.wait_for_app_api_turn_live_activity!(
+      conversation_id: conversation_id,
+      turn_id: turn_id,
+      session_token: app_api_session_token
+    ) do |turn:, runtime_events:, feed:|
+      turn.fetch("provider_round_count", 0).to_i.positive? ||
+        turn.fetch("tool_call_count", 0).to_i.positive? ||
+        turn.fetch("command_run_count", 0).to_i.positive? ||
+        turn.fetch("process_run_count", 0).to_i.positive? ||
+        runtime_events.dig("summary", "event_count").to_i >= 3 ||
+        Array(feed.fetch("items", [])).length >= 3
+    end
+    transcript_before = Acceptance::ManualSupport.app_api_conversation_transcript!(
+      conversation_id: conversation_id,
+      session_token: app_api_session_token
+    )
+    supervision_session = Acceptance::ManualSupport.app_api_create_conversation_supervision_session!(
+      conversation_id: conversation_id,
+      responder_strategy: "summary_model",
+      session_token: app_api_session_token
+    )
+    supervision_probe = Acceptance::ManualSupport.app_api_append_conversation_supervision_message!(
+      conversation_id: conversation_id,
+      supervision_session_id: supervision_session.dig("conversation_supervision_session", "supervision_session_id"),
+      content: "What part of the 2048 game are you implementing right now, and what changed most recently?",
+      session_token: app_api_session_token
+    )
+    supervision_messages = Acceptance::ManualSupport.app_api_conversation_supervision_messages!(
+      conversation_id: conversation_id,
+      supervision_session_id: supervision_session.dig("conversation_supervision_session", "supervision_session_id"),
+      session_token: app_api_session_token
+    )
+    transcript_after = Acceptance::ManualSupport.app_api_conversation_transcript!(
+      conversation_id: conversation_id,
+      session_token: app_api_session_token
+    )
     terminal = Acceptance::ManualSupport.wait_for_app_api_turn_terminal!(
       conversation_id: conversation_id,
       turn_id: turn_id,
@@ -129,17 +169,6 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
     )
   end
 end
-
-supervision_session = Acceptance::ManualSupport.create_conversation_supervision_session!(
-  conversation_id: conversation_id,
-  actor: bootstrap.user,
-  responder_strategy: "builtin"
-)
-supervision_probe = Acceptance::ManualSupport.append_conversation_supervision_message!(
-  supervision_session_id: supervision_session.dig("conversation_supervision_session", "supervision_session_id"),
-  actor: bootstrap.user,
-  content: "What changed most recently in this conversation?"
-)
 
 debug_export_download = Acceptance::ManualSupport.app_api_debug_export_conversation!(
   conversation_id: conversation_id,
@@ -173,6 +202,8 @@ write_json(artifact_dir.join("evidence", "conversation-turn-runtime-events.json"
 write_json(artifact_dir.join("evidence", "conversation-turn-feed.json"), turn_feed)
 write_json(artifact_dir.join("evidence", "conversation-supervision-session.json"), supervision_session)
 write_json(artifact_dir.join("evidence", "conversation-supervision-probe.json"), supervision_probe)
+write_json(artifact_dir.join("evidence", "conversation-supervision-messages.json"), supervision_messages)
+write_json(artifact_dir.join("evidence", "conversation-live-activity.json"), live_activity)
 write_json(artifact_dir.join("evidence", "runtime-validation.json"), runtime_validation)
 write_json(artifact_dir.join("evidence", "conversation-debug-export-download.json"), debug_export_download)
 write_json(artifact_dir.join("evidence", "conversation-export-download.json"), export_download)
@@ -212,6 +243,17 @@ selected_output_message = debug_payload.fetch("conversation_payload")
   .fetch("messages")
   .reverse
   .find { |message| message.fetch("turn_public_id") == turn_id && message.fetch("role") == "assistant" }
+supervision_session_id = supervision_session.dig("conversation_supervision_session", "supervision_session_id")
+export_supervision_messages = debug_payload.fetch("conversation_supervision_messages")
+  .select { |message| message.fetch("supervision_session_id") == supervision_session_id }
+status_probe_content = supervision_probe.dig("human_sidechat", "content").to_s
+message_roles = supervision_messages.fetch("items").map { |item| item.fetch("role") }
+transcript_before_ids = transcript_before.fetch("items").map { |item| item.fetch("id") }
+transcript_after_ids = transcript_after.fetch("items").map { |item| item.fetch("id") }
+recent_change_covered =
+  status_probe_content.match?(/most recently/i) ||
+  status_probe_content.match?(/recent change/i) ||
+  status_probe_content.match?(/no more specific recent change available/i)
 observed_conversation_state = {
   "conversation_state" => terminal.fetch("conversation").fetch("lifecycle_state"),
   "workflow_lifecycle_state" => workflow_run.fetch("lifecycle_state"),
@@ -229,7 +271,18 @@ passed = dag_shape_passed &&
     host_validation: host_validation,
     playwright_validation: playwright_validation
   ) &&
-  conversation_export_path.exist?
+  conversation_export_path.exist? &&
+  live_activity.fetch("turn").fetch("lifecycle_state") == "active" &&
+  (Acceptance::ManualSupport.runtime_activity_present?(live_activity.fetch("runtime_events")) ||
+    Acceptance::ManualSupport.feed_activity_present?(live_activity.fetch("feed"))) &&
+  status_probe_content.match?(/right now|currently/i) &&
+  status_probe_content.match?(/2048|game|board|tile|move/i) &&
+  recent_change_covered &&
+  !status_probe_content.match?(/execution runtime completed|turn completed/i) &&
+  transcript_before_ids == transcript_after_ids &&
+  message_roles == %w[user supervisor_agent] &&
+  export_supervision_messages.length == 2 &&
+  export_supervision_messages.map { |message| message.fetch("role") } == message_roles
 
 write_text(
   artifact_dir.join("review", "summary.md"),
@@ -253,6 +306,9 @@ write_text(
     - runtime events review: `#{artifact_dir.join("review", "runtime-events.md")}`
     - supervision feed review: `#{artifact_dir.join("review", "supervision-feed.md")}`
     - supervision sidechat review: `#{artifact_dir.join("review", "supervision-sidechat.md")}`
+    - live sidechat asked while turn active: `#{live_activity.fetch("turn").fetch("lifecycle_state") == "active"}`
+    - sidechat response referenced game work: `#{status_probe_content.match?(/2048|game|board|tile|move/i).present?}`
+    - sidechat response covered recent-change semantics: `#{recent_change_covered}`
   MD
 )
 
@@ -282,6 +338,13 @@ result = Acceptance::ManualSupport.scenario_result(
     "conversation_debug_export_path" => conversation_debug_export_path.to_s,
     "selected_output_message_id" => selected_output_message&.fetch("message_public_id", nil),
     "selected_output_content" => selected_output_message&.fetch("content", nil),
+    "live_activity" => live_activity,
+    "supervision_session_id" => supervision_session_id,
+    "supervision_probe_content" => status_probe_content,
+    "supervision_recent_change_covered" => recent_change_covered,
+    "supervision_message_roles" => message_roles,
+    "transcript_before_ids" => transcript_before_ids,
+    "transcript_after_ids" => transcript_after_ids,
   }
 )
 result["passed"] = passed

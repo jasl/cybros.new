@@ -1526,6 +1526,192 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal [["conv_123", "session-token"]], show_calls
   end
 
+  test "wait_for_app_api_turn_live_activity! waits for an active turn with runtime evidence" do
+    turn_responses = [
+      {
+        "items" => [
+          {
+            "turn_id" => "turn_123",
+            "lifecycle_state" => "queued",
+          },
+        ],
+      },
+      {
+        "items" => [
+          {
+            "turn_id" => "turn_123",
+            "lifecycle_state" => "active",
+          },
+        ],
+      },
+      {
+        "items" => [
+          {
+            "turn_id" => "turn_123",
+            "lifecycle_state" => "active",
+          },
+        ],
+      },
+    ]
+    runtime_event_responses = [
+      { "summary" => { "event_count" => 0 }, "segments" => [] },
+      { "summary" => { "event_count" => 2 }, "segments" => [{ "events" => [{ "kind" => "tool_started" }] }] },
+    ]
+    feed_responses = [
+      { "items" => [] },
+      { "items" => [{ "event_kind" => "progress" }] },
+    ]
+    diagnostics_calls = []
+    runtime_calls = []
+    feed_calls = []
+
+    payload = nil
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_conversation_diagnostics_turns!,
+      lambda do |conversation_id:, session_token:|
+        diagnostics_calls << [conversation_id, session_token]
+        turn_responses.shift
+      end
+    ) do
+      with_redefined_singleton_method(
+        Acceptance::ManualSupport,
+        :app_api_conversation_turn_runtime_events!,
+        lambda do |conversation_id:, turn_id:, session_token:|
+          runtime_calls << [conversation_id, turn_id, session_token]
+          runtime_event_responses.shift
+        end
+      ) do
+        with_redefined_singleton_method(
+          Acceptance::ManualSupport,
+          :app_api_conversation_feed!,
+          lambda do |conversation_id:, session_token:|
+            feed_calls << [conversation_id, session_token]
+            feed_responses.shift
+          end
+        ) do
+          payload = Acceptance::ManualSupport.wait_for_app_api_turn_live_activity!(
+            conversation_id: "conv_123",
+            turn_id: "turn_123",
+            session_token: "session-token",
+            timeout_seconds: 1,
+            poll_interval_seconds: 0.0
+          )
+        end
+      end
+    end
+
+    assert_equal "active", payload.fetch("turn").fetch("lifecycle_state")
+    assert_equal 2, payload.dig("runtime_events", "summary", "event_count")
+    assert_equal "progress", payload.fetch("feed").fetch("items").first.fetch("event_kind")
+    assert_equal [
+      ["conv_123", "session-token"],
+      ["conv_123", "session-token"],
+      ["conv_123", "session-token"],
+    ], diagnostics_calls
+    assert_equal [
+      ["conv_123", "turn_123", "session-token"],
+      ["conv_123", "turn_123", "session-token"],
+    ], runtime_calls
+    assert_equal [
+      ["conv_123", "session-token"],
+      ["conv_123", "session-token"],
+    ], feed_calls
+  end
+
+  test "wait_for_app_api_turn_live_activity! fails if the turn finishes before live activity is observed" do
+    responses = [
+      {
+        "items" => [
+          {
+            "turn_id" => "turn_123",
+            "lifecycle_state" => "completed",
+          },
+        ],
+      },
+    ]
+    diagnostics_calls = []
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_conversation_diagnostics_turns!,
+      lambda do |conversation_id:, session_token:|
+        diagnostics_calls << [conversation_id, session_token]
+        responses.shift
+      end
+    ) do
+      error = assert_raises(RuntimeError) do
+        Acceptance::ManualSupport.wait_for_app_api_turn_live_activity!(
+          conversation_id: "conv_123",
+          turn_id: "turn_123",
+          session_token: "session-token",
+          timeout_seconds: 1,
+          poll_interval_seconds: 0.0
+        )
+      end
+
+      assert_includes error.message, "reached terminal state before live activity was observed"
+    end
+
+    assert_equal [["conv_123", "session-token"]], diagnostics_calls
+  end
+
+  test "wait_for_app_api_turn_live_activity! honors a custom readiness block" do
+    turn_responses = [
+      {
+        "items" => [
+          {
+            "turn_id" => "turn_123",
+            "lifecycle_state" => "active",
+            "provider_round_count" => 0,
+            "tool_call_count" => 0,
+          },
+        ],
+      },
+      {
+        "items" => [
+          {
+            "turn_id" => "turn_123",
+            "lifecycle_state" => "active",
+            "provider_round_count" => 1,
+            "tool_call_count" => 0,
+          },
+        ],
+      },
+    ]
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :app_api_conversation_diagnostics_turns!,
+      ->(conversation_id:, session_token:) { turn_responses.shift }
+    ) do
+      with_redefined_singleton_method(
+        Acceptance::ManualSupport,
+        :app_api_conversation_turn_runtime_events!,
+        ->(conversation_id:, turn_id:, session_token:) { { "summary" => { "event_count" => 1 }, "segments" => [] } }
+      ) do
+        with_redefined_singleton_method(
+          Acceptance::ManualSupport,
+          :app_api_conversation_feed!,
+          ->(conversation_id:, session_token:) { { "items" => [] } }
+        ) do
+          payload = Acceptance::ManualSupport.wait_for_app_api_turn_live_activity!(
+            conversation_id: "conv_123",
+            turn_id: "turn_123",
+            session_token: "session-token",
+            timeout_seconds: 1,
+            poll_interval_seconds: 0.0
+          ) do |turn:, runtime_events:, feed:|
+            turn.fetch("provider_round_count").positive?
+          end
+
+          assert_equal 1, payload.fetch("turn").fetch("provider_round_count")
+        end
+      end
+    end
+  end
+
   test "app_api_conversation_transcript! uses the nested transcript route" do
     captured = nil
 
