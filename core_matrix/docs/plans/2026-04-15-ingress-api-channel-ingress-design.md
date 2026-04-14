@@ -1,29 +1,40 @@
 # IngressAPI Channel Ingress Design
 
+> Status note: this document describes the incremental ingress design on top of
+> the current CoreMatrix topology. If
+> `2026-04-15-workspace-agent-decoupling-design.md` is adopted first, rebase
+> this design on `WorkspaceAgent` and `IngressBinding`.
+
 ## Goal
 
 Add a first-class external ingress boundary to CoreMatrix so chat-style systems
-such as Telegram and Discord can act as product entry points without being
+such as Telegram and Weixin can act as product entry points without being
 modeled as `Conversation` itself.
 
-The first delivery target is Telegram DM. The design must also support later
-group/channel/thread expansion and future non-IM ingress sources under the same
-`IngressAPI` surface.
+Telegram DM is the first delivery target. The same substrate must also support:
+
+- a Weixin direct-message connector implemented behind `lib/claw_bot_sdk`
+- multiple channel accounts per user by design
+- later group/thread expansion
+- future non-IM external ingress sources under the same `IngressAPI` surface
 
 ## Context And Constraints
 
 - `Conversation` remains the CoreMatrix product object.
 - External platforms bind to a `Conversation`; they do not become the
   conversation.
-- The external sender must not be treated as the same role as the CoreMatrix
+- External senders must not be treated as the same role as the CoreMatrix
   conversation owner.
 - Existing `AppAPI` browser/session boundaries are not suitable for machine
   ingress.
+- The user-facing config root should be workspace-scoped so users do not choose
+  both agent and workspace manually; the workspace already pins the agent.
 - CoreMatrix already has turn, workflow, attachment, runtime-broadcast, and
-  during-generation input-policy primitives that should be reused instead of
-  duplicated.
-- `references/` material is comparative input only. It informs the shape of the
-  solution but is not the implementation source of truth.
+  during-generation input-policy primitives that should be reused.
+- Not every channel will arrive through an HTTP webhook. Telegram can; Weixin
+  likely cannot.
+- `references/` material is comparative input only. It informs the design but
+  is not the implementation source of truth.
 
 ## Comparative Findings
 
@@ -33,7 +44,7 @@ OpenClaw models IM integration as a channel-plugin boundary, not as assistant
 core logic. The shared builder composes channel plugins from explicit surfaces
 such as security, pairing, threading, and outbound delivery.
 
-This is the right design direction for CoreMatrix:
+This is the right direction for CoreMatrix:
 
 - transport-specific logic stays at the ingress edge
 - auth, pairing, routing, and thread binding are explicit pipeline stages
@@ -52,30 +63,135 @@ Hermes Agent adds a practical gateway shape around this idea:
 
 CoreMatrix should borrow the normalized event and batching ideas, but should not
 copy Hermes' large base-adapter object. In CoreMatrix those concerns belong in
-`IngressAPI` application services, not in transport adapters.
+application services and connector runtimes, not in transport adapters.
+
+### `telegram-bot-ruby`
+
+`telegram-bot-ruby` is a good fit for Telegram because it provides a Bot API
+wrapper and typed payload support while still letting CoreMatrix own the webhook
+controller and routing model.
+
+Important implications:
+
+- CoreMatrix should implement its own webhook controller
+- the gem should be used for Bot API calls such as `setWebhook`, `sendMessage`,
+  `sendPhoto`, `sendDocument`, and `getFile`
+- webhook verification, envelope normalization, batching, pairing, and turn
+  entry still belong to CoreMatrix
+
+### `openclaw-weixin`
+
+The Weixin plugin is structurally different from Telegram:
+
+- inbound messages come from a long-poll HTTP JSON API, not a public webhook
+- account login is QR-based and produces account-local credentials
+- outbound replies require a per-peer `context_token`
+- media send/download depends on CDN-specific upload/download flows and
+  encryption concerns
+
+CoreMatrix should borrow the transport decomposition, but should not copy its
+filesystem state-store conventions. The CoreMatrix source of truth must stay in
+Rails models and services. The Weixin-specific protocol and crypto mechanics
+should live behind `lib/claw_bot_sdk`.
 
 ## Architecture
 
-The system is split into two public surfaces:
+The system is split into two public surfaces plus one internal transport bridge:
 
 - `IngressAPI`
-  - machine-facing
-  - webhook/gateway ingress for Telegram, Discord, and later external systems
-  - owns signature verification, normalization, dedupe, routing, and turn-entry
-    orchestration
+  - machine-facing external input boundary
+  - owns normalization, dedupe, routing, and turn-entry orchestration
+  - can be entered through webhook controllers or connector/poller runtimes
 - `AppAPI`
   - user-facing management surface
-  - owns account setup, pairing approval, allowlists, session binding, and
-    conversation association management
+  - owns workspace-scoped ingress endpoint setup, channel account config,
+    pairing approval, allowlists, session binding, and conversation association
+    management
+- `lib/claw_bot_sdk`
+  - internal protocol bridge for transports that do not have a suitable native
+    Ruby SDK or webhook-friendly shape
+  - v1 first use: Weixin
 
-This preserves a clean layered boundary:
+Layering:
 
-- presentation: `IngressAPI::*Controller`, `AppAPI::*Controller`
-- application: ingress orchestration, authorization, turn entry, outbound
-  delivery
-- domain: channel/session/account/pairing/delivery facts
-- infrastructure: Telegram/Discord clients, media downloaders, webhook
-  verification
+- presentation
+  - `IngressAPI::*Controller`
+  - `AppAPI::*Controller`
+  - connector jobs/runners for poll-based channels
+- application
+  - ingress orchestration
+  - authorization
+  - channel routing
+  - turn entry
+  - outbound delivery
+- domain
+  - ingress endpoints
+  - channel accounts
+  - sessions
+  - pairing requests
+  - inbound facts
+  - outbound deliveries
+- infrastructure
+  - Telegram client
+  - Weixin bridge client
+  - media downloaders
+  - webhook verification
+  - long-poll checkpoints
+
+## Workspace-Scoped Entry Root
+
+The primary user-facing configuration object should be a workspace-scoped
+`IngressEndpoint`.
+
+This solves several problems:
+
+- users manage ingress where the conversations will live
+- the workspace already pins the agent, so users only choose an optional
+  execution runtime override
+- each endpoint gets a stable public ingress id for Telegram webhook URLs and
+  for poll-based connector routing
+- multiple Telegram bots or Weixin accounts are supported simply by creating
+  multiple ingress endpoints under the same workspace
+
+In v1, one `IngressEndpoint` should own one active `ChannelAccount`.
+
+## Transport Shapes
+
+### Telegram
+
+Telegram is a webhook-style transport:
+
+- inbound shape
+  - `POST /ingress_api/telegram/endpoints/:public_ingress_id/updates`
+- transport library
+  - `gem "telegram-bot-ruby"`
+- outbound shape
+  - Bot API calls through the gem
+- attachment shape
+  - resolve file metadata and download through Bot API
+
+Telegram-specific code should live mostly under:
+
+- `app/controllers/ingress_api/telegram`
+- `app/services/ingress_api/telegram`
+- `app/services/channel_deliveries`
+
+### Weixin
+
+Weixin should be treated as a connector-driven transport:
+
+- inbound shape
+  - an account-scoped poller or runner fetches updates and feeds normalized
+    envelopes into `IngressAPI::ReceiveEvent`
+- transport bridge
+  - `lib/claw_bot_sdk/weixin`
+- outbound shape
+  - bridge-mediated `sendmessage`, `getuploadurl`, `sendtyping`, and related
+    protocol calls
+- attachment shape
+  - bridge-mediated media download/upload and protocol-specific crypto
+
+After normalization, the Rails ingress pipeline should be identical.
 
 ## Identity Model
 
@@ -85,10 +201,10 @@ Three identities must stay separate:
    - the CoreMatrix user/workspace owner
    - decides product ownership, visibility, billing, and management rights
 2. `Channel account`
-   - the Telegram bot or Discord app credentials used for transport
-   - decides which external bot identity sends messages
+   - the Telegram bot credentials or Weixin logged-in account used for transport
+   - decides which external identity sends messages
 3. `External sender`
-   - the Telegram user, Discord member, or group participant who sent the input
+   - the Telegram user or Weixin peer who sent the input
    - does not become a CoreMatrix `User`
 
 Transcript role semantics stay unchanged:
@@ -100,21 +216,64 @@ Turn provenance must therefore stop using `manual_user` semantics for IM ingress
 
 ## Core Domain Objects
 
-### `ChannelAccount`
+### `IngressEndpoint`
 
-Represents one configured external bot/app account.
+Represents one workspace-scoped managed external entrypoint.
 
 Suggested fields:
 
 - `public_id`
 - `installation_id`
 - `owner_user_id`
-- optional `workspace_id`
+- `workspace_id`
+- optional `default_execution_runtime_id`
+- `kind`
+- `lifecycle_state`
+- `public_ingress_id`
+- `ingress_secret_digest`
+- `routing_policy_payload`
+- `manual_entry_policy`
+
+Notes:
+
+- the endpoint's workspace determines the agent
+- `default_execution_runtime_id` is the only runtime choice a user makes here
+- `public_id` is the resource identity used in AppAPI payloads and nested
+  resource lookup
+- `public_ingress_id` is a separate opaque routing token used in external URLs
+  or poller configuration
+- `ingress_secret_digest` stores a secret used to verify external requests
+- `manual_entry_policy` should default to allowing both app-side and external
+  input in v1
+- do not overload `Conversation.addressability` for "external-only input"
+
+### `ChannelAccount`
+
+Represents one configured external bot/app/account attached to one ingress
+endpoint.
+
+Suggested fields:
+
+- `public_id`
+- `installation_id`
+- `ingress_endpoint_id`
+- `owner_user_id`
 - `platform`
+- `driver`
+- `transport_kind`
 - `label`
 - `lifecycle_state`
 - `credential_ref_payload`
 - `config_payload`
+- `runtime_state_payload`
+
+Notes:
+
+- `driver` distinguishes `telegram_bot_api` from `claw_bot_sdk_weixin`
+- `transport_kind` distinguishes `webhook` from `poller`
+- `runtime_state_payload` can hold account-scoped live state such as QR login
+  progress or a poll cursor
+- v1 should enforce one active `ChannelAccount` per `IngressEndpoint`
 
 ### `ChannelSession`
 
@@ -125,6 +284,7 @@ Suggested fields:
 
 - `public_id`
 - `installation_id`
+- `ingress_endpoint_id`
 - `channel_account_id`
 - `owner_user_id`
 - `conversation_id`
@@ -139,7 +299,13 @@ Suggested fields:
 
 Suggested uniqueness:
 
-- `channel_account_id + peer_kind + peer_id + thread_key`
+- `channel_account_id + peer_kind + peer_id + coalesce(thread_key, '')`
+
+Notes:
+
+- `session_metadata` carries transport-specific reply state
+- for Weixin this includes the latest valid `context_token`
+- for Telegram this may include reply-thread targeting metadata later
 
 ### `ChannelPairingRequest`
 
@@ -149,6 +315,7 @@ Suggested fields:
 
 - `public_id`
 - `installation_id`
+- `ingress_endpoint_id`
 - `channel_account_id`
 - `owner_user_id`
 - optional `channel_session_id`
@@ -168,10 +335,12 @@ Suggested fields:
 
 - `public_id`
 - `installation_id`
+- `ingress_endpoint_id`
 - `channel_account_id`
 - `channel_session_id`
 - optional `conversation_id`
-- `external_message_id`
+- `external_event_key`
+- `external_message_key`
 - `external_sender_id`
 - `sender_snapshot`
 - `content`
@@ -181,7 +350,7 @@ Suggested fields:
 
 Suggested uniqueness:
 
-- `channel_account_id + external_message_id`
+- `channel_account_id + external_event_key`
 
 ### `ChannelDelivery`
 
@@ -191,13 +360,14 @@ Suggested fields:
 
 - `public_id`
 - `installation_id`
+- `ingress_endpoint_id`
 - `channel_account_id`
 - `channel_session_id`
 - `conversation_id`
 - optional `turn_id`
 - optional `message_id`
-- `external_message_id`
-- `reply_to_external_message_id`
+- `external_message_key`
+- `reply_to_external_message_key`
 - `delivery_state`
 - `payload`
 - `delivered_at`
@@ -216,9 +386,11 @@ Normalized verified inbound event.
 Suggested fields:
 
 - `platform`
+- `driver`
+- `ingress_endpoint_public_id`
 - `channel_account_public_id`
-- `external_event_id`
-- `external_message_id`
+- `external_event_key`
+- `external_message_key`
 - `peer_kind`
 - `peer_id`
 - `thread_key`
@@ -226,8 +398,9 @@ Suggested fields:
 - `sender_snapshot`
 - `text`
 - `attachments`
-- `reply_to_external_message_id`
+- `reply_to_external_message_key`
 - `occurred_at`
+- `transport_metadata`
 - `raw_payload`
 
 ### `IngressContext`
@@ -236,6 +409,7 @@ Mutable per-request orchestration context.
 
 Suggested fields:
 
+- `ingress_endpoint`
 - `channel_session`
 - `conversation`
 - `active_turn`
@@ -246,6 +420,29 @@ Suggested fields:
 - `dispatch_decision`
 - `origin_payload`
 
+## Idempotency And External Keys
+
+Inbound ingest and reply threading should not rely on one overloaded "message
+id" field. The ingress contract should keep two external key types:
+
+- `external_event_key`
+  - the ingest idempotency key
+- `external_message_key`
+  - the stable message reference used for reply targeting or later audit
+
+Recommended mapping:
+
+- Telegram
+  - `external_event_key = "telegram:update:<update_id>"`
+  - `external_message_key = "telegram:chat:<chat_id>:message:<message_id>"`
+- Weixin
+  - `external_event_key = "weixin:message:<message_id>"`
+  - `external_message_key = "weixin:message:<message_id>"`
+  - if `message_id` is missing, fall back to a normalized
+    `session_id/seq` compound key
+
+This keeps dedupe correct while still preserving the platform's reply target.
+
 ## Middleware And Preprocessor Pipeline
 
 The ingress stack should be explicit and ordered.
@@ -254,17 +451,19 @@ The ingress stack should be explicit and ordered.
 
 These are transport-agnostic cross-cutting steps:
 
-1. `VerifyRequest`
-   - verify webhook signature or gateway trust
-   - identify the `ChannelAccount`
-2. `CaptureRawPayload`
+1. `CaptureRawPayload`
    - preserve raw bytes/body for audit and signature correctness
-3. `RateLimit`
-   - optional v1 guardrail at account/platform boundary
-4. `NormalizeEnvelope`
-   - adapter-specific payload -> `IngressEnvelope`
-5. `DeduplicateInbound`
-   - enforce one normalized inbound fact per external message id
+2. `VerifyRequest`
+   - verify webhook signature or connector credentials
+   - identify the `IngressEndpoint` and `ChannelAccount`
+3. `AdapterNormalizeEnvelope`
+   - transport adapter payload -> `IngressEnvelope`
+   - this is a pipeline stage, not necessarily a standalone middleware class
+4. `DeduplicateInbound`
+   - enforce one normalized inbound fact per external event key
+5. `RateLimit`
+   - optional later v1 guardrail at account/platform boundary
+   - not required for the first implementation slice
 
 ### Preprocessors
 
@@ -274,25 +473,85 @@ These decide how the input becomes CoreMatrix work:
    - bind external peer/thread to `ChannelSession`
 2. `AuthorizeAndPair`
    - DM pairing, allowlists, mention gates, sender checks
-3. `CoalesceBurst`
+3. `CreateOrBindConversation`
+   - resolve the bound conversation or create one from the ingress endpoint
+4. `CoalesceBurst`
    - merge client-side text splits and short burst input windows
-4. `MaterializeAttachments`
-   - download/store platform media, create attachment records
-5. `OptionalMediaUnderstanding`
+5. `MaterializeAttachments`
+   - download/store platform media and create attachment records
+6. `OptionalMediaUnderstanding`
    - optional inbound media digest before reply pipeline
    - failure must not block normal processing
-6. `ResolveDispatchDecision`
+7. `ResolveDispatchDecision`
    - decide `new_turn`, `steer_current_turn`, `queue_follow_up`, or `reject`
-7. `MaterializeTurnEntry`
+8. `MaterializeTurnEntry`
    - create immutable ingress facts and enter the turn system
-8. `ScheduleOutboundBinding`
+9. `ScheduleOutboundBinding`
    - preserve reply/thread/outbound cursor context for later delivery
 
-The ordering matters:
+Ordering matters:
 
 - auth decisions happen before turn entry
+- conversation creation happens before turn entry
 - attachments are materialized before the turn snapshot is built
 - dispatch decision happens after batching and attachment materialization
+
+## Transport Adapter Boundary
+
+After normalization, Telegram and Weixin should flow through the same
+`IngressAPI::ReceiveEvent` path. The transport edge should implement a small
+adapter contract:
+
+- identify or verify the ingress endpoint and channel account
+- normalize inbound payload to `IngressEnvelope`
+- download inbound media when asked
+- send outbound text/media when asked
+- expose transport-specific delivery metadata needed for future replies
+
+### Telegram Adapter
+
+- implemented directly in Rails app/services
+- uses `telegram-bot-ruby` for Bot API requests
+- owns webhook JSON normalization and Bot API file fetch/send behavior
+- identifies the ingress endpoint from `public_ingress_id` in the webhook path
+- verifies the request with an endpoint-scoped secret token
+
+### Weixin Adapter
+
+- implemented through `lib/claw_bot_sdk/weixin`
+- owns long-polling, QR login flow, `context_token` handling, and CDN/media
+  protocol details
+- should expose a Ruby-facing client that the Rails application can call without
+  importing TypeScript code or OpenClaw runtime assumptions
+
+## First-Contact Routing And Conversation Creation
+
+When an inbound DM reaches an approved, unbound session, CoreMatrix should
+create a new root conversation from the ingress endpoint.
+
+Routing rules:
+
+- workspace = `IngressEndpoint.workspace`
+- agent = `IngressEndpoint.workspace.agent`
+- execution runtime =
+  - `IngressEndpoint.default_execution_runtime`
+  - otherwise `Workspace.default_execution_runtime`
+  - otherwise the agent default runtime
+
+Conversation rules:
+
+- create a normal interactive root conversation
+- default to `owner_addressable` in v1
+- allow app-side and external-side input concurrently in v1
+- if later product needs "external-only input", add a separate manual-entry
+  policy on `IngressEndpoint` or `ChannelSession`
+
+Implementation note:
+
+- new channel-ingress entry must enqueue the same workflow bootstrap path as
+  ordinary user entry
+- if title bootstrap should apply to channel-created conversations, current
+  `manual_user`-only title bootstrap logic must be generalized explicitly
 
 ## Turn Entry Integration
 
@@ -310,13 +569,17 @@ Required behavior:
 - `source_ref_id = channel_inbound_message.public_id`
 - create a transcript-bearing `UserMessage`
 - preserve `origin_payload` fields needed for audit and routing
+- materialize workflow bootstrap state in the same way as ordinary accepted user
+  turns
 
 Suggested `origin_payload` fields:
 
 - `platform`
+- `driver`
+- `ingress_endpoint_id`
 - `channel_account_id`
 - `channel_session_id`
-- `external_message_id`
+- `external_message_key`
 - `external_sender_id`
 - `peer_kind`
 - `peer_id`
@@ -325,39 +588,31 @@ Suggested `origin_payload` fields:
 
 ## During-Generation Behavior
 
-This is the most important behavioral requirement for IM.
-
 CoreMatrix already has:
 
 - `Turns::SteerCurrentInput`
 - `Conversation.during_generation_input_policy`
 - `Workflows::Scheduler.apply_during_generation_policy`
 
-That existing model should be reused.
+That model should be reused.
 
-### Required IM Behavior
+Required IM behavior:
 
-1. If there is no active/queued work:
+1. if there is no active/queued work:
    - batch a short burst if needed
    - create a new channel-ingress turn
-2. If there is an active turn and no transcript side-effect boundary has been
+2. if there is an active turn and no transcript side-effect boundary has been
    crossed:
    - steer the current turn
-3. If the active turn has crossed the side-effect boundary:
+3. if the active turn has crossed the side-effect boundary:
    - follow the turn's frozen during-generation input policy
    - default remains `queue`
 
-### Required Refactor
+Required refactor:
 
-The current queued follow-up path still assumes `manual_user` provenance. That
-must be generalized so IM-origin follow-up work preserves channel provenance
-instead of writing owner-user provenance.
-
-This affects:
-
-- steer-to-queue transition
-- queued follow-up turn creation
-- any scheduler path that materializes a queued input after an active run
+- queued follow-up creation must preserve channel provenance instead of falling
+  back to `manual_user`
+- `Turn.origin_kind` must be expanded to include `channel_ingress`
 
 ## Continuous Input And Batching
 
@@ -370,14 +625,14 @@ IM conversations frequently send several short messages in sequence:
 The design should treat those as immutable ingress facts first and transcript
 inputs second.
 
-### V1 Rules
+V1 rules:
 
 - every external update becomes one `ChannelInboundMessage`
 - transcript input may represent one or more merged inbound messages
 - v1 uses deterministic merge rules only
 - v1 does not use LLM rewriting
 
-### Merge Windows
+Merge windows:
 
 1. `pre-turn merge window`
    - short quiet-period buffering before opening a new turn
@@ -386,15 +641,8 @@ inputs second.
 3. `post-boundary follow-up window`
    - create queued follow-up work using frozen policy
 
-### Future LLM Use
-
-If LLM is added later, it should first appear as an advisory classifier for:
-
-- `new_turn`
-- `steer`
-- `queue`
-
-It should not rewrite user text in early versions.
+Future LLM use, if added later, should first appear as an advisory classifier
+for `new_turn / steer / queue`, not as a text rewriter.
 
 ## Attachment And Media Handling
 
@@ -407,33 +655,30 @@ CoreMatrix already has:
 
 IM ingress should reuse that path.
 
-### V1 Attachment Rules
+V1 rules:
 
-1. Normalize platform media into a small modality vocabulary:
+1. normalize platform media into a small modality vocabulary
    - `image`
    - `audio`
    - `video`
    - `file`
-2. Download/store the media in CoreMatrix-managed storage
-3. Attach resulting files to the transcript-bearing `UserMessage`
-4. Preserve raw ingress media facts even if the model cannot directly consume
+2. download/store the media in CoreMatrix-managed storage
+3. attach resulting files to the transcript-bearing `UserMessage`
+4. preserve raw ingress media facts even if the model cannot directly consume
    that modality
 
-### Textless Media
+Textless media:
 
-`Message.content` is required, so media-only inbound messages must synthesize a
-minimal textual body such as:
+- `Message.content` is required, so media-only inbound messages must synthesize
+  a minimal textual body such as `User sent 1 image attachment.`
 
-- `User sent 1 image attachment.`
+Weixin media boundary:
 
-### Optional Media Understanding
+- CDN upload/download
+- encryption/decryption
+- media-type mapping needed by the upstream API
 
-Aligning with OpenClaw, the system may optionally produce a short digest before
-the main reply pipeline, but:
-
-- the original attachments must still be preserved
-- digest failure must not block the turn
-- v1 can omit this stage entirely and leave the preprocessor slot empty
+These should stay inside `lib/claw_bot_sdk`.
 
 ## Session Granularity
 
@@ -450,8 +695,6 @@ the main reply pipeline, but:
 - one thread/topic per `ChannelSession`
 - recommended default: one thread/topic maps to one conversation
 
-This avoids one busy channel sharing a single transcript for unrelated topics.
-
 ## App-Facing Management Surface
 
 All current management is user-scoped, not system-admin scoped.
@@ -461,23 +704,31 @@ workspace/conversation scope.
 
 Suggested resources:
 
-### `ChannelAccounts`
+### `Workspaces::IngressEndpoints`
 
-- create/update/disable bot account configurations
-- bind account ownership to the managing user scope
+- create/update/disable ingress endpoints
+- choose the endpoint default execution runtime
+- expose the public ingress id and platform-specific setup instructions
+- expose the attached channel account lifecycle
 
-### `ChannelPairingRequests`
+Examples:
+
+- Telegram bot token rotation
+- Weixin QR login start/reconnect/disconnect
+
+### `IngressEndpoints::PairingRequests`
 
 - list pending DM approvals
 - approve/reject/expire requests
 
-### `ChannelSessions`
+### `IngressEndpoints::Sessions`
 
 - inspect session bindings
 - rebind/unbind/freeze
 - inspect last activity and last sender snapshot
+- inspect transport-specific reply state
 
-### `ChannelPolicies`
+### `IngressEndpoints::Policies`
 
 - DM policy
 - sender allowlist
@@ -494,12 +745,30 @@ Suggested resources:
 Minimum v1 guarantees:
 
 - verified machine ingress boundary
-- per-message idempotency
+- per-event idempotency
 - no unauthorized message enters the turn system
 - immutable inbound fact recording
 - external sender never becomes CoreMatrix owner identity
 - delivery failure does not roll back completed transcript state
 - raw payloads and outbound attempts remain auditable
+
+## Verification Boundary
+
+Telegram and Weixin both depend on live external accounts, remote APIs, and
+network conditions. CoreMatrix should therefore split verification into two
+layers:
+
+- automated internal verification
+  - unit tests
+  - request tests
+  - model tests
+  - service integration tests
+- manual transport validation
+  - Telegram bot webhook setup and DM round-trip
+  - Weixin QR login, poll loop, `context_token` persistence, and DM round-trip
+
+The system should maximize deterministic internal coverage, but should not claim
+a fully automated end-to-end acceptance path for these channels.
 
 ## Non-Goals
 
@@ -513,16 +782,15 @@ This design intentionally does not include:
 - advanced OCR/captioning/media summarization in v1
 - voice-mode or live-call transport in v1
 
-## Telegram-First Delivery Strategy
-
-Telegram is the first target because it validates the entire ingress shape with
-less platform lifecycle complexity than Discord.
+## Delivery Strategy
 
 ### Phase 1: Shared Ingress Substrate
 
 Build:
 
+- workspace-scoped ingress endpoints
 - shared ingress contracts
+- transport adapter boundary
 - channel-ingress turn entry
 - provenance-safe follow-up/queue path
 - attachment materialization
@@ -531,7 +799,9 @@ Build:
 
 Build:
 
-- Telegram account adapter
+- `telegram-bot-ruby` integration
+- endpoint-scoped Telegram webhook controller
+- endpoint-scoped webhook URL and secret verification
 - DM pairing
 - text + image/file attachment ingress
 - short burst merge
@@ -539,10 +809,16 @@ Build:
 - outbound reply delivery
 - minimal app management surface
 
-### Phase 3: Discord DM
+### Phase 3: Weixin Direct Message Connector
 
-Reuse the shared substrate and add only Discord-specific normalization and
-outbound behavior.
+Build:
+
+- `lib/claw_bot_sdk/weixin`
+- QR-login-aware account lifecycle
+- endpoint-bound poll routing
+- `context_token` persistence on channel sessions
+- text + image/file attachment ingress
+- outbound reply delivery through the bridge
 
 ### Phase 4: Group / Thread Expansion
 
@@ -552,6 +828,11 @@ Add:
 - group/channel policies
 - thread/topic session resolution
 - expanded management views
+
+### Phase 5: Future Channels
+
+Reuse the same substrate for later transports such as Discord or other
+open-platform callbacks.
 
 ## Decision Summary
 
@@ -563,5 +844,6 @@ boundary:
 - not as a thin transport wrapper around `manual_user`
 
 The product object remains the conversation. `IngressAPI` owns how external
-systems enter that product object, and `AppAPI` owns how users manage those
-bindings.
+systems enter that product object, `AppAPI` owns how users manage those
+bindings, and `lib/claw_bot_sdk` exists only where a transport-specific bridge
+is necessary.

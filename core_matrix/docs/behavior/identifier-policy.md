@@ -37,6 +37,12 @@ agent-facing boundaries:
 - `WorkflowNode`
 - `AgentTaskRun`
 - `SubagentConnection`
+- `IngressEndpoint`
+- `ChannelAccount`
+- `ChannelSession`
+- `ChannelPairingRequest`
+- `ChannelInboundMessage`
+- `ChannelDelivery`
 - `ToolBinding`
 - `ToolDefinition`
 - `ToolImplementation`
@@ -79,6 +85,10 @@ agent-facing boundaries:
   or human-interaction references
 - resources that do not have `public_id` must not leak raw internal row ids
   through agent-facing payloads
+- transport ingress routing may additionally use an opaque non-resource token
+  such as `IngressEndpoint.public_ingress_id`, but that token is not a
+  substitute for the resource `public_id` in API payloads or nested resource
+  lookup
 
 ## Ordering Rule
 
