@@ -9,6 +9,7 @@ class AgentDefinitionVersion < ApplicationRecord
   belongs_to :agent
   belongs_to :protocol_methods_document, class_name: "JsonDocument"
   belongs_to :feature_contract_document, class_name: "JsonDocument"
+  belongs_to :request_preparation_contract_document, class_name: "JsonDocument"
   belongs_to :tool_contract_document, class_name: "JsonDocument"
   belongs_to :profile_policy_document, class_name: "JsonDocument"
   belongs_to :canonical_config_schema_document, class_name: "JsonDocument"
@@ -33,6 +34,7 @@ class AgentDefinitionVersion < ApplicationRecord
   validate :document_installation_match
   validate :protocol_methods_contract_shape
   validate :feature_contract_shape
+  validate :request_preparation_contract_shape
   validate :tool_contract_shape
   validate :tool_contract_reserved_prefix_policy
 
@@ -50,6 +52,10 @@ class AgentDefinitionVersion < ApplicationRecord
 
   def feature_contract
     payload_array(feature_contract_document)
+  end
+
+  def request_preparation_contract
+    payload_hash(request_preparation_contract_document)
   end
 
   def tool_contract
@@ -312,6 +318,36 @@ class AgentDefinitionVersion < ApplicationRecord
     end
   end
 
+  def request_preparation_contract_shape
+    contract = request_preparation_contract
+    return if contract.blank?
+
+    prompt_compaction = contract["prompt_compaction"]
+    return if prompt_compaction.blank?
+
+    unless prompt_compaction.is_a?(Hash)
+      errors.add(:request_preparation_contract_document, "prompt_compaction must be a hash")
+      return
+    end
+
+    consultation_mode = prompt_compaction["consultation_mode"].to_s
+    unless consultation_mode.blank? || %w[direct_optional direct_required none].include?(consultation_mode)
+      errors.add(:request_preparation_contract_document, "must contain supported consultation_mode values")
+      return
+    end
+
+    workflow_execution = prompt_compaction["workflow_execution"].to_s
+    unless workflow_execution.blank? || %w[supported unsupported].include?(workflow_execution)
+      errors.add(:request_preparation_contract_document, "must contain supported workflow_execution values")
+      return
+    end
+
+    lifecycle = prompt_compaction["lifecycle"].to_s
+    return if lifecycle.blank? || lifecycle == "turn_scoped"
+
+    errors.add(:request_preparation_contract_document, "must contain supported lifecycle values")
+  end
+
   def tool_contract_reserved_prefix_policy
     tool_contract.each do |entry|
       next unless entry.is_a?(Hash)
@@ -327,6 +363,7 @@ class AgentDefinitionVersion < ApplicationRecord
     %i[
       protocol_methods_document
       feature_contract_document
+      request_preparation_contract_document
       tool_contract_document
       profile_policy_document
       canonical_config_schema_document

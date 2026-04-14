@@ -78,6 +78,18 @@ class Workflows::DispatchRunnableNodesTest < ActiveSupport::TestCase
     end
   end
 
+  test "enqueues prompt compaction nodes onto the workflow default queue" do
+    context = build_agent_control_context!(workflow_node_key: "prompt_compaction_node", workflow_node_type: "prompt_compaction")
+    workflow_node = context.fetch(:workflow_node)
+
+    assert_enqueued_with(job: Workflows::ExecuteNodeJob, queue: "workflow_default") do
+      Workflows::DispatchRunnableNodes.call(
+        workflow_run: context.fetch(:workflow_run),
+        runnable_nodes: [workflow_node]
+      )
+    end
+  end
+
   private
 
   def complete_workflow_node!(workflow_node)

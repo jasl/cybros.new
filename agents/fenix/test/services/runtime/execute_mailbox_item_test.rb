@@ -142,6 +142,36 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     assert_equal "Plan the launch checklist", client.reported_payloads.last.dig("response_payload", "result", "title")
   end
 
+  test "consult_prompt_compaction agent requests emit a completed terminal report" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    result = Runtime::ExecuteMailboxItem.call(
+      mailbox_item: consult_prompt_compaction_mailbox_item,
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal ["agent_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "consult_prompt_compaction", client.reported_payloads.last.fetch("request_kind")
+    assert_equal "compact", client.reported_payloads.last.dig("response_payload", "decision")
+  end
+
+  test "execute_prompt_compaction agent requests emit a completed terminal report" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    result = Runtime::ExecuteMailboxItem.call(
+      mailbox_item: execute_prompt_compaction_mailbox_item,
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal ["agent_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "execute_prompt_compaction", client.reported_payloads.last.fetch("request_kind")
+    assert_equal "prompt_compaction_context", client.reported_payloads.last.dig("response_payload", "artifact", "artifact_kind")
+  end
+
   test "supervision_status_refresh agent requests emit a completed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 
@@ -376,6 +406,92 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
         "feature" => {
           "feature_key" => feature_key,
           "input" => input,
+        },
+      },
+    }
+  end
+
+  def consult_prompt_compaction_mailbox_item
+    {
+      "item_type" => "agent_request",
+      "item_id" => "mailbox-item-consult-prompt-compaction-1",
+      "protocol_message_id" => "protocol-message-consult-prompt-compaction-1",
+      "logical_work_id" => "prompt-compaction-consult:workflow-node-1",
+      "attempt_no" => 1,
+      "control_plane" => "agent",
+      "payload" => {
+        "request_kind" => "consult_prompt_compaction",
+        "task" => {
+          "workflow_node_id" => "workflow-node-1",
+          "conversation_id" => "conversation-1",
+          "turn_id" => "turn-1",
+          "kind" => "turn_step",
+        },
+        "provider_context" => {
+          "budget_hints" => {
+            "hard_limits" => {
+              "hard_input_token_limit" => 80,
+            },
+            "advisory_hints" => {
+              "recommended_compaction_threshold" => 40,
+            },
+          },
+        },
+        "prompt_compaction" => {
+          "consultation_reason" => "soft_threshold",
+          "selected_input_message_id" => "message-1",
+          "candidate_messages" => [
+            { "role" => "system", "content" => "You are a coding agent." },
+            { "role" => "user", "content" => "Review /tmp/report.json and ECONNRESET traces." * 6 },
+            { "role" => "user", "content" => "Newest input" },
+          ],
+          "guard_result" => {
+            "decision" => "consult",
+            "estimated_tokens" => 120,
+          },
+        },
+      },
+    }
+  end
+
+  def execute_prompt_compaction_mailbox_item
+    {
+      "item_type" => "agent_request",
+      "item_id" => "mailbox-item-execute-prompt-compaction-1",
+      "protocol_message_id" => "protocol-message-execute-prompt-compaction-1",
+      "logical_work_id" => "prompt-compaction:workflow-node-1",
+      "attempt_no" => 1,
+      "control_plane" => "agent",
+      "payload" => {
+        "request_kind" => "execute_prompt_compaction",
+        "task" => {
+          "workflow_node_id" => "workflow-node-1",
+          "conversation_id" => "conversation-1",
+          "turn_id" => "turn-1",
+          "kind" => "prompt_compaction",
+        },
+        "provider_context" => {
+          "budget_hints" => {
+            "hard_limits" => {
+              "hard_input_token_limit" => 80,
+            },
+            "advisory_hints" => {
+              "recommended_compaction_threshold" => 40,
+            },
+          },
+        },
+        "prompt_compaction" => {
+          "consultation_reason" => "hard_limit",
+          "selected_input_message_id" => "message-1",
+          "candidate_messages" => [
+            { "role" => "system", "content" => "You are a coding agent." },
+            { "role" => "user", "content" => "Review /tmp/report.json and ECONNRESET traces." * 6 },
+            { "role" => "user", "content" => "Newest input" },
+          ],
+          "guard_result" => {
+            "decision" => "compact_required",
+            "estimated_tokens" => 160,
+          },
         },
       },
     }

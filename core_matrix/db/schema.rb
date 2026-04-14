@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_04_14_120000) do
+ActiveRecord::Schema[8.2].define(version: 2026_04_14_133000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -181,6 +181,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_120000) do
     t.string "protocol_version", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.bigint "reflected_surface_document_id", null: false
+    t.bigint "request_preparation_contract_document_id", null: false
     t.string "sdk_version", null: false
     t.bigint "tool_contract_document_id", null: false
     t.datetime "updated_at", null: false
@@ -197,6 +198,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_120000) do
     t.index ["protocol_methods_document_id"], name: "idx_on_protocol_methods_document_id_6c0cdfb44d"
     t.index ["public_id"], name: "index_agent_definition_versions_on_public_id", unique: true
     t.index ["reflected_surface_document_id"], name: "idx_on_reflected_surface_document_id_86042215e8"
+    t.index ["request_preparation_contract_document_id"], name: "idx_on_request_preparation_contract_document_id_ce7cd3ddb4"
     t.index ["tool_contract_document_id"], name: "index_agent_definition_versions_on_tool_contract_document_id"
   end
 
@@ -2211,6 +2213,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_14_120000) do
   add_foreign_key "agent_definition_versions", "json_documents", column: "profile_policy_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "protocol_methods_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "reflected_surface_document_id"
+  add_foreign_key "agent_definition_versions", "json_documents", column: "request_preparation_contract_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "tool_contract_document_id"
   add_foreign_key "agent_task_progress_entries", "agent_task_runs", on_delete: :cascade
   add_foreign_key "agent_task_progress_entries", "installations"

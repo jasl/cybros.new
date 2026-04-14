@@ -290,6 +290,69 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "chat_completions", tool_entry.fetch("provider_format")
   end
 
+  test "materializes a prompt_compaction node and successor turn_step when the round yields compaction" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog,
+      request_preparation_contract: {
+        "prompt_compaction" => {
+          "consultation_mode" => "direct_optional",
+          "workflow_execution" => "supported",
+          "lifecycle" => "turn_scoped",
+        },
+      }
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "system", "content" => "You are a coding agent." },
+            { "role" => "user", "content" => "Older context " * 50 },
+            { "role" => "user", "content" => "Newest input" },
+          ],
+          "visible_tool_names" => [],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ],
+      prompt_compaction_consults: [
+        {
+          "status" => "ok",
+          "decision" => "compact",
+          "diagnostics" => { "reason" => "hard_limit" },
+        },
+      ]
+    )
+
+    with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteTurnStep.call(
+        workflow_node: workflow_node,
+        messages: turn_step_messages_for(workflow_run),
+        adapter: ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(response_bodies: []),
+        agent_request_exchange: agent_request_exchange,
+        request_preparation_exchange: ProviderExecution::RequestPreparationExchange.new(
+          agent_definition_version: workflow_run.turn.agent_definition_version,
+          agent_request_exchange: agent_request_exchange
+        )
+      )
+    end
+
+    workflow_run.reload
+    prompt_compaction_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step_prompt_compaction_1")
+    successor = workflow_run.workflow_nodes.find_by!(node_key: "turn_step_prompt_compaction_1_successor")
+
+    assert_equal "completed", workflow_node.reload.lifecycle_state
+    assert_equal "queued", prompt_compaction_node.reload.lifecycle_state
+    assert_equal "pending", successor.reload.lifecycle_state
+    assert_equal 1, successor.provider_round_index
+    assert_equal "turn_step_prompt_compaction_1:context", successor.metadata.fetch("prompt_compaction_artifact_key")
+    assert_equal "turn_step_prompt_compaction_1", successor.metadata.fetch("prompt_compaction_source_node_key")
+  end
+
   test "rejects a turn_step that was already claimed running before dispatch" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(

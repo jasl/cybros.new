@@ -6,6 +6,8 @@ module AgentControl
       prepare_round
       execute_tool
       execute_feature
+      consult_prompt_compaction
+      execute_prompt_compaction
       supervision_status_refresh
       supervision_guidance
     ].freeze
@@ -127,7 +129,7 @@ module AgentControl
     end
 
     def validate_task_payload!
-      return unless %w[prepare_round execute_tool].include?(@request_kind)
+      return unless %w[prepare_round execute_tool consult_prompt_compaction execute_prompt_compaction].include?(@request_kind)
       return if extract_task_payload(@payload).present?
 
       raise ArgumentError, "missing task payload for #{@request_kind}"

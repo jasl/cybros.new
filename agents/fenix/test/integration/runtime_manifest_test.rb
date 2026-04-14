@@ -11,6 +11,7 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     protocol_method_ids = definition_package.fetch("protocol_methods").map { |entry| entry.fetch("method_id") }
     feature_keys = definition_package.fetch("feature_contract").map { |entry| entry.fetch("feature_key") }
     agent_tool_names = definition_package.fetch("tool_contract").map { |entry| entry.fetch("tool_name") }
+    request_preparation_contract = definition_package.fetch("request_preparation_contract")
 
     assert_equal "fenix", body.fetch("agent_key")
     assert_equal "Fenix", body.fetch("display_name")
@@ -19,6 +20,8 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_equal %w[websocket_push poll], body.dig("agent_contract", "delivery")
     assert_equal %w[
       prepare_round
+      consult_prompt_compaction
+      execute_prompt_compaction
       execute_tool
       execute_feature
       supervision_status_refresh
@@ -29,6 +32,7 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_equal body.fetch("protocol_version"), definition_package.fetch("protocol_version")
     assert_equal body.fetch("sdk_version"), definition_package.fetch("sdk_version")
     assert_equal body.fetch("feature_contract"), definition_package.fetch("feature_contract")
+    assert_equal body.fetch("request_preparation_contract"), definition_package.fetch("request_preparation_contract")
     assert_equal body.fetch("tool_contract"), definition_package.fetch("tool_contract")
     assert_equal body.fetch("profile_policy"), definition_package.fetch("profile_policy")
     assert_equal body.fetch("canonical_config_schema"), definition_package.fetch("canonical_config_schema")
@@ -53,9 +57,12 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
 
     assert_equal "agent", body.dig("agent_plane", "control_plane")
     assert_equal body.fetch("feature_contract"), body.dig("agent_plane", "feature_contract")
+    assert_equal body.fetch("request_preparation_contract"), body.dig("agent_plane", "request_preparation_contract")
     assert_equal body.fetch("tool_contract"), body.dig("agent_plane", "tool_contract")
     assert_equal body.fetch("profile_policy"), body.dig("agent_plane", "profile_policy")
     assert_includes feature_keys, "title_bootstrap"
+    assert_equal "direct_optional", request_preparation_contract.dig("prompt_compaction", "consultation_mode")
+    assert_equal "supported", request_preparation_contract.dig("prompt_compaction", "workflow_execution")
     assert_includes agent_tool_names, "compact_context"
     refute_includes agent_tool_names, "exec_command"
 

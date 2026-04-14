@@ -90,6 +90,28 @@ module ProviderExecution
       )
     end
 
+    def consult_prompt_compaction(payload:)
+      response = perform_request!(
+        request_kind: "consult_prompt_compaction",
+        payload:,
+        logical_work_id: "prompt-compaction-consult:#{payload.fetch("task").fetch("workflow_node_id")}",
+        timeout: @prepare_round_timeout
+      )
+      validate_consult_prompt_compaction_response!(response)
+      response
+    end
+
+    def execute_prompt_compaction(payload:)
+      response = perform_request!(
+        request_kind: "execute_prompt_compaction",
+        payload:,
+        logical_work_id: "prompt-compaction:#{payload.fetch("task").fetch("workflow_node_id")}",
+        timeout: @execute_tool_timeout
+      )
+      validate_execute_prompt_compaction_response!(response)
+      response
+    end
+
     private
 
     TERMINAL_METHODS = %w[agent_completed agent_failed].freeze
@@ -318,6 +340,26 @@ module ProviderExecution
     def validate_prepare_round_response!(response)
       raise ProtocolError.new(code: "invalid_prepare_round_response", message: "prepare_round response must include messages") unless response["messages"].is_a?(Array)
       raise ProtocolError.new(code: "invalid_prepare_round_response", message: "prepare_round response must include visible_tool_names") unless response["visible_tool_names"].is_a?(Array)
+    end
+
+    def validate_consult_prompt_compaction_response!(response)
+      decision = response["decision"].to_s
+      return if %w[skip compact reject].include?(decision)
+
+      raise ProtocolError.new(
+        code: "invalid_consult_prompt_compaction_response",
+        message: "consult_prompt_compaction response must include decision"
+      )
+    end
+
+    def validate_execute_prompt_compaction_response!(response)
+      artifact = response["artifact"]
+      return if artifact.is_a?(Hash) && artifact["messages"].is_a?(Array)
+
+      raise ProtocolError.new(
+        code: "invalid_execute_prompt_compaction_response",
+        message: "execute_prompt_compaction response must include artifact messages"
+      )
     end
 
     def poll_interval_for_attempt(poll_attempt)

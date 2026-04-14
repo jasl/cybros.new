@@ -43,6 +43,10 @@ module Runtime
         Requests::ExecuteTool.call(payload: mailbox_payload)
       when "execute_feature"
         Requests::ExecuteFeature.call(payload: mailbox_payload)
+      when "consult_prompt_compaction"
+        Requests::ConsultPromptCompaction.call(payload: mailbox_payload)
+      when "execute_prompt_compaction"
+        Requests::ExecutePromptCompaction.call(payload: mailbox_payload)
       when "supervision_status_refresh", "supervision_guidance"
         Requests::ExecuteConversationControlRequest.call(payload: mailbox_payload)
       else

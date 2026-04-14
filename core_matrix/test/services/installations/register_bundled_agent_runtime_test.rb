@@ -72,6 +72,19 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal default_profile_policy, first.agent_definition_version.profile_policy
     assert_equal ["exec_command"], first.agent_definition_version.tool_contract.map { |entry| entry.fetch("tool_name") }
     assert_equal ["title_bootstrap"], first.agent_definition_version.feature_contract.map { |entry| entry.fetch("feature_key") }
+    assert_equal(
+      {
+        "prompt_compaction" => {
+          "consultation_mode" => "direct_optional",
+          "workflow_execution" => "supported",
+          "lifecycle" => "turn_scoped",
+          "consultation_schema" => { "type" => "object" },
+          "artifact_schema" => { "type" => "object" },
+          "implementation_ref" => "fenix/prompt_compaction",
+        },
+      },
+      first.agent_definition_version.request_preparation_contract
+    )
     assert_equal "embedded_only", first.agent_definition_version.default_canonical_config.dig("features", "title_bootstrap", "strategy")
     assert_equal "runtime_first", first.agent_definition_version.default_canonical_config.dig("features", "prompt_compaction", "strategy")
     assert_equal({ "source" => "bundled_runtime" }, first.agent_connection.health_metadata)

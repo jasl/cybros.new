@@ -254,4 +254,70 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
       mailbox_item.payload_document.payload
     )
   end
+
+  test "reconstructs consult_prompt_compaction payload from the execution contract while preserving prompt payload" do
+    context = build_agent_control_context!
+    execution_snapshot = context.fetch(:turn).execution_snapshot
+    logical_work_id = "prompt-compaction-consult:#{context.fetch(:workflow_node).public_id}"
+
+    mailbox_item = AgentControl::CreateAgentRequest.call(
+      agent_definition_version: context.fetch(:agent_definition_version),
+      request_kind: "consult_prompt_compaction",
+      payload: {
+        "protocol_version" => "agent-runtime/2026-04-01",
+        "task" => {
+          "kind" => "turn_step",
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+        },
+        "agent_context" => {
+          "profile" => "main",
+          "allowed_tool_names" => %w[compact_context exec_command],
+        },
+        "provider_context" => execution_snapshot.provider_context,
+        "runtime_context" => {
+          "logical_work_id" => logical_work_id,
+          "attempt_no" => 1,
+          "control_plane" => "agent",
+          "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id,
+        },
+        "prompt_compaction" => {
+          "consultation_reason" => "soft_threshold",
+          "selected_input_message_id" => context.fetch(:turn).selected_input_message.public_id,
+          "candidate_messages" => [
+            { "role" => "system", "content" => "System prompt" },
+            { "role" => "user", "content" => "Newest input" },
+          ],
+          "guard_result" => {
+            "decision" => "consult",
+            "estimated_tokens" => 128,
+          },
+        },
+      },
+      logical_work_id: logical_work_id,
+      attempt_no: 1,
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    stored_payload = mailbox_item.payload_document.payload
+
+    refute stored_payload.key?("protocol_version")
+    refute stored_payload.key?("agent_context")
+    refute stored_payload.key?("provider_context")
+    refute stored_payload.key?("task")
+    assert_equal "soft_threshold", stored_payload.dig("prompt_compaction", "consultation_reason")
+    assert_equal "agent-runtime/2026-04-01", mailbox_item.payload.fetch("protocol_version")
+    assert_equal execution_snapshot.provider_context, mailbox_item.payload.fetch("provider_context")
+    assert_equal "main", mailbox_item.payload.dig("agent_context", "profile")
+    assert_equal(
+      context.fetch(:workflow_node).public_id,
+      mailbox_item.payload.dig("task", "workflow_node_id")
+    )
+    assert_equal(
+      context.fetch(:turn).selected_input_message.public_id,
+      mailbox_item.payload.dig("prompt_compaction", "selected_input_message_id")
+    )
+  end
 end

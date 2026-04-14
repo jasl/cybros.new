@@ -68,6 +68,16 @@ module Shared
         }.compact)
       end
 
+      def input_tokens!(provider_handle:, model_ref:, input:, api_model: nil, candidate_metadata: nil)
+        post_json("/agent_api/responses/input_tokens", {
+          provider_handle: provider_handle,
+          model_ref: model_ref,
+          api_model: api_model,
+          input: input,
+          candidate_metadata: candidate_metadata,
+        }.compact)
+      end
+
       def connection_context
         {
           "base_url" => @base_url,

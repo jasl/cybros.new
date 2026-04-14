@@ -24,6 +24,16 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
         },
       }
     )
+    AgentConnection.where(agent: context[:agent], lifecycle_state: "active").update_all(
+      lifecycle_state: "stale",
+      updated_at: Time.current
+    )
+    create_agent_connection!(
+      installation: context[:installation],
+      agent: context[:agent],
+      agent_definition_version: agent_definition_version,
+      lifecycle_state: "active"
+    )
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
@@ -44,6 +54,12 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
         "strategy" => "embedded_only",
       },
       snapshot.provider_context.dig("feature_policies", "prompt_compaction")
+    )
+    assert_equal(
+      {
+        "strategy" => "embedded_only",
+      },
+      snapshot.provider_context.dig("request_preparation", "prompt_compaction", "policy")
     )
 
     context[:workspace].update!(
@@ -66,6 +82,19 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
   test "builds an execution snapshot from visible transcript messages imports and canonical attachments" do
     context = prepare_workflow_execution_setup!(create_workspace_context!)
+    activate_agent_definition_version!(
+      context,
+      request_preparation_contract: {
+        "prompt_compaction" => {
+          "consultation_mode" => "direct_optional",
+          "workflow_execution" => "supported",
+          "lifecycle" => "turn_scoped",
+          "consultation_schema" => { "type" => "object" },
+          "artifact_schema" => { "type" => "object" },
+          "implementation_ref" => "fenix/prompt_compaction",
+        },
+      }
+    )
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     previous_turn = Turns::StartUserTurn.call(
       conversation: conversation,
@@ -155,7 +184,15 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     )
     assert_equal 1_000_000, snapshot.budget_hints.fetch("hard_limits").fetch("context_window_tokens")
     assert_equal 128_000, snapshot.budget_hints.fetch("hard_limits").fetch("max_output_tokens")
-    assert_equal 900_000, snapshot.budget_hints.fetch("advisory_hints").fetch("recommended_compaction_threshold")
+    assert_equal 872_000, snapshot.budget_hints.fetch("hard_limits").fetch("hard_input_token_limit")
+    assert_equal 900_000, snapshot.budget_hints.fetch("advisory_hints").fetch("soft_threshold_tokens")
+    assert_equal 872_000, snapshot.budget_hints.fetch("advisory_hints").fetch("recommended_input_tokens")
+    assert_equal 872_000, snapshot.budget_hints.fetch("advisory_hints").fetch("recommended_compaction_threshold")
+    assert_equal 128_000, snapshot.budget_hints.fetch("advisory_hints").fetch("reserved_output_tokens")
+    assert_equal 128_000, snapshot.budget_hints.fetch("advisory_hints").fetch("reserved_tokens")
+    assert_equal 0.9, snapshot.budget_hints.fetch("advisory_hints").fetch("context_soft_limit_ratio")
+    assert_equal true, snapshot.provider_context.dig("request_preparation", "prompt_compaction", "capability", "available")
+    assert_equal "direct_optional", snapshot.provider_context.dig("request_preparation", "prompt_compaction", "capability", "consultation_mode")
     assert_equal "User", snapshot.turn_origin.fetch("source_ref_type")
     assert_equal context[:user].public_id, snapshot.turn_origin.fetch("source_ref_id")
     assert_equal conversation.public_id, snapshot.task.fetch("conversation_id")

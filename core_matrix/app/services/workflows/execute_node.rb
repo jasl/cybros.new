@@ -4,11 +4,12 @@ module Workflows
       new(...).call
     end
 
-    def initialize(workflow_node:, messages: nil, adapter: nil, agent_request_exchange: nil, execution_runtime_exchange: nil, catalog: nil)
+    def initialize(workflow_node:, messages: nil, adapter: nil, agent_request_exchange: nil, request_preparation_exchange: nil, execution_runtime_exchange: nil, catalog: nil)
       @workflow_node = workflow_node
       @messages = messages
       @adapter = adapter
       @agent_request_exchange = agent_request_exchange
+      @request_preparation_exchange = request_preparation_exchange
       @execution_runtime_exchange = execution_runtime_exchange
       @catalog = catalog
     end
@@ -25,7 +26,13 @@ module Workflows
           messages: @messages || default_messages(current_node),
           adapter: @adapter,
           agent_request_exchange: @agent_request_exchange,
+          request_preparation_exchange: @request_preparation_exchange,
           catalog: @catalog
+        )
+      when "prompt_compaction"
+        ProviderExecution::ExecutePromptCompactionNode.call(
+          workflow_node: current_node,
+          request_preparation_exchange: @request_preparation_exchange
         )
       when "tool_call"
         ProviderExecution::ExecuteToolNode.call(
@@ -43,6 +50,9 @@ module Workflows
     private
 
     def default_messages(workflow_node)
+      compacted_messages = ProviderExecution::LoadPromptCompactionContext.call(workflow_node:)
+      return compacted_messages if compacted_messages.present?
+
       workflow_node.workflow_run.execution_snapshot.conversation_projection.fetch("messages", []).map { |entry| entry.slice("role", "content") }
     end
 

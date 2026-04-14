@@ -74,6 +74,7 @@ module AgentDefinitionVersions
           sdk_version: @definition_package.fetch("sdk_version"),
           protocol_methods_document: find_or_create_document("agent_protocol_methods", @definition_package.fetch("protocol_methods", [])),
           feature_contract_document: find_or_create_document("agent_feature_contract", @definition_package.fetch("feature_contract", [])),
+          request_preparation_contract_document: find_or_create_document("agent_request_preparation_contract", @definition_package.fetch("request_preparation_contract", {})),
           tool_contract_document: find_or_create_document("agent_tool_contract", @definition_package.fetch("tool_contract", [])),
           profile_policy_document: find_or_create_document("agent_profile_policy", @definition_package.fetch("profile_policy", {})),
           canonical_config_schema_document: find_or_create_document("canonical_config_schema", @definition_package.fetch("canonical_config_schema", {})),

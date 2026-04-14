@@ -42,4 +42,21 @@ class Workflows::ExecuteNodeTest < ActiveSupport::TestCase
   ensure
     ProviderExecution::ExecuteTurnStep.singleton_class.define_method(:call, original_call) if original_call
   end
+
+  test "dispatches prompt_compaction nodes through the dedicated executor" do
+    context = build_agent_control_context!(workflow_node_key: "prompt_compaction_node", workflow_node_type: "prompt_compaction")
+    captured = nil
+    original_call = ProviderExecution::ExecutePromptCompactionNode.method(:call)
+
+    ProviderExecution::ExecutePromptCompactionNode.singleton_class.define_method(:call) do |**kwargs|
+      captured = kwargs
+      :ok
+    end
+
+    Workflows::ExecuteNode.call(workflow_node: context.fetch(:workflow_node))
+
+    assert_equal context.fetch(:workflow_node).public_id, captured.fetch(:workflow_node).public_id
+  ensure
+    ProviderExecution::ExecutePromptCompactionNode.singleton_class.define_method(:call, original_call) if original_call
+  end
 end

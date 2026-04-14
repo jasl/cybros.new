@@ -68,6 +68,8 @@ module Workflows
         RuntimeTopology::CoreMatrix.llm_queue_name(workflow_node.turn.resolved_provider_handle)
       when "tool_call"
         RuntimeTopology::CoreMatrix.shared_queue_name("tool_calls")
+      when "prompt_compaction"
+        RuntimeTopology::CoreMatrix.shared_queue_name("workflow_default")
       else
         RuntimeTopology::CoreMatrix.shared_queue_name("workflow_default")
       end

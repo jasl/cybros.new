@@ -2,13 +2,17 @@ module ProviderExecutionTestSupport
   FakeHttpResponse = Struct.new(:code, :body, :headers, keyword_init: true)
 
   class FakeAgentRequestExchange
-    attr_reader :prepare_round_requests, :execute_tool_requests
+    attr_reader :prepare_round_requests, :execute_tool_requests, :consult_prompt_compaction_requests, :execute_prompt_compaction_requests
 
-    def initialize(prepared_rounds: nil, tool_results: nil)
+    def initialize(prepared_rounds: nil, tool_results: nil, prompt_compaction_consults: nil, prompt_compaction_executions: nil)
       @prepared_rounds = Array(prepared_rounds).map { |entry| deep_copy(entry) }
       @tool_results = (tool_results || {}).deep_stringify_keys
+      @prompt_compaction_consults = Array(prompt_compaction_consults).map { |entry| deep_copy(entry) }
+      @prompt_compaction_executions = Array(prompt_compaction_executions).map { |entry| deep_copy(entry) }
       @prepare_round_requests = []
       @execute_tool_requests = []
+      @consult_prompt_compaction_requests = []
+      @execute_prompt_compaction_requests = []
     end
 
     def prepare_round(payload:)
@@ -43,6 +47,33 @@ module ProviderExecutionTestSupport
         "output_chunks" => [],
         "summary_artifacts" => [],
       })
+    end
+
+    def consult_prompt_compaction(payload:)
+      payload = payload.deep_stringify_keys
+      @consult_prompt_compaction_requests << payload
+
+      response = @prompt_compaction_consults.shift || {
+        "status" => "ok",
+        "decision" => "skip",
+        "diagnostics" => {},
+      }
+      deep_copy(response)
+    end
+
+    def execute_prompt_compaction(payload:)
+      payload = payload.deep_stringify_keys
+      @execute_prompt_compaction_requests << payload
+
+      response = @prompt_compaction_executions.shift || {
+        "status" => "ok",
+        "artifact" => {
+          "artifact_kind" => "prompt_compaction_context",
+          "source" => "runtime",
+          "messages" => payload.dig("prompt_compaction", "candidate_messages") || [],
+        },
+      }
+      deep_copy(response)
     end
 
     private
@@ -231,15 +262,17 @@ module ProviderExecutionTestSupport
     build_test_provider_catalog_from(catalog_definition)
   end
 
-  def create_mock_turn_step_workflow_run!(resolved_config_snapshot:, catalog: build_mock_chat_catalog, tool_contract: nil, profile_policy: nil)
+  def create_mock_turn_step_workflow_run!(resolved_config_snapshot:, catalog: build_mock_chat_catalog, tool_contract: nil, profile_policy: nil, request_preparation_contract: nil, workspace_config: nil)
     workflow_run = nil
 
     with_stubbed_provider_catalog(catalog) do
       context = create_workspace_context!
+      context[:workspace].update!(config: workspace_config) if workspace_config.present?
       capability_snapshot = create_compatible_agent_definition_version!(
         agent_definition_version: context[:agent_definition_version],
         tool_contract: tool_contract || default_tool_catalog("exec_command") + [default_agent_observation_tool_entry("calculator")],
-        profile_policy: profile_policy || {}
+        profile_policy: profile_policy || {},
+        request_preparation_contract: request_preparation_contract || {}
       )
       adopt_agent_definition_version!(context, capability_snapshot, turn: nil)
       ProviderEntitlement.create!(

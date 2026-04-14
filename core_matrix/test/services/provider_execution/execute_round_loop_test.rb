@@ -400,6 +400,64 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     assert_equal JSON.generate("value" => 4), tool_messages.second.fetch("content")
   end
 
+  test "returns a prompt compaction yield instead of dispatching when the guard requires compaction" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {},
+      catalog: catalog,
+      request_preparation_contract: {
+        "prompt_compaction" => {
+          "consultation_mode" => "direct_optional",
+          "workflow_execution" => "supported",
+          "lifecycle" => "turn_scoped",
+        },
+      }
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    transcript = turn_step_messages_for(workflow_run)
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "system", "content" => "You are a coding agent." },
+            { "role" => "user", "content" => "Older context " * 50 },
+            { "role" => "user", "content" => "Newest input" },
+          ],
+          "visible_tool_names" => [],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ],
+      prompt_compaction_consults: [
+        {
+          "status" => "ok",
+          "decision" => "compact",
+          "diagnostics" => { "reason" => "hard_limit" },
+        },
+      ]
+    )
+
+    result = with_stubbed_provider_catalog(catalog) do
+      ProviderExecution::ExecuteRoundLoop.call(
+        workflow_node: workflow_node,
+        transcript: transcript,
+        adapter: ProviderExecutionTestSupport::FakeQueuedChatCompletionsAdapter.new(response_bodies: []),
+        effective_catalog: ProviderCatalog::EffectiveCatalog.new(installation: workflow_run.installation, catalog: catalog),
+        agent_request_exchange: agent_request_exchange,
+        request_preparation_exchange: ProviderExecution::RequestPreparationExchange.new(
+          agent_definition_version: workflow_run.turn.agent_definition_version,
+          agent_request_exchange: agent_request_exchange
+        )
+      )
+    end
+
+    assert result.yielded_prompt_compaction?
+    assert_equal "compact", result.prompt_compaction_result.dig("consultation", "decision")
+    assert_equal "compact_required", result.prompt_compaction_result.dig("guard_result", "decision")
+    assert_equal [], agent_request_exchange.execute_tool_requests
+    assert_equal 1, agent_request_exchange.consult_prompt_compaction_requests.length
+  end
+
   private
 
   def calculator_tool_entry

@@ -106,6 +106,7 @@ module Workflows
         "provider_execution" => provider_execution,
         "model_context" => model_context,
         "feature_policies" => feature_policies,
+        "request_preparation" => request_preparation,
       }
     end
 
@@ -148,16 +149,46 @@ module Workflows
       }
     end
 
+    def request_preparation
+      prompt_compaction_policy = ProviderExecution::PromptCompactionPolicy.call(
+        workspace: @turn.conversation.workspace,
+        agent_definition_version: @turn.agent_definition_version
+      )
+
+      {
+        "prompt_compaction" => {
+          "policy" => prompt_compaction_policy,
+          "capability" => ProviderExecution::RequestPreparationCapabilityResolver.call(
+            agent_definition_version: @turn.agent_definition_version
+          ).fetch("prompt_compaction"),
+        },
+      }
+    end
+
     def budget_hints
-      context_window_tokens = model_definition.fetch(:context_window_tokens)
+      advisory = ProviderExecution::PromptBudgetAdvisory.call(
+        provider_handle: @turn.resolved_provider_handle,
+        model_ref: @turn.resolved_model_ref,
+        api_model: model_definition.fetch(:api_model),
+        tokenizer_hint: model_definition.fetch(:tokenizer_hint),
+        context_window_tokens: model_definition.fetch(:context_window_tokens),
+        max_output_tokens: model_definition.fetch(:max_output_tokens),
+        context_soft_limit_ratio: model_definition.fetch(:context_soft_limit_ratio)
+      )
 
       {
         "hard_limits" => {
-          "context_window_tokens" => context_window_tokens,
+          "context_window_tokens" => model_definition.fetch(:context_window_tokens),
           "max_output_tokens" => model_definition.fetch(:max_output_tokens),
+          "hard_input_token_limit" => advisory.fetch("hard_input_token_limit"),
         },
         "advisory_hints" => {
-          "recommended_compaction_threshold" => (context_window_tokens * model_definition.fetch(:context_soft_limit_ratio)).floor,
+          "recommended_input_tokens" => advisory.fetch("recommended_input_tokens"),
+          "recommended_compaction_threshold" => advisory.fetch("recommended_compaction_threshold"),
+          "soft_threshold_tokens" => advisory.fetch("soft_threshold_tokens"),
+          "reserved_tokens" => advisory.fetch("reserved_tokens"),
+          "reserved_output_tokens" => advisory.fetch("reserved_output_tokens"),
+          "context_soft_limit_ratio" => model_definition.fetch(:context_soft_limit_ratio),
         },
       }
     end

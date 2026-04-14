@@ -62,12 +62,18 @@ class ProviderExecution::BuildRequestContextTest < ActiveSupport::TestCase
       {
         "context_window_tokens" => 100,
         "max_output_tokens" => 40,
+        "hard_input_token_limit" => 60,
       },
       request_context.hard_limits
     )
     assert_equal(
       {
+        "recommended_input_tokens" => 50,
         "recommended_compaction_threshold" => 50,
+        "soft_threshold_tokens" => 50,
+        "reserved_tokens" => 50,
+        "reserved_output_tokens" => 40,
+        "context_soft_limit_ratio" => 0.5,
       },
       request_context.advisory_hints
     )

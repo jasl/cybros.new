@@ -65,6 +65,20 @@ module Runtime
           "implementation_ref" => "fenix/title_bootstrap",
         },
       ].freeze
+      REQUEST_PREPARATION_CONTRACT = {
+        "prompt_compaction" => {
+          "consultation_mode" => "direct_optional",
+          "workflow_execution" => "supported",
+          "lifecycle" => "turn_scoped",
+          "consultation_schema" => {
+            "type" => "object",
+          },
+          "artifact_schema" => {
+            "type" => "object",
+          },
+          "implementation_ref" => "fenix/prompt_compaction",
+        },
+      }.freeze
       PROTOCOL_METHOD_IDS = %w[
         agent_health
         capabilities_handshake
@@ -104,6 +118,7 @@ module Runtime
           "sdk_version" => SDK_VERSION,
           "protocol_methods" => protocol_methods,
           "feature_contract" => feature_contract,
+          "request_preparation_contract" => request_preparation_contract,
           "tool_contract" => tool_contract,
           "profile_policy" => profile_policy,
           "canonical_config_schema" => canonical_config_schema,
@@ -129,6 +144,10 @@ module Runtime
 
       def feature_contract
         FEATURE_CONTRACT.deep_dup
+      end
+
+      def request_preparation_contract
+        REQUEST_PREPARATION_CONTRACT.deep_dup
       end
 
       def profile_policy

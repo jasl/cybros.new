@@ -18,6 +18,9 @@ Rails.application.routes.draw do
     resources :heartbeats, only: :create
     resource :health, only: :show, controller: :health
     resource :capabilities, only: [:show, :create], controller: :capabilities
+    namespace :responses do
+      post "input_tokens", to: "input_tokens#create"
+    end
     resources :conversation_transcripts, only: :index
     resources :conversation_variables, only: [] do
       collection do

@@ -9,13 +9,14 @@ module ProviderExecution
       new(...).call
     end
 
-    def initialize(workflow_node:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, agent_request_exchange: nil)
+    def initialize(workflow_node:, messages:, adapter: nil, catalog: nil, effective_catalog: nil, agent_request_exchange: nil, request_preparation_exchange: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
       @turn = workflow_node.turn
       @messages = normalize_messages(messages)
       @adapter = adapter
       @agent_request_exchange = agent_request_exchange
+      @request_preparation_exchange = request_preparation_exchange
       @effective_catalog = effective_catalog || ProviderCatalog::EffectiveCatalog.new(installation: @workflow_run.installation, catalog: catalog)
       @request_context = BuildRequestContext.call(
         turn: @turn,
@@ -42,7 +43,8 @@ module ProviderExecution
         transcript: @messages,
         adapter: @adapter,
         effective_catalog: @effective_catalog,
-        agent_request_exchange: @agent_request_exchange
+        agent_request_exchange: @agent_request_exchange,
+        request_preparation_exchange: @request_preparation_exchange
       )
 
       if loop_result.final?
@@ -66,6 +68,16 @@ module ProviderExecution
           output_message_id: result.output_message.public_id
         )
         result
+      elsif loop_result.yielded_prompt_compaction?
+        result = ProviderExecution::PersistTurnStepPromptCompactionYield.call(
+          workflow_node: @workflow_node,
+          prompt_compaction_result: loop_result.prompt_compaction_result
+        )
+        broadcast_workflow_node_event!(
+          "runtime.workflow_node.completed",
+          state: "completed"
+        )
+        result
       else
         result = ProviderExecution::PersistTurnStepYield.call(
           workflow_node: @workflow_node,
@@ -79,7 +91,7 @@ module ProviderExecution
             workflow_node: @workflow_node
           ).includes(:tool_definition, :tool_implementation).to_a
         )
-      broadcast_workflow_node_event!(
+        broadcast_workflow_node_event!(
           "runtime.workflow_node.completed",
           state: "completed",
           provider_request_id: loop_result.dispatch_result.provider_request_id
@@ -137,6 +149,19 @@ module ProviderExecution
       raise if failure_result.failure_outcome.terminal?
 
       @workflow_node.reload
+    rescue ProviderExecution::ExecuteRoundLoop::RoundBudgetRejected => error
+      failure_result = ProviderExecution::PersistTurnStepFailure.call(
+        workflow_node: @workflow_node,
+        request_context: @request_context,
+        error: error,
+        provider_request_id: nil,
+        messages_count: error.messages_count,
+        duration_ms: 0
+      )
+      handle_failure_outcome!(failure_result.failure_outcome)
+      raise if failure_result.failure_outcome.terminal?
+
+      @workflow_node.reload
     rescue StaleExecutionError
       if output_stream.started?
         output_stream.fail!(code: "stale_execution", message: "provider execution result is stale")
@@ -161,10 +186,10 @@ module ProviderExecution
         candidate = message.is_a?(Hash) ? message : nil
         next if candidate.blank?
 
-        {
-          "role" => candidate["role"] || candidate[:role],
-          "content" => candidate["content"] || candidate[:content],
-        }.compact
+        normalized = candidate.deep_stringify_keys
+        next if normalized["role"].blank? && normalized["type"].blank?
+
+        normalized
       end
     end
 

@@ -132,6 +132,33 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
     assert_equal "bundled-fenix-release-0.1.0", requests.fetch(2).dig(:json_body, "definition_package", "program_manifest_fingerprint")
   end
 
+  test "input token counting posts to the advisory responses endpoint with the agent credential" do
+    requests = []
+
+    with_captured_requests(requests) do
+      client = Shared::ControlPlane::Client.new(
+        base_url: "https://core-matrix.example.test",
+        agent_connection_credential: "secret"
+      )
+
+      client.input_tokens!(
+        provider_handle: "dev",
+        model_ref: "mock-model",
+        input: [
+          {
+            role: "user",
+            content: "Count this provider-visible input.",
+          },
+        ]
+      )
+    end
+
+    assert_equal ["POST /agent_api/responses/input_tokens"], requests.map { |entry| "#{entry.fetch(:method)} #{entry.fetch(:path)}" }
+    assert_equal %(Token token="secret"), requests.first.fetch(:authorization)
+    assert_equal "dev", requests.first.dig(:json_body, "provider_handle")
+    assert_equal "mock-model", requests.first.dig(:json_body, "model_ref")
+  end
+
   test "report treats stale 409 responses as idempotent replays" do
     requests = []
 

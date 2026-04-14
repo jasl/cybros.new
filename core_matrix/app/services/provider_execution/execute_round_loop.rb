@@ -27,6 +27,17 @@ module ProviderExecution
       end
     end
 
+    class RoundBudgetRejected < StandardError
+      attr_reader :guard_result, :consultation_result, :messages_count
+
+      def initialize(guard_result:, consultation_result:, messages_count:)
+        super("prompt budget rejected provider dispatch")
+        @guard_result = guard_result
+        @consultation_result = consultation_result
+        @messages_count = messages_count
+      end
+    end
+
     Result = Struct.new(
       :kind,
       :dispatch_result,
@@ -36,6 +47,7 @@ module ProviderExecution
       :output_deltas,
       :messages_count,
       :tool_batch_result,
+      :prompt_compaction_result,
       keyword_init: true
     ) do
       def final?
@@ -45,13 +57,17 @@ module ProviderExecution
       def yielded_tool_batch?
         kind == "tool_batch"
       end
+
+      def yielded_prompt_compaction?
+        kind == "prompt_compaction"
+      end
     end
 
     def self.call(...)
       new(...).call
     end
 
-    def initialize(workflow_node:, transcript:, adapter: nil, catalog: nil, effective_catalog: nil, agent_request_exchange: nil, max_rounds: nil)
+    def initialize(workflow_node:, transcript:, adapter: nil, catalog: nil, effective_catalog: nil, agent_request_exchange: nil, request_preparation_exchange: nil, max_rounds: nil)
       @workflow_node = workflow_node
       @workflow_run = workflow_node.workflow_run
       @request_context = ProviderExecution::BuildRequestContext.call(
@@ -62,6 +78,10 @@ module ProviderExecution
       @adapter = adapter
       @effective_catalog = effective_catalog || ProviderCatalog::EffectiveCatalog.new(installation: @workflow_run.installation, catalog: catalog)
       @agent_request_exchange = agent_request_exchange || ProviderExecution::AgentRequestExchange.new(agent_definition_version: workflow_node.turn.agent_definition_version)
+      @request_preparation_exchange = request_preparation_exchange || ProviderExecution::RequestPreparationExchange.new(
+        agent_definition_version: workflow_node.turn.agent_definition_version,
+        agent_request_exchange: @agent_request_exchange
+      )
       @max_rounds = max_rounds || configured_max_rounds
     end
 
@@ -81,15 +101,36 @@ module ProviderExecution
         id: (core_matrix_binding_ids + agent_binding_ids).uniq
       ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
 
+      provider_messages = provider_messages_for(
+        prepared_round.fetch("messages"),
+        prior_tool_results
+      )
+      guard_result = ProviderExecution::PromptBudgetGuard.call(
+        messages: provider_messages,
+        request_context: @request_context,
+        policy: prompt_compaction_policy,
+        selected_input_message: selected_input_message_payload
+      )
+      prompt_compaction_result = evaluate_prompt_budget!(
+        guard_result:,
+        prepared_round:,
+        prior_tool_results:,
+        provider_messages:
+      )
+      return Result.new(
+        kind: "prompt_compaction",
+        prepared_round: prepared_round,
+        prior_tool_results: prior_tool_results,
+        messages_count: provider_messages.length,
+        prompt_compaction_result: prompt_compaction_result
+      ) if prompt_compaction_result.present?
+
       round_deltas = []
       dispatch_result = ProviderExecution::DispatchRequest.call(
         workflow_run: @workflow_run,
         workflow_node: @workflow_node,
         request_context: @request_context,
-        messages: provider_messages_for(
-          prepared_round.fetch("messages"),
-          prior_tool_results
-        ),
+        messages: provider_messages,
         tools: provider_tools_for(round_bindings),
         tool_choice: round_bindings.any? ? "auto" : nil,
         adapter: @adapter,
@@ -117,7 +158,7 @@ module ProviderExecution
         prepared_round: prepared_round,
         prior_tool_results: prior_tool_results,
         output_deltas: round_deltas,
-        messages_count: prepared_round.fetch("messages").length
+        messages_count: provider_messages.length
       ) if normalized_response.fetch("tool_calls").empty?
 
       attempted_rounds = current_round_index + 1
@@ -125,7 +166,7 @@ module ProviderExecution
         raise RoundLimitExceeded.new(
           max_rounds: @max_rounds,
           attempted_rounds: attempted_rounds,
-          messages_count: prepared_round.fetch("messages").length
+          messages_count: provider_messages.length
         )
       end
 
@@ -136,7 +177,7 @@ module ProviderExecution
         prepared_round: prepared_round,
         prior_tool_results: prior_tool_results,
         output_deltas: round_deltas,
-        messages_count: prepared_round.fetch("messages").length,
+        messages_count: provider_messages.length,
         tool_batch_result: ProviderExecution::BuildToolExecutionBatch.call(
           workflow_node: @workflow_node,
           tool_calls: normalized_response.fetch("tool_calls"),
@@ -199,9 +240,163 @@ module ProviderExecution
 
     def provider_messages_for(base_messages, prior_tool_results)
       messages = Array(base_messages).map { |entry| entry.deep_stringify_keys }
+      return messages if skip_prior_tool_results_append?
       return messages if prior_tool_results.blank?
 
       messages + protocol_continuation_entries(prior_tool_results)
+    end
+
+    def evaluate_prompt_budget!(guard_result:, prepared_round:, prior_tool_results:, provider_messages:)
+      return if guard_result.fetch("decision") == "allow"
+
+      consultation_result = consult_prompt_compaction(
+        guard_result:,
+        prepared_round:,
+        prior_tool_results:,
+        provider_messages:
+      )
+      final_decision = resolve_prompt_compaction_decision(
+        guard_result:,
+        consultation_result:
+      )
+
+      case final_decision
+      when "allow"
+        nil
+      when "compact"
+        {
+          "guard_result" => guard_result,
+          "consultation" => consultation_result,
+          "consultation_reason" => consultation_reason_for(guard_result),
+          "candidate_messages" => provider_messages,
+          "selected_input_message_id" => @workflow_run.execution_snapshot.selected_input_message_id,
+          "budget_hints" => @workflow_run.execution_snapshot.budget_hints,
+          "policy" => prompt_compaction_policy,
+          "capability" => prompt_compaction_capability,
+        }
+      else
+        raise RoundBudgetRejected.new(
+          guard_result: guard_result,
+          consultation_result: consultation_result,
+          messages_count: provider_messages.length
+        )
+      end
+    end
+
+    def consult_prompt_compaction(guard_result:, prepared_round:, prior_tool_results:, provider_messages:)
+      if runtime_consultation_supported?
+        @request_preparation_exchange.consult_prompt_compaction(
+          payload: prompt_compaction_consult_payload(
+            guard_result:,
+            prepared_round:,
+            prior_tool_results:,
+            provider_messages:
+          )
+        )
+      else
+        embedded_consultation_result(guard_result)
+      end
+    end
+
+    def prompt_compaction_consult_payload(guard_result:, prepared_round:, prior_tool_results:, provider_messages:)
+      {
+        "protocol_version" => "agent-runtime/2026-04-01",
+        "request_kind" => "consult_prompt_compaction",
+        "task" => {
+          "workflow_run_id" => @workflow_run.public_id,
+          "workflow_node_id" => @workflow_node.public_id,
+          "conversation_id" => @workflow_run.conversation.public_id,
+          "turn_id" => @workflow_run.turn.public_id,
+          "kind" => "turn_step",
+        },
+        "prompt_compaction" => {
+          "consultation_reason" => consultation_reason_for(guard_result),
+          "candidate_messages" => provider_messages,
+          "selected_input_message_id" => @workflow_run.execution_snapshot.selected_input_message_id,
+          "guard_result" => guard_result,
+          "policy" => prompt_compaction_policy,
+          "capability" => prompt_compaction_capability,
+          "budget_hints" => @workflow_run.execution_snapshot.budget_hints,
+          "preservation_invariants" => ProviderExecution::PromptCompactionStrategy::PRESERVATION_INVARIANTS,
+        },
+        "provider_context" => @workflow_run.execution_snapshot.provider_context,
+        "runtime_context" => @workflow_run.execution_snapshot.runtime_context.merge(
+          "logical_work_id" => "prompt-compaction-consult:#{@workflow_node.public_id}",
+          "attempt_no" => 1
+        ),
+        "round_context" => {
+          "messages" => prepared_round.fetch("messages"),
+          "summary_artifacts" => prepared_round.fetch("summary_artifacts", []),
+          "trace" => prepared_round.fetch("trace", []),
+          "prior_tool_results" => prior_tool_results,
+        },
+      }
+    end
+
+    def embedded_consultation_result(guard_result)
+      strategy = prompt_compaction_policy["strategy"].presence || "runtime_first"
+      decision =
+        case strategy
+        when "disabled"
+          guard_result.fetch("decision") == "compact_required" ? "reject" : "skip"
+        else
+          guard_result.fetch("decision") == "consult" ? "skip" : "compact"
+        end
+
+      {
+        "status" => "ok",
+        "decision" => decision,
+        "source" => "embedded",
+        "diagnostics" => {
+          "reason" => consultation_reason_for(guard_result),
+          "fallback_mode" => strategy,
+        },
+      }
+    end
+
+    def resolve_prompt_compaction_decision(guard_result:, consultation_result:)
+      consultation_decision = consultation_result["decision"].to_s
+      return "reject" if consultation_decision == "reject"
+      return "compact" if guard_result.fetch("decision") == "compact_required"
+      return "compact" if consultation_decision == "compact"
+
+      "allow"
+    end
+
+    def consultation_reason_for(guard_result)
+      guard_result.fetch("decision") == "consult" ? "soft_threshold" : "hard_limit"
+    end
+
+    def prompt_compaction_policy
+      @prompt_compaction_policy ||= begin
+        contract = @workflow_run.execution_snapshot.provider_context.dig("request_preparation", "prompt_compaction")
+        contract.is_a?(Hash) ? contract.fetch("policy", {}) : {}
+      end
+    end
+
+    def prompt_compaction_capability
+      @prompt_compaction_capability ||= begin
+        contract = @workflow_run.execution_snapshot.provider_context.dig("request_preparation", "prompt_compaction")
+        contract.is_a?(Hash) ? contract.fetch("capability", {}) : {}
+      end
+    end
+
+    def runtime_consultation_supported?
+      strategy = prompt_compaction_policy["strategy"].presence || "runtime_first"
+      return false if strategy.in?(%w[disabled embedded_only])
+
+      prompt_compaction_capability["available"] == true &&
+        prompt_compaction_capability["consultation_mode"].to_s.in?(%w[direct_optional direct_required])
+    end
+
+    def selected_input_message_payload
+      selected_input = @workflow_run.turn.selected_input_message
+      return if selected_input.blank?
+
+      {
+        "role" => selected_input.role == "agent" ? "assistant" : selected_input.role,
+        "content" => selected_input.content,
+      }
     end
 
     def protocol_continuation_entries(prior_tool_results)
@@ -298,6 +493,11 @@ module ProviderExecution
       return false if RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES.include?(tool_name)
 
       true
+    end
+
+    def skip_prior_tool_results_append?
+      @workflow_node.metadata.is_a?(Hash) &&
+        @workflow_node.metadata.deep_stringify_keys["prompt_compaction_includes_prior_tool_results"] == true
     end
   end
 end
