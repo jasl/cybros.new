@@ -105,6 +105,7 @@ Rails.application.routes.draw do
       resource :metadata, only: [:show, :update], controller: "conversations/metadata" do
         post :regenerate
       end
+      resources :attachments, only: [:create, :show], controller: "conversations/attachments", param: :attachment_id
       resources :messages, only: :create, controller: "conversations/messages"
       resource :transcript, only: :show, controller: "conversations/transcript"
       resource :diagnostics, only: :show, controller: "conversations/diagnostics" do
@@ -135,6 +136,11 @@ Rails.application.routes.draw do
 
     resources :workspace_agents, only: [], controller: "workspaces/workspace_agents", param: :workspace_agent_id do
       resources :ingress_bindings, only: [:create, :update], controller: "workspace_agents/ingress_bindings", param: :ingress_binding_id do
+        member do
+          post "weixin/start_login", action: :weixin_start_login
+          get "weixin/login_status", action: :weixin_login_status
+          post "weixin/disconnect", action: :weixin_disconnect
+        end
         resources :pairing_requests, only: [:index, :update], controller: "workspace_agents/ingress_bindings/pairing_requests", param: :pairing_request_id
         resources :sessions, only: [:index, :update], controller: "workspace_agents/ingress_bindings/sessions", param: :session_id
       end

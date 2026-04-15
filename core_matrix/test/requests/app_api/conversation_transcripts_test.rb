@@ -5,6 +5,12 @@ class AppApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
     first_turn = context[:turn]
+    input_attachment = create_message_attachment!(
+      message: first_turn.selected_input_message,
+      filename: "input.txt",
+      body: "input attachment"
+    )
+    input_attachment.file.blob.update!(metadata: input_attachment.file.blob.metadata.merge("publication_role" => "evidence"))
     first_output = attach_selected_output!(first_turn, content: "First answer")
     second_turn = Turns::StartUserTurn.call(
       conversation: context[:conversation],
@@ -37,10 +43,12 @@ class AppApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
     assert_equal second_turn.selected_input_message.public_id, response_body["next_cursor"]
     assert_equal context[:conversation].public_id, response_body["items"].first.fetch("conversation_id")
     assert_equal first_turn.public_id, response_body["items"].first.fetch("turn_id")
+    assert_equal input_attachment.public_id, response_body["items"].first.dig("attachments", 0, "attachment_id")
+    assert_equal "evidence", response_body["items"].first.dig("attachments", 0, "publication_role")
     refute_includes response.body, %("#{context[:conversation].id}")
   end
 
-  test "lists the canonical visible transcript within eight SQL queries" do
+  test "lists the canonical visible transcript within nine SQL queries" do
     context = build_canonical_variable_context!
     registration = register_machine_api_for_context!(context)
     first_turn = context[:turn]
@@ -53,7 +61,7 @@ class AppApiConversationTranscriptsTest < ActionDispatch::IntegrationTest
     )
     attach_selected_output!(second_turn, content: "Second answer")
 
-    assert_sql_query_count_at_most(8) do
+    assert_sql_query_count_at_most(9) do
       get "/app_api/conversations/#{context[:conversation].public_id}/transcript",
         params: { limit: 2 },
         headers: app_api_headers(registration[:session_token])

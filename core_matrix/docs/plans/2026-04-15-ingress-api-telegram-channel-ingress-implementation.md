@@ -767,7 +767,7 @@ The bridge must return Ruby-native objects that expose:
 The poll runner should:
 
 - load the Weixin-enabled `ChannelConnector`
-- poll through `ClawBotSdk::Weixin::Poller`
+- poll through `ClawBotSDK::Weixin::Poller`
 - feed each normalized message into `IngressAPI::ReceiveEvent`
 
 `IngressAPI::Weixin::ReceivePolledMessage` should also persist the newest valid
@@ -779,7 +779,7 @@ dispatching turn work so reply state survives process restarts.
 `SendWeixinReply` should:
 
 - read `context_token` from the bound `ChannelSession`
-- send text or media through `ClawBotSdk::Weixin`
+- send text or media through `ClawBotSDK::Weixin`
 - use typing plus explicit status/final-delivery messages instead of editable
   preview streaming
 - persist outbound delivery metadata
@@ -787,11 +787,14 @@ dispatching turn work so reply state survives process restarts.
 **Step 5: Extend binding management for Weixin lifecycle**
 
 The workspace-agent ingress-binding controller should expose Weixin-specific lifecycle
-actions where needed, such as:
+actions for the v1 account lifecycle:
 
 - start login
 - inspect login status
-- reconnect or disconnect an account
+- disconnect an account
+
+In v1, reconnect reuses the same `start_login` entrypoint instead of a separate
+public controller action.
 
 **Step 6: Run the targeted tests**
 

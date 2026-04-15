@@ -1023,7 +1023,7 @@ v1 binding creation contract:
 Examples:
 
 - Telegram bot token rotation
-- Weixin QR login start/reconnect/disconnect
+- Weixin QR login start/status/disconnect, with reconnect reusing start
 
 ### `IngressBindings::PairingRequests`
 

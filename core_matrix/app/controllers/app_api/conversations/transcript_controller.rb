@@ -7,6 +7,7 @@ module AppAPI
           cursor: params[:cursor],
           limit: params[:limit]
         )
+        preload_attachments(result.messages)
         turn_public_ids = turn_public_id_lookup_for(result.messages)
         conversation_public_ids = conversation_public_id_lookup_for(result.messages)
 
@@ -42,6 +43,15 @@ module AppAPI
         return lookup if missing_ids.empty?
 
         lookup.merge(Turn.where(id: missing_ids).pluck(:id, :public_id).to_h)
+      end
+
+      def preload_attachments(messages)
+        return if messages.empty?
+
+        ActiveRecord::Associations::Preloader.new(
+          records: messages,
+          associations: [{ message_attachments: [:origin_attachment, :origin_message, { file_attachment: :blob }] }]
+        ).call
       end
     end
   end

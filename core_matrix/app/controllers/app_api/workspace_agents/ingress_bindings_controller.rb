@@ -13,7 +13,7 @@ module AppAPI
       }.freeze
 
       before_action :set_workspace_agent
-      before_action :set_ingress_binding, only: :update
+      before_action :set_ingress_binding, only: [:update, :weixin_start_login, :weixin_login_status, :weixin_disconnect]
 
       def create
         platform = params.fetch(:platform)
@@ -73,6 +73,36 @@ module AppAPI
         )
       end
 
+      def weixin_start_login
+        render_method_response(
+          method_id: "ingress_binding_weixin_start_login",
+          workspace_agent_id: @workspace_agent.public_id,
+          ingress_binding_id: @ingress_binding.public_id,
+          weixin: ClawBotSDK::Weixin::QrLogin.start(channel_connector: weixin_channel_connector)
+        )
+      end
+
+      def weixin_login_status
+        render_method_response(
+          method_id: "ingress_binding_weixin_login_status",
+          workspace_agent_id: @workspace_agent.public_id,
+          ingress_binding_id: @ingress_binding.public_id,
+          weixin: ClawBotSDK::Weixin::QrLogin.status(channel_connector: weixin_channel_connector)
+        )
+      end
+
+      def weixin_disconnect
+        channel_connector = weixin_channel_connector
+        ClawBotSDK::Weixin::QrLogin.disconnect!(channel_connector: channel_connector)
+
+        render_method_response(
+          method_id: "ingress_binding_weixin_disconnect",
+          workspace_agent_id: @workspace_agent.public_id,
+          ingress_binding_id: @ingress_binding.public_id,
+          channel_connector: serialize_channel_connector(channel_connector.reload)
+        )
+      end
+
       private
 
       def set_workspace_agent
@@ -93,6 +123,10 @@ module AppAPI
         return nil if params[:default_execution_runtime_id].blank?
 
         find_accessible_execution_runtime!(params.fetch(:default_execution_runtime_id))
+      end
+
+      def weixin_channel_connector
+        @weixin_channel_connector ||= @ingress_binding.channel_connectors.find_by!(platform: "weixin")
       end
 
       def serialize_ingress_binding(ingress_binding)

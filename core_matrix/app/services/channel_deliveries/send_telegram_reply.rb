@@ -1,5 +1,7 @@
 module ChannelDeliveries
   class SendTelegramReply
+    include Rails.application.routes.url_helpers
+
     def self.call(...)
       new(...).call
     end
@@ -71,13 +73,21 @@ module ChannelDeliveries
 
     def send_attachments!
       attachments.each_with_index.map do |attachment, index|
-        file = attachment_io(attachment)
-        caption = attachment_caption(index)
+        response = if native_delivery_attachment?(attachment)
+          file = attachment_io(attachment)
+          caption = attachment_caption(index)
 
-        response = if attachment.fetch("modality") == "image"
-          client.send_photo(chat_id: chat_id, photo: file, caption: caption)
+          if attachment.fetch("modality") == "image"
+            client.send_photo(chat_id: chat_id, photo: file, caption: caption)
+          else
+            client.send_document(chat_id: chat_id, document: file, caption: caption)
+          end
         else
-          client.send_document(chat_id: chat_id, document: file, caption: caption)
+          client.send_message(**{
+            chat_id: chat_id,
+            text: signed_link_text(attachment, index),
+            reply_to_message_id: reply_to_message_id
+          }.compact)
         end
         track_response!(response)
         response
@@ -95,6 +105,31 @@ module ChannelDeliveries
       else
         raise ArgumentError, "attachment payload must include path or attachment_id"
       end
+    end
+
+    def native_delivery_attachment?(attachment)
+      return true unless attachment["attachment_id"].present?
+
+      Attachments::CreateForMessage.native_delivery?(
+        attachment: attachment_record(attachment),
+        descriptor: attachment
+      )
+    end
+
+    def signed_link_text(attachment, index)
+      lines = []
+      lines << payload["text"] if index.zero? && !preview_update? && payload["text"].present?
+      lines << attachment.fetch("filename", "attachment")
+      lines << Attachments::CreateForMessage.signed_download_url(
+        attachment: attachment_record(attachment),
+        host: public_url_options
+      )
+      lines.join("\n")
+    end
+
+    def attachment_record(attachment)
+      @attachment_records ||= {}
+      @attachment_records[attachment.fetch("attachment_id")] ||= MessageAttachment.find_by_public_id!(attachment.fetch("attachment_id"))
     end
 
     def mark_delivered!(response)
@@ -152,6 +187,11 @@ module ChannelDeliveries
       key = @channel_delivery.reply_to_external_message_key.to_s
       match = key.match(/\Atelegram:chat:[^:]+:message:(\d+)\z/)
       match && match[1].to_i
+    end
+
+    def public_url_options
+      Rails.application.routes.default_url_options.presence ||
+        ActionMailer::Base.default_url_options
     end
   end
 end

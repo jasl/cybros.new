@@ -22,10 +22,13 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
       body: "input attachment"
     )
     output_message = attach_selected_output!(turn, content: "Here is the exported answer")
-    create_message_attachment!(
+    output_attachment = create_message_attachment!(
       message: output_message,
       filename: "output.txt",
       body: "output attachment"
+    )
+    output_attachment.file.blob.update!(
+      metadata: output_attachment.file.blob.metadata.merge("publication_role" => "primary_deliverable")
     )
     conversation.update!(
       summary: "Export summary",
@@ -53,6 +56,7 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
     assert_equal "agent", output_payload.fetch("role")
     assert_equal "user_upload", input_message.fetch("attachments").first.fetch("kind")
     assert_equal "generated_output", output_payload.fetch("attachments").first.fetch("kind")
+    assert_equal "primary_deliverable", output_payload.fetch("attachments").first.fetch("publication_role")
     assert_match(/\Afiles\//, input_message.fetch("attachments").first.fetch("relative_path"))
     assert_match(/\Afiles\//, output_payload.fetch("attachments").first.fetch("relative_path"))
 

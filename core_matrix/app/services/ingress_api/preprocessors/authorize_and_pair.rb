@@ -82,7 +82,7 @@ module IngressAPI
             peer_id: @context.envelope.external_sender_id,
             thread_key: nil,
             binding_state: "active",
-            session_metadata: {}
+            session_metadata: initial_session_metadata
           )
 
           bind_pairing_request!(pairing_request, session)
@@ -112,6 +112,15 @@ module IngressAPI
         @context.ingress_binding.default_execution_runtime ||
           @context.ingress_binding.workspace_agent.default_execution_runtime ||
           @context.ingress_binding.workspace_agent.agent.default_execution_runtime
+      end
+
+      def initial_session_metadata
+        return {} unless @context.envelope.platform == "weixin"
+
+        token = @context.envelope.transport_metadata["context_token"].to_s
+        return {} if token.blank?
+
+        { "context_token" => token }
       end
     end
   end

@@ -1,8 +1,8 @@
 module IngressAPI
   module Preprocessors
     class MaterializeAttachments
-      DEFAULT_MAX_BYTES = 100.megabytes
-      DEFAULT_MAX_COUNT = 10
+      DEFAULT_MAX_BYTES = Attachments::CreateForMessage.default_max_bytes
+      DEFAULT_MAX_COUNT = Attachments::CreateForMessage.default_max_count
 
       def self.call(...)
         new(...).call

@@ -209,6 +209,39 @@ class ChannelDeliveries::SendTelegramReplyTest < ActiveSupport::TestCase
     assert_equal ["telegram:chat:42:message:301"], delivery.failure_payload["delivered_external_message_keys"]
   end
 
+  test "falls back to a signed download link for non-image transcript attachments at or above one megabyte" do
+    context = telegram_delivery_context
+    bot = BotSpy.new([])
+    client = IngressAPI::Telegram::Client.new(bot_token: "telegram-bot-token", bot: bot)
+    output_message = attach_selected_output!(create_turn_with_input!(context[:conversation]), content: "artifact delivery")
+    attachment = create_message_attachment!(
+      message: output_message,
+      filename: "artifact.txt",
+      content_type: "text/plain",
+      body: "a" * (1.megabyte + 1)
+    )
+    delivery = create_channel_delivery!(
+      context,
+      message: output_message,
+      payload: {
+        "text" => "artifact delivery",
+        "attachments" => [
+          {
+            "attachment_id" => attachment.public_id,
+            "filename" => "artifact.txt",
+            "modality" => "file"
+          }
+        ]
+      }
+    )
+
+    ChannelDeliveries::SendTelegramReply.call(channel_delivery: delivery, client: client)
+
+    assert_equal [[:send_message, bot.calls.first.last]], bot.calls
+    assert_includes bot.calls.first.last.fetch(:text), "artifact.txt"
+    assert_match %r{https?://example.com/rails/active_storage/blobs/redirect/}, bot.calls.first.last.fetch(:text)
+  end
+
   private
 
   def telegram_delivery_context

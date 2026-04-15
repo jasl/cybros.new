@@ -62,6 +62,44 @@ class IngressAPI::Preprocessors::AuthorizeAndPairTest < ActiveSupport::TestCase
     assert_equal context[:execution_runtime], session.conversation.current_execution_runtime
   end
 
+  test "seeds the weixin context token onto a newly approved dm session" do
+    context = pairing_context(platform: "weixin")
+    pairing_request = ChannelPairingRequest.create!(
+      installation: context[:installation],
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector],
+      platform_sender_id: "weixin-user-1",
+      sender_snapshot: { "label" => "Alice" },
+      pairing_code_digest: Digest::SHA256.hexdigest(unique_test_token("pairing-code")),
+      lifecycle_state: "approved",
+      approved_at: Time.current,
+      expires_at: 30.minutes.from_now
+    )
+    ingress_context = IngressAPI::Context.new(
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector],
+      envelope: dm_envelope(
+        context,
+        sender_id: "weixin-user-1",
+        text: "approved sender",
+        transport_metadata: { "context_token" => "ctx-2" }
+      ),
+      request_metadata: { "source" => "test" },
+      pipeline_trace: []
+    )
+
+    assert_difference("ChannelSession.count", 1) do
+      IngressAPI::Preprocessors::AuthorizeAndPair.call(context: ingress_context)
+    end
+
+    session = ingress_context.channel_session
+
+    assert_nil ingress_context.result
+    assert_predicate session, :present?
+    assert_equal pairing_request.reload.channel_session, session
+    assert_equal "ctx-2", session.session_metadata["context_token"]
+  end
+
   test "rolls back the root conversation if dm session creation fails" do
     context = telegram_pairing_context
     ChannelPairingRequest.create!(
@@ -99,6 +137,10 @@ class IngressAPI::Preprocessors::AuthorizeAndPairTest < ActiveSupport::TestCase
   private
 
   def telegram_pairing_context
+    pairing_context(platform: "telegram")
+  end
+
+  def pairing_context(platform:)
     context = create_workspace_context!
     ingress_binding = IngressBinding.create!(
       installation: context[:installation],
@@ -113,16 +155,14 @@ class IngressAPI::Preprocessors::AuthorizeAndPairTest < ActiveSupport::TestCase
     channel_connector = ChannelConnector.create!(
       installation: context[:installation],
       ingress_binding: ingress_binding,
-      platform: "telegram",
-      driver: "telegram_bot_api",
-      transport_kind: "webhook",
-      label: "Primary Telegram",
+      platform: platform,
+      driver: platform == "telegram" ? "telegram_bot_api" : "claw_bot_sdk_weixin",
+      transport_kind: platform == "telegram" ? "webhook" : "poller",
+      label: "Primary #{platform.titleize}",
       lifecycle_state: "active",
-      credential_ref_payload: {
-        "bot_token" => "telegram-bot-token"
-      },
+      credential_ref_payload: platform == "telegram" ? { "bot_token" => "telegram-bot-token" } : {},
       config_payload: {},
-      runtime_state_payload: {}
+      runtime_state_payload: platform == "weixin" ? { "base_url" => "https://weixin.example" } : {}
     )
 
     context.merge(
@@ -131,14 +171,17 @@ class IngressAPI::Preprocessors::AuthorizeAndPairTest < ActiveSupport::TestCase
     )
   end
 
-  def dm_envelope(context, sender_id:, text:)
+  def dm_envelope(context, sender_id:, text:, transport_metadata: {})
+    platform = context[:channel_connector].platform
+    driver = context[:channel_connector].driver
+
     IngressAPI::Envelope.new(
-      platform: "telegram",
-      driver: "telegram_bot_api",
+      platform: platform,
+      driver: driver,
       ingress_binding_public_id: context[:ingress_binding].public_id,
       channel_connector_public_id: context[:channel_connector].public_id,
-      external_event_key: "telegram:update:#{next_test_sequence}",
-      external_message_key: "telegram:chat:telegram-user-1:message:#{next_test_sequence}",
+      external_event_key: "#{platform}:update:#{next_test_sequence}",
+      external_message_key: "#{platform}:chat:#{sender_id}:message:#{next_test_sequence}",
       peer_kind: "dm",
       peer_id: sender_id,
       thread_key: nil,
@@ -152,7 +195,7 @@ class IngressAPI::Preprocessors::AuthorizeAndPairTest < ActiveSupport::TestCase
       quoted_sender_label: nil,
       quoted_attachment_refs: [],
       occurred_at: Time.current,
-      transport_metadata: {},
+      transport_metadata: transport_metadata,
       raw_payload: { "text" => text }
     )
   end

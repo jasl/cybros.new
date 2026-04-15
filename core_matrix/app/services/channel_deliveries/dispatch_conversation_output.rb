@@ -69,6 +69,8 @@ module ChannelDeliveries
       case delivery.channel_connector.platform
       when "telegram"
         ChannelDeliveries::SendTelegramReply.call(channel_delivery: delivery)
+      when "weixin"
+        ChannelDeliveries::SendWeixinReply.call(channel_delivery: delivery)
       else
         raise ArgumentError, "unsupported channel delivery platform: #{delivery.channel_connector.platform}"
       end
@@ -132,9 +134,10 @@ module ChannelDeliveries
           "filename" => blob.filename.to_s,
           "content_type" => blob.content_type,
           "byte_size" => blob.byte_size,
-          "modality" => modality_for(blob.content_type)
+          "modality" => modality_for(blob.content_type),
+          "publication_role" => Attachments::CreateForMessage.publication_role_for(attachment)
         }
-      end
+      end.sort_by.with_index { |attachment, index| [publication_role_rank(attachment["publication_role"]), index] }
     end
 
     def modality_for(content_type)
@@ -162,6 +165,16 @@ module ChannelDeliveries
     def parse_telegram_message_id(external_message_key)
       match = external_message_key.to_s.match(/\Atelegram:chat:[^:]+:message:(\d+)\z/)
       match && match[1].to_i
+    end
+
+    def publication_role_rank(publication_role)
+      case publication_role
+      when "primary_deliverable" then 0
+      when "preview" then 1
+      when "evidence" then 2
+      when "source_bundle" then 3
+      else 4
+      end
     end
   end
 end

@@ -86,6 +86,90 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
     assert_response :not_found
   end
 
+  test "starts weixin login for a weixin connector binding" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    ingress_binding = create_ingress_binding!(context, platform: "weixin")
+    original_start = ClawBotSDK::Weixin::QrLogin.method(:start)
+    ClawBotSDK::Weixin::QrLogin.singleton_class.send(:define_method, :start) do |channel_connector:|
+      {
+        "login_state" => "pending",
+        "qr_code_url" => "https://weixin.example/qr.png",
+        "channel_connector_id" => channel_connector.public_id
+      }
+    end
+
+    post "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}/weixin/start_login",
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :success
+    assert_equal "ingress_binding_weixin_start_login", response.parsed_body.fetch("method_id")
+    assert_equal "pending", response.parsed_body.dig("weixin", "login_state")
+  ensure
+    ClawBotSDK::Weixin::QrLogin.singleton_class.send(:define_method, :start, original_start)
+  end
+
+  test "shows weixin login status for a weixin connector binding" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    ingress_binding = create_ingress_binding!(context, platform: "weixin")
+    original_status = ClawBotSDK::Weixin::QrLogin.method(:status)
+    ClawBotSDK::Weixin::QrLogin.singleton_class.send(:define_method, :status) do |channel_connector:|
+      {
+        "login_state" => "connected",
+        "account_id" => "wx-account-1",
+        "channel_connector_id" => channel_connector.public_id
+      }
+    end
+
+    get "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}/weixin/login_status",
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :success
+    assert_equal "ingress_binding_weixin_login_status", response.parsed_body.fetch("method_id")
+    assert_equal "connected", response.parsed_body.dig("weixin", "login_state")
+    assert_equal "wx-account-1", response.parsed_body.dig("weixin", "account_id")
+  ensure
+    ClawBotSDK::Weixin::QrLogin.singleton_class.send(:define_method, :status, original_status)
+  end
+
+  test "disconnects a weixin connector binding" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    ingress_binding = create_ingress_binding!(context, platform: "weixin")
+
+    post "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}/weixin/disconnect",
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :success
+    assert_equal "ingress_binding_weixin_disconnect", response.parsed_body.fetch("method_id")
+    assert_equal "disconnected", ingress_binding.reload.channel_connectors.order(:id).last.lifecycle_state
+  end
+
+  test "returns not found for weixin lifecycle actions on non-weixin bindings" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    ingress_binding = create_ingress_binding!(context, platform: "telegram")
+
+    post "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}/weixin/start_login",
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+    assert_response :not_found
+
+    get "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}/weixin/login_status",
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+    assert_response :not_found
+
+    post "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}/weixin/disconnect",
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+    assert_response :not_found
+  end
+
   private
 
   def create_ingress_binding!(context, platform:, label: "#{platform.titleize} Binding")

@@ -2,6 +2,7 @@ module AppAPI
   class BaseController < ActionController::API
     include ActionController::Cookies
     include ActionController::RequestForgeryProtection
+    include Rails.application.routes.url_helpers
     include APIErrorRendering
     include InstallationScopedLookup
     include SessionAuthentication
@@ -129,7 +130,28 @@ module AppAPI
         "slot" => message.slot,
         "variant_index" => message.variant_index,
         "content" => message.content,
+        "attachments" => message.message_attachments.sort_by(&:id).map { |attachment| serialize_message_attachment(attachment) },
       }
+    end
+
+    def serialize_message_attachment(attachment, include_download_url: false, host: request.base_url)
+      payload = {
+        "attachment_id" => attachment.public_id,
+        "kind" => attachment.message.user? ? "user_upload" : "generated_output",
+        "filename" => attachment.file.filename.to_s,
+        "content_type" => attachment.file.blob.content_type,
+        "byte_size" => attachment.file.blob.byte_size,
+        "publication_role" => Attachments::CreateForMessage.publication_role_for(attachment),
+        "origin_attachment_id" => attachment.origin_attachment&.public_id,
+        "origin_message_id" => attachment.origin_message&.public_id,
+      }.compact
+
+      return payload unless include_download_url
+
+      payload.merge(
+        "blob_signed_id" => attachment.file.blob.signed_id(expires_in: Attachments::CreateForMessage.signed_url_expires_in),
+        "download_url" => Attachments::CreateForMessage.signed_download_url(attachment: attachment, host: host)
+      )
     end
   end
 end
