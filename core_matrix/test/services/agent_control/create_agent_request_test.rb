@@ -126,7 +126,9 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     context = build_agent_control_context!
     execution_snapshot = context.fetch(:turn).execution_snapshot
     logical_work_id = "prepare-round:#{context.fetch(:workflow_node).public_id}"
-    round_context = execution_snapshot.conversation_projection.slice("messages", "context_imports", "projection_fingerprint")
+    round_context = execution_snapshot.conversation_projection.slice("messages", "context_imports", "projection_fingerprint").merge(
+      "work_context_view" => ProviderExecution::BuildWorkContextView.call(workflow_node: context.fetch(:workflow_node))
+    )
     capability_projection = execution_snapshot.capability_projection
     expected_agent_context = {
       "profile" => capability_projection.fetch("profile_key", "main"),
@@ -168,7 +170,8 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     stored_payload = mailbox_item.payload_document.payload
 
     refute stored_payload.key?("protocol_version")
-    refute stored_payload.key?("round_context")
+    assert_equal round_context.fetch("work_context_view"),
+      stored_payload.dig("round_context", "work_context_view")
     refute stored_payload.key?("agent_context")
     refute stored_payload.key?("provider_context")
 

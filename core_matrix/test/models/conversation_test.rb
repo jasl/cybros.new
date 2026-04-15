@@ -192,6 +192,52 @@ class ConversationTest < ActiveSupport::TestCase
     assert_equal [conversation], Conversation.accessible_to_user(context[:workspace].user).order(:id).to_a
   end
 
+  test "accessible_to_user keeps retained conversations visible when the mounted agent becomes hidden" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    hidden_owner = create_user!(installation: installation)
+    hidden_agent = create_agent!(
+      installation: installation,
+      visibility: "private",
+      owner_user: hidden_owner,
+      provisioning_origin: "user_created",
+      key: "hidden-agent",
+      display_name: "Hidden Agent"
+    )
+    workspace = Workspace.create!(
+      installation: installation,
+      user: user,
+      name: "Owned Workspace",
+      privacy: "private"
+    )
+    workspace_agent = WorkspaceAgent.create!(
+      installation: installation,
+      workspace: workspace,
+      agent: hidden_agent,
+      lifecycle_state: "active"
+    )
+    conversation = Conversations::CreateRoot.call(workspace_agent: workspace_agent)
+
+    assert_equal [conversation], Conversation.accessible_to_user(user).order(:id).to_a
+  end
+
+  test "does not allow rebinding an existing conversation to another workspace agent" do
+    context = conversation_context
+    conversation = Conversations::CreateRoot.call(workspace_agent: context[:workspace_agent])
+    other_workspace_agent = WorkspaceAgent.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: create_agent!(installation: context[:installation], key: "other-agent", display_name: "Other Agent"),
+      lifecycle_state: "active"
+    )
+
+    conversation.workspace_agent = other_workspace_agent
+    conversation.agent = other_workspace_agent.agent
+
+    assert_not conversation.valid?
+    assert_includes conversation.errors[:workspace_agent], "must not change once the conversation is created"
+  end
+
   test "stores override payloads in a detail row instead of the header table" do
     conversation = build_conversation(
       override_payload: { "subagents" => { "enabled" => false } },

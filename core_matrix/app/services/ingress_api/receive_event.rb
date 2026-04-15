@@ -110,6 +110,7 @@ module IngressAPI
         conversation: context.conversation,
         channel_session: context.channel_session,
         text: context.result.payload.dig("human_sidechat", "content"),
+        delivery_mode: context.result.payload["delivery_mode"],
         reply_to_external_message_key: context.channel_inbound_message&.external_message_key || context.envelope.external_message_key
       )
     end

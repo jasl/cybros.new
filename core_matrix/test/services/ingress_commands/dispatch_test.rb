@@ -52,6 +52,7 @@ class IngressCommands::DispatchTest < ActiveSupport::TestCase
       assert result.handled?
       assert_equal "sidecar_query", result.handled_via
       assert_equal "report", result.command_name
+      assert_equal "status_progress", result.payload["delivery_mode"]
       assert_predicate result.payload.dig("human_sidechat", "content"), :present?
       assert_equal "builtin", result.payload["responder_kind"]
       assert_equal result.payload.dig("machine_status", "conversation_id"), context[:conversation].public_id
@@ -74,6 +75,7 @@ class IngressCommands::DispatchTest < ActiveSupport::TestCase
       assert result.handled?
       assert_equal "sidecar_query", result.handled_via
       assert_equal "btw", result.command_name
+      assert_equal "final_delivery", result.payload["delivery_mode"]
       assert_equal "what are you doing right now?", result.payload["question"]
       assert_predicate result.payload.dig("human_sidechat", "content"), :present?
     end

@@ -21,6 +21,7 @@ class IngressAPI::CommandSurfaceTest < ActiveSupport::TestCase
     delivery = ChannelDelivery.order(:id).last
     assert_equal context[:conversation], delivery.conversation
     assert_predicate delivery.payload["text"], :present?
+    assert_equal "status_progress", delivery.payload["delivery_mode"]
     assert_equal "telegram:chat:telegram-user-1:message:1001", delivery.reply_to_external_message_key
   end
 
@@ -43,6 +44,7 @@ class IngressAPI::CommandSurfaceTest < ActiveSupport::TestCase
 
     delivery = ChannelDelivery.order(:id).last
     assert_predicate delivery.payload["text"], :present?
+    assert_equal "final_delivery", delivery.payload["delivery_mode"]
     assert_equal "telegram:chat:telegram-user-1:message:1002", delivery.reply_to_external_message_key
   end
 

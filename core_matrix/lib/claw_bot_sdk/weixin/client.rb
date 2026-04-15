@@ -13,15 +13,19 @@ module ClawBotSDK
         new(
           base_url: runtime_state.fetch("base_url"),
           bot_token: runtime_state["bot_token"],
+          cdn_base_url: runtime_state["cdn_base_url"],
           timeout_ms: runtime_state["timeout_ms"],
           long_poll_timeout_ms: runtime_state["long_poll_timeout_ms"],
           http_client: http_client
         )
       end
 
-      def initialize(base_url:, bot_token:, timeout_ms: nil, long_poll_timeout_ms: nil, http_client: nil)
+      attr_reader :cdn_base_url
+
+      def initialize(base_url:, bot_token:, cdn_base_url: nil, timeout_ms: nil, long_poll_timeout_ms: nil, http_client: nil)
         @base_url = base_url
         @bot_token = bot_token
+        @cdn_base_url = cdn_base_url.presence
         @timeout_ms = timeout_ms.to_i.positive? ? timeout_ms.to_i : DEFAULT_TIMEOUT_MS
         @long_poll_timeout_ms = long_poll_timeout_ms.to_i.positive? ? long_poll_timeout_ms.to_i : DEFAULT_LONG_POLL_TIMEOUT_MS
         @http_client = http_client || method(:default_http_client)
@@ -39,6 +43,19 @@ module ClawBotSDK
       end
 
       def send_text(to_user_id:, text:, context_token:)
+        send_message(
+          to_user_id: to_user_id,
+          context_token: context_token,
+          item_list: [
+            {
+              "type" => 1,
+              "text_item" => { "text" => text },
+            },
+          ]
+        )
+      end
+
+      def send_message(to_user_id:, item_list:, context_token:)
         post(
           endpoint: "ilink/bot/sendmessage",
           body: {
@@ -47,12 +64,7 @@ module ClawBotSDK
               "message_type" => 2,
               "message_state" => 2,
               "context_token" => context_token,
-              "item_list" => [
-                {
-                  "type" => 1,
-                  "text_item" => { "text" => text },
-                },
-              ],
+              "item_list" => Array(item_list),
             },
           }
         )

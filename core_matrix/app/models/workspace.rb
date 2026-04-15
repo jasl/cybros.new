@@ -20,31 +20,10 @@ class Workspace < ApplicationRecord
   def self.accessible_to_user(user)
     return none if user.blank?
 
-    owned_scope = where(
+    where(
       installation_id: user.installation_id,
       user_id: user.id,
       privacy: "private"
-    )
-
-    visible_agent_ids_sql = Agent.visible_to_user(user).select(:id).to_sql
-
-    owned_scope.where(
-      <<~SQL.squish,
-        NOT EXISTS (
-          SELECT 1
-          FROM workspace_agents active_workspace_agents
-          WHERE active_workspace_agents.workspace_id = workspaces.id
-            AND active_workspace_agents.lifecycle_state = :active_state
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM workspace_agents visible_workspace_agents
-          WHERE visible_workspace_agents.workspace_id = workspaces.id
-            AND visible_workspace_agents.lifecycle_state = :active_state
-            AND visible_workspace_agents.agent_id IN (#{visible_agent_ids_sql})
-        )
-      SQL
-      active_state: "active"
     )
   end
 

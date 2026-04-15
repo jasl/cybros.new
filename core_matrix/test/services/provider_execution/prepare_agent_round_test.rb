@@ -136,4 +136,47 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
     assert_equal "Summarize the blocker before writing code.",
       request_payload.dig("round_context", "work_context_view", "supervisor_guidance", "latest_guidance", "content")
   end
+
+  test "carries explicit ingress quote context through round_context work_context_view" do
+    context = build_governed_tool_context!
+    turn = context.fetch(:turn)
+    turn.update!(
+      origin_kind: "channel_ingress",
+      origin_payload: turn.origin_payload.merge(
+        "reply_to_external_message_key" => "telegram:chat:42:message:57",
+        "quoted_external_message_key" => "telegram:chat:42:message:57",
+        "quoted_text" => "Please update the failing migration spec.",
+        "quoted_sender_label" => "Bob",
+        "quoted_attachment_refs" => [
+          { "modality" => "file", "filename" => "trace.txt" },
+        ]
+      )
+    )
+    Workflows::BuildExecutionSnapshot.call(turn: turn.reload)
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "assistant", "content" => "Round prepared" },
+          ],
+          "visible_tool_names" => ["workspace_write_file"],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ]
+    )
+
+    ProviderExecution::PrepareAgentRound.call(
+      workflow_node: context.fetch(:workflow_node).reload,
+      transcript: [{ "role" => "user", "content" => "Continue." }],
+      agent_request_exchange: agent_request_exchange
+    )
+
+    request_payload = agent_request_exchange.prepare_round_requests.last
+
+    assert_equal "telegram:chat:42:message:57",
+      request_payload.dig("round_context", "work_context_view", "explicit_reply_context", "quoted_external_message_key")
+    assert_equal "Please update the failing migration spec.",
+      request_payload.dig("round_context", "work_context_view", "explicit_reply_context", "quoted_text")
+  end
 end

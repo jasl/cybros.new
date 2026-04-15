@@ -97,10 +97,7 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :agents, only: :index do
-      resource :home, only: :show, controller: "agents/homes"
-      resources :workspaces, only: :index, controller: "agents/workspaces"
-    end
+    resources :agents, only: :index
 
     resources :conversations, only: :create do
       resource :metadata, only: [:show, :update], controller: "conversations/metadata" do

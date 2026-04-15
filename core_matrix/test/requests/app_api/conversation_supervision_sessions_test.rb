@@ -123,7 +123,7 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
     assert_response :not_found
   end
 
-  test "returns not found when the conversation becomes inaccessible after an agent visibility change" do
+  test "keeps supervision session routes available after an agent visibility change" do
     fixture = prepare_conversation_supervision_context!
     registration = register_machine_api_for_context!(fixture)
     session = create_conversation_supervision_session!(fixture)
@@ -143,18 +143,18 @@ class AppApiConversationSupervisionSessionsTest < ActionDispatch::IntegrationTes
       headers: app_api_headers(registration[:session_token]),
       as: :json
 
-    assert_response :not_found
+    assert_response :created
 
     get "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}",
       headers: app_api_headers(registration[:session_token])
 
-    assert_response :not_found
+    assert_response :success
 
     post "/app_api/conversations/#{fixture[:conversation].public_id}/supervision_sessions/#{session.public_id}/close",
       headers: app_api_headers(registration[:session_token]),
       as: :json
 
-    assert_response :not_found
+    assert_response :success
   end
 
   test "returns not found when a session is requested through the wrong conversation scope" do

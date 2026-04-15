@@ -95,6 +95,42 @@ class ChannelSessionTest < ActiveSupport::TestCase
     assert_predicate different_thread, :valid?
   end
 
+  test "rejects conversations mounted from a different workspace agent than the ingress binding" do
+    context = channel_session_context
+    other_workspace = create_workspace!(
+      installation: context[:installation],
+      user: context[:user],
+      name: "Other Workspace"
+    )
+    other_workspace_agent = create_workspace_agent!(
+      installation: context[:installation],
+      workspace: other_workspace,
+      agent: context[:agent]
+    )
+    other_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: other_workspace,
+      workspace_agent: other_workspace_agent,
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime]
+    )
+
+    session = ChannelSession.new(
+      installation: context[:installation],
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector],
+      conversation: other_conversation,
+      platform: "telegram",
+      peer_kind: "dm",
+      peer_id: "telegram-user-1",
+      thread_key: nil,
+      session_metadata: {}
+    )
+
+    assert_not session.valid?
+    assert_includes session.errors[:conversation], "must belong to the same workspace agent as the ingress binding"
+  end
+
   private
 
   def channel_session_context
@@ -130,6 +166,9 @@ class ChannelSessionTest < ActiveSupport::TestCase
     )
 
     context.merge(
+      user: context[:user],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime],
       ingress_binding: ingress_binding,
       channel_connector: channel_connector,
       conversation: conversation

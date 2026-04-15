@@ -26,6 +26,7 @@ class ChannelSession < ApplicationRecord
   validate :channel_connector_installation_match
   validate :conversation_installation_match
   validate :connector_binding_match
+  validate :conversation_mount_match
   validate :unique_session_boundary
 
   before_validation :apply_defaults
@@ -77,6 +78,13 @@ class ChannelSession < ApplicationRecord
     return if channel_connector.ingress_binding_id == ingress_binding_id
 
     errors.add(:channel_connector, "must belong to the ingress binding")
+  end
+
+  def conversation_mount_match
+    return if conversation.blank? || ingress_binding.blank?
+    return if conversation.workspace_agent_id == ingress_binding.workspace_agent_id
+
+    errors.add(:conversation, "must belong to the same workspace agent as the ingress binding")
   end
 
   def unique_session_boundary

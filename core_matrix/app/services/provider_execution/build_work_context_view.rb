@@ -17,6 +17,7 @@ module ProviderExecution
       {
         "conversation_id" => @conversation.public_id,
         "turn_id" => @turn.public_id,
+        "explicit_reply_context" => explicit_reply_context,
         "primary_turn_todo" => primary_turn_todo,
         "active_children" => active_children,
         "supervision_snapshot" => supervision_snapshot,
@@ -28,6 +29,24 @@ module ProviderExecution
 
     def primary_turn_todo
       current_turn_todo.slice("plan_summary", "plan_view")
+    end
+
+    def explicit_reply_context
+      origin_payload = turn_origin.fetch("origin_payload", {})
+
+      payload = {
+        "reply_to_external_message_key" => origin_payload["reply_to_external_message_key"],
+        "quoted_external_message_key" => origin_payload["quoted_external_message_key"],
+        "quoted_text" => origin_payload["quoted_text"],
+        "quoted_sender_label" => origin_payload["quoted_sender_label"],
+      }.compact
+
+      quoted_attachment_refs = Array(origin_payload["quoted_attachment_refs"]).map do |attachment|
+        attachment.respond_to?(:deep_stringify_keys) ? attachment.deep_stringify_keys : attachment
+      end
+      payload["quoted_attachment_refs"] = quoted_attachment_refs if quoted_attachment_refs.present?
+
+      payload.presence
     end
 
     def active_children
@@ -133,6 +152,15 @@ module ProviderExecution
 
     def snapshot_occurred_at
       @snapshot_occurred_at ||= @workflow_run.updated_at || @turn.updated_at || Time.current
+    end
+
+    def turn_origin
+      @turn_origin ||= @turn.execution_snapshot&.turn_origin || {
+        "origin_kind" => @turn.origin_kind,
+        "origin_payload" => @turn.origin_payload.deep_stringify_keys,
+        "source_ref_type" => @turn.source_ref_type,
+        "source_ref_id" => @turn.source_ref_id,
+      }
     end
 
     def child_plan_summary(task_run)

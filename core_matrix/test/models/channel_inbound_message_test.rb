@@ -90,6 +90,36 @@ class ChannelInboundMessageTest < ActiveSupport::TestCase
     assert_includes message.errors[:normalized_payload], "must use public ids for external resource references"
   end
 
+  test "rejects inbound facts whose conversation does not match the bound channel session" do
+    context = channel_message_context
+    other_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      workspace_agent: context[:workspace_agent],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime]
+    )
+
+    message = ChannelInboundMessage.new(
+      installation: context[:installation],
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector],
+      channel_session: context[:channel_session],
+      conversation: other_conversation,
+      external_event_key: "telegram:update:104",
+      external_message_key: "telegram:chat:1:message:205",
+      external_sender_id: "telegram-user-1",
+      sender_snapshot: { "label" => "Alice" },
+      content: { "text" => "mismatched conversation" },
+      normalized_payload: normalized_payload_for(context).merge("conversation_id" => other_conversation.public_id),
+      raw_payload: { "update_id" => 104 },
+      received_at: Time.current
+    )
+
+    assert_not message.valid?
+    assert_includes message.errors[:conversation], "must match the bound channel session conversation"
+  end
+
   private
 
   def channel_message_context
@@ -136,6 +166,10 @@ class ChannelInboundMessageTest < ActiveSupport::TestCase
     )
 
     context.merge(
+      workspace: context[:workspace],
+      workspace_agent: context[:workspace_agent],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime],
       ingress_binding: ingress_binding,
       channel_connector: channel_connector,
       conversation: conversation,

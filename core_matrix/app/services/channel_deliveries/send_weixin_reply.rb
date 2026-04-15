@@ -23,8 +23,10 @@ module ChannelDeliveries
         elsif attachments.present?
           attachments.each_with_index.map do |attachment, index|
             if native_delivery_attachment?(attachment)
+              attachment_record = attachment_record(attachment)
               media_client.send_attachment(
-                attachment: attachment,
+                attachment_record: attachment_record,
+                descriptor: attachment,
                 to_user_id: @channel_delivery.channel_session.peer_id,
                 context_token: context_token,
                 text: attachment_caption(index)

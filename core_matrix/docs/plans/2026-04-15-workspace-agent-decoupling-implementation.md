@@ -230,7 +230,6 @@ git commit -m "refactor: introduce workspace agents and remove user bindings"
 - Create: `core_matrix/app/queries/workspace_agents/for_user_query.rb`
 - Modify: `core_matrix/app/queries/workspaces/for_user_query.rb`
 - Modify: `core_matrix/app/controllers/app_api/base_controller.rb`
-- Modify: `core_matrix/test/requests/app_api/agent_homes_test.rb`
 - Modify: `core_matrix/test/requests/app_api/workspaces_test.rb` if present
 
 **Step 1: Write failing request/query tests**
@@ -255,7 +254,6 @@ Do not hide the workspace just because one agent mount is revoked.
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
-  test/requests/app_api/agent_homes_test.rb \
   test/integration/workspace_agent_revocation_flow_test.rb
 ```
 
@@ -539,10 +537,10 @@ AppAPI should manage:
 
 Do not recreate `UserAgentBinding` under another name.
 
-This task also intentionally removes the old agent-centric browser surface:
+This task also intentionally retires the old agent-centric browser surface:
 
-- retire or rewrite `/app_api/agents/:agent_id/home`
-- retire or rewrite `/app_api/agents/:agent_id/workspaces`
+- retire `/app_api/agents/:agent_id/home`
+- retire `/app_api/agents/:agent_id/workspaces`
 - stop returning `default_workspace_ref`
 - stop materializing a default workspace as a hidden side effect of conversation
   creation
@@ -563,13 +561,19 @@ This task also intentionally removes the old agent-centric browser surface:
 - existing request/service tests that still build `Workspace` with direct agent
   attributes must be rewritten to materialize `WorkspaceAgent` explicitly
 
+Current branch state:
+
+- `/app_api/agents/:agent_id/home` is absent
+- `/app_api/agents/:agent_id/workspaces` is absent
+- the user-facing browser launch surface resolves through concrete
+  `workspace_agent_id`
+
 **Step 3: Run the focused tests**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
   test/requests/app_api/workspaces/workspace_agents_controller_test.rb \
-  test/requests/app_api/agent_homes_test.rb \
   test/requests/app_api/workspaces_test.rb \
   test/requests/app_api/workspace_policies_test.rb \
   test/requests/app_api/conversation_bundle_import_requests_test.rb \

@@ -167,6 +167,10 @@ Weixin should start with two modes:
 - `status_progress`
   - `sendTyping`
   - periodic report/progress messages when needed
+  - textual progress summaries may still travel through ordinary
+    `sendmessage` text sends; the distinction from `final_delivery` lives in
+    `ChannelDelivery.payload.delivery_mode` and downstream policy, not in a
+    separate Weixin wire verb
 - `final_delivery`
   - final text and native media/file sends through the bridge
 
@@ -269,6 +273,10 @@ Weixin should be treated as a connector-driven transport:
     protocol calls
 - attachment shape
   - bridge-mediated media download/upload and protocol-specific crypto
+  - when a caption is present for a native media/file send, the bridge should
+    emit a text item first and the media/file item second because the upstream
+    send contract is single-item-per-request; delivery metadata should track
+    the terminal media/file message key
 
 After normalization, the Rails ingress pipeline should be identical.
 

@@ -28,6 +28,7 @@ class ChannelDelivery < ApplicationRecord
   validate :message_installation_match
   validate :connector_binding_match
   validate :session_binding_match
+  validate :conversation_matches_channel_session
   validate :payload_public_refs
   validate :failure_payload_public_refs
 
@@ -103,6 +104,13 @@ class ChannelDelivery < ApplicationRecord
     return if channel_session.ingress_binding_id == ingress_binding_id && channel_session.channel_connector_id == channel_connector_id
 
     errors.add(:channel_session, "must belong to the ingress binding and channel connector")
+  end
+
+  def conversation_matches_channel_session
+    return if conversation.blank? || channel_session.blank?
+    return if channel_session.conversation_id == conversation_id
+
+    errors.add(:conversation, "must match the bound channel session conversation")
   end
 
   def payload_public_refs

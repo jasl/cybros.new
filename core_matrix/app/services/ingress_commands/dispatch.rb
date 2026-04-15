@@ -60,7 +60,7 @@ module IngressCommands
     end
 
     def dispatch_sidecar_query(command_name:, question:)
-      payload = sidecar_response_payload(question:)
+      payload = sidecar_response_payload(command_name:, question:)
 
       IngressAPI::Result.handled(
         handled_via: "sidecar_query",
@@ -84,7 +84,7 @@ module IngressCommands
       )
     end
 
-    def sidecar_response_payload(question:)
+    def sidecar_response_payload(command_name:, question:)
       actor = @context.conversation&.user
       conversation = @context.conversation
       raise EmbeddedAgents::Errors::UnauthorizedSupervision, "sidecar query actor is unavailable" if actor.blank? || conversation.blank?
@@ -116,6 +116,7 @@ module IngressCommands
         "machine_status" => response.fetch("machine_status"),
         "human_sidechat" => response.fetch("human_sidechat"),
         "responder_kind" => response.fetch("responder_kind"),
+        "delivery_mode" => command_name == "report" ? "status_progress" : "final_delivery",
       }
     ensure
       if actor.present? && session.present?

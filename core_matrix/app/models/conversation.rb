@@ -192,7 +192,6 @@ class Conversation < ApplicationRecord
     return none if user.blank?
 
     visible_workspace_ids_sql = Workspace.accessible_to_user(user).select(:id).to_sql
-    visible_agent_ids_sql = Agent.visible_to_user(user).select(:id).to_sql
 
     where(
       installation_id: user.installation_id,
@@ -200,15 +199,12 @@ class Conversation < ApplicationRecord
     )
       .joins(:workspace_agent)
       .where("conversations.workspace_id IN (#{visible_workspace_ids_sql})")
-      .where(
-        "workspace_agents.lifecycle_state != :active_state OR workspace_agents.agent_id IN (#{visible_agent_ids_sql})",
-        active_state: "active"
-      )
   end
 
   validate :workspace_installation_match
   validate :workspace_agent_installation_match
   validate :workspace_agent_active_for_new_conversation, on: :create
+  validate :workspace_agent_immutable, on: :update
   validate :user_installation_match
   validate :agent_installation_match
   validate :workspace_user_match
@@ -438,6 +434,12 @@ class Conversation < ApplicationRecord
     return if workspace_agent.active?
 
     errors.add(:workspace_agent, "must be active for new conversations")
+  end
+
+  def workspace_agent_immutable
+    return unless will_save_change_to_workspace_agent_id?
+
+    errors.add(:workspace_agent, "must not change once the conversation is created")
   end
 
   def user_installation_match

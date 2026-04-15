@@ -162,4 +162,32 @@ class WorkspaceTest < ActiveSupport::TestCase
     assert_nil workspace.reload.agent
     assert_nil workspace.default_execution_runtime
   end
+
+  test "keeps an owned workspace visible even when its only active mount points at a hidden agent" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    hidden_owner = create_user!(installation: installation)
+    hidden_agent = create_agent!(
+      installation: installation,
+      visibility: "private",
+      owner_user: hidden_owner,
+      provisioning_origin: "user_created",
+      key: "hidden-agent",
+      display_name: "Hidden Agent"
+    )
+    workspace = Workspace.create!(
+      installation: installation,
+      user: user,
+      name: "Owned Workspace",
+      privacy: "private"
+    )
+    WorkspaceAgent.create!(
+      installation: installation,
+      workspace: workspace,
+      agent: hidden_agent,
+      lifecycle_state: "active"
+    )
+
+    assert_equal [workspace], Workspace.accessible_to_user(user).order(:id).to_a
+  end
 end

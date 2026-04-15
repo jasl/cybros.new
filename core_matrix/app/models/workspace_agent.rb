@@ -132,5 +132,17 @@ class WorkspaceAgent < ApplicationRecord
       interaction_lock_state: "locked_agent_access_revoked",
       updated_at: Time.current
     )
+    ingress_bindings.where(lifecycle_state: "active").update_all(
+      lifecycle_state: "disabled",
+      updated_at: Time.current
+    )
+    ChannelConnector.where(
+      installation_id: installation_id,
+      ingress_binding_id: ingress_bindings.select(:id),
+      lifecycle_state: "active"
+    ).update_all(
+      lifecycle_state: "disabled",
+      updated_at: Time.current
+    )
   end
 end

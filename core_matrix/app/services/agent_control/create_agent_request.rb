@@ -79,7 +79,14 @@ module AgentControl
       compact.delete("protocol_version")
       compact.delete("provider_context") if execution_contract.present?
       compact.delete("agent_context") if execution_contract.present?
-      compact.delete("round_context") if execution_contract.present? && @request_kind == "prepare_round"
+      if execution_contract.present? && @request_kind == "prepare_round"
+        compact_round_context = compact_round_context(payload, workflow_node: workflow_node)
+        if compact_round_context.present?
+          compact["round_context"] = compact_round_context
+        else
+          compact.delete("round_context")
+        end
+      end
 
       task = extract_task_payload(compact)
       if task.present?
@@ -111,6 +118,18 @@ module AgentControl
       end
 
       compact
+    end
+
+    def compact_round_context(payload, workflow_node:)
+      round_context = payload["round_context"]
+      stored_view =
+        if round_context.is_a?(Hash)
+          round_context.deep_stringify_keys["work_context_view"]
+        end
+      stored_view ||= ProviderExecution::BuildWorkContextView.call(workflow_node: workflow_node) if workflow_node.present?
+      return if stored_view.blank?
+
+      { "work_context_view" => stored_view.deep_stringify_keys }
     end
 
     def resolved_workflow_node

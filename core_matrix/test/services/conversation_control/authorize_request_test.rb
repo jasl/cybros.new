@@ -20,7 +20,7 @@ class ConversationControl::AuthorizeRequestTest < ActiveSupport::TestCase
     refute_respond_to result, :policy
   end
 
-  test "rejects the original owner after a visibility change when no explicit capability grant exists" do
+  test "keeps the original owner authorized after a visibility change when control remains enabled" do
     fixture = prepare_conversation_supervision_context!(control_enabled: true)
     session = create_conversation_supervision_session!(fixture)
     replacement_owner = create_user!(
@@ -34,15 +34,16 @@ class ConversationControl::AuthorizeRequestTest < ActiveSupport::TestCase
       owner_user: replacement_owner
     )
 
-    denied = ConversationControl::AuthorizeRequest.call(
+    allowed = ConversationControl::AuthorizeRequest.call(
       actor: fixture.fetch(:user),
       conversation_supervision_session: session,
       request_kind: "request_turn_interrupt",
       request_payload: {}
     )
 
-    assert_not denied.allowed?
-    assert_equal "actor is not allowed to control this conversation", denied.rejection_reason
+    assert allowed.allowed?
+    assert_equal "conversation", allowed.target_kind
+    assert_equal fixture.fetch(:conversation).public_id, allowed.target_public_id
   end
 
   test "allows an explicit capability grant for a non-owner caller" do

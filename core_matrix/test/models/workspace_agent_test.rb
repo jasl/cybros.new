@@ -115,6 +115,43 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
     assert_includes workspace_agent.errors[:base], "cannot change policy or runtime while transitioning to a terminal state"
   end
 
+  test "revoking a mount disables ingress bindings and channel connectors" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      lifecycle_state: "active"
+    )
+    ingress_binding = IngressBinding.create!(
+      installation: context[:installation],
+      workspace_agent: workspace_agent,
+      routing_policy_payload: {},
+      manual_entry_policy: IngressBinding::DEFAULT_MANUAL_ENTRY_POLICY
+    )
+    channel_connector = ChannelConnector.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      platform: "telegram",
+      driver: "telegram_bot_api",
+      transport_kind: "webhook",
+      label: "Primary Telegram",
+      lifecycle_state: "active",
+      credential_ref_payload: {},
+      config_payload: {},
+      runtime_state_payload: {}
+    )
+
+    workspace_agent.update!(
+      lifecycle_state: "revoked",
+      revoked_at: Time.current,
+      revoked_reason_kind: "owner_revoked"
+    )
+
+    assert_equal "disabled", ingress_binding.reload.lifecycle_state
+    assert_equal "disabled", channel_connector.reload.lifecycle_state
+  end
+
   private
 
   def workspace_agent_context

@@ -18,7 +18,7 @@ class AppSurface::Policies::ConversationSupervisionAccessTest < ActiveSupport::T
     assert_equal [], access.available_control_verbs
   end
 
-  test "denies access when the conversation becomes inaccessible" do
+  test "keeps supervision access when the conversation agent becomes private to another owner" do
     fixture = prepare_conversation_supervision_context!
     replacement_owner = create_user!(
       installation: fixture.fetch(:installation),
@@ -37,10 +37,10 @@ class AppSurface::Policies::ConversationSupervisionAccessTest < ActiveSupport::T
       conversation: fixture.fetch(:conversation)
     )
 
-    assert_not access.read?
-    assert_not access.create_session?
+    assert_predicate access, :read?
+    assert_predicate access, :create_session?
     assert_not access.append_message?
-    assert_not access.close_session?
+    assert_predicate access, :close_session?
   end
 
   test "denies create and close when side chat is disabled" do

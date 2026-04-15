@@ -61,7 +61,8 @@ product wants that, but the design does not require immediate multi-agent UI.
 
 ### App Surface Consequences
 
-The current app surface still assumes an agent-centric default-workspace flow:
+Before this refactor, the app surface assumed an agent-centric
+default-workspace flow:
 
 - `/app_api/agents/:agent_id/home`
 - `/app_api/agents/:agent_id/workspaces`
@@ -69,7 +70,8 @@ The current app surface still assumes an agent-centric default-workspace flow:
 - conversation launch that starts from `agent_id` and optionally materializes a
   default workspace on first use
 
-That shape does not fit the post-refactor topology.
+That shape did not fit the post-refactor topology and has now been retired
+from the codebase.
 
 After this destructive refactor:
 

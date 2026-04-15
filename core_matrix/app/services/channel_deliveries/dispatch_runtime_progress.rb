@@ -1,5 +1,10 @@
 module ChannelDeliveries
   class DispatchRuntimeProgress
+    BRIDGES = [
+      IngressAPI::Telegram::ProgressBridge,
+      IngressAPI::Weixin::ProgressBridge,
+    ].freeze
+
     def self.call(...)
       new(...).call
     end
@@ -12,12 +17,14 @@ module ChannelDeliveries
     end
 
     def call
-      IngressAPI::Telegram::ProgressBridge.call(
-        conversation: @conversation,
-        turn: @turn,
-        event_kind: @event_kind,
-        payload: @payload
-      )
+      BRIDGES.each do |bridge|
+        bridge.call(
+          conversation: @conversation,
+          turn: @turn,
+          event_kind: @event_kind,
+          payload: @payload
+        )
+      end
     end
   end
 end

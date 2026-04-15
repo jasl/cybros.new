@@ -95,4 +95,24 @@ class AppApiAgentsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal [public_agent.public_id, private_agent.public_id].sort, response.parsed_body.fetch("agents").map { |item| item.fetch("agent_id") }.sort
   end
+
+  test "does not expose the retired agent home route" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+
+    get "/app_api/agents/#{context[:agent].public_id}/home",
+      headers: app_api_headers(session.plaintext_token)
+
+    assert_response :not_found
+  end
+
+  test "does not expose the retired agent workspace route" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+
+    get "/app_api/agents/#{context[:agent].public_id}/workspaces",
+      headers: app_api_headers(session.plaintext_token)
+
+    assert_response :not_found
+  end
 end

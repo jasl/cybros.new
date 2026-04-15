@@ -168,8 +168,11 @@ class AgentControlMailboxItem < ApplicationRecord
     if execution_contract.present? && !payload.key?("agent_context")
       payload["agent_context"] = reconstructed_agent_context(payload, execution_snapshot: snapshot)
     end
-    if execution_contract.present? && request_kind == "prepare_round" && !payload.key?("round_context")
-      payload["round_context"] = reconstructed_round_context(execution_snapshot: snapshot)
+    if execution_contract.present? && request_kind == "prepare_round"
+      payload["round_context"] = reconstructed_round_context(
+        compact_round_context: payload["round_context"],
+        execution_snapshot: snapshot
+      )
     end
 
     runtime_context = payload["runtime_context"].is_a?(Hash) ? payload["runtime_context"].deep_dup : {}
@@ -208,12 +211,17 @@ class AgentControlMailboxItem < ApplicationRecord
     }.compact
   end
 
-  def reconstructed_round_context(execution_snapshot:)
-    (execution_snapshot&.conversation_projection || {}).slice(
+  def reconstructed_round_context(compact_round_context:, execution_snapshot:)
+    round_context = (execution_snapshot&.conversation_projection || {}).slice(
       "messages",
       "context_imports",
       "projection_fingerprint"
     )
+    compact_round_context = compact_round_context.deep_stringify_keys if compact_round_context.respond_to?(:deep_stringify_keys)
+    work_context_view = compact_round_context.is_a?(Hash) ? compact_round_context["work_context_view"] : nil
+    return round_context if work_context_view.blank?
+
+    round_context.merge("work_context_view" => work_context_view)
   end
 
   def payload_must_be_hash

@@ -26,7 +26,7 @@ class AppSurface::Policies::ConversationAccessTest < ActiveSupport::TestCase
     )
   end
 
-  test "denies access when the conversation agent becomes private to another owner" do
+  test "keeps owner access when the conversation agent becomes private to another owner" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     replacement_owner = create_user!(
@@ -41,7 +41,7 @@ class AppSurface::Policies::ConversationAccessTest < ActiveSupport::TestCase
       owner_user: replacement_owner
     )
 
-    assert_not AppSurface::Policies::ConversationAccess.call(
+    assert AppSurface::Policies::ConversationAccess.call(
       user: context[:user],
       conversation: conversation
     )

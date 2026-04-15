@@ -80,4 +80,34 @@ class ProviderExecution::BuildWorkContextViewTest < ActiveSupport::TestCase
     assert_equal "Stop and summarize the latest blocker.",
       view.dig("supervisor_guidance", "latest_guidance", "content")
   end
+
+  test "projects ingress quote context into explicit reply context for durable state" do
+    context = build_governed_tool_context!
+    turn = context.fetch(:turn)
+    turn.update!(
+      origin_kind: "channel_ingress",
+      origin_payload: turn.origin_payload.merge(
+        "reply_to_external_message_key" => "telegram:chat:42:message:57",
+        "quoted_external_message_key" => "telegram:chat:42:message:57",
+        "quoted_text" => "Please update the failing migration spec.",
+        "quoted_sender_label" => "Bob",
+        "quoted_attachment_refs" => [
+          { "modality" => "file", "filename" => "trace.txt" },
+        ]
+      )
+    )
+    Workflows::BuildExecutionSnapshot.call(turn: turn.reload)
+
+    view = ProviderExecution::BuildWorkContextView.call(
+      workflow_node: context.fetch(:workflow_node).reload
+    )
+
+    assert_equal "telegram:chat:42:message:57",
+      view.dig("explicit_reply_context", "quoted_external_message_key")
+    assert_equal "Please update the failing migration spec.",
+      view.dig("explicit_reply_context", "quoted_text")
+    assert_equal "Bob", view.dig("explicit_reply_context", "quoted_sender_label")
+    assert_equal [{ "modality" => "file", "filename" => "trace.txt" }],
+      view.dig("explicit_reply_context", "quoted_attachment_refs")
+  end
 end

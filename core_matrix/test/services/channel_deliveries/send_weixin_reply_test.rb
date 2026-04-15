@@ -46,6 +46,30 @@ class ChannelDeliveries::SendWeixinReplyTest < ActiveSupport::TestCase
     assert_equal "weixin:peer:wx-user-1:message:wx-outbound-1", delivery.external_message_key
   end
 
+  test "sends textual status_progress replies through the weixin text transport" do
+    context = weixin_delivery_context
+    calls = []
+    fake_client = Struct.new(:calls) do
+      def send_text(to_user_id:, text:, context_token:)
+        calls << [to_user_id, text, context_token]
+        { "message_id" => "wx-progress-1" }
+      end
+    end.new(calls)
+    delivery = create_channel_delivery!(
+      context,
+      payload: {
+        "delivery_mode" => "status_progress",
+        "text" => "runtime still working",
+      }
+    )
+
+    ChannelDeliveries::SendWeixinReply.call(channel_delivery: delivery, client: fake_client)
+
+    assert_equal [["wx-user-1", "runtime still working", "ctx-1"]], calls
+    assert_equal "delivered", delivery.reload.delivery_state
+    assert_equal "weixin:peer:wx-user-1:message:wx-progress-1", delivery.external_message_key
+  end
+
   test "sends small transcript attachments through the media client" do
     context = weixin_delivery_context
     output_message = attach_selected_output!(create_turn_with_input!(context[:conversation]), content: "artifact delivery")
@@ -57,8 +81,8 @@ class ChannelDeliveries::SendWeixinReplyTest < ActiveSupport::TestCase
     )
     calls = []
     fake_media_client = Struct.new(:calls) do
-      def send_attachment(attachment:, to_user_id:, context_token:, text:)
-        calls << [attachment.fetch("attachment_id"), to_user_id, context_token, text]
+      def send_attachment(attachment_record:, descriptor:, to_user_id:, context_token:, text:)
+        calls << [attachment_record.public_id, descriptor.fetch("attachment_id"), to_user_id, context_token, text]
         { "message_id" => "wx-native-1" }
       end
     end.new(calls)
@@ -83,7 +107,7 @@ class ChannelDeliveries::SendWeixinReplyTest < ActiveSupport::TestCase
       media_client: fake_media_client
     )
 
-    assert_equal [[attachment.public_id, "wx-user-1", "ctx-1", "artifact delivery"]], calls
+    assert_equal [[attachment.public_id, attachment.public_id, "wx-user-1", "ctx-1", "artifact delivery"]], calls
     assert_equal "weixin:peer:wx-user-1:message:wx-native-1", delivery.reload.external_message_key
   end
 

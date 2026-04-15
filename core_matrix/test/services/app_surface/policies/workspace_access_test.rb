@@ -29,7 +29,7 @@ class AppSurface::Policies::WorkspaceAccessTest < ActiveSupport::TestCase
     )
   end
 
-  test "denies access when the bound agent becomes private to another owner" do
+  test "keeps owner access when the bound agent becomes private to another owner" do
     context = create_workspace_context!
     replacement_owner = create_user!(
       installation: context[:installation],
@@ -43,7 +43,7 @@ class AppSurface::Policies::WorkspaceAccessTest < ActiveSupport::TestCase
       owner_user: replacement_owner
     )
 
-    assert_not AppSurface::Policies::WorkspaceAccess.call(
+    assert AppSurface::Policies::WorkspaceAccess.call(
       user: context[:user],
       workspace: context[:workspace]
     )

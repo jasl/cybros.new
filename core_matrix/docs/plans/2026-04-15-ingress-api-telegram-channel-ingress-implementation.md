@@ -715,15 +715,18 @@ architecture/mainline milestone:
 - Create: `core_matrix/lib/claw_bot_sdk/weixin/media_client.rb`
 - Create: `core_matrix/app/jobs/channel_connectors/weixin_poll_account_job.rb`
 - Create: `core_matrix/app/services/ingress_api/weixin/receive_polled_message.rb`
+- Create: `core_matrix/app/services/ingress_api/weixin/progress_bridge.rb`
 - Create: `core_matrix/app/services/channel_deliveries/send_weixin_reply.rb`
 - Modify: `core_matrix/app/controllers/app_api/workspace_agents/ingress_bindings_controller.rb`
 - Modify: `core_matrix/app/services/channel_deliveries/dispatch_conversation_output.rb`
+- Modify: `core_matrix/app/services/channel_deliveries/dispatch_runtime_progress.rb`
 - Create: `core_matrix/test/lib/claw_bot_sdk/weixin/client_test.rb`
 - Create: `core_matrix/test/lib/claw_bot_sdk/weixin/poller_test.rb`
 - Create: `core_matrix/test/lib/claw_bot_sdk/weixin/normalize_message_test.rb`
 - Create: `core_matrix/test/lib/claw_bot_sdk/weixin/context_token_store_test.rb`
 - Create: `core_matrix/test/jobs/channel_connectors/weixin_poll_account_job_test.rb`
 - Create: `core_matrix/test/services/ingress_api/weixin/receive_polled_message_test.rb`
+- Create: `core_matrix/test/services/ingress_api/weixin/progress_bridge_test.rb`
 - Create: `core_matrix/test/services/channel_deliveries/send_weixin_reply_test.rb`
 
 **Step 1: Port the protocol boundary, not the OpenClaw runtime**
@@ -780,9 +783,28 @@ dispatching turn work so reply state survives process restarts.
 
 - read `context_token` from the bound `ChannelSession`
 - send text or media through `ClawBotSDK::Weixin`
+- treat textual `status_progress` deliveries as ordinary `sendmessage` text
+  sends; the mode distinction remains in persisted `ChannelDelivery` payloads
+  and policy, not in a separate Weixin transport method
+- for native attachment delivery, call `getuploadurl`, encrypt and upload the
+  stored conversation attachment bytes through the Weixin CDN bridge, then send
+  the resulting media/file item through `sendmessage`
+- when a native attachment also carries caption text, send the caption as a
+  preceding text item and the media/file item as the terminal tracked outbound
+  message
+- prefer server-returned `upload_full_url`; if the upstream only returns
+  `upload_param`, build the CDN upload URL from connector runtime state
+  `cdn_base_url`
+- if native delivery is selected but the bridge does not have enough upload
+  information to complete the protocol round-trip, fail loudly instead of
+  silently substituting a text-only fake attachment send
 - use typing plus explicit status/final-delivery messages instead of editable
   preview streaming
 - persist outbound delivery metadata
+
+`DispatchRuntimeProgress` should fan out to a Weixin-specific progress bridge so
+runtime progress can materialize `status_progress` deliveries for active Weixin
+sessions without reusing Telegram preview behavior.
 
 **Step 5: Extend binding management for Weixin lifecycle**
 
@@ -807,6 +829,7 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/lib/claw_bot_sdk/weixin/context_token_store_test.rb \
   test/jobs/channel_connectors/weixin_poll_account_job_test.rb \
   test/services/ingress_api/weixin/receive_polled_message_test.rb \
+  test/services/ingress_api/weixin/progress_bridge_test.rb \
   test/services/channel_deliveries/send_weixin_reply_test.rb
 ```
 

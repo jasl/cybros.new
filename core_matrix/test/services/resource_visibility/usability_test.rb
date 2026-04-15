@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ResourceVisibility::UsabilityTest < ActiveSupport::TestCase
-  test "workspace and conversation become inaccessible when the bound public agent turns private for another owner" do
+  test "workspace and conversation stay accessible when the bound public agent turns private for another owner" do
     context = create_workspace_context!
     outsider = create_user!(
       installation: context[:installation],
@@ -21,8 +21,8 @@ class ResourceVisibility::UsabilityTest < ActiveSupport::TestCase
       owner_user: outsider
     )
 
-    assert_not ResourceVisibility::Usability.workspace_accessible_by_user?(user: context[:user], workspace: context[:workspace])
-    assert_not ResourceVisibility::Usability.conversation_accessible_by_user?(user: context[:user], conversation: conversation)
+    assert ResourceVisibility::Usability.workspace_accessible_by_user?(user: context[:user], workspace: context[:workspace])
+    assert ResourceVisibility::Usability.conversation_accessible_by_user?(user: context[:user], conversation: conversation)
   end
 
   test "workspace stays accessible when the default execution runtime turns private for another owner" do

@@ -3,7 +3,7 @@ require "test_helper"
 class EmbeddedAgents::ConversationSupervision::AuthorityTest < ActiveSupport::TestCase
   include ConversationSupervisionFixtureBuilder
 
-  test "owner authority becomes inaccessible when the conversation agent turns private for another owner" do
+  test "owner authority stays accessible when the conversation agent turns private for another owner" do
     fixture = prepare_conversation_supervision_context!
     replacement_owner = create_user!(
       installation: fixture[:installation],
@@ -30,7 +30,7 @@ class EmbeddedAgents::ConversationSupervision::AuthorityTest < ActiveSupport::Te
       conversation: fixture[:conversation]
     )
 
-    assert_not authority.accessible?
-    assert_not authority.allowed?
+    assert authority.accessible?
+    assert authority.allowed?
   end
 end
