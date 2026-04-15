@@ -128,4 +128,83 @@ class Requests::PrepareRoundTest < ActiveSupport::TestCase
     assert_equal "ok", response.fetch("status")
     refute_includes response.fetch("messages").first.fetch("content"), "Use portable notes before you summarize."
   end
+
+  test "prepare_round uses the selected interactive profile and only enabled specialists in routing guidance" do
+    response = Requests::PrepareRound.call(
+      payload: {
+        "task" => {
+          "workflow_node_id" => "workflow-node-2",
+          "conversation_id" => "conversation-2",
+          "turn_id" => "turn-2",
+          "kind" => "turn_step",
+        },
+        "round_context" => {
+          "messages" => [
+            { "role" => "user", "content" => "Take a friendlier interactive tone and delegate when useful." },
+          ],
+          "context_imports" => [],
+        },
+        "agent_context" => {
+          "profile" => "friendly",
+          "allowed_tool_names" => %w[subagent_spawn exec_command],
+        },
+        "workspace_agent_context" => {
+          "workspace_agent_id" => "workspace-agent-2",
+          "global_instructions" => "Stay within the mounted workspace agent scope.\n",
+          "profile_settings" => {
+            "default_subagent_profile_key" => "researcher",
+            "enabled_subagent_profile_keys" => %w[researcher tester],
+            "delegation_mode" => "prefer",
+            "max_subagent_depth" => 2,
+          },
+        },
+      }
+    )
+
+    prompt = response.fetch("messages").first.fetch("content")
+
+    assert_includes prompt, "Friendly main profile"
+    assert_includes prompt, "## Specialist Routing"
+    assert_includes prompt, "researcher"
+    assert_includes prompt, "tester"
+    refute_includes prompt, "developer"
+  end
+
+  test "prepare_round uses the selected specialist profile for delegated execution" do
+    response = Requests::PrepareRound.call(
+      payload: {
+        "task" => {
+          "workflow_node_id" => "workflow-node-3",
+          "conversation_id" => "conversation-3",
+          "turn_id" => "turn-3",
+          "kind" => "turn_step",
+        },
+        "round_context" => {
+          "messages" => [
+            { "role" => "user", "content" => "Implement the bounded patch directly." },
+          ],
+          "context_imports" => [],
+        },
+        "agent_context" => {
+          "profile" => "developer",
+          "is_subagent" => true,
+          "allowed_tool_names" => %w[exec_command],
+        },
+        "workspace_agent_context" => {
+          "workspace_agent_id" => "workspace-agent-3",
+          "global_instructions" => "Stay within the mounted workspace agent scope.\n",
+          "profile_settings" => {
+            "default_subagent_profile_key" => "developer",
+            "enabled_subagent_profile_keys" => %w[researcher developer tester],
+            "delegation_mode" => "allow",
+          },
+        },
+      }
+    )
+
+    prompt = response.fetch("messages").first.fetch("content")
+
+    assert_includes prompt, "Developer specialist profile"
+    refute_includes prompt, "Friendly main profile"
+  end
 end
