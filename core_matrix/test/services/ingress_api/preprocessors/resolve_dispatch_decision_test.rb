@@ -69,6 +69,33 @@ class IngressAPI::Preprocessors::ResolveDispatchDecisionTest < ActiveSupport::Te
     assert_equal "queue_follow_up", ingress_context.dispatch_decision
   end
 
+  test "carries explicit quoted context into origin payload for downstream execution context" do
+    context = dispatch_context
+    ingress_context = build_ingress_context(
+      context,
+      sender_id: "telegram-user-1",
+      text: "Quoted follow up",
+      reply_to_external_message_key: "telegram:chat:telegram-group-1:message:41",
+      quoted_external_message_key: "telegram:chat:telegram-group-1:message:41",
+      quoted_text: "Earlier targeted message",
+      quoted_sender_label: "Bob",
+      quoted_attachment_refs: [
+        {
+          "modality" => "image",
+          "file_id" => "photo-1",
+        },
+      ]
+    )
+
+    IngressAPI::Preprocessors::ResolveDispatchDecision.call(context: ingress_context)
+
+    assert_equal "telegram:chat:telegram-group-1:message:41", ingress_context.origin_payload["reply_to_external_message_key"]
+    assert_equal "telegram:chat:telegram-group-1:message:41", ingress_context.origin_payload["quoted_external_message_key"]
+    assert_equal "Earlier targeted message", ingress_context.origin_payload["quoted_text"]
+    assert_equal "Bob", ingress_context.origin_payload["quoted_sender_label"]
+    assert_equal [{"modality" => "image", "file_id" => "photo-1"}], ingress_context.origin_payload["quoted_attachment_refs"]
+  end
+
   private
 
   def dispatch_context
@@ -124,7 +151,7 @@ class IngressAPI::Preprocessors::ResolveDispatchDecisionTest < ActiveSupport::Te
     )
   end
 
-  def build_ingress_context(context, sender_id:, text:, active_turn: nil)
+  def build_ingress_context(context, sender_id:, text:, active_turn: nil, reply_to_external_message_key: nil, quoted_external_message_key: nil, quoted_text: nil, quoted_sender_label: nil, quoted_attachment_refs: [])
     IngressAPI::Context.new(
       ingress_binding: context[:ingress_binding],
       channel_connector: context[:channel_connector],
@@ -146,11 +173,11 @@ class IngressAPI::Preprocessors::ResolveDispatchDecisionTest < ActiveSupport::Te
         sender_snapshot: { "label" => sender_id },
         text: text,
         attachments: [],
-        reply_to_external_message_key: nil,
-        quoted_external_message_key: nil,
-        quoted_text: nil,
-        quoted_sender_label: nil,
-        quoted_attachment_refs: [],
+        reply_to_external_message_key: reply_to_external_message_key,
+        quoted_external_message_key: quoted_external_message_key,
+        quoted_text: quoted_text,
+        quoted_sender_label: quoted_sender_label,
+        quoted_attachment_refs: quoted_attachment_refs,
         occurred_at: Time.current,
         transport_metadata: {},
         raw_payload: { "text" => text }

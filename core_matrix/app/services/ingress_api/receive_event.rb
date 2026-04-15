@@ -86,6 +86,13 @@ module IngressAPI
           "channel_connector_id" => context.channel_connector.public_id,
           "channel_session_id" => context.channel_session.public_id,
           "conversation_id" => context.conversation&.public_id,
+          "reply_to_external_message_key" => context.envelope.reply_to_external_message_key,
+          "quoted_external_message_key" => context.envelope.quoted_external_message_key,
+          "quoted_text" => context.envelope.quoted_text,
+          "quoted_sender_label" => context.envelope.quoted_sender_label,
+          "quoted_attachment_refs" => Array(context.envelope.quoted_attachment_refs).map do |attachment|
+            attachment.respond_to?(:deep_stringify_keys) ? attachment.deep_stringify_keys : attachment
+          end,
         }.compact,
         raw_payload: context.envelope.raw_payload,
         received_at: context.envelope.occurred_at

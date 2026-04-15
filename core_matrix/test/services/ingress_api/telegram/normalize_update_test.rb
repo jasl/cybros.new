@@ -104,6 +104,109 @@ class IngressAPI::Telegram::NormalizeUpdateTest < ActiveSupport::TestCase
     assert_equal "document-2", envelope.attachments.first.fetch("file_id")
   end
 
+  test "extracts explicit quoted context from reply_to_message payloads" do
+    context = telegram_normalize_context
+
+    envelope = IngressAPI::Telegram::NormalizeUpdate.call(
+      update_payload: {
+        "update_id" => 1004,
+        "message" => {
+          "message_id" => 58,
+          "date" => 1_713_612_348,
+          "chat" => { "id" => 42, "type" => "private" },
+          "from" => { "id" => 7, "username" => "alice" },
+          "text" => "reply with quote",
+          "reply_to_message" => {
+            "message_id" => 57,
+            "caption" => "quoted photo",
+            "from" => { "id" => 8, "first_name" => "Bob", "last_name" => "Builder" },
+            "photo" => [
+              { "file_id" => "photo-small", "file_unique_id" => "photo-1", "file_size" => 10, "width" => 10, "height" => 10 },
+              { "file_id" => "photo-large", "file_unique_id" => "photo-1", "file_size" => 20, "width" => 20, "height" => 20 },
+            ],
+            "document" => {
+              "file_id" => "document-1",
+              "file_unique_id" => "document-1",
+              "file_name" => "notes.txt",
+              "mime_type" => "text/plain",
+              "file_size" => 12,
+            },
+          },
+        },
+      },
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector]
+    )
+
+    assert_equal "telegram:chat:42:message:57", envelope.reply_to_external_message_key
+    assert_equal "telegram:chat:42:message:57", envelope.quoted_external_message_key
+    assert_equal "quoted photo", envelope.quoted_text
+    assert_equal "Bob Builder", envelope.quoted_sender_label
+    assert_equal %w[image file], envelope.quoted_attachment_refs.map { |attachment| attachment.fetch("modality") }
+    assert_equal "photo-large", envelope.quoted_attachment_refs.first.fetch("file_id")
+    assert_equal "notes.txt", envelope.quoted_attachment_refs.second.fetch("filename")
+  end
+
+  test "does not reconstruct broad history when the quoted body is unavailable" do
+    context = telegram_normalize_context
+
+    envelope = IngressAPI::Telegram::NormalizeUpdate.call(
+      update_payload: {
+        "update_id" => 1005,
+        "message" => {
+          "message_id" => 59,
+          "date" => 1_713_612_349,
+          "chat" => { "id" => 42, "type" => "private" },
+          "from" => { "id" => 7, "username" => "alice" },
+          "text" => "reply without quote body",
+          "reply_to_message" => {
+            "message_id" => 58,
+            "from" => { "id" => 8, "username" => "quoted-bob" },
+          },
+        },
+      },
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector]
+    )
+
+    assert_equal "telegram:chat:42:message:58", envelope.quoted_external_message_key
+    assert_nil envelope.quoted_text
+    assert_equal "quoted-bob", envelope.quoted_sender_label
+    assert_equal [], envelope.quoted_attachment_refs
+  end
+
+  test "prefers the telegram quote payload over the full reply body when present" do
+    context = telegram_normalize_context
+
+    envelope = IngressAPI::Telegram::NormalizeUpdate.call(
+      update_payload: {
+        "update_id" => 1006,
+        "message" => {
+          "message_id" => 60,
+          "date" => 1_713_612_350,
+          "chat" => { "id" => 42, "type" => "private" },
+          "from" => { "id" => 7, "username" => "alice" },
+          "text" => "reply with explicit quote",
+          "quote" => {
+            "text" => "targeted excerpt",
+            "position" => 3,
+          },
+          "reply_to_message" => {
+            "message_id" => 59,
+            "text" => "full original message body",
+            "from" => { "id" => 8, "first_name" => "Bob" },
+          },
+        },
+      },
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector]
+    )
+
+    assert_equal "telegram:chat:42:message:59", envelope.quoted_external_message_key
+    assert_equal "targeted excerpt", envelope.quoted_text
+    assert_equal "Bob", envelope.quoted_sender_label
+  end
+
   private
 
   def telegram_normalize_context

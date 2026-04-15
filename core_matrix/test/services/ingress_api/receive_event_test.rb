@@ -159,6 +159,47 @@ class IngressAPI::ReceiveEventTest < ActiveSupport::TestCase
     IngressAPI::Telegram::DownloadAttachment.singleton_class.send(:define_method, :call, original_call)
   end
 
+  test "persists quoted context on the inbound fact and materialized turn origin payload" do
+    context = ingress_runtime_context
+    adapter = fake_adapter_for(
+      context,
+      external_event_key: "telegram:update:1006",
+      external_message_key: "telegram:chat:1:message:1006",
+      text: "reply with quote",
+      reply_to_external_message_key: "telegram:chat:1:message:1005",
+      quoted_external_message_key: "telegram:chat:1:message:1005",
+      quoted_text: "Earlier targeted message",
+      quoted_sender_label: "Bob",
+      quoted_attachment_refs: [
+        {
+          "modality" => "file",
+          "filename" => "notes.txt",
+        },
+      ]
+    )
+
+    IngressAPI::ReceiveEvent.call(
+      adapter: adapter,
+      raw_payload: { "update_id" => 1006 },
+      request_metadata: { "source" => "http" }
+    )
+
+    inbound_message = ChannelInboundMessage.order(:id).last
+    turn = context[:conversation].reload.latest_turn
+
+    assert_equal "telegram:chat:1:message:1005", inbound_message.normalized_payload["reply_to_external_message_key"]
+    assert_equal "telegram:chat:1:message:1005", inbound_message.normalized_payload["quoted_external_message_key"]
+    assert_equal "Earlier targeted message", inbound_message.normalized_payload["quoted_text"]
+    assert_equal "Bob", inbound_message.normalized_payload["quoted_sender_label"]
+    assert_equal [{"modality" => "file", "filename" => "notes.txt"}], inbound_message.normalized_payload["quoted_attachment_refs"]
+
+    assert_equal "telegram:chat:1:message:1005", turn.origin_payload["reply_to_external_message_key"]
+    assert_equal "telegram:chat:1:message:1005", turn.origin_payload["quoted_external_message_key"]
+    assert_equal "Earlier targeted message", turn.origin_payload["quoted_text"]
+    assert_equal "Bob", turn.origin_payload["quoted_sender_label"]
+    assert_equal [{"modality" => "file", "filename" => "notes.txt"}], turn.origin_payload["quoted_attachment_refs"]
+  end
+
   private
 
   def ingress_runtime_context
@@ -214,7 +255,18 @@ class IngressAPI::ReceiveEventTest < ActiveSupport::TestCase
     )
   end
 
-  def fake_adapter_for(context, external_event_key:, external_message_key:, text:, attachments: [])
+  def fake_adapter_for(
+    context,
+    external_event_key:,
+    external_message_key:,
+    text:,
+    attachments: [],
+    reply_to_external_message_key: nil,
+    quoted_external_message_key: nil,
+    quoted_text: nil,
+    quoted_sender_label: nil,
+    quoted_attachment_refs: []
+  )
     envelope = IngressAPI::Envelope.new(
       platform: "telegram",
       driver: "telegram_bot_api",
@@ -229,11 +281,11 @@ class IngressAPI::ReceiveEventTest < ActiveSupport::TestCase
       sender_snapshot: { "label" => "Alice" },
       text: text,
       attachments: attachments,
-      reply_to_external_message_key: nil,
-      quoted_external_message_key: nil,
-      quoted_text: nil,
-      quoted_sender_label: nil,
-      quoted_attachment_refs: [],
+      reply_to_external_message_key: reply_to_external_message_key,
+      quoted_external_message_key: quoted_external_message_key,
+      quoted_text: quoted_text,
+      quoted_sender_label: quoted_sender_label,
+      quoted_attachment_refs: quoted_attachment_refs,
       occurred_at: Time.current,
       transport_metadata: {},
       raw_payload: { "text" => text }

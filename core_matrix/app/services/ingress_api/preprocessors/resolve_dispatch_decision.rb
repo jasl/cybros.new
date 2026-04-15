@@ -33,6 +33,13 @@ module IngressAPI
           "peer_kind" => @context.envelope.peer_kind,
           "peer_id" => @context.envelope.peer_id,
           "thread_key" => @context.envelope.thread_key,
+          "reply_to_external_message_key" => @context.envelope.reply_to_external_message_key,
+          "quoted_external_message_key" => @context.envelope.quoted_external_message_key,
+          "quoted_text" => @context.envelope.quoted_text,
+          "quoted_sender_label" => @context.envelope.quoted_sender_label,
+          "quoted_attachment_refs" => Array(@context.envelope.quoted_attachment_refs).map do |attachment|
+            attachment.respond_to?(:deep_stringify_keys) ? attachment.deep_stringify_keys : attachment
+          end,
           "merged_inbound_message_ids" => Array(@context.coalesced_message_ids).presence || [],
         }
         @context

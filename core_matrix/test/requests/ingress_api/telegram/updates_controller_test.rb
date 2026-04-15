@@ -64,7 +64,7 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
       agent: context[:agent],
       execution_runtime: context[:execution_runtime]
     )
-    ChannelSession.create!(
+    channel_session = ChannelSession.create!(
       installation: context[:installation],
       ingress_binding: context[:ingress_binding],
       channel_connector: context[:channel_connector],
@@ -169,6 +169,233 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "handled", response.parsed_body.fetch("status")
     assert_equal "transcript_entry", response.parsed_body.fetch("handled_via")
     assert_equal "88", ChannelSession.order(:id).last.peer_id
+  end
+
+  test "propagates reply quote explicit context through the real webhook path" do
+    context = telegram_ingress_context
+    conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      workspace_agent: context[:workspace_agent],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime]
+    )
+    channel_session = ChannelSession.create!(
+      installation: context[:installation],
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector],
+      conversation: conversation,
+      platform: "telegram",
+      peer_kind: "dm",
+      peer_id: "42",
+      thread_key: nil,
+      binding_state: "active",
+      session_metadata: {}
+    )
+
+    post "/ingress_api/telegram/bindings/#{context[:ingress_binding].public_ingress_id}/updates",
+      params: {
+        update_id: 106,
+        message: {
+          message_id: 59,
+          date: 1_713_612_349,
+          chat: { id: 42, type: "private" },
+          from: { id: 42, username: "alice" },
+          text: "reply with quote",
+          reply_to_message: {
+            message_id: 58,
+            from: { id: 7, first_name: "Bob", last_name: "Builder" },
+            caption: "quoted photo",
+            photo: [
+              { file_id: "photo-small", file_unique_id: "photo-1", file_size: 10, width: 10, height: 10 },
+              { file_id: "photo-large", file_unique_id: "photo-1", file_size: 20, width: 20, height: 20 },
+            ],
+          },
+        },
+      },
+      headers: {
+        "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret],
+      },
+      as: :json
+
+    assert_response :ok
+
+    inbound_message = ChannelInboundMessage.order(:id).last
+    turn = conversation.reload.latest_turn
+
+    assert_equal "telegram:chat:42:message:58", inbound_message.normalized_payload["reply_to_external_message_key"]
+    assert_equal "telegram:chat:42:message:58", inbound_message.normalized_payload["quoted_external_message_key"]
+    assert_equal "quoted photo", inbound_message.normalized_payload["quoted_text"]
+    assert_equal "Bob Builder", inbound_message.normalized_payload["quoted_sender_label"]
+    assert_equal [{"file_id" => "photo-large", "file_unique_id" => "photo-1", "modality" => "image", "byte_size" => 20, "width" => 20, "height" => 20}], inbound_message.normalized_payload["quoted_attachment_refs"]
+
+    assert_equal "telegram:chat:42:message:58", turn.origin_payload["reply_to_external_message_key"]
+    assert_equal "telegram:chat:42:message:58", turn.origin_payload["quoted_external_message_key"]
+    assert_equal "quoted photo", turn.origin_payload["quoted_text"]
+    assert_equal "Bob Builder", turn.origin_payload["quoted_sender_label"]
+    assert_equal [{"file_id" => "photo-large", "file_unique_id" => "photo-1", "modality" => "image", "byte_size" => 20, "width" => 20, "height" => 20}], turn.origin_payload["quoted_attachment_refs"]
+  end
+
+  test "preserves quoted metadata when the real webhook path steers the active shared-channel turn" do
+    context = telegram_ingress_context
+    conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      workspace_agent: context[:workspace_agent],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime]
+    )
+    channel_session = ChannelSession.create!(
+      installation: context[:installation],
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector],
+      conversation: conversation,
+      platform: "telegram",
+      peer_kind: "group",
+      peer_id: "-99",
+      thread_key: "1",
+      binding_state: "active",
+      session_metadata: {}
+    )
+    active_turn = Turns::StartChannelIngressTurn.call(
+      conversation: conversation,
+      channel_inbound_message: Struct.new(:public_id).new("seed-inbound"),
+      content: "original group input",
+      origin_payload: {
+        "ingress_binding_id" => context[:ingress_binding].public_id,
+        "channel_connector_id" => context[:channel_connector].public_id,
+        "channel_session_id" => channel_session.public_id,
+        "external_sender_id" => "7",
+        "external_message_key" => "telegram:chat:-99:message:40",
+      },
+      selector_source: "conversation",
+      selector: "candidate:codex_subscription/gpt-5.4"
+    )
+
+    assert_no_difference("Turn.count") do
+      assert_difference(["ChannelInboundMessage.count", "Message.count"], 1) do
+        post "/ingress_api/telegram/bindings/#{context[:ingress_binding].public_ingress_id}/updates",
+          params: {
+            update_id: 107,
+            message: {
+              message_id: 60,
+              message_thread_id: 1,
+              date: 1_713_612_350,
+              chat: { id: -99, type: "supergroup" },
+              from: { id: 7, username: "alice" },
+              text: "shared-channel steer with quote",
+              reply_to_message: {
+                message_id: 59,
+                from: { id: 8, first_name: "Bob" },
+                text: "targeted group quote",
+                photo: [
+                  { file_id: "photo-small", file_unique_id: "photo-1", file_size: 10, width: 10, height: 10 },
+                  { file_id: "photo-large", file_unique_id: "photo-1", file_size: 20, width: 20, height: 20 },
+                ],
+              },
+            },
+          },
+          headers: {
+            "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret],
+          },
+          as: :json
+      end
+    end
+
+    assert_response :ok
+    turn = active_turn.reload
+    inbound_message = ChannelInboundMessage.order(:id).last
+
+    assert_equal inbound_message.public_id, turn.source_ref_id
+    assert_includes turn.selected_input_message.content, "shared-channel steer with quote"
+    assert_equal "telegram:chat:-99:message:59", turn.origin_payload["reply_to_external_message_key"]
+    assert_equal "telegram:chat:-99:message:59", turn.origin_payload["quoted_external_message_key"]
+    assert_equal "targeted group quote", turn.origin_payload["quoted_text"]
+    assert_equal "Bob", turn.origin_payload["quoted_sender_label"]
+    assert_equal [{"file_id" => "photo-large", "file_unique_id" => "photo-1", "modality" => "image", "byte_size" => 20, "width" => 20, "height" => 20}], turn.origin_payload["quoted_attachment_refs"]
+  end
+
+  test "preserves quoted metadata when the real webhook path queues shared-channel follow-up work" do
+    context = telegram_ingress_context
+    conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      workspace_agent: context[:workspace_agent],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime]
+    )
+    channel_session = ChannelSession.create!(
+      installation: context[:installation],
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector],
+      conversation: conversation,
+      platform: "telegram",
+      peer_kind: "group",
+      peer_id: "-99",
+      thread_key: "1",
+      binding_state: "active",
+      session_metadata: {}
+    )
+    active_turn = Turns::StartChannelIngressTurn.call(
+      conversation: conversation,
+      channel_inbound_message: Struct.new(:public_id).new("seed-inbound"),
+      content: "original group input",
+      origin_payload: {
+        "ingress_binding_id" => context[:ingress_binding].public_id,
+        "channel_connector_id" => context[:channel_connector].public_id,
+        "channel_session_id" => channel_session.public_id,
+        "external_sender_id" => "7",
+        "external_message_key" => "telegram:chat:-99:message:40",
+      },
+      selector_source: "conversation",
+      selector: "candidate:codex_subscription/gpt-5.4"
+    )
+    create_workflow_run!(turn: active_turn)
+    attach_selected_output!(active_turn, content: "side effect crossed")
+
+    assert_difference(["Turn.count", "ChannelInboundMessage.count", "Message.count"], 1) do
+      post "/ingress_api/telegram/bindings/#{context[:ingress_binding].public_ingress_id}/updates",
+        params: {
+          update_id: 108,
+          message: {
+            message_id: 61,
+            message_thread_id: 1,
+            date: 1_713_612_351,
+            chat: { id: -99, type: "supergroup" },
+            from: { id: 7, username: "alice" },
+            text: "shared-channel queued follow up with quote",
+            reply_to_message: {
+              message_id: 60,
+              from: { id: 8, first_name: "Bob" },
+              text: "queued targeted quote",
+              document: {
+                file_id: "document-1",
+                file_unique_id: "document-1",
+                file_name: "notes.txt",
+                mime_type: "text/plain",
+                file_size: 12,
+              },
+            },
+          },
+        },
+        headers: {
+          "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret],
+        },
+        as: :json
+    end
+
+    assert_response :ok
+    queued_turn = conversation.reload.turns.order(:sequence).last
+    inbound_message = ChannelInboundMessage.order(:id).last
+
+    assert_predicate queued_turn, :queued?
+    assert_equal "channel_ingress", queued_turn.origin_kind
+    assert_equal inbound_message.public_id, queued_turn.source_ref_id
+    assert_equal "telegram:chat:-99:message:60", queued_turn.origin_payload["reply_to_external_message_key"]
+    assert_equal "telegram:chat:-99:message:60", queued_turn.origin_payload["quoted_external_message_key"]
+    assert_equal "queued targeted quote", queued_turn.origin_payload["quoted_text"]
+    assert_equal "Bob", queued_turn.origin_payload["quoted_sender_label"]
+    assert_equal [{"file_id" => "document-1", "file_unique_id" => "document-1", "modality" => "file", "filename" => "notes.txt", "content_type" => "text/plain", "byte_size" => 12}], queued_turn.origin_payload["quoted_attachment_refs"]
   end
 
   private
