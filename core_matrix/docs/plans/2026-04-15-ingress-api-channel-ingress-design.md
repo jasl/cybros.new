@@ -476,6 +476,10 @@ Suggested fields:
 - `text`
 - `attachments`
 - `reply_to_external_message_key`
+- `quoted_external_message_key`
+- `quoted_text`
+- `quoted_sender_label`
+- optional `quoted_attachment_refs`
 - `occurred_at`
 - `transport_metadata`
 - `raw_payload`
@@ -519,6 +523,38 @@ Recommended mapping:
     `session_id/seq` compound key
 
 This keeps dedupe correct while still preserving the platform's reply target.
+
+## Reply / Quote Explicit Context
+
+For IM transports, reply / quote should be treated as the primary explicit
+mechanism for passing targeted historical context.
+
+Normalization should try to produce:
+
+- `quoted_external_message_key`
+- `quoted_text`
+- `quoted_sender_label`
+- optional `quoted_attachment_refs`
+
+These fields are distinct from `reply_to_external_message_key`:
+
+- `reply_to_external_message_key`
+  - transport-facing reply-thread target for outbound delivery and audit
+- `quoted_*`
+  - user-visible quoted context extracted from the inbound event for model
+    supplemental context
+
+Supplemental-context priority should be:
+
+1. explicit quoted/reply context from the inbound event
+2. other deterministic local supplemental context already attached to the
+   current event/session
+3. any pending shared-channel history window
+
+If a platform payload does not provide the quoted body, CoreMatrix should not
+pull back an arbitrary slice of platform history just to reconstruct it.
+At most, preserve the quoted reference key plus any small local semantic hint
+already available on the payload/session boundary.
 
 ## Middleware And Preprocessor Pipeline
 

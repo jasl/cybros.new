@@ -673,6 +673,25 @@ PARALLEL_WORKERS=1 bin/rails test \
   test/services/ingress_api/command_surface_test.rb
 ```
 
+**Deferred follow-up after the first IM-usable milestone**
+
+This is a high-priority quality upgrade, but it does not block the current
+architecture/mainline milestone:
+
+- formalize reply / quote as the primary explicit IM-history mechanism
+- extend normalization to produce when available:
+  - `quoted_external_message_key`
+  - `quoted_text`
+  - `quoted_sender_label`
+  - optional `quoted_attachment_refs`
+- make quoted context outrank any pending shared-channel history window during
+  supplemental-context assembly
+- if the platform payload does not provide the quoted body, do not fetch a
+  broad platform-history window to reconstruct it; keep the reference key and
+  only small local semantic hints when available
+- add focused tests around adapter normalization, supplemental-context
+  assembly, and reply/quote dispatch behavior
+
 ### Task 8: Add The Weixin Bridge Foundation In `lib/claw_bot_sdk` And Wire It Through `IngressAPI`
 
 **Files:**
