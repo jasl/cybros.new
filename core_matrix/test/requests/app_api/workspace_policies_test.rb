@@ -24,7 +24,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
 
     get "/app_api/workspaces/#{workspace.public_id}/policy",
       params: {
-        workspace_agent_id: workspace.primary_workspace_agent.public_id
+        workspace_agent_id: workspace.primary_workspace_agent.public_id,
       },
       headers: app_api_headers(session.plaintext_token)
 
@@ -226,7 +226,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
 
     get "/app_api/workspaces/#{workspace.public_id}/policy",
       params: {
-        workspace_agent_id: workspace.primary_workspace_agent.public_id
+        workspace_agent_id: workspace.primary_workspace_agent.public_id,
       },
       headers: app_api_headers(session.plaintext_token)
 
@@ -276,7 +276,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
 
     get "/app_api/workspaces/#{context[:workspace].public_id}/policy",
       params: {
-        workspace_agent_id: context[:workspace_agent].public_id
+        workspace_agent_id: context[:workspace_agent].public_id,
       },
       headers: app_api_headers(session.plaintext_token)
 
@@ -304,7 +304,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     assert_sql_query_count_at_most(8) do
       get "/app_api/workspaces/#{workspace.public_id}/policy",
         params: {
-          workspace_agent_id: workspace_agent_id
+          workspace_agent_id: workspace_agent_id,
         },
         headers: app_api_headers(session.plaintext_token)
     end
@@ -342,7 +342,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
     patch "/app_api/workspaces/#{workspace.public_id}/policy",
       params: {
         workspace_agent_id: secondary_workspace_agent.public_id,
-        default_execution_runtime_id: override_runtime.public_id
+        default_execution_runtime_id: override_runtime.public_id,
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json
@@ -369,14 +369,14 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
       installation: installation,
       agent: primary_agent,
       reflected_surface: {
-        "workspace_capabilities" => ["supervision"]
+        "workspace_capabilities" => ["supervision"],
       }
     )
     secondary_definition_version = create_agent_definition_version!(
       installation: installation,
       agent: secondary_agent,
       reflected_surface: {
-        "workspace_capabilities" => ["supervision", "side_chat", "control"]
+        "workspace_capabilities" => ["supervision", "side_chat", "control"],
       }
     )
     primary_agent.update!(
@@ -404,7 +404,7 @@ class AppApiWorkspacePoliciesTest < ActionDispatch::IntegrationTest
 
     get "/app_api/workspaces/#{workspace.public_id}/policy",
       params: {
-        workspace_agent_id: secondary_workspace_agent.public_id
+        workspace_agent_id: secondary_workspace_agent.public_id,
       },
       headers: app_api_headers(session.plaintext_token)
 

@@ -11,7 +11,7 @@ class ClawBotSDK::Weixin::ClientTest < ActiveSupport::TestCase
         {
           "ret" => 0,
           "msgs" => [],
-          "get_updates_buf" => "cursor-2"
+          "get_updates_buf" => "cursor-2",
         }
       end
     )

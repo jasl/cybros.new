@@ -123,7 +123,7 @@ module Workflows
           conversation: @turn.conversation,
           content: @content,
           resolved_config_snapshot: @turn.resolved_config_snapshot,
-          resolved_model_selection_snapshot: @turn.resolved_model_selection_snapshot
+          resolved_model_selection_snapshot: @turn.resolved_model_selection_snapshot,
         }
 
         return base_attributes unless @turn.channel_ingress?

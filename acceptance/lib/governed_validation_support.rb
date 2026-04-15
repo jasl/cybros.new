@@ -88,11 +88,6 @@ module GovernedValidationSupport
       }
     )
 
-    UserAgentBindings::Enable.call(
-      user: bootstrap.user,
-      agent: runtime.agent
-    )
-
     ProviderEntitlement.find_or_create_by!(
       installation: bootstrap.installation,
       provider_handle: "dev",

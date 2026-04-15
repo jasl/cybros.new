@@ -24,8 +24,8 @@ class IngressAPI::Weixin::ReceivePolledMessageTest < ActiveSupport::TestCase
         "create_time_ms" => 1_713_600_000_000,
         "context_token" => "ctx-2",
         "item_list" => [
-          { "type" => 1, "text_item" => { "text" => "hello from weixin" } }
-        ]
+          { "type" => 1, "text_item" => { "text" => "hello from weixin" } },
+        ],
       },
       receive_event: fake_receive_event
     )
@@ -60,7 +60,7 @@ class IngressAPI::Weixin::ReceivePolledMessageTest < ActiveSupport::TestCase
       config_payload: {},
       runtime_state_payload: {
         "base_url" => "https://weixin.example",
-        "bot_token" => "bot-token"
+        "bot_token" => "bot-token",
       }
     )
     conversation = create_conversation_record!(

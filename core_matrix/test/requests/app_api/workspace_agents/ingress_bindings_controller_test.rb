@@ -12,7 +12,7 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
         params: {
           platform: "telegram",
           label: "Ops Telegram",
-          default_execution_runtime_id: runtime.public_id
+          default_execution_runtime_id: runtime.public_id,
         },
         headers: app_api_headers(session.plaintext_token),
         as: :json
@@ -43,7 +43,7 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
 
     patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}",
       params: {
-        lifecycle_state: "disabled"
+        lifecycle_state: "disabled",
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json
@@ -69,7 +69,7 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
 
     post "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings",
       params: {
-        platform: "telegram"
+        platform: "telegram",
       },
       headers: app_api_headers(foreign_session.plaintext_token),
       as: :json
@@ -78,7 +78,7 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
 
     patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{owner_binding.public_id}",
       params: {
-        lifecycle_state: "disabled"
+        lifecycle_state: "disabled",
       },
       headers: app_api_headers(foreign_session.plaintext_token),
       as: :json
@@ -95,7 +95,7 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
       {
         "login_state" => "pending",
         "qr_code_url" => "https://weixin.example/qr.png",
-        "channel_connector_id" => channel_connector.public_id
+        "channel_connector_id" => channel_connector.public_id,
       }
     end
 
@@ -119,7 +119,7 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
       {
         "login_state" => "connected",
         "account_id" => "wx-account-1",
-        "channel_connector_id" => channel_connector.public_id
+        "channel_connector_id" => channel_connector.public_id,
       }
     end
 

@@ -113,10 +113,6 @@ registry = Installations::RegisterBundledAgentRuntime.call(
   configuration: bundled_configuration
 )
 execution_runtime_connection = registry.execution_runtime_connection
-UserAgentBindings::Enable.call(
-  user: bootstrap.user,
-  agent: registry.agent
-)
 workspace = Workspaces::MaterializeDefault.call(user: bootstrap.user, agent: registry.agent)
 
 conversation = Conversations::CreateRoot.call(

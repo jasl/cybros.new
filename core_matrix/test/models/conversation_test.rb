@@ -27,14 +27,24 @@ class ConversationTest < ActiveSupport::TestCase
     assert_not_includes Conversation.column_names, "execution_runtime_id"
   end
 
-  test "requires a workspace agent and supports explicit interaction lock states" do
+  test "requires an explicit workspace agent and supports explicit interaction lock states" do
     VALID_INTERACTION_LOCK_STATES.each do |interaction_lock_state|
       conversation = build_conversation(interaction_lock_state: interaction_lock_state)
       assert conversation.valid?, "expected interaction lock state #{interaction_lock_state.inspect} to be valid: #{conversation.errors.full_messages.to_sentence}"
     end
 
-    missing_mount = build_conversation
-    missing_mount.workspace_agent = nil
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    agent = create_agent!(installation: installation)
+    missing_mount = Conversation.new(
+      installation: installation,
+      workspace: create_workspace!(installation: installation, user: user),
+      agent: agent,
+      user: user,
+      kind: "root",
+      purpose: "interactive",
+      lifecycle_state: "active"
+    )
 
     assert_not missing_mount.valid?
     assert_includes missing_mount.errors[:workspace_agent], "must exist"

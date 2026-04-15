@@ -99,7 +99,7 @@ class IngressAPI::Preprocessors::ResolveDispatchDecisionTest < ActiveSupport::Te
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {
-        "bot_token" => "telegram-bot-token"
+        "bot_token" => "telegram-bot-token",
       },
       config_payload: {},
       runtime_state_payload: {}
@@ -174,7 +174,7 @@ class IngressAPI::Preprocessors::ResolveDispatchDecisionTest < ActiveSupport::Te
       lifecycle_state: "active",
       origin_kind: "channel_ingress",
       origin_payload: {
-        "external_sender_id" => sender_id
+        "external_sender_id" => sender_id,
       },
       source_ref_type: "ChannelInboundMessage",
       source_ref_id: "channel-inbound-1",

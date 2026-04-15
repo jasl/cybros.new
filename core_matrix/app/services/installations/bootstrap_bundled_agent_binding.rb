@@ -6,7 +6,8 @@ module Installations
       :agent_definition_version,
       :agent_connection,
       :execution_runtime_connection,
-      :binding,
+      :workspace,
+      :workspace_agent,
       :default_workspace_ref,
       keyword_init: true
     )
@@ -28,9 +29,15 @@ module Installations
       )
       return unless registry.present?
 
-      binding_result = UserAgentBindings::Enable.call(
+      workspace = Workspaces::CreateDefault.call(
         user: @user,
         agent: registry.agent
+      )
+      workspace_agent = workspace.workspace_agents.where(agent: registry.agent, lifecycle_state: "active").order(:id).first
+      default_workspace_ref = Workspaces::ResolveDefaultReference.call(
+        user: @user,
+        agent: registry.agent,
+        workspace: workspace
       )
 
       Result.new(
@@ -39,8 +46,9 @@ module Installations
         agent_definition_version: registry.agent_definition_version,
         agent_connection: registry.agent_connection,
         execution_runtime_connection: registry.execution_runtime_connection,
-        binding: binding_result.binding,
-        default_workspace_ref: binding_result.default_workspace_ref
+        workspace: workspace,
+        workspace_agent: workspace_agent,
+        default_workspace_ref: default_workspace_ref
       )
     end
   end

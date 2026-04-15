@@ -37,10 +37,12 @@ class ConversationExecutionEpochs::InitializeCurrentTest < ActiveSupport::TestCa
       agent: agent,
       default_execution_runtime: nil
     )
+    workspace_agent = workspace.primary_workspace_agent
     conversation = create_conversation_without_epoch!(
       context: {
         installation: installation,
         workspace: workspace,
+        workspace_agent: workspace_agent,
         agent: agent,
       },
       execution_runtime: nil
@@ -58,6 +60,7 @@ class ConversationExecutionEpochs::InitializeCurrentTest < ActiveSupport::TestCa
   def create_conversation_without_epoch!(context:, execution_runtime:)
     conversation = Conversation.create!(
       installation: context.fetch(:installation),
+      workspace_agent: context.fetch(:workspace_agent),
       workspace: context.fetch(:workspace),
       agent: context.fetch(:agent),
       user_id: context.fetch(:workspace).user_id,

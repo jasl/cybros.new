@@ -30,8 +30,8 @@ module IngressAPI
           "modality" => @attachment_descriptor.fetch("modality"),
           "io" => StringIO.new(body),
           "transport_metadata" => {
-            "file_path" => file_path
-          }
+            "file_path" => file_path,
+          },
         }
       end
 

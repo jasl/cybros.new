@@ -39,7 +39,7 @@ module Conversations
       matches = scope.order(:id).limit(2).to_a
 
       if matches.empty?
-        raise ArgumentError, "workspace must have an active workspace_agent#{agent.present? ? ' for the requested agent' : ''}"
+        raise ArgumentError, "workspace must have an active workspace_agent#{agent.present? ? " for the requested agent" : ""}"
       end
 
       if agent.blank? && matches.size > 1

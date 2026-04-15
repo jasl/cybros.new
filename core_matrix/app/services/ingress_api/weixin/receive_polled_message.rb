@@ -48,7 +48,7 @@ module IngressAPI
             "source" => "weixin_poller",
             "ingress_binding" => @channel_connector.ingress_binding,
             "channel_connector" => @channel_connector,
-            "channel_connector_id" => @channel_connector.public_id
+            "channel_connector_id" => @channel_connector.public_id,
           }
         )
       end

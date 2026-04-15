@@ -27,8 +27,8 @@ class IngressAPI::Preprocessors::MaterializeAttachmentsTest < ActiveSupport::Tes
             "modality" => "file",
             "filename" => "notes.txt",
             "content_type" => "text/plain",
-            "byte_size" => 12
-          }
+            "byte_size" => 12,
+          },
         ],
         reply_to_external_message_key: nil,
         quoted_external_message_key: nil,
@@ -50,7 +50,7 @@ class IngressAPI::Preprocessors::MaterializeAttachmentsTest < ActiveSupport::Tes
         "byte_size" => 12,
         "modality" => "file",
         "io" => StringIO.new("hello world"),
-        "transport_metadata" => { "file_path" => "documents/notes.txt" }
+        "transport_metadata" => { "file_path" => "documents/notes.txt" },
       }
     end
 
@@ -68,15 +68,15 @@ class IngressAPI::Preprocessors::MaterializeAttachmentsTest < ActiveSupport::Tes
     context = attachment_context(
       config_payload: {
         "attachment_policy" => {
-          "max_count" => 1
-        }
+          "max_count" => 1,
+        },
       }
     )
     ingress_context = build_ingress_context(
       context,
       attachments: [
         { "file_id" => "attachment-1", "modality" => "file", "filename" => "first.txt", "byte_size" => 12 },
-        { "file_id" => "attachment-2", "modality" => "file", "filename" => "second.txt", "byte_size" => 12 }
+        { "file_id" => "attachment-2", "modality" => "file", "filename" => "second.txt", "byte_size" => 12 },
       ]
     )
     original_call = IngressAPI::Telegram::DownloadAttachment.method(:call)
@@ -96,14 +96,14 @@ class IngressAPI::Preprocessors::MaterializeAttachmentsTest < ActiveSupport::Tes
     context = attachment_context(
       config_payload: {
         "attachment_policy" => {
-          "max_bytes" => 8
-        }
+          "max_bytes" => 8,
+        },
       }
     )
     ingress_context = build_ingress_context(
       context,
       attachments: [
-        { "file_id" => "attachment-1", "modality" => "file", "filename" => "oversize.txt", "byte_size" => 12 }
+        { "file_id" => "attachment-1", "modality" => "file", "filename" => "oversize.txt", "byte_size" => 12 },
       ]
     )
     original_call = IngressAPI::Telegram::DownloadAttachment.method(:call)
@@ -149,7 +149,7 @@ class IngressAPI::Preprocessors::MaterializeAttachmentsTest < ActiveSupport::Tes
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {
-        "bot_token" => "telegram-bot-token"
+        "bot_token" => "telegram-bot-token",
       },
       config_payload: config_payload,
       runtime_state_payload: {}
@@ -192,7 +192,7 @@ class IngressAPI::Preprocessors::MaterializeAttachmentsTest < ActiveSupport::Tes
         thread_key: nil,
         external_sender_id: "telegram-user-1",
         sender_snapshot: { "label" => "Alice" },
-        text: "User sent #{attachments.length} attachment#{'s' if attachments.length != 1}.",
+        text: "User sent #{attachments.length} attachment#{"s" if attachments.length != 1}.",
         attachments: attachments,
         reply_to_external_message_key: nil,
         quoted_external_message_key: nil,

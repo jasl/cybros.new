@@ -47,7 +47,7 @@ module IngressAPI
         render json: {
           status: result.status,
           handled_via: result.handled_via,
-          rejection_reason: result.rejection_reason
+          rejection_reason: result.rejection_reason,
         }.compact
       end
 
@@ -68,7 +68,7 @@ module IngressAPI
         {
           "source" => "telegram_webhook",
           "public_ingress_id" => params.fetch(:public_ingress_id),
-          "remote_ip" => request.remote_ip
+          "remote_ip" => request.remote_ip,
         }
       end
 

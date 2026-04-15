@@ -13,7 +13,7 @@ class ChannelDeliveries::SendWeixinReplyTest < ActiveSupport::TestCase
       context,
       payload: {
         "delivery_mode" => "status_progress",
-        "chat_action" => "typing"
+        "chat_action" => "typing",
       }
     )
 
@@ -35,7 +35,7 @@ class ChannelDeliveries::SendWeixinReplyTest < ActiveSupport::TestCase
     delivery = create_channel_delivery!(
       context,
       payload: {
-        "text" => "final weixin reply"
+        "text" => "final weixin reply",
       }
     )
 
@@ -71,9 +71,9 @@ class ChannelDeliveries::SendWeixinReplyTest < ActiveSupport::TestCase
           {
             "attachment_id" => attachment.public_id,
             "filename" => "artifact.txt",
-            "modality" => "file"
-          }
-        ]
+            "modality" => "file",
+          },
+        ],
       }
     )
 
@@ -112,9 +112,9 @@ class ChannelDeliveries::SendWeixinReplyTest < ActiveSupport::TestCase
           {
             "attachment_id" => attachment.public_id,
             "filename" => "artifact.txt",
-            "modality" => "file"
-          }
-        ]
+            "modality" => "file",
+          },
+        ],
       }
     )
 
@@ -151,7 +151,7 @@ class ChannelDeliveries::SendWeixinReplyTest < ActiveSupport::TestCase
       runtime_state_payload: {
         "base_url" => "https://weixin.example",
         "bot_token" => "bot-token",
-        "typing_ticket" => "typing-ticket-1"
+        "typing_ticket" => "typing-ticket-1",
       }
     )
     conversation = create_conversation_record!(
@@ -172,7 +172,7 @@ class ChannelDeliveries::SendWeixinReplyTest < ActiveSupport::TestCase
       thread_key: nil,
       binding_state: "active",
       session_metadata: {
-        "context_token" => "ctx-1"
+        "context_token" => "ctx-1",
       }
     )
 
@@ -193,7 +193,7 @@ class ChannelDeliveries::SendWeixinReplyTest < ActiveSupport::TestCase
       conversation: context[:conversation],
       external_message_key: "pending:#{SecureRandom.uuid}",
       payload: {},
-      failure_payload: {}
+      failure_payload: {},
     }.merge(attrs))
   end
 

@@ -26,6 +26,9 @@ bundled = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   execution_runtime_fingerprint: "acceptance-provider-backed-environment",
   fingerprint: fingerprint
 )
+workspace_context = Acceptance::ManualSupport.enable_default_workspace!(
+  agent_definition_version: bundled.agent_definition_version
+)
 FileUtils.rm_rf(artifact_dir)
 FileUtils.mkdir_p(artifact_dir)
 created = nil
@@ -33,7 +36,7 @@ terminal = nil
 
 Acceptance::ManualSupport.with_fenix_control_worker_for_registration!(registration: bundled) do
   created = Acceptance::ManualSupport.app_api_create_conversation!(
-    agent_id: bundled.agent_definition_version.agent.public_id,
+    workspace_agent_id: workspace_context.fetch(:workspace_agent).public_id,
     content: content,
     selector: selector,
     session_token: app_api_session_token

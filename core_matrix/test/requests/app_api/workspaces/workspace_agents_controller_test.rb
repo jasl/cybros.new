@@ -17,7 +17,7 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
       post "/app_api/workspaces/#{context[:workspace].public_id}/workspace_agents",
         params: {
           agent_id: agent.public_id,
-          default_execution_runtime_id: runtime.public_id
+          default_execution_runtime_id: runtime.public_id,
         },
         headers: app_api_headers(session.plaintext_token),
         as: :json
@@ -39,7 +39,7 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
     patch "/app_api/workspaces/#{context[:workspace].public_id}/workspace_agents/#{context[:workspace_agent].public_id}",
       params: {
         lifecycle_state: "revoked",
-        revoked_reason_kind: "owner_revoked"
+        revoked_reason_kind: "owner_revoked",
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json
@@ -71,7 +71,7 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
 
     patch "/app_api/workspaces/#{context[:workspace].public_id}/workspace_agents/#{context[:workspace_agent].public_id}",
       params: {
-        default_execution_runtime_id: runtime.public_id
+        default_execution_runtime_id: runtime.public_id,
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json
@@ -90,7 +90,7 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
       params: {
         lifecycle_state: "revoked",
         revoked_reason_kind: "owner_revoked",
-        default_execution_runtime_id: other_runtime.public_id
+        default_execution_runtime_id: other_runtime.public_id,
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json
@@ -112,8 +112,8 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
         agent_id: agent.public_id,
         capability_policy_payload: {
           disabled_capabilities: ["control"],
-          unexpected: true
-        }
+          unexpected: true,
+        },
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json

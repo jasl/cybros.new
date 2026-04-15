@@ -16,9 +16,9 @@ class IngressAPI::Telegram::NormalizeUpdateTest < ActiveSupport::TestCase
           "text" => "hello from telegram",
           "reply_to_message" => {
             "message_id" => 54,
-            "text" => "older message"
-          }
-        }
+            "text" => "older message",
+          },
+        },
       },
       ingress_binding: context[:ingress_binding],
       channel_connector: context[:channel_connector]
@@ -51,16 +51,16 @@ class IngressAPI::Telegram::NormalizeUpdateTest < ActiveSupport::TestCase
           "caption" => "files attached",
           "photo" => [
             { "file_id" => "photo-small", "file_unique_id" => "photo-1", "file_size" => 10, "width" => 10, "height" => 10 },
-            { "file_id" => "photo-large", "file_unique_id" => "photo-1", "file_size" => 20, "width" => 20, "height" => 20 }
+            { "file_id" => "photo-large", "file_unique_id" => "photo-1", "file_size" => 20, "width" => 20, "height" => 20 },
           ],
           "document" => {
             "file_id" => "document-1",
             "file_unique_id" => "document-1",
             "file_name" => "notes.txt",
             "mime_type" => "text/plain",
-            "file_size" => 12
-          }
-        }
+            "file_size" => 12,
+          },
+        },
       },
       ingress_binding: context[:ingress_binding],
       channel_connector: context[:channel_connector]
@@ -91,9 +91,9 @@ class IngressAPI::Telegram::NormalizeUpdateTest < ActiveSupport::TestCase
             "file_unique_id" => "document-2",
             "file_name" => "notes.txt",
             "mime_type" => "text/plain",
-            "file_size" => 12
-          }
-        }
+            "file_size" => 12,
+          },
+        },
       },
       ingress_binding: context[:ingress_binding],
       channel_connector: context[:channel_connector]
@@ -127,7 +127,7 @@ class IngressAPI::Telegram::NormalizeUpdateTest < ActiveSupport::TestCase
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {
-        "bot_token" => "telegram-bot-token"
+        "bot_token" => "telegram-bot-token",
       },
       config_payload: {},
       runtime_state_payload: {}

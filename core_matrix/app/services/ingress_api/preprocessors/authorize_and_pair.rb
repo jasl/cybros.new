@@ -31,7 +31,7 @@ module IngressAPI
           channel_session: nil,
           request_metadata: @context.request_metadata,
           payload: {
-            "pairing_request_id" => pairing_request.public_id
+            "pairing_request_id" => pairing_request.public_id,
           }
         )
         @context

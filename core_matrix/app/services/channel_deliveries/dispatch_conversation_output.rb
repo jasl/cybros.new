@@ -135,7 +135,7 @@ module ChannelDeliveries
           "content_type" => blob.content_type,
           "byte_size" => blob.byte_size,
           "modality" => modality_for(blob.content_type),
-          "publication_role" => Attachments::CreateForMessage.publication_role_for(attachment)
+          "publication_role" => Attachments::CreateForMessage.publication_role_for(attachment),
         }
       end.sort_by.with_index { |attachment, index| [publication_role_rank(attachment["publication_role"]), index] }
     end

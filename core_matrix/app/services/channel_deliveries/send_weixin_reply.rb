@@ -139,7 +139,7 @@ module ChannelDeliveries
       responses = response.is_a?(Array) ? response : [response]
       response_payload = responses.find { |item| item.is_a?(Hash) && item["message_id"].present? }
       if response_payload.present?
-        attributes[:external_message_key] = "weixin:peer:#{@channel_delivery.channel_session.peer_id}:message:#{response_payload.fetch('message_id')}"
+        attributes[:external_message_key] = "weixin:peer:#{@channel_delivery.channel_session.peer_id}:message:#{response_payload.fetch("message_id")}"
       end
 
       @channel_delivery.update!(attributes)

@@ -11,7 +11,7 @@ module ClawBotSDK
         )
 
         {
-          "login_state" => "pending"
+          "login_state" => "pending",
         }
       end
 

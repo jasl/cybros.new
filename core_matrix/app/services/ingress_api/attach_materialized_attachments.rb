@@ -21,8 +21,8 @@ module IngressAPI
             identify: false,
             metadata: {
               "source_file_id" => attachment_record["file_id"],
-              "transport_metadata" => attachment_record["transport_metadata"]
-            }.compact
+              "transport_metadata" => attachment_record["transport_metadata"],
+            }.compact,
           }
         end,
         source_kind: "channel_ingress"

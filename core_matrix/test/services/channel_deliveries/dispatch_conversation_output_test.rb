@@ -147,11 +147,11 @@ class ChannelDeliveries::DispatchConversationOutputTest < ActiveSupport::TestCas
       label: "Primary #{platform.titleize}",
       lifecycle_state: "active",
       credential_ref_payload: platform == "telegram" ? {
-        "bot_token" => "telegram-bot-token"
+        "bot_token" => "telegram-bot-token",
       } : {},
       config_payload: {},
       runtime_state_payload: platform == "weixin" ? {
-        "base_url" => "https://weixin.example"
+        "base_url" => "https://weixin.example",
       } : {}
     )
     channel_session = ChannelSession.create!(
@@ -165,9 +165,9 @@ class ChannelDeliveries::DispatchConversationOutputTest < ActiveSupport::TestCas
       thread_key: nil,
       session_metadata: platform == "telegram" ? {
         "telegram_preview_message_id" => 88,
-        "telegram_preview_external_message_key" => "telegram:chat:telegram-user-1:message:88"
+        "telegram_preview_external_message_key" => "telegram:chat:telegram-user-1:message:88",
       } : {
-        "context_token" => "ctx-1"
+        "context_token" => "ctx-1",
       }
     )
     turn = Turns::StartChannelIngressTurn.call(

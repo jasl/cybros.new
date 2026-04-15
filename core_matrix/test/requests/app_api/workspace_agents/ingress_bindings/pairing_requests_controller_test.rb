@@ -23,7 +23,7 @@ class AppApiWorkspaceAgentIngressBindingPairingRequestsControllerTest < ActionDi
 
     patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{context[:ingress_binding].public_id}/pairing_requests/#{pairing_request.public_id}",
       params: {
-        lifecycle_state: "approved"
+        lifecycle_state: "approved",
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json
@@ -48,7 +48,7 @@ class AppApiWorkspaceAgentIngressBindingPairingRequestsControllerTest < ActionDi
 
     patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{other_binding.public_id}/pairing_requests/#{pairing_request.public_id}",
       params: {
-        lifecycle_state: "approved"
+        lifecycle_state: "approved",
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json

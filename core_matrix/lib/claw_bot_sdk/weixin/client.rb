@@ -32,7 +32,7 @@ module ClawBotSDK
           endpoint: "ilink/bot/getupdates",
           body: {
             "get_updates_buf" => get_updates_buf.to_s,
-            "base_info" => base_info
+            "base_info" => base_info,
           },
           timeout_ms: @long_poll_timeout_ms
         )
@@ -50,10 +50,10 @@ module ClawBotSDK
               "item_list" => [
                 {
                   "type" => 1,
-                  "text_item" => { "text" => text }
-                }
-              ]
-            }
+                  "text_item" => { "text" => text },
+                },
+              ],
+            },
           }
         )
       end
@@ -64,7 +64,7 @@ module ClawBotSDK
           body: {
             "ilink_user_id" => ilink_user_id,
             "context_token" => context_token,
-            "base_info" => base_info
+            "base_info" => base_info,
           }
         )
       end
@@ -76,7 +76,7 @@ module ClawBotSDK
             "ilink_user_id" => ilink_user_id,
             "typing_ticket" => typing_ticket,
             "status" => 1,
-            "base_info" => base_info
+            "base_info" => base_info,
           }
         )
       end

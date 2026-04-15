@@ -6,7 +6,7 @@ class SeedBaselineTest < ActiveSupport::TestCase
     initial_installation_count = Installation.count
     initial_identity_count = Identity.count
     initial_user_count = User.count
-    initial_binding_count = UserAgentBinding.count
+    initial_workspace_agent_count = WorkspaceAgent.count
     initial_workspace_count = Workspace.count
     initial_agent_count = Agent.count
     initial_environment_count = ExecutionRuntime.count
@@ -30,7 +30,7 @@ class SeedBaselineTest < ActiveSupport::TestCase
     assert_equal initial_agent_definition_version_count + 1, AgentDefinitionVersion.count
     assert_equal initial_identity_count, Identity.count
     assert_equal initial_user_count, User.count
-    assert_equal initial_binding_count, UserAgentBinding.count
+    assert_equal initial_workspace_agent_count, WorkspaceAgent.count
     assert_equal initial_workspace_count, Workspace.count
     assert_equal 1, ProviderPolicy.where(installation: installation, provider_handle: "dev").count
     assert_equal 1, ProviderEntitlement.where(installation: installation, provider_handle: "dev").count

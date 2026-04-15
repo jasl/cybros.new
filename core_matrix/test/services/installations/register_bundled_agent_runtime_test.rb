@@ -55,7 +55,8 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert_equal 1, AgentDefinitionVersion.count
     assert_equal 1, AgentConnection.count
     assert_equal 1, ExecutionRuntimeConnection.count
-    assert_equal 0, UserAgentBinding.count
+    assert_equal 0, WorkspaceAgent.count
+    assert_equal 0, Workspace.count
     assert_equal first.execution_runtime, first.agent.default_execution_runtime
     assert_equal first.agent_definition_version, first.agent.current_agent_definition_version
     assert_equal first.execution_runtime.current_execution_runtime_version, first.execution_runtime.published_execution_runtime_version

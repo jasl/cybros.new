@@ -12,9 +12,9 @@ class ClawBotSDK::Weixin::NormalizeMessageTest < ActiveSupport::TestCase
         "item_list" => [
           {
             "type" => 1,
-            "text_item" => { "text" => "hello from weixin" }
-          }
-        ]
+            "text_item" => { "text" => "hello from weixin" },
+          },
+        ],
       },
       ingress_binding: context[:ingress_binding],
       channel_connector: context[:channel_connector]
@@ -42,10 +42,10 @@ class ClawBotSDK::Weixin::NormalizeMessageTest < ActiveSupport::TestCase
             "type" => 2,
             "msg_id" => "item-image-1",
             "image_item" => {
-              "url" => "https://weixin.example/image/1"
-            }
-          }
-        ]
+              "url" => "https://weixin.example/image/1",
+            },
+          },
+        ],
       },
       ingress_binding: context[:ingress_binding],
       channel_connector: context[:channel_connector]

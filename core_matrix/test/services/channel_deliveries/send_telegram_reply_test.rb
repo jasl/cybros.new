@@ -30,7 +30,7 @@ class ChannelDeliveries::SendTelegramReplyTest < ActiveSupport::TestCase
     delivery = create_channel_delivery!(
       context,
       payload: {
-        "text" => "final reply"
+        "text" => "final reply",
       }
     )
 
@@ -51,7 +51,7 @@ class ChannelDeliveries::SendTelegramReplyTest < ActiveSupport::TestCase
       payload: {
         "delivery_mode" => "preview_stream",
         "preview_message_id" => 155,
-        "text" => "updated preview"
+        "text" => "updated preview",
       }
     )
 
@@ -78,14 +78,14 @@ class ChannelDeliveries::SendTelegramReplyTest < ActiveSupport::TestCase
           {
             "modality" => "image",
             "path" => image.path,
-            "filename" => "preview.jpg"
+            "filename" => "preview.jpg",
           },
           {
             "modality" => "file",
             "path" => document.path,
-            "filename" => "notes.txt"
-          }
-        ]
+            "filename" => "notes.txt",
+          },
+        ],
       }
     )
 
@@ -119,9 +119,9 @@ class ChannelDeliveries::SendTelegramReplyTest < ActiveSupport::TestCase
           {
             "attachment_id" => attachment.public_id,
             "filename" => "artifact.txt",
-            "modality" => "file"
-          }
-        ]
+            "modality" => "file",
+          },
+        ],
       }
     )
 
@@ -152,9 +152,9 @@ class ChannelDeliveries::SendTelegramReplyTest < ActiveSupport::TestCase
           {
             "attachment_id" => attachment.public_id,
             "filename" => "artifact.txt",
-            "modality" => "file"
-          }
-        ]
+            "modality" => "file",
+          },
+        ],
       }
     )
 
@@ -195,8 +195,8 @@ class ChannelDeliveries::SendTelegramReplyTest < ActiveSupport::TestCase
       payload: {
         "attachments" => [
           { "attachment_id" => attachment.public_id, "filename" => "artifact.txt", "modality" => "file" },
-          { "attachment_id" => second_attachment.public_id, "filename" => "second.txt", "modality" => "file" }
-        ]
+          { "attachment_id" => second_attachment.public_id, "filename" => "second.txt", "modality" => "file" },
+        ],
       }
     )
 
@@ -229,9 +229,9 @@ class ChannelDeliveries::SendTelegramReplyTest < ActiveSupport::TestCase
           {
             "attachment_id" => attachment.public_id,
             "filename" => "artifact.txt",
-            "modality" => "file"
-          }
-        ]
+            "modality" => "file",
+          },
+        ],
       }
     )
 
@@ -265,7 +265,7 @@ class ChannelDeliveries::SendTelegramReplyTest < ActiveSupport::TestCase
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {
-        "bot_token" => "telegram-bot-token"
+        "bot_token" => "telegram-bot-token",
       },
       config_payload: {},
       runtime_state_payload: {}
@@ -306,7 +306,7 @@ class ChannelDeliveries::SendTelegramReplyTest < ActiveSupport::TestCase
       conversation: context[:conversation],
       external_message_key: "telegram:chat:42:message:200",
       payload: {},
-      failure_payload: {}
+      failure_payload: {},
     }.merge(attrs))
   end
 

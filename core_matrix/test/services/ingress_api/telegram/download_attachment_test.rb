@@ -19,7 +19,7 @@ class IngressAPI::Telegram::DownloadAttachmentTest < ActiveSupport::TestCase
       attachment_descriptor: {
         "file_id" => "document-1",
         "modality" => "file",
-        "filename" => "report.txt"
+        "filename" => "report.txt",
       },
       downloader: downloader
     )

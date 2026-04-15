@@ -112,10 +112,6 @@ registry = Installations::RegisterBundledAgentRuntime.call(
   installation: bootstrap.installation,
   configuration: bundled_configuration
 )
-UserAgentBindings::Enable.call(
-  user: bootstrap.user,
-  agent: registry.agent
-)
 workspace = Workspaces::MaterializeDefault.call(user: bootstrap.user, agent: registry.agent)
 
 def attach_output!(turn, content)

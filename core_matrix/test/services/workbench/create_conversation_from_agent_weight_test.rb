@@ -12,6 +12,12 @@ class Workbench::CreateConversationFromAgentWeightTest < ActiveSupport::TestCase
       default_execution_runtime: execution_runtime
     )
     create_agent_connection!(installation: installation, agent: agent)
+    workspace = create_workspace!(
+      installation: installation,
+      user: user,
+      agent: agent,
+      default_execution_runtime: execution_runtime
+    )
     ProviderEntitlement.create!(
       installation: installation,
       provider_handle: "codex_subscription",
@@ -36,7 +42,7 @@ class Workbench::CreateConversationFromAgentWeightTest < ActiveSupport::TestCase
     assert_sql_query_count_at_most(52) do
       result = Workbench::CreateConversationFromAgent.call(
         user: user,
-        agent: agent,
+        workspace_agent: workspace.primary_workspace_agent,
         content: "Help me start",
         selector: "candidate:codex_subscription/gpt-5.3-codex"
       )

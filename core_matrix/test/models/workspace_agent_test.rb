@@ -55,7 +55,7 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       agent: context[:agent],
       capability_policy_payload: {
-        "disabled_capabilities" => %i[control side_chat control unknown]
+        "disabled_capabilities" => %i[control side_chat control unknown],
       }
     )
 
@@ -70,7 +70,7 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       agent: context[:agent],
       capability_policy_payload: {
         "disabled_capabilities" => ["control"],
-        "unexpected" => true
+        "unexpected" => true,
       }
     )
 

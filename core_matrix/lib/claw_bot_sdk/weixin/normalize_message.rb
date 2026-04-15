@@ -11,7 +11,7 @@ module ClawBotSDK
         IMAGE_TYPE => "image",
         VOICE_TYPE => "audio",
         FILE_TYPE => "file",
-        VIDEO_TYPE => "video"
+        VIDEO_TYPE => "video",
       }.freeze
 
       def self.call(...)
@@ -48,7 +48,7 @@ module ClawBotSDK
           transport_metadata: {
             "context_token" => @message["context_token"],
             "session_id" => @message["session_id"],
-            "group_id" => @message["group_id"]
+            "group_id" => @message["group_id"],
           }.compact,
           raw_payload: @message
         )
@@ -84,7 +84,7 @@ module ClawBotSDK
       def synthesized_attachment_text
         return nil if attachment_descriptors.empty?
 
-        "User sent #{attachment_descriptors.length} attachment#{'s' if attachment_descriptors.length != 1}."
+        "User sent #{attachment_descriptors.length} attachment#{"s" if attachment_descriptors.length != 1}."
       end
 
       def attachment_descriptors
@@ -97,7 +97,7 @@ module ClawBotSDK
             "modality" => modality,
             "url" => item.dig("image_item", "url"),
             "content_type" => content_type_for(modality),
-            "filename" => item.dig("file_item", "file_name")
+            "filename" => item.dig("file_item", "file_name"),
           }.compact
         end
       end

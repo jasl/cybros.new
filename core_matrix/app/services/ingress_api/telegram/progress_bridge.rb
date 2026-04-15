@@ -2,7 +2,7 @@ module IngressAPI
   module Telegram
     class ProgressBridge
       SUPPORTED_EVENT_PREFIXES = [
-        "runtime.assistant_output."
+        "runtime.assistant_output.",
       ].freeze
 
       def self.call(...)

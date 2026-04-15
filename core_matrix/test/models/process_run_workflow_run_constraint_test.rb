@@ -25,6 +25,7 @@ class ProcessRunWorkflowRunConstraintTest < NonTransactionalConcurrencyTestCase
       user: user,
       agent: agent
     )
+    workspace_agent = workspace.primary_workspace_agent
     agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
     execution_runtime = create_execution_runtime!(installation: installation)
     execution_runtime_version = create_execution_runtime_version!(
@@ -38,6 +39,7 @@ class ProcessRunWorkflowRunConstraintTest < NonTransactionalConcurrencyTestCase
     )
     conversation = Conversation.create!(
       installation: installation,
+      workspace_agent: workspace_agent,
       workspace: workspace,
       agent: agent,
       user_id: workspace.user_id,

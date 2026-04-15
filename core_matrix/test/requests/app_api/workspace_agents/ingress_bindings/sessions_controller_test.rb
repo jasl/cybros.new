@@ -34,7 +34,7 @@ class AppApiWorkspaceAgentIngressBindingSessionsControllerTest < ActionDispatch:
 
     patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{context[:ingress_binding].public_id}/sessions/#{channel_session.public_id}",
       params: {
-        conversation_id: other_conversation.public_id
+        conversation_id: other_conversation.public_id,
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json
@@ -51,7 +51,7 @@ class AppApiWorkspaceAgentIngressBindingSessionsControllerTest < ActionDispatch:
 
     patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{context[:ingress_binding].public_id}/sessions/#{channel_session.public_id}",
       params: {
-        binding_state: "unbound"
+        binding_state: "unbound",
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json
@@ -79,7 +79,7 @@ class AppApiWorkspaceAgentIngressBindingSessionsControllerTest < ActionDispatch:
 
     patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{context[:ingress_binding].public_id}/sessions/#{channel_session.public_id}",
       params: {
-        conversation_id: foreign_conversation.public_id
+        conversation_id: foreign_conversation.public_id,
       },
       headers: app_api_headers(session.plaintext_token),
       as: :json

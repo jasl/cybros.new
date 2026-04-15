@@ -13,9 +13,21 @@ module Workspaces
     end
 
     def call
-      workspace = existing_workspace || create_default_workspace!
+      workspace = existing_workspace
+      return ensure_active_mount!(workspace) if workspace.present?
 
-      ensure_active_mount!(workspace)
+      created_workspace = nil
+
+      Workspace.transaction(requires_new: true) do
+        created_workspace = create_default_workspace!
+
+        ensure_active_mount!(created_workspace)
+      end
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
+      recovered_workspace = existing_workspace
+      return ensure_active_mount!(recovered_workspace) if created_workspace.blank? && recovered_workspace.present?
+
+      raise
     end
 
     def existing_workspace
@@ -36,8 +48,6 @@ module Workspaces
         privacy: "private",
         is_default: true
       )
-    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
-      existing_workspace || raise
     end
 
     def ensure_active_mount!(workspace)
@@ -52,6 +62,8 @@ module Workspaces
       )
 
       workspace.reload
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
+      active_mount_for(workspace).present? ? workspace.reload : raise
     end
 
     def active_mount_for(workspace)

@@ -29,7 +29,7 @@ module ChannelDeliveries
         message_response = client.send_message(**{
           chat_id: chat_id,
           text: payload.fetch("text"),
-          reply_to_message_id: reply_to_message_id
+          reply_to_message_id: reply_to_message_id,
         }.compact)
         track_response!(message_response)
         message_response
@@ -86,7 +86,7 @@ module ChannelDeliveries
           client.send_message(**{
             chat_id: chat_id,
             text: signed_link_text(attachment, index),
-            reply_to_message_id: reply_to_message_id
+            reply_to_message_id: reply_to_message_id,
           }.compact)
         end
         track_response!(response)
@@ -136,7 +136,7 @@ module ChannelDeliveries
       responses = response.is_a?(Array) ? response : [response]
       keys = responses.filter_map { |item| extract_external_message_key(item) }
       delivery_attributes = {
-        delivery_state: "delivered"
+        delivery_state: "delivered",
       }
       if keys.present?
         delivered_external_message_keys.concat(keys)

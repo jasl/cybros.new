@@ -24,11 +24,11 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
           date: 1_713_612_345,
           chat: { id: 42, type: "private" },
           from: { id: 7, username: "alice" },
-          text: "hello"
-        }
+          text: "hello",
+        },
       },
       headers: {
-        "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret]
+        "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret],
       },
       as: :json
 
@@ -48,7 +48,7 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
     post "/ingress_api/telegram/bindings/#{context[:ingress_binding].public_ingress_id}/updates",
       params: { update_id: 102 },
       headers: {
-        "X-Telegram-Bot-Api-Secret-Token" => "wrong-secret"
+        "X-Telegram-Bot-Api-Secret-Token" => "wrong-secret",
       },
       as: :json
 
@@ -86,11 +86,11 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
             date: 1_713_612_346,
             chat: { id: 42, type: "private" },
             from: { id: 42, username: "alice" },
-            text: "hello end to end"
-          }
+            text: "hello end to end",
+          },
         },
         headers: {
-          "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret]
+          "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret],
         },
         as: :json
     end
@@ -118,11 +118,11 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
               date: 1_713_612_347,
               chat: { id: 77, type: "private" },
               from: { id: 77, username: "new_user" },
-              text: "hello first contact"
-            }
+              text: "hello first contact",
+            },
           },
           headers: {
-            "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret]
+            "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret],
           },
           as: :json
       end
@@ -156,11 +156,11 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
             date: 1_713_612_348,
             chat: { id: 88, type: "private" },
             from: { id: 88, username: "approved_user" },
-            text: "hello approved first contact"
-          }
+            text: "hello approved first contact",
+          },
         },
         headers: {
-          "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret]
+          "X-Telegram-Bot-Api-Secret-Token" => context[:plaintext_secret],
         },
         as: :json
     end
@@ -196,7 +196,7 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {
-        "bot_token" => "telegram-bot-token"
+        "bot_token" => "telegram-bot-token",
       },
       config_payload: {},
       runtime_state_payload: {}

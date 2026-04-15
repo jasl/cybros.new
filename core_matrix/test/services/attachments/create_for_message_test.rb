@@ -22,8 +22,8 @@ class Attachments::CreateForMessageTest < ActiveSupport::TestCase
           path: bundle.path,
           filename: "dist.zip",
           content_type: "application/zip",
-          publication_role: "primary_deliverable"
-        }
+          publication_role: "primary_deliverable",
+        },
       ],
       source_kind: "runtime_generated"
     )
@@ -79,7 +79,7 @@ class Attachments::CreateForMessageTest < ActiveSupport::TestCase
 
     files = [
       { io: StringIO.new("first"), filename: "first.txt", content_type: "text/plain" },
-      { io: StringIO.new("second"), filename: "second.txt", content_type: "text/plain" }
+      { io: StringIO.new("second"), filename: "second.txt", content_type: "text/plain" },
     ]
 
     assert_no_difference("MessageAttachment.count") do

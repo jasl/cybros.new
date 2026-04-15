@@ -20,7 +20,7 @@ class IngressAPI::Telegram::ProgressBridgeTest < ActiveSupport::TestCase
       payload: {
         "stream_id" => "turn-output:#{context[:turn].public_id}",
         "workflow_run_id" => context[:workflow_run].public_id,
-        "workflow_node_id" => context[:workflow_node].public_id
+        "workflow_node_id" => context[:workflow_node].public_id,
       },
       progress_dispatcher: ChannelDeliveries::DispatchRuntimeProgress
     )
@@ -33,7 +33,7 @@ class IngressAPI::Telegram::ProgressBridgeTest < ActiveSupport::TestCase
         "workflow_run_id" => context[:workflow_run].public_id,
         "workflow_node_id" => context[:workflow_node].public_id,
         "sequence" => 1,
-        "delta" => "Hel"
+        "delta" => "Hel",
       },
       progress_dispatcher: ChannelDeliveries::DispatchRuntimeProgress
     )
@@ -46,7 +46,7 @@ class IngressAPI::Telegram::ProgressBridgeTest < ActiveSupport::TestCase
         "workflow_run_id" => context[:workflow_run].public_id,
         "workflow_node_id" => context[:workflow_node].public_id,
         "sequence" => 2,
-        "delta" => "lo"
+        "delta" => "lo",
       },
       progress_dispatcher: ChannelDeliveries::DispatchRuntimeProgress
     )
@@ -93,7 +93,7 @@ class IngressAPI::Telegram::ProgressBridgeTest < ActiveSupport::TestCase
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {
-        "bot_token" => "telegram-bot-token"
+        "bot_token" => "telegram-bot-token",
       },
       config_payload: {},
       runtime_state_payload: {}

@@ -89,6 +89,118 @@ class Workspaces::CreateDefaultTest < ActiveSupport::TestCase
     end
   end
 
+  test "reuses the existing default workspace when the database unique constraint wins the race" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    agent = create_agent!(installation: installation)
+    existing_workspace = create_workspace!(
+      installation: installation,
+      user: user,
+      is_default: true
+    )
+    create_workspace_agent!(
+      installation: installation,
+      workspace: existing_workspace,
+      agent: agent
+    )
+    create_default = Workspaces::CreateDefault.new(user: user, agent: agent)
+    lookup_calls = 0
+
+    create_default.define_singleton_method(:existing_workspace) do
+      lookup_calls += 1
+      lookup_calls == 1 ? nil : existing_workspace
+    end
+
+    workspace_singleton = Workspace.singleton_class
+    original_create = Workspace.method(:create!)
+
+    workspace_singleton.send(:define_method, :create!) do |*|
+      raise ActiveRecord::RecordNotUnique, "duplicate default workspace"
+    end
+
+    begin
+      assert_equal existing_workspace, create_default.call
+    ensure
+      workspace_singleton.send(:define_method, :create!, original_create)
+    end
+  end
+
+  test "reuses the existing active mount when a concurrent mount validation wins the race" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    agent = create_agent!(installation: installation)
+    existing_workspace = create_workspace!(
+      installation: installation,
+      user: user,
+      is_default: true
+    )
+    existing_mount = create_workspace_agent!(
+      installation: installation,
+      workspace: existing_workspace,
+      agent: agent
+    )
+    invalid_mount = WorkspaceAgent.new(
+      installation: installation,
+      workspace: existing_workspace,
+      agent: agent,
+      default_execution_runtime: agent.default_execution_runtime,
+      entry_policy_payload: Conversation.default_interactive_entry_policy_payload
+    )
+    invalid_mount.errors.add(:agent_id, "already has an active mount for this workspace")
+    create_default = Workspaces::CreateDefault.new(user: user, agent: agent)
+
+    workspace_agent_singleton = WorkspaceAgent.singleton_class
+    original_create = WorkspaceAgent.method(:create!)
+
+    workspace_agent_singleton.send(:define_method, :create!) do |*|
+      raise ActiveRecord::RecordInvalid.new(invalid_mount)
+    end
+
+    begin
+      assert_equal existing_workspace, create_default.call
+      assert_equal existing_mount, existing_workspace.reload.primary_workspace_agent
+    ensure
+      workspace_agent_singleton.send(:define_method, :create!, original_create)
+    end
+  end
+
+  test "rolls back default workspace creation when mount materialization fails" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    agent = create_agent!(installation: installation)
+    invalid_mount = WorkspaceAgent.new(
+      installation: installation,
+      workspace: Workspace.new(
+        installation: installation,
+        user: user,
+        name: "Default Workspace",
+        privacy: "private",
+        is_default: true
+      ),
+      agent: agent,
+      default_execution_runtime: agent.default_execution_runtime,
+      entry_policy_payload: Conversation.default_interactive_entry_policy_payload
+    )
+    invalid_mount.errors.add(:base, "mount failed")
+
+    workspace_agent_singleton = WorkspaceAgent.singleton_class
+    original_create = WorkspaceAgent.method(:create!)
+
+    workspace_agent_singleton.send(:define_method, :create!) do |*|
+      raise ActiveRecord::RecordInvalid.new(invalid_mount)
+    end
+
+    begin
+      assert_no_difference(["Workspace.count", "WorkspaceAgent.count"]) do
+        assert_raises(ActiveRecord::RecordInvalid) do
+          Workspaces::CreateDefault.call(user: user, agent: agent)
+        end
+      end
+    ensure
+      workspace_agent_singleton.send(:define_method, :create!, original_create)
+    end
+  end
+
   test "requires explicit user and agent instead of a binding" do
     assert_raises(ArgumentError) do
       Workspaces::CreateDefault.call(user_agent_binding: Object.new)

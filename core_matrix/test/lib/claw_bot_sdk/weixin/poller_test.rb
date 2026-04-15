@@ -7,7 +7,7 @@ class ClawBotSDK::Weixin::PollerTest < ActiveSupport::TestCase
       runtime_state_payload: {
         "base_url" => "https://weixin.example",
         "bot_token" => "bot-token",
-        "get_updates_buf" => "cursor-1"
+        "get_updates_buf" => "cursor-1",
       }
     )
     fake_client = Struct.new(:calls) do
@@ -16,7 +16,7 @@ class ClawBotSDK::Weixin::PollerTest < ActiveSupport::TestCase
         {
           "ret" => 0,
           "msgs" => [{ "message_id" => "wx-msg-1" }],
-          "get_updates_buf" => "cursor-2"
+          "get_updates_buf" => "cursor-2",
         }
       end
     end.new([])

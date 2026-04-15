@@ -64,7 +64,7 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
     context = create_workspace_context!
     context[:workspace_agent].update!(
       capability_policy_payload: {
-        "disabled_capabilities" => %w[supervision]
+        "disabled_capabilities" => %w[supervision],
       }
     )
 

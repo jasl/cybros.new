@@ -2,20 +2,10 @@ require "test_helper"
 
 class TurnTest < ActiveSupport::TestCase
   test "generates and resolves a public id" do
-    installation = create_installation!
-    agent = create_agent!(installation: installation)
-    user = create_user!(installation: installation)
-    workspace = create_workspace!(installation: installation, user: user, agent: agent)
-    agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
-    conversation = Conversation.create!(
-      installation: installation,
-      workspace: workspace,
-      user: user,
-      agent: agent,
-      kind: "root",
-      purpose: "interactive",
-      lifecycle_state: "active"
-    )
+    context = build_turn_context!
+    installation = context[:installation]
+    agent_definition_version = context[:agent_definition_version]
+    conversation = context[:conversation]
     execution_epoch = initialize_current_execution_epoch!(conversation)
     turn = Turn.create!(
       installation: installation,
@@ -41,20 +31,10 @@ class TurnTest < ActiveSupport::TestCase
   end
 
   test "enforces unique sequence numbers within a conversation" do
-    installation = create_installation!
-    agent = create_agent!(installation: installation)
-    user = create_user!(installation: installation)
-    workspace = create_workspace!(installation: installation, user: user, agent: agent)
-    agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
-    conversation = Conversation.create!(
-      installation: installation,
-      workspace: workspace,
-      user: user,
-      agent: agent,
-      kind: "root",
-      purpose: "interactive",
-      lifecycle_state: "active"
-    )
+    context = build_turn_context!
+    installation = context[:installation]
+    agent_definition_version = context[:agent_definition_version]
+    conversation = context[:conversation]
     execution_epoch = initialize_current_execution_epoch!(conversation)
 
     Turn.create!(
@@ -100,20 +80,10 @@ class TurnTest < ActiveSupport::TestCase
   end
 
   test "belongs to a definition version and allows execution runtime to be nil" do
-    installation = create_installation!
-    agent = create_agent!(installation: installation)
-    user = create_user!(installation: installation)
-    workspace = create_workspace!(installation: installation, user: user, agent: agent)
-    agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
-    conversation = Conversation.create!(
-      installation: installation,
-      workspace: workspace,
-      user: user,
-      agent: agent,
-      kind: "root",
-      purpose: "interactive",
-      lifecycle_state: "active"
-    )
+    context = build_turn_context!
+    installation = context[:installation]
+    agent_definition_version = context[:agent_definition_version]
+    conversation = context[:conversation]
     execution_epoch = initialize_current_execution_epoch!(conversation)
     turn = Turn.new(
       installation: installation,
@@ -153,20 +123,10 @@ class TurnTest < ActiveSupport::TestCase
   end
 
   test "treats waiting as a non terminal lifecycle state" do
-    installation = create_installation!
-    agent = create_agent!(installation: installation)
-    user = create_user!(installation: installation)
-    workspace = create_workspace!(installation: installation, user: user, agent: agent)
-    conversation = Conversation.create!(
-      installation: installation,
-      workspace: workspace,
-      user: user,
-      agent: agent,
-      kind: "root",
-      purpose: "interactive",
-      lifecycle_state: "active"
-    )
-    agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
+    context = build_turn_context!
+    installation = context[:installation]
+    agent_definition_version = context[:agent_definition_version]
+    conversation = context[:conversation]
     execution_epoch = initialize_current_execution_epoch!(conversation)
     turn = Turn.new(
       installation: installation,
@@ -197,9 +157,11 @@ class TurnTest < ActiveSupport::TestCase
     other_agent = create_agent!(installation: installation, key: "other-agent")
     user = create_user!(installation: installation)
     workspace = create_workspace!(installation: installation, user: user, agent: agent)
+    workspace_agent = workspace.primary_workspace_agent
     agent_definition_version = create_agent_definition_version!(installation: installation, agent: other_agent)
     conversation = Conversation.create!(
       installation: installation,
+      workspace_agent: workspace_agent,
       workspace: workspace,
       user: user,
       agent: agent,
@@ -230,5 +192,32 @@ class TurnTest < ActiveSupport::TestCase
 
     assert_not turn.valid?
     assert_includes turn.errors[:agent_definition_version], "must belong to the conversation agent"
+  end
+
+  private
+
+  def build_turn_context!
+    installation = create_installation!
+    agent = create_agent!(installation: installation)
+    user = create_user!(installation: installation)
+    workspace = create_workspace!(installation: installation, user: user, agent: agent)
+    workspace_agent = workspace.primary_workspace_agent
+    conversation = Conversation.create!(
+      installation: installation,
+      workspace_agent: workspace_agent,
+      workspace: workspace,
+      user: user,
+      agent: agent,
+      kind: "root",
+      purpose: "interactive",
+      lifecycle_state: "active"
+    )
+    agent_definition_version = create_agent_definition_version!(installation: installation, agent: agent)
+
+    {
+      installation: installation,
+      conversation: conversation,
+      agent_definition_version: agent_definition_version,
+    }
   end
 end

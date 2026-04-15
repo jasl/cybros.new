@@ -9,7 +9,7 @@ class ChannelConnectors::WeixinPollAccountJobTest < ActiveJob::TestCase
       poller_calls << channel_connector.public_id
       [
         { "message_id" => "wx-msg-1" },
-        { "message_id" => "wx-msg-2" }
+        { "message_id" => "wx-msg-2" },
       ]
     end
     fake_receiver = lambda do |channel_connector:, message:|
@@ -25,7 +25,7 @@ class ChannelConnectors::WeixinPollAccountJobTest < ActiveJob::TestCase
     assert_equal [connector.public_id], poller_calls
     assert_equal [
       [connector.public_id, "wx-msg-1"],
-      [connector.public_id, "wx-msg-2"]
+      [connector.public_id, "wx-msg-2"],
     ], receiver_calls
   end
 
@@ -52,7 +52,7 @@ class ChannelConnectors::WeixinPollAccountJobTest < ActiveJob::TestCase
       config_payload: {},
       runtime_state_payload: {
         "base_url" => "https://weixin.example",
-        "bot_token" => "bot-token"
+        "bot_token" => "bot-token",
       }
     )
   end

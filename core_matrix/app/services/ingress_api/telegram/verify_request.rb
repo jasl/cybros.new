@@ -28,7 +28,7 @@ module IngressAPI
 
         {
           ingress_binding: ingress_binding,
-          channel_connector: channel_connector
+          channel_connector: channel_connector,
         }
       end
     end

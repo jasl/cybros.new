@@ -35,7 +35,7 @@ module IngressAPI
           transport_metadata: {
             "telegram_update_id" => update_id,
             "telegram_chat_id" => chat.fetch("id").to_s,
-            "telegram_message_id" => message.fetch("message_id").to_s
+            "telegram_message_id" => message.fetch("message_id").to_s,
           }.compact,
           raw_payload: @update_payload
         )
@@ -68,7 +68,7 @@ module IngressAPI
           "id" => from.fetch("id").to_s,
           "username" => from["username"],
           "first_name" => from["first_name"],
-          "last_name" => from["last_name"]
+          "last_name" => from["last_name"],
         }.compact
       end
 
@@ -81,7 +81,7 @@ module IngressAPI
       def synthesized_media_text
         return nil if attachment_descriptors.empty?
 
-        "User sent #{attachment_descriptors.length} attachment#{'s' if attachment_descriptors.length != 1}."
+        "User sent #{attachment_descriptors.length} attachment#{"s" if attachment_descriptors.length != 1}."
       end
 
       def attachment_descriptors
@@ -96,7 +96,7 @@ module IngressAPI
               "modality" => "image",
               "byte_size" => photo["file_size"],
               "width" => photo["width"],
-              "height" => photo["height"]
+              "height" => photo["height"],
             }.compact
           end
 
@@ -108,7 +108,7 @@ module IngressAPI
               "modality" => "file",
               "filename" => document["file_name"],
               "content_type" => document["mime_type"],
-              "byte_size" => document["file_size"]
+              "byte_size" => document["file_size"],
             }.compact
           end
 
@@ -124,7 +124,7 @@ module IngressAPI
       end
 
       def external_message_key(message_id)
-        "telegram:chat:#{chat.fetch('id')}:message:#{message_id}"
+        "telegram:chat:#{chat.fetch("id")}:message:#{message_id}"
       end
     end
   end

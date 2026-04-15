@@ -191,11 +191,19 @@ class Conversation < ApplicationRecord
   def self.accessible_to_user(user)
     return none if user.blank?
 
+    visible_workspace_ids_sql = Workspace.accessible_to_user(user).select(:id).to_sql
+    visible_agent_ids_sql = Agent.visible_to_user(user).select(:id).to_sql
+
     where(
       installation_id: user.installation_id,
       deletion_state: "retained"
     )
-      .where(workspace_id: Workspace.accessible_to_user(user).select(:id))
+      .joins(:workspace_agent)
+      .where("conversations.workspace_id IN (#{visible_workspace_ids_sql})")
+      .where(
+        "workspace_agents.lifecycle_state != :active_state OR workspace_agents.agent_id IN (#{visible_agent_ids_sql})",
+        active_state: "active"
+      )
   end
 
   validate :workspace_installation_match
