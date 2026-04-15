@@ -1,6 +1,8 @@
 module Conversations
   module Metadata
     class BootstrapTitleJob < ApplicationJob
+      TITLE_BOOTSTRAP_ORIGIN_KINDS = %w[manual_user channel_ingress].freeze
+
       queue_as :workflow_default
 
       def perform(conversation_id, turn_id)
@@ -46,9 +48,9 @@ module Conversations
         return false unless conversation.title_source_none?
         return false unless conversation.title_lock_state_unlocked?
         return false unless conversation.title == Conversations::Metadata::BootstrapTitle.placeholder_title
-        return false unless turn.origin_kind == "manual_user"
+        return false unless TITLE_BOOTSTRAP_ORIGIN_KINDS.include?(turn.origin_kind)
 
-        conversation.turns.where(origin_kind: "manual_user").order(:sequence, :created_at, :id).limit(1).pick(:id) == turn.id
+        conversation.turns.where(origin_kind: TITLE_BOOTSTRAP_ORIGIN_KINDS).order(:sequence, :created_at, :id).limit(1).pick(:id) == turn.id
       end
     end
   end

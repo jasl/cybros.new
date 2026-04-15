@@ -16,6 +16,7 @@ class Turn < ApplicationRecord
   enum :origin_kind,
     {
       manual_user: "manual_user",
+      channel_ingress: "channel_ingress",
       automation_schedule: "automation_schedule",
       automation_webhook: "automation_webhook",
       system_internal: "system_internal",

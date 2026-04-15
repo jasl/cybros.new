@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
+  ChannelInboundMessage = Struct.new(:public_id)
+
   test "creates a new selected input variant for the active turn" do
     context = create_workspace_context!
     turn = Turns::StartUserTurn.call(
@@ -24,6 +26,59 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
       UserMessage.where(turn: turn).order(:variant_index).pluck(:content)
     assert_equal steered.selected_input_message, turn.conversation.reload.latest_message
     assert_equal steered.selected_input_message.created_at.to_i, turn.conversation.last_activity_at.to_i
+  end
+
+  test "keeps pre-boundary channel ingress follow up on the same turn" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turn.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      agent_definition_version: context[:agent_definition_version],
+      execution_runtime: context[:execution_runtime],
+      execution_runtime_version: context[:execution_runtime].current_execution_runtime_version,
+      execution_epoch: initialize_current_execution_epoch!(conversation, execution_runtime: context[:execution_runtime]),
+      sequence: 1,
+      lifecycle_state: "active",
+      origin_kind: "channel_ingress",
+      origin_payload: {
+        "ingress_binding_id" => "ingress_binding_1",
+        "channel_session_id" => "channel_session_1",
+        "channel_inbound_message_id" => "channel_inbound_message_1",
+        "external_sender_id" => "telegram:user:42",
+      },
+      source_ref_type: "ChannelInboundMessage",
+      source_ref_id: "channel_inbound_message_1",
+      pinned_agent_definition_fingerprint: context[:agent_definition_version].definition_fingerprint,
+      agent_config_version: 1,
+      agent_config_content_fingerprint: context[:agent_definition_version].definition_fingerprint,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    original_message = UserMessage.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      turn: turn,
+      role: "user",
+      slot: "input",
+      variant_index: 0,
+      content: "Original inbound input"
+    )
+    Turns::PersistSelectionState.call(turn: turn, selected_input_message: original_message)
+
+    steered = Turns::SteerCurrentInput.call(
+      turn: turn,
+      content: "Revised inbound input"
+    )
+
+    assert_equal turn.id, steered.id
+    assert_equal "channel_ingress", steered.origin_kind
+    assert_equal "ChannelInboundMessage", steered.source_ref_type
+    assert_equal "channel_inbound_message_1", steered.source_ref_id
+    assert_equal "Revised inbound input", steered.selected_input_message.content
   end
 
   test "queues follow up work after the first transcript side-effect boundary" do
@@ -50,6 +105,71 @@ class Turns::SteerCurrentInputTest < ActiveSupport::TestCase
     assert_equal 2, queued.sequence
     assert_equal "Original input", turn.reload.selected_input_message.content
     assert_equal "Queued follow up", queued.selected_input_message.content
+    assert_equal output.public_id, queued.origin_payload["expected_tail_message_id"]
+    assert_equal turn.public_id, queued.origin_payload["queued_from_turn_id"]
+  end
+
+  test "queues channel ingress follow up after the first transcript side-effect boundary without falling back to manual provenance" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn = Turn.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      agent_definition_version: context[:agent_definition_version],
+      execution_runtime: context[:execution_runtime],
+      execution_runtime_version: context[:execution_runtime].current_execution_runtime_version,
+      execution_epoch: initialize_current_execution_epoch!(conversation, execution_runtime: context[:execution_runtime]),
+      sequence: 1,
+      lifecycle_state: "active",
+      origin_kind: "channel_ingress",
+      origin_payload: {
+        "ingress_binding_id" => "ingress_binding_1",
+        "channel_session_id" => "channel_session_1",
+        "channel_inbound_message_id" => "channel_inbound_message_1",
+        "external_sender_id" => "telegram:user:42",
+      },
+      source_ref_type: "ChannelInboundMessage",
+      source_ref_id: "channel_inbound_message_1",
+      pinned_agent_definition_fingerprint: context[:agent_definition_version].definition_fingerprint,
+      agent_config_version: 1,
+      agent_config_content_fingerprint: context[:agent_definition_version].definition_fingerprint,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    original_message = UserMessage.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      turn: turn,
+      role: "user",
+      slot: "input",
+      variant_index: 0,
+      content: "Original inbound input"
+    )
+    Turns::PersistSelectionState.call(turn: turn, selected_input_message: original_message)
+    output = attach_selected_output!(turn, content: "Streaming output")
+
+    queued = Turns::SteerCurrentInput.call(
+      turn: turn,
+      content: "Queued inbound follow up",
+      policy_mode: "queue",
+      source_ref_type: "ChannelInboundMessage",
+      source_ref_id: "channel_inbound_message_2",
+      origin_payload: {
+        "ingress_binding_id" => "ingress_binding_1",
+        "channel_session_id" => "channel_session_1",
+        "channel_inbound_message_id" => "channel_inbound_message_2",
+        "external_sender_id" => "telegram:user:42",
+      }
+    )
+
+    assert queued.queued?
+    assert_equal "channel_ingress", queued.origin_kind
+    assert_equal "ChannelInboundMessage", queued.source_ref_type
+    assert_equal "channel_inbound_message_2", queued.source_ref_id
+    assert_equal "channel_inbound_message_2", queued.origin_payload["channel_inbound_message_id"]
     assert_equal output.public_id, queued.origin_payload["expected_tail_message_id"]
     assert_equal turn.public_id, queued.origin_payload["queued_from_turn_id"]
   end

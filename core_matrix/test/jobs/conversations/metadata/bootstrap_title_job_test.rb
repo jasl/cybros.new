@@ -29,6 +29,36 @@ class Conversations::Metadata::BootstrapTitleJobTest < ActiveSupport::TestCase
     Conversations::Metadata::GenerateBootstrapTitle.singleton_class.send(:define_method, :call, original_call)
   end
 
+  test "first transcript-bearing channel ingress turn upgrades the placeholder title asynchronously" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    turn, message = create_channel_ingress_turn!(
+      context: context,
+      conversation: conversation,
+      inbound_message_id: "channel_inbound_message_1",
+      content: "Inbound request for title bootstrap."
+    )
+    invoked = nil
+
+    original_call = Conversations::Metadata::GenerateBootstrapTitle.method(:call)
+    Conversations::Metadata::GenerateBootstrapTitle.singleton_class.send(:define_method, :call) do |**kwargs|
+      invoked = kwargs
+      "Inbound conversation title"
+    end
+
+    Conversations::Metadata::BootstrapTitleJob.perform_now(conversation.public_id, turn.public_id)
+
+    conversation.reload
+    assert_equal conversation.id, invoked.fetch(:conversation).id
+    assert_equal message.id, invoked.fetch(:message).id
+    assert_equal "Inbound conversation title", conversation.title
+    assert_equal "bootstrap", conversation.title_source
+  ensure
+    if defined?(original_call) && original_call.present?
+      Conversations::Metadata::GenerateBootstrapTitle.singleton_class.send(:define_method, :call, original_call)
+    end
+  end
+
   test "later manual turns do not overwrite the placeholder title" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
@@ -179,6 +209,48 @@ class Conversations::Metadata::BootstrapTitleJobTest < ActiveSupport::TestCase
       origin_payload: {},
       source_ref_type: "User",
       source_ref_id: context[:user].public_id,
+      pinned_agent_definition_fingerprint: context[:agent_definition_version].definition_fingerprint,
+      agent_config_version: 1,
+      agent_config_content_fingerprint: context[:agent_definition_version].definition_fingerprint,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    message = UserMessage.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      turn: turn,
+      role: "user",
+      slot: "input",
+      variant_index: 0,
+      content: content
+    )
+    Turns::PersistSelectionState.call(turn: turn, selected_input_message: message)
+
+    [turn, message]
+  end
+
+  def create_channel_ingress_turn!(context:, conversation:, inbound_message_id:, content:)
+    execution_epoch = initialize_current_execution_epoch!(conversation, execution_runtime: context[:execution_runtime])
+    turn = Turn.create!(
+      installation: conversation.installation,
+      conversation: conversation,
+      user: conversation.user,
+      workspace: conversation.workspace,
+      agent: conversation.agent,
+      agent_definition_version: context[:agent_definition_version],
+      execution_runtime: context[:execution_runtime],
+      execution_epoch: execution_epoch,
+      sequence: conversation.turns.maximum(:sequence).to_i + 1,
+      lifecycle_state: "active",
+      origin_kind: "channel_ingress",
+      origin_payload: {
+        "ingress_binding_id" => "ingress_binding_1",
+        "channel_session_id" => "channel_session_1",
+        "channel_inbound_message_id" => inbound_message_id,
+        "external_sender_id" => "telegram:user:42",
+      },
+      source_ref_type: "ChannelInboundMessage",
+      source_ref_id: inbound_message_id,
       pinned_agent_definition_fingerprint: context[:agent_definition_version].definition_fingerprint,
       agent_config_version: 1,
       agent_config_content_fingerprint: context[:agent_definition_version].definition_fingerprint,

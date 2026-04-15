@@ -52,10 +52,14 @@ module Workflows
     end
 
     class DuringGenerationPolicy
-      def initialize(turn:, content:, policy_mode:)
+      def initialize(turn:, content:, policy_mode:, origin_kind: nil, origin_payload: nil, source_ref_type: nil, source_ref_id: nil)
         @turn = turn
         @content = content
         @policy_mode = policy_mode.to_s
+        @origin_kind = origin_kind
+        @origin_payload = origin_payload
+        @source_ref_type = source_ref_type
+        @source_ref_id = source_ref_id
       end
 
       def call
@@ -82,6 +86,10 @@ module Workflows
           queued_turn = Turns::QueueFollowUp.call(
             conversation: @turn.conversation,
             content: @content,
+            origin_kind: @origin_kind,
+            origin_payload: @origin_payload,
+            source_ref_type: @source_ref_type,
+            source_ref_id: @source_ref_id,
             resolved_config_snapshot: @turn.resolved_config_snapshot,
             resolved_model_selection_snapshot: @turn.resolved_model_selection_snapshot
           )

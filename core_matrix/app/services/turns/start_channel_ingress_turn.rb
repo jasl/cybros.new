@@ -1,49 +1,48 @@
 module Turns
-  class QueueFollowUp
+  class StartChannelIngressTurn
+    ROOT_NODE_KEY = "turn_step".freeze
+    ROOT_NODE_TYPE = "turn_step".freeze
+    DECISION_SOURCE = "system".freeze
+
     def self.call(...)
       new(...).call
     end
 
     def initialize(
       conversation:,
+      channel_inbound_message:,
       content:,
-      execution_runtime: nil,
-      origin_kind: nil,
-      origin_payload: nil,
-      source_ref_type: nil,
-      source_ref_id: nil,
-      resolved_config_snapshot:,
-      resolved_model_selection_snapshot:
+      origin_payload:,
+      selector_source:,
+      selector:,
+      execution_runtime: nil
     )
       @conversation = conversation
+      @channel_inbound_message = channel_inbound_message
       @content = content
-      @execution_runtime = execution_runtime
-      @origin_kind = origin_kind
       @origin_payload = origin_payload
-      @source_ref_type = source_ref_type
-      @source_ref_id = source_ref_id
-      @resolved_config_snapshot = resolved_config_snapshot
-      @resolved_model_selection_snapshot = resolved_model_selection_snapshot
+      @selector_source = selector_source
+      @selector = selector
+      @execution_runtime = execution_runtime
     end
 
     def call
+      accepted_at = Time.current
+
       Conversations::WithConversationEntryLock.call(
         conversation: @conversation,
-        retained_message: "must be retained for follow up turn entry",
-        active_message: "must be active for follow up turn entry",
-        lock_message: "must be mutable for follow up turn entry",
+        retained_message: "must be retained for channel ingress turn entry",
+        active_message: "must be active for channel ingress turn entry",
+        lock_message: "must be mutable for channel ingress turn entry",
         closing_message: "must not accept new turn entry while close is in progress"
       ) do |conversation|
-        raise_invalid!(conversation, :purpose, "must be interactive for follow up turn entry") unless conversation.interactive?
+        raise_invalid!(conversation, :purpose, "must be interactive for channel ingress turn entry") unless conversation.interactive?
+        raise_invalid!(conversation, :entry_policy_payload, "must allow channel ingress turn entry") unless conversation.allows_entry_surface?("channel_ingress")
         SubagentConnections::ValidateAddressability.call(
           conversation: conversation,
           sender_kind: "human",
-          rejection_message: "must allow main transcript entry for follow up turn entry"
+          rejection_message: "must allow main transcript entry for channel ingress turn entry"
         )
-
-        unless conversation.turns.where(lifecycle_state: %w[queued active]).exists?
-          raise_invalid!(conversation, :base, "must have active work before queueing follow up")
-        end
 
         execution_identity = Turns::FreezeExecutionIdentity.call(
           conversation: conversation,
@@ -61,16 +60,22 @@ module Turns
           execution_runtime: execution_identity.execution_runtime,
           execution_runtime_version: execution_identity.execution_runtime_version,
           sequence: conversation.turns.maximum(:sequence).to_i + 1,
-          lifecycle_state: "queued",
-          origin_kind: resolved_origin_kind,
-          origin_payload: resolved_origin_payload,
-          source_ref_type: resolved_source_ref_type,
-          source_ref_id: resolved_source_ref_id,
+          lifecycle_state: "active",
+          origin_kind: "channel_ingress",
+          origin_payload: normalized_origin_payload,
+          source_ref_type: "ChannelInboundMessage",
+          source_ref_id: @channel_inbound_message.public_id,
           pinned_agent_definition_fingerprint: execution_identity.pinned_agent_definition_fingerprint,
           agent_config_version: execution_identity.agent_config_version,
           agent_config_content_fingerprint: execution_identity.agent_config_content_fingerprint,
-          resolved_config_snapshot: @resolved_config_snapshot,
-          resolved_model_selection_snapshot: @resolved_model_selection_snapshot
+          resolved_config_snapshot: {},
+          resolved_model_selection_snapshot: {},
+          workflow_bootstrap_state: "pending",
+          workflow_bootstrap_payload: workflow_bootstrap_payload,
+          workflow_bootstrap_failure_payload: {},
+          workflow_bootstrap_requested_at: accepted_at,
+          workflow_bootstrap_started_at: nil,
+          workflow_bootstrap_finished_at: nil
         )
 
         message = UserMessage.create!(
@@ -90,30 +95,29 @@ module Turns
           message: message,
           activity_at: message.created_at
         )
+        Conversations::ProjectTurnBootstrapState.call(turn: turn)
         turn
       end
     end
 
     private
 
-    def resolved_origin_kind
-      @origin_kind.presence || "manual_user"
-    end
-
-    def resolved_origin_payload
+    def normalized_origin_payload
       values = @origin_payload.respond_to?(:to_unsafe_h) ? @origin_payload.to_unsafe_h : @origin_payload
-      return {} if values.blank?
       raise ArgumentError, "origin_payload must be a hash" unless values.is_a?(Hash)
 
       values.deep_stringify_keys
     end
 
-    def resolved_source_ref_type
-      @source_ref_type.presence || "User"
-    end
-
-    def resolved_source_ref_id
-      @source_ref_id.presence || @conversation.user.public_id
+    def workflow_bootstrap_payload
+      {
+        "selector_source" => @selector_source,
+        "selector" => @selector,
+        "root_node_key" => ROOT_NODE_KEY,
+        "root_node_type" => ROOT_NODE_TYPE,
+        "decision_source" => DECISION_SOURCE,
+        "metadata" => {},
+      }
     end
 
     def raise_invalid!(record, attribute, message)
