@@ -323,7 +323,9 @@ Notes:
 - `ingress_secret_digest` stores a secret used to verify external requests
 - `manual_entry_policy` should default to allowing both app-side and external
   input in v1
-- do not overload `Conversation.addressability` for "external-only input"
+- do not overload conversation mutability onto a legacy enum; external-only
+  input rules must flow through explicit entry-policy and interaction-lock
+  state instead
 
 ### `ChannelConnector`
 
