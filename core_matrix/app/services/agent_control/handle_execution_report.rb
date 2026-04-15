@@ -105,6 +105,7 @@ module AgentControl
     def handle_execution_terminal!
       heartbeat_task_lease!
       waiting_on_execution_runtime_request = blocked_on_execution_runtime_request?
+      agent_task_run.reload
 
       lifecycle_state = case @method_id
       when "execution_complete" then "completed"
@@ -241,7 +242,7 @@ module AgentControl
     end
 
     def blocked_on_execution_runtime_request?
-      workflow_run = agent_task_run.workflow_run
+      workflow_run = WorkflowRun.find(agent_task_run.workflow_run_id)
 
       workflow_run.waiting? &&
         workflow_run.wait_reason_kind == "execution_runtime_request" &&

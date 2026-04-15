@@ -56,13 +56,13 @@ module AgentControl
     end
 
     def validate_active_execution_holder!
-      stale! unless @mailbox_item.agent_task_run_id == @agent_task_run.id
-      stale! unless @agent_task_run.logical_work_id == @payload["logical_work_id"]
-      stale! unless @agent_task_run.attempt_no == @payload["attempt_no"].to_i
-      stale! unless @agent_task_run.running?
-      stale! unless @agent_task_run.holder_agent_connection_id == resolved_agent_connection&.id
-      stale! unless @agent_task_run.execution_lease&.active?
-      stale! if @agent_task_run.close_requested_at.present?
+      stale! unless @mailbox_item.agent_task_run_id == live_agent_task_run.id
+      stale! unless live_agent_task_run.logical_work_id == @payload["logical_work_id"]
+      stale! unless live_agent_task_run.attempt_no == @payload["attempt_no"].to_i
+      stale! unless live_agent_task_run.running?
+      stale! unless live_agent_task_run.holder_agent_connection_id == resolved_agent_connection&.id
+      stale! unless live_execution_lease&.active?
+      stale! if live_agent_task_run.close_requested_at.present?
       validate_execution_runtime_alignment! if @mailbox_item.execution_runtime_plane?
     end
 
@@ -81,6 +81,18 @@ module AgentControl
       return @execution_runtime_connection if @mailbox_item.execution_runtime_plane?
 
       @agent_definition_version
+    end
+
+    def live_agent_task_run
+      return @agent_task_run if @agent_task_run.blank?
+
+      @live_agent_task_run ||= AgentTaskRun.includes(:execution_lease).find(@agent_task_run.id)
+    end
+
+    def live_execution_lease
+      return @agent_task_run&.execution_lease if @agent_task_run.blank?
+
+      @live_execution_lease ||= live_agent_task_run.execution_lease
     end
 
     def resolved_agent_connection

@@ -227,13 +227,13 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "telegram:chat:42:message:58", inbound_message.normalized_payload["quoted_external_message_key"]
     assert_equal "quoted photo", inbound_message.normalized_payload["quoted_text"]
     assert_equal "Bob Builder", inbound_message.normalized_payload["quoted_sender_label"]
-    assert_equal [{"file_id" => "photo-large", "file_unique_id" => "photo-1", "modality" => "image", "byte_size" => 20, "width" => 20, "height" => 20}], inbound_message.normalized_payload["quoted_attachment_refs"]
+    assert_equal [{ "file_id" => "photo-large", "file_unique_id" => "photo-1", "modality" => "image", "byte_size" => 20, "width" => 20, "height" => 20 }], inbound_message.normalized_payload["quoted_attachment_refs"]
 
     assert_equal "telegram:chat:42:message:58", turn.origin_payload["reply_to_external_message_key"]
     assert_equal "telegram:chat:42:message:58", turn.origin_payload["quoted_external_message_key"]
     assert_equal "quoted photo", turn.origin_payload["quoted_text"]
     assert_equal "Bob Builder", turn.origin_payload["quoted_sender_label"]
-    assert_equal [{"file_id" => "photo-large", "file_unique_id" => "photo-1", "modality" => "image", "byte_size" => 20, "width" => 20, "height" => 20}], turn.origin_payload["quoted_attachment_refs"]
+    assert_equal [{ "file_id" => "photo-large", "file_unique_id" => "photo-1", "modality" => "image", "byte_size" => 20, "width" => 20, "height" => 20 }], turn.origin_payload["quoted_attachment_refs"]
   end
 
   test "preserves quoted metadata when the real webhook path steers the active shared-channel turn" do
@@ -312,7 +312,7 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "telegram:chat:-99:message:59", turn.origin_payload["quoted_external_message_key"]
     assert_equal "targeted group quote", turn.origin_payload["quoted_text"]
     assert_equal "Bob", turn.origin_payload["quoted_sender_label"]
-    assert_equal [{"file_id" => "photo-large", "file_unique_id" => "photo-1", "modality" => "image", "byte_size" => 20, "width" => 20, "height" => 20}], turn.origin_payload["quoted_attachment_refs"]
+    assert_equal [{ "file_id" => "photo-large", "file_unique_id" => "photo-1", "modality" => "image", "byte_size" => 20, "width" => 20, "height" => 20 }], turn.origin_payload["quoted_attachment_refs"]
   end
 
   test "preserves quoted metadata when the real webhook path queues shared-channel follow-up work" do
@@ -395,7 +395,7 @@ class IngressApiTelegramUpdatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "telegram:chat:-99:message:60", queued_turn.origin_payload["quoted_external_message_key"]
     assert_equal "queued targeted quote", queued_turn.origin_payload["quoted_text"]
     assert_equal "Bob", queued_turn.origin_payload["quoted_sender_label"]
-    assert_equal [{"file_id" => "document-1", "file_unique_id" => "document-1", "modality" => "file", "filename" => "notes.txt", "content_type" => "text/plain", "byte_size" => 12}], queued_turn.origin_payload["quoted_attachment_refs"]
+    assert_equal [{ "file_id" => "document-1", "file_unique_id" => "document-1", "modality" => "file", "filename" => "notes.txt", "content_type" => "text/plain", "byte_size" => 12 }], queued_turn.origin_payload["quoted_attachment_refs"]
   end
 
   private

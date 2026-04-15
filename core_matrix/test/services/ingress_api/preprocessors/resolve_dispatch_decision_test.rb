@@ -93,7 +93,7 @@ class IngressAPI::Preprocessors::ResolveDispatchDecisionTest < ActiveSupport::Te
     assert_equal "telegram:chat:telegram-group-1:message:41", ingress_context.origin_payload["quoted_external_message_key"]
     assert_equal "Earlier targeted message", ingress_context.origin_payload["quoted_text"]
     assert_equal "Bob", ingress_context.origin_payload["quoted_sender_label"]
-    assert_equal [{"modality" => "image", "file_id" => "photo-1"}], ingress_context.origin_payload["quoted_attachment_refs"]
+    assert_equal [{ "modality" => "image", "file_id" => "photo-1" }], ingress_context.origin_payload["quoted_attachment_refs"]
   end
 
   private

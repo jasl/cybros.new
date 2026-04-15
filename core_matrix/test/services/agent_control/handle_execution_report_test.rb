@@ -141,6 +141,102 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     assert_equal agent_task_run.public_id, supervision_state.current_owner_public_id
   end
 
+  test "execution_started preserves runtime wait when passed a stale-loaded agent task run" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    stale_agent_task_run = AgentTaskRun.find_by!(public_id: scenario.fetch(:agent_task_run).public_id)
+
+    stale_agent_task_run.workflow_run
+    stale_agent_task_run.workflow_node
+
+    AgentControl::Poll.call(execution_runtime_connection: context.fetch(:execution_runtime_connection), limit: 10)
+
+    workflow_node = WorkflowNode.find(stale_agent_task_run.workflow_node_id)
+    workflow_run = WorkflowRun.find(stale_agent_task_run.workflow_run_id)
+
+    workflow_node.update!(
+      lifecycle_state: "waiting",
+      started_at: 1.minute.ago,
+      finished_at: nil
+    )
+    workflow_run.turn.update!(lifecycle_state: "waiting")
+    workflow_run.update!(
+      Workflows::WaitState.cleared_detail_attributes.merge(
+        wait_state: "waiting",
+        wait_reason_kind: "execution_runtime_request",
+        wait_reason_payload: {
+          "mailbox_item_id" => mailbox_item.public_id,
+          "logical_work_id" => stale_agent_task_run.logical_work_id,
+          "request_kind" => "execute_tool",
+        },
+        wait_resume_mode: "same_step",
+        waiting_since_at: Time.current,
+        blocking_resource_type: "WorkflowNode",
+        blocking_resource_id: workflow_node.public_id
+      )
+    )
+
+    AgentControl::HandleExecutionReport.call(
+      agent_definition_version: context.fetch(:agent_definition_version),
+      execution_runtime_connection: context.fetch(:execution_runtime_connection),
+      agent_task_run: stale_agent_task_run,
+      method_id: "execution_started",
+      payload: {
+        "mailbox_item_id" => mailbox_item.public_id,
+        "agent_task_run_id" => stale_agent_task_run.public_id,
+        "logical_work_id" => stale_agent_task_run.logical_work_id,
+        "attempt_no" => stale_agent_task_run.attempt_no,
+        "expected_duration_seconds" => 30,
+      },
+      occurred_at: Time.current
+    )
+
+    assert_equal "waiting", workflow_node.reload.lifecycle_state
+    assert_equal "running", stale_agent_task_run.reload.lifecycle_state
+    assert_equal "acked", mailbox_item.reload.status
+  end
+
+  test "execution_complete validates against live task state when passed a stale-loaded agent task run" do
+    context = build_agent_control_context!
+    scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
+    mailbox_item = scenario.fetch(:mailbox_item)
+    stale_agent_task_run = AgentTaskRun.find_by!(public_id: scenario.fetch(:agent_task_run).public_id)
+    occurred_at = Time.current
+
+    AgentControl::Poll.call(execution_runtime_connection: context.fetch(:execution_runtime_connection), limit: 10, occurred_at: occurred_at)
+
+    live_agent_task_run = AgentTaskRun.find(stale_agent_task_run.id)
+    live_agent_task_run.update!(
+      lifecycle_state: "running",
+      holder_agent_connection: context.fetch(:agent_connection),
+      started_at: occurred_at
+    )
+    Leases::Acquire.call(
+      leased_resource: live_agent_task_run,
+      holder_key: context.fetch(:agent_definition_version).public_id,
+      heartbeat_timeout_seconds: mailbox_item.lease_timeout_seconds
+    )
+
+    AgentControl::HandleExecutionReport.call(
+      agent_definition_version: context.fetch(:agent_definition_version),
+      execution_runtime_connection: context.fetch(:execution_runtime_connection),
+      agent_task_run: stale_agent_task_run,
+      method_id: "execution_complete",
+      payload: {
+        "mailbox_item_id" => mailbox_item.public_id,
+        "agent_task_run_id" => stale_agent_task_run.public_id,
+        "logical_work_id" => stale_agent_task_run.logical_work_id,
+        "attempt_no" => stale_agent_task_run.attempt_no,
+        "terminal_payload" => { "output" => "Live runtime state was honored." },
+      },
+      occurred_at: occurred_at + 1.second
+    )
+
+    assert_equal "completed", live_agent_task_run.reload.lifecycle_state
+    assert_equal "completed", mailbox_item.reload.status
+  end
+
   test "execution_complete resumes blocked workflow nodes waiting on execution-runtime tool calls" do
     runtime_tool = {
       "tool_name" => "memory_search",

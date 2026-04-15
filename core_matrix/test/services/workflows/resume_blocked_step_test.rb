@@ -70,4 +70,30 @@ class Workflows::ResumeBlockedStepTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:cancellation_reason_kind], "must not be fenced by turn interrupt"
   end
+
+  test "reloads conversation state before resuming a stale-loaded workflow run" do
+    workflow_run = create_mock_turn_step_workflow_run!(resolved_config_snapshot: {})
+    stale_workflow_run = WorkflowRun.includes(:conversation).find(workflow_run.id)
+    stale_workflow_run.conversation
+
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    workflow_node.update!(lifecycle_state: "waiting", started_at: 1.minute.ago, finished_at: nil)
+    workflow_run.turn.update!(lifecycle_state: "waiting")
+    workflow_run.update!(
+      wait_state: "waiting",
+      wait_reason_kind: "execution_runtime_request",
+      wait_reason_payload: { "mailbox_item_id" => "mailbox-1" },
+      wait_resume_mode: "same_step",
+      waiting_since_at: Time.current,
+      blocking_resource_type: "WorkflowNode",
+      blocking_resource_id: workflow_node.public_id
+    )
+    workflow_run.conversation.update!(lifecycle_state: "archived")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Workflows::ResumeBlockedStep.call(workflow_run: stale_workflow_run)
+    end
+
+    assert_includes error.record.errors[:lifecycle_state], "must be active before resuming a blocked step"
+  end
 end

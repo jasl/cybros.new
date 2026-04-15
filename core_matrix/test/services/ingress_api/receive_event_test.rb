@@ -191,13 +191,13 @@ class IngressAPI::ReceiveEventTest < ActiveSupport::TestCase
     assert_equal "telegram:chat:1:message:1005", inbound_message.normalized_payload["quoted_external_message_key"]
     assert_equal "Earlier targeted message", inbound_message.normalized_payload["quoted_text"]
     assert_equal "Bob", inbound_message.normalized_payload["quoted_sender_label"]
-    assert_equal [{"modality" => "file", "filename" => "notes.txt"}], inbound_message.normalized_payload["quoted_attachment_refs"]
+    assert_equal [{ "modality" => "file", "filename" => "notes.txt" }], inbound_message.normalized_payload["quoted_attachment_refs"]
 
     assert_equal "telegram:chat:1:message:1005", turn.origin_payload["reply_to_external_message_key"]
     assert_equal "telegram:chat:1:message:1005", turn.origin_payload["quoted_external_message_key"]
     assert_equal "Earlier targeted message", turn.origin_payload["quoted_text"]
     assert_equal "Bob", turn.origin_payload["quoted_sender_label"]
-    assert_equal [{"modality" => "file", "filename" => "notes.txt"}], turn.origin_payload["quoted_attachment_refs"]
+    assert_equal [{ "modality" => "file", "filename" => "notes.txt" }], turn.origin_payload["quoted_attachment_refs"]
   end
 
   private
