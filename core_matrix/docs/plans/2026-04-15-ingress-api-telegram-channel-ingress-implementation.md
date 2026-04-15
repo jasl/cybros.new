@@ -261,6 +261,10 @@ Cover:
 
 - ingress bindings are created under `/app_api/workspace_agents/:workspace_agent_id/...`
 - users only choose execution runtime at binding creation time
+- users create a binding by selecting `platform`, plus optional `label` and
+  optional `default_execution_runtime_id`
+- v1 derives connector `driver` and `transport_kind` from the selected
+  platform instead of exposing free-form connector create params
 - the response returns the binding public ingress id and setup metadata
 - binding resources are user-scoped through the workspace agent
 - pairing requests and sessions are nested under the binding owner
@@ -285,6 +289,7 @@ The binding CRUD should let users:
 - choose an optional default execution runtime
 - inspect the public ingress id
 - inspect any platform-specific setup instructions
+- create the single active connector implicitly from the chosen platform
 - approve/reject pairing
 - inspect and rebind/unbind sessions
 

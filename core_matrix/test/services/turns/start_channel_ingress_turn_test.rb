@@ -56,4 +56,26 @@ class Turns::StartChannelIngressTurnTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:purpose], "must be interactive for channel ingress turn entry"
   end
+
+  test "requires external sender provenance in the origin payload" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+
+    error = assert_raises(ArgumentError) do
+      Turns::StartChannelIngressTurn.call(
+        conversation: conversation,
+        channel_inbound_message: InboundMessage.new("channel_inbound_message_3"),
+        content: "Inbound channel text",
+        origin_payload: {
+          "ingress_binding_id" => "ingress_binding_1",
+          "channel_session_id" => "channel_session_1",
+          "channel_inbound_message_id" => "channel_inbound_message_3",
+        },
+        selector_source: "conversation",
+        selector: "candidate:codex_subscription/gpt-5.3-codex"
+      )
+    end
+
+    assert_equal "origin_payload must include external_sender_id", error.message
+  end
 end

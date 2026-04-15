@@ -64,6 +64,9 @@ Rails.application.routes.draw do
     post "control/report", to: "control#report"
   end
 
+  namespace :ingress_api do
+  end
+
   namespace :app_api do
     namespace :admin do
       resource :installation, only: :show
@@ -125,6 +128,13 @@ Rails.application.routes.draw do
       resources :workspace_agents, only: [:create, :update], controller: "workspaces/workspace_agents", param: :workspace_agent_id
       resource :policy, only: [:show, :update], controller: "workspaces/policies"
       resources :conversation_bundle_import_requests, only: [:create, :show], controller: "workspaces/conversation_bundle_import_requests"
+    end
+
+    resources :workspace_agents, only: [], controller: "workspaces/workspace_agents", param: :workspace_agent_id do
+      resources :ingress_bindings, only: [:create, :update], controller: "workspace_agents/ingress_bindings", param: :ingress_binding_id do
+        resources :pairing_requests, only: [:index, :update], controller: "workspace_agents/ingress_bindings/pairing_requests", param: :pairing_request_id
+        resources :sessions, only: [:index, :update], controller: "workspace_agents/ingress_bindings/sessions", param: :session_id
+      end
     end
   end
 

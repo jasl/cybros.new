@@ -998,6 +998,18 @@ Suggested resources:
 - expose the public ingress id and platform-specific setup instructions
 - expose the attached channel connector lifecycle
 
+v1 binding creation contract:
+
+- the user selects `platform`
+- the user may provide an optional human label
+- the user may provide an optional binding default execution runtime
+- v1 does not expose raw `driver` / `transport_kind` create parameters on the
+  public AppAPI surface
+- instead, CoreMatrix creates the single active `ChannelConnector` for that
+  binding using platform-derived defaults:
+  - Telegram -> `driver = telegram_bot_api`, `transport_kind = webhook`
+  - Weixin -> `driver = claw_bot_sdk_weixin`, `transport_kind = poller`
+
 Examples:
 
 - Telegram bot token rotation

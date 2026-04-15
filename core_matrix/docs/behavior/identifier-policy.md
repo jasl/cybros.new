@@ -79,6 +79,11 @@ agent-facing boundaries:
 - deletion-sensitive runtime APIs continue to carry `workspace_id`,
   `conversation_id`, `turn_id`, `workflow_run_id`, and `workflow_node_id` as
   `public_id` values only
+- ingress-domain payloads such as
+  `ChannelInboundMessage.normalized_payload`,
+  `ChannelDelivery.payload`, and `ChannelDelivery.failure_payload` must use
+  related resource `public_id` values for ingress binding, connector, session,
+  conversation, turn, and message references; they must not embed raw bigint ids
 - when `turn_origin.source_ref_type` points at an in-scope external resource,
   `turn_origin.source_ref_id` must carry that resource's `public_id`
 - turn-origin payloads and conversation-event payloads must also use

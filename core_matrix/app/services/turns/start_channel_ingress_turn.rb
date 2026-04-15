@@ -106,7 +106,10 @@ module Turns
       values = @origin_payload.respond_to?(:to_unsafe_h) ? @origin_payload.to_unsafe_h : @origin_payload
       raise ArgumentError, "origin_payload must be a hash" unless values.is_a?(Hash)
 
-      values.deep_stringify_keys
+      normalized = values.deep_stringify_keys
+      raise ArgumentError, "origin_payload must include external_sender_id" if normalized["external_sender_id"].blank?
+
+      normalized
     end
 
     def workflow_bootstrap_payload

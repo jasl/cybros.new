@@ -10,6 +10,7 @@ class WorkspaceAgent < ApplicationRecord
   belongs_to :default_execution_runtime, class_name: "ExecutionRuntime", optional: true
 
   has_many :conversations, dependent: :restrict_with_exception
+  has_many :ingress_bindings, dependent: :restrict_with_exception
 
   validates :lifecycle_state, presence: true, inclusion: { in: LIFECYCLE_STATES }
   validate :workspace_installation_match
