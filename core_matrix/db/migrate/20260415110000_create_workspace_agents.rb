@@ -9,6 +9,7 @@ class CreateWorkspaceAgents < ActiveRecord::Migration[8.2]
       t.string :lifecycle_state, null: false, default: "active"
       t.datetime :revoked_at
       t.string :revoked_reason_kind
+      t.text :global_instructions
       t.jsonb :capability_policy_payload, null: false, default: {}
       t.jsonb :entry_policy_payload, null: false, default: {}
 
@@ -20,6 +21,7 @@ class CreateWorkspaceAgents < ActiveRecord::Migration[8.2]
       unique: true,
       where: "lifecycle_state = 'active'",
       name: "idx_workspace_agents_active_workspace_agent"
+    add_foreign_key :ingress_bindings, :workspace_agents
     add_foreign_key :conversations, :workspace_agents
   end
 end

@@ -675,4 +675,71 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       "researcher" => { "allowed_tool_names" => researcher_tool_names }
     )
   end
+
+  test "freezes workspace agent global instructions once per turn and reuses identical documents" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation.workspace_agent.update!(global_instructions: "Use concise Chinese.\n")
+
+    first_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "First input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    second_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Second input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    first_snapshot = build_execution_snapshot_for!(turn: first_turn)
+    second_snapshot = build_execution_snapshot_for!(turn: second_turn)
+
+    assert_equal "Use concise Chinese.\n", first_snapshot.workspace_agent_context.fetch("global_instructions")
+    assert_equal(
+      first_turn.execution_contract.workspace_agent_global_instructions_document_id,
+      second_turn.execution_contract.workspace_agent_global_instructions_document_id
+    )
+
+    conversation.workspace_agent.update!(global_instructions: "Use English.\n")
+
+    assert_equal "Use concise Chinese.\n", first_turn.reload.execution_snapshot.workspace_agent_context.fetch("global_instructions")
+
+    build_execution_snapshot_for!(turn: first_turn)
+
+    assert_equal "Use concise Chinese.\n", first_turn.reload.execution_snapshot.workspace_agent_context.fetch("global_instructions")
+
+    third_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Third input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    third_snapshot = build_execution_snapshot_for!(turn: third_turn)
+
+    assert_equal "Use English.\n", third_snapshot.workspace_agent_context.fetch("global_instructions")
+    refute_equal(
+      first_turn.execution_contract.workspace_agent_global_instructions_document_id,
+      third_turn.execution_contract.workspace_agent_global_instructions_document_id
+    )
+  end
+
+  test "does not freeze blank workspace agent global instructions" do
+    context = build_agent_control_context!
+    context.fetch(:conversation).workspace_agent.update!(global_instructions: " \n\t ")
+
+    snapshot = build_execution_snapshot_for!(
+      turn: context.fetch(:turn),
+      selector_source: "test",
+      selector: "role:mock"
+    )
+
+    assert_nil context.fetch(:turn).reload.execution_contract.workspace_agent_global_instructions_document_id
+    assert_equal(
+      { "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id },
+      snapshot.workspace_agent_context
+    )
+  end
 end

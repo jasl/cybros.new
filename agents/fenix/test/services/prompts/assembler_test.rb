@@ -5,7 +5,7 @@ class Prompts::AssemblerTest < ActiveSupport::TestCase
     assembled = Prompts::Assembler.call(
       profile: "main",
       is_subagent: false,
-      workspace_instructions: "Stay in the active workspace.",
+      global_instructions: "Stay in the active workspace.",
       skill_overlay: ["Use the deploy skill."],
       durable_state: {
         "goal" => "Ship the feature",
@@ -19,9 +19,26 @@ class Prompts::AssemblerTest < ActiveSupport::TestCase
 
     assert_includes prompt, "## Code-Owned Base"
     assert_includes prompt, "## Role Overlay"
-    assert_includes prompt, "## Workspace Instructions"
+    assert_includes prompt, "## Global Instructions"
     assert_includes prompt, "## Skill Overlay"
     assert_includes prompt, "## CoreMatrix Durable State"
     assert_includes prompt, "## Execution-Local Fenix Context"
+  end
+
+  test "emits a stable fallback when global instructions are absent" do
+    assembled = Prompts::Assembler.call(
+      profile: "main",
+      is_subagent: false,
+      global_instructions: nil,
+      skill_overlay: [],
+      durable_state: nil,
+      execution_context: {}
+    )
+
+    prompt = assembled.fetch("system_prompt")
+
+    assert_includes prompt, "## Global Instructions"
+    assert_includes prompt, "No global instructions provided."
+    refute_includes prompt, "## Workspace Instructions"
   end
 end

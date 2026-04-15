@@ -168,6 +168,10 @@ class AgentControlMailboxItem < ApplicationRecord
     if execution_contract.present? && !payload.key?("agent_context")
       payload["agent_context"] = reconstructed_agent_context(payload, execution_snapshot: snapshot)
     end
+    if execution_contract.present? && !payload.key?("workspace_agent_context")
+      workspace_agent_context = snapshot&.workspace_agent_context || {}
+      payload["workspace_agent_context"] = workspace_agent_context if workspace_agent_context.present?
+    end
     if execution_contract.present? && request_kind == "prepare_round"
       payload["round_context"] = reconstructed_round_context(
         compact_round_context: payload["round_context"],

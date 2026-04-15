@@ -18,6 +18,7 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
         params: {
           agent_id: agent.public_id,
           default_execution_runtime_id: runtime.public_id,
+          global_instructions: "Always prefer concise Chinese responses.\n",
         },
         headers: app_api_headers(session.plaintext_token),
         as: :json
@@ -30,6 +31,34 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal workspace_agent.public_id, response.parsed_body.dig("workspace_agent", "workspace_agent_id")
     assert_equal agent.public_id, response.parsed_body.dig("workspace_agent", "agent_id")
     assert_equal runtime.public_id, response.parsed_body.dig("workspace_agent", "default_execution_runtime_id")
+    assert_equal "Always prefer concise Chinese responses.\n",
+      response.parsed_body.dig("workspace_agent", "global_instructions")
+  end
+
+  test "updates and clears workspace agent global instructions" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+
+    patch "/app_api/workspaces/#{context[:workspace].public_id}/workspace_agents/#{context[:workspace_agent].public_id}",
+      params: {
+        global_instructions: "Prefer concise Chinese responses.\n",
+      },
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :success
+    assert_equal "Prefer concise Chinese responses.\n",
+      response.parsed_body.dig("workspace_agent", "global_instructions")
+
+    patch "/app_api/workspaces/#{context[:workspace].public_id}/workspace_agents/#{context[:workspace_agent].public_id}",
+      params: {
+        global_instructions: "",
+      },
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :success
+    assert_nil response.parsed_body.dig("workspace_agent", "global_instructions")
   end
 
   test "revokes a workspace agent mount without hiding the workspace" do

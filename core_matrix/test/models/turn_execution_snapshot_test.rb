@@ -19,6 +19,23 @@ class TurnExecutionSnapshotTest < ActiveSupport::TestCase
     )
   end
 
+  test "builds workspace_agent_context from the frozen execution contract state" do
+    context = build_agent_control_context!(workspace_agent_global_instructions: "Use concise Chinese.\n")
+    snapshot = build_execution_snapshot_for!(
+      turn: context.fetch(:turn),
+      selector_source: "test",
+      selector: "role:mock"
+    )
+
+    assert_equal(
+      {
+        "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id,
+        "global_instructions" => "Use concise Chinese.\n",
+      },
+      snapshot.workspace_agent_context
+    )
+  end
+
   test "returns deep-duped hashes and arrays while defaulting missing sections" do
     snapshot = TurnExecutionSnapshot.new(
       payload: {

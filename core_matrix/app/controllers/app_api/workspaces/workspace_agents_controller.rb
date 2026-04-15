@@ -7,6 +7,7 @@ module AppAPI
           workspace: @workspace,
           agent: find_agent!(params.fetch(:agent_id)),
           default_execution_runtime: resolve_default_execution_runtime,
+          global_instructions: resolve_global_instructions,
           capability_policy_payload: resolve_capability_policy_payload,
           entry_policy_payload: resolve_entry_policy_payload
         )
@@ -23,6 +24,7 @@ module AppAPI
         workspace_agent = find_workspace_agent!(params.fetch(:workspace_agent_id), workspace: @workspace)
         attributes = {}
         attributes[:default_execution_runtime] = resolve_default_execution_runtime if params.key?(:default_execution_runtime_id)
+        attributes[:global_instructions] = resolve_global_instructions if params.key?(:global_instructions)
         attributes[:capability_policy_payload] = resolve_capability_policy_payload if params.key?(:capability_policy_payload)
         attributes[:entry_policy_payload] = resolve_entry_policy_payload if params.key?(:entry_policy_payload)
 
@@ -49,6 +51,10 @@ module AppAPI
         return nil if params[:default_execution_runtime_id].blank?
 
         find_accessible_execution_runtime!(params.fetch(:default_execution_runtime_id))
+      end
+
+      def resolve_global_instructions
+        params[:global_instructions].presence
       end
 
       def resolve_capability_policy_payload

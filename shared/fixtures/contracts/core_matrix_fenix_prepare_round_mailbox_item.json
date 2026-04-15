@@ -75,6 +75,10 @@
       "logical_work_id": "prepare-round:workflow-node-public-id",
       "attempt_no": 1,
       "agent_definition_version_id": "agent-definition-version-public-id"
+    },
+    "workspace_agent_context": {
+      "workspace_agent_id": "workspace-agent-public-id",
+      "global_instructions": "Stay inside the mounted workspace agent scope.\n"
     }
   }
 }

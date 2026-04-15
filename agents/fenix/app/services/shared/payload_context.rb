@@ -19,7 +19,7 @@ module Shared
         "agent_context" => agent_context,
         "provider_context" => provider_context,
         "runtime_context" => runtime_context,
-        "workspace_context" => workspace_context,
+        "workspace_agent_context" => workspace_agent_context,
         "transcript_messages" => transcript_messages,
         "context_imports" => context_imports,
         "work_context_view" => work_context_view,
@@ -64,14 +64,8 @@ module Shared
       @payload.fetch("runtime_context", {}).deep_stringify_keys
     end
 
-    def workspace_context
-      explicit = @payload.fetch("workspace_context", {}).deep_stringify_keys
-      workspace_root = explicit["workspace_root"].presence ||
-        @defaults["workspace_root"].presence ||
-        ENV["FENIX_WORKSPACE_ROOT"].presence ||
-        Dir.pwd
-
-      explicit.merge("workspace_root" => Pathname.new(workspace_root).expand_path.to_s)
+    def workspace_agent_context
+      normalize_context_payload(@payload["workspace_agent_context"])
     end
 
     def transcript_messages

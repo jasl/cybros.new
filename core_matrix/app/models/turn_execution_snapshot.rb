@@ -15,6 +15,7 @@ class TurnExecutionSnapshot
       "capability_projection" => capability_projection,
       "provider_context" => provider_context,
       "runtime_context" => runtime_context,
+      "workspace_agent_context" => workspace_agent_context,
       "turn_origin" => turn_origin,
       "attachment_manifest" => attachment_manifest,
       "model_input_attachments" => model_input_attachments,
@@ -99,6 +100,22 @@ class TurnExecutionSnapshot
           "user_id" => turn.conversation.workspace.user.public_id,
           "execution_runtime_id" => turn.execution_runtime&.public_id,
           "execution_runtime_version_id" => turn.execution_runtime_version&.public_id,
+        }.compact
+      end
+    end
+  end
+
+  def workspace_agent_context
+    return read_hash("workspace_agent_context") if payload.present?
+
+    @workspace_agent_context ||= begin
+      workspace_agent = turn&.conversation&.workspace_agent
+      if workspace_agent.blank?
+        {}
+      else
+        {
+          "workspace_agent_id" => workspace_agent.public_id,
+          "global_instructions" => execution_contract&.workspace_agent_global_instructions,
         }.compact
       end
     end

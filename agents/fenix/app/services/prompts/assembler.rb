@@ -6,10 +6,10 @@ module Prompts
       new(...).call
     end
 
-    def initialize(profile:, is_subagent:, workspace_instructions:, skill_overlay:, durable_state:, execution_context:)
+    def initialize(profile:, is_subagent:, global_instructions:, skill_overlay:, durable_state:, execution_context:)
       @profile = profile.to_s
       @is_subagent = is_subagent == true
-      @workspace_instructions = workspace_instructions
+      @global_instructions = global_instructions
       @skill_overlay = Array(skill_overlay).filter_map(&:presence)
       @durable_state = durable_state.presence
       @execution_context = execution_context.presence || {}
@@ -20,7 +20,7 @@ module Prompts
         "system_prompt" => [
           section("Code-Owned Base", prompt_file("SOUL.md")),
           section("Role Overlay", role_overlay),
-          section("Workspace Instructions", workspace_instruction_text),
+          section("Global Instructions", global_instruction_text),
           section("Skill Overlay", skill_overlay_text),
           section("Supervisor Guidance", supervisor_guidance_text),
           section("CoreMatrix Durable State", durable_state_text),
@@ -39,8 +39,8 @@ module Prompts
       prompt_file(@is_subagent || @profile == "researcher" ? "WORKER.md" : "USER.md")
     end
 
-    def workspace_instruction_text
-      @workspace_instructions.presence || "No workspace instructions provided."
+    def global_instruction_text
+      @global_instructions.presence || "No global instructions provided."
     end
 
     def skill_overlay_text

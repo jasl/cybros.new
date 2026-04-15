@@ -1383,7 +1383,7 @@ module ActiveSupport
       }.merge(context)
     end
 
-    def build_agent_control_context!(workflow_node_key: "agent_turn_step", workflow_node_type: "turn_step", workflow_node_metadata: {})
+    def build_agent_control_context!(workflow_node_key: "agent_turn_step", workflow_node_type: "turn_step", workflow_node_metadata: {}, workspace_agent_global_instructions: nil)
       installation = create_installation!
       actor = create_user!(installation: installation, role: "admin")
       runtime_user = create_user!(installation: installation)
@@ -1417,6 +1417,7 @@ module ActiveSupport
         user: runtime_user,
         agent: agent
       )
+      workspace.primary_workspace_agent.update!(global_instructions: workspace_agent_global_instructions) unless workspace_agent_global_instructions.nil?
       conversation = Conversations::CreateRoot.call(
         workspace: workspace,
         agent: agent

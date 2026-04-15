@@ -1,5 +1,4 @@
 require "test_helper"
-require "tmpdir"
 
 class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
   RuntimeControlClientDouble = Struct.new(:reported_payloads, keyword_init: true) do
@@ -12,21 +11,20 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
   test "prepare_round agent requests emit a completed terminal report" do
     client = RuntimeControlClientDouble.new(reported_payloads: [])
 
-    Dir.mktmpdir("fenix-workspace-") do |workspace_root|
-      Pathname.new(workspace_root).join("AGENTS.md").write("Stay inside agents/fenix unless the task explicitly spans projects.\n")
+    result = Runtime::ExecuteMailboxItem.call(
+      mailbox_item: prepare_round_mailbox_item,
+      deliver_reports: true,
+      control_client: client
+    )
 
-      result = Runtime::ExecuteMailboxItem.call(
-        mailbox_item: prepare_round_mailbox_item(workspace_root: workspace_root),
-        deliver_reports: true,
-        control_client: client
-      )
-
-      assert_equal "ok", result.fetch("status")
-      assert_equal ["agent_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
-      assert_equal "prepare_round", client.reported_payloads.last.fetch("request_kind")
-      assert_equal "ok", client.reported_payloads.last.dig("response_payload", "status")
-      assert_equal %w[compact_context exec_command], client.reported_payloads.last.dig("response_payload", "visible_tool_names")
-    end
+    assert_equal "ok", result.fetch("status")
+    assert_equal ["agent_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "prepare_round", client.reported_payloads.last.fetch("request_kind")
+    assert_equal "ok", client.reported_payloads.last.dig("response_payload", "status")
+    assert_equal %w[compact_context exec_command], client.reported_payloads.last.dig("response_payload", "visible_tool_names")
+    assert_includes client.reported_payloads.last.dig("response_payload", "messages", 0, "content"), "## Global Instructions"
+    assert_includes client.reported_payloads.last.dig("response_payload", "messages", 0, "content"), "Stay inside agents/fenix unless the task explicitly spans projects."
+    refute_includes client.reported_payloads.last.dig("response_payload", "messages", 0, "content"), "## Workspace Instructions"
   end
 
   test "prepare_round terminal report matches the shared contract fixture" do
@@ -44,6 +42,8 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_equal "ok", result.fetch("status")
+    assert_includes client.reported_payloads.last.dig("response_payload", "messages", 0, "content"), "## Global Instructions"
+    assert_includes client.reported_payloads.last.dig("response_payload", "messages", 0, "content"), "Stay inside the mounted workspace agent scope."
     assert_equal prepare_round_report_contract_fixture, normalize_prepare_round_report(client.reported_payloads.last)
   end
 
@@ -285,7 +285,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     }
   end
 
-  def prepare_round_mailbox_item(workspace_root:)
+  def prepare_round_mailbox_item
     {
       "item_type" => "agent_request",
       "item_id" => "mailbox-item-prepare-round-1",
@@ -318,8 +318,9 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
         "runtime_context" => {
           "agent_definition_version_id" => "agent-definition-version-1",
         },
-        "workspace_context" => {
-          "workspace_root" => workspace_root,
+        "workspace_agent_context" => {
+          "workspace_agent_id" => "workspace-agent-1",
+          "global_instructions" => "Stay inside agents/fenix unless the task explicitly spans projects.\n",
         },
       },
     }

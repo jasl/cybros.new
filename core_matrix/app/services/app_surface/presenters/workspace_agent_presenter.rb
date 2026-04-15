@@ -16,6 +16,7 @@ module AppSurface
           "agent_id" => @workspace_agent.agent.public_id,
           "lifecycle_state" => @workspace_agent.lifecycle_state,
           "default_execution_runtime_id" => @workspace_agent.default_execution_runtime&.public_id,
+          "global_instructions" => @workspace_agent.global_instructions,
           "revoked_reason_kind" => @workspace_agent.revoked_reason_kind,
           "revoked_at" => @workspace_agent.revoked_at&.iso8601(6),
           "capability_policy_payload" => @workspace_agent.capability_policy_payload || {},

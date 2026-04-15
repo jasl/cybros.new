@@ -83,6 +83,44 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
     )
   end
 
+  test "projects workspace agent context into the prepare_round payload" do
+    context = build_governed_tool_context!(workspace_agent_global_instructions: "Use concise Chinese.\n")
+    build_execution_snapshot_for!(
+      turn: context.fetch(:turn),
+      selector_source: "test",
+      selector: "role:mock"
+    )
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "assistant", "content" => "Round prepared" },
+          ],
+          "visible_tool_names" => ["workspace_write_file"],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ]
+    )
+
+    ProviderExecution::PrepareAgentRound.call(
+      workflow_node: context.fetch(:workflow_node).reload,
+      transcript: [{ "role" => "user", "content" => "Continue." }],
+      agent_request_exchange: agent_request_exchange
+    )
+
+    request_payload = agent_request_exchange.prepare_round_requests.last
+
+    assert_equal(
+      {
+        "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id,
+        "global_instructions" => "Use concise Chinese.\n",
+      },
+      request_payload.fetch("workspace_agent_context")
+    )
+    refute request_payload.key?("workspace_context")
+  end
+
   test "carries delivered supervisor guidance through round_context work_context_view" do
     fixture = prepare_conversation_supervision_context_with_turn_todo_plan!(control_enabled: true)
     session = create_conversation_supervision_session!(fixture)

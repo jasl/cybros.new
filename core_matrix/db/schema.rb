@@ -573,7 +573,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.datetime "requested_at", null: false
     t.jsonb "summary_payload", default: {}, null: false
     t.datetime "updated_at", null: false
-    t.index ["conversation_id"], name: "idx_conversation_close_operations_unfinished", unique: true, where: "((lifecycle_state)::text <> ALL (ARRAY[('completed'::character varying)::text, ('degraded'::character varying)::text]))"
+    t.index ["conversation_id"], name: "idx_conversation_close_operations_unfinished", unique: true, where: "((lifecycle_state)::text <> ALL ((ARRAY['completed'::character varying, 'degraded'::character varying])::text[]))"
     t.index ["conversation_id"], name: "index_conversation_close_operations_on_conversation_id"
     t.index ["installation_id"], name: "index_conversation_close_operations_on_installation_id"
     t.index ["public_id"], name: "index_conversation_close_operations_on_public_id", unique: true
@@ -1011,14 +1011,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.index ["workspace_agent_id"], name: "index_conversations_on_workspace_agent_id"
     t.index ["workspace_id", "purpose", "lifecycle_state"], name: "idx_conversations_workspace_purpose_lifecycle"
     t.index ["workspace_id"], name: "index_conversations_on_workspace_id"
-    t.check_constraint "current_execution_epoch_id IS NULL AND execution_continuity_state::text = 'not_started'::text OR current_execution_epoch_id IS NOT NULL AND (execution_continuity_state::text = ANY (ARRAY['ready'::character varying::text, 'handoff_pending'::character varying::text, 'handoff_blocked'::character varying::text]))", name: "chk_conversations_execution_continuity_state"
-    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying::text, 'deleted'::character varying::text])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
-    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying::text, 'pending_delete'::character varying::text, 'deleted'::character varying::text])", name: "chk_conversations_deletion_state"
-    t.check_constraint "interaction_lock_state::text = ANY (ARRAY['mutable'::character varying::text, 'locked_agent_access_revoked'::character varying::text, 'archived'::character varying::text, 'deleted'::character varying::text])", name: "chk_conversations_interaction_lock_state"
-    t.check_constraint "summary_lock_state::text = ANY (ARRAY['unlocked'::character varying::text, 'user_locked'::character varying::text])", name: "chk_conversations_summary_lock_state"
-    t.check_constraint "summary_source::text = ANY (ARRAY['none'::character varying::text, 'bootstrap'::character varying::text, 'generated'::character varying::text, 'agent'::character varying::text, 'user'::character varying::text])", name: "chk_conversations_summary_source"
-    t.check_constraint "title_lock_state::text = ANY (ARRAY['unlocked'::character varying::text, 'user_locked'::character varying::text])", name: "chk_conversations_title_lock_state"
-    t.check_constraint "title_source::text = ANY (ARRAY['none'::character varying::text, 'bootstrap'::character varying::text, 'generated'::character varying::text, 'agent'::character varying::text, 'user'::character varying::text])", name: "chk_conversations_title_source"
+    t.check_constraint "current_execution_epoch_id IS NULL AND execution_continuity_state::text = 'not_started'::text OR current_execution_epoch_id IS NOT NULL AND (execution_continuity_state::text = ANY (ARRAY['ready'::character varying, 'handoff_pending'::character varying, 'handoff_blocked'::character varying]::text[]))", name: "chk_conversations_execution_continuity_state"
+    t.check_constraint "deletion_state::text = 'retained'::text AND deleted_at IS NULL OR (deletion_state::text = ANY (ARRAY['pending_delete'::character varying, 'deleted'::character varying]::text[])) AND deleted_at IS NOT NULL", name: "chk_conversations_deleted_at_consistency"
+    t.check_constraint "deletion_state::text = ANY (ARRAY['retained'::character varying, 'pending_delete'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_deletion_state"
+    t.check_constraint "interaction_lock_state::text = ANY (ARRAY['mutable'::character varying, 'locked_agent_access_revoked'::character varying, 'archived'::character varying, 'deleted'::character varying]::text[])", name: "chk_conversations_interaction_lock_state"
+    t.check_constraint "summary_lock_state::text = ANY (ARRAY['unlocked'::character varying, 'user_locked'::character varying]::text[])", name: "chk_conversations_summary_lock_state"
+    t.check_constraint "summary_source::text = ANY (ARRAY['none'::character varying, 'bootstrap'::character varying, 'generated'::character varying, 'agent'::character varying, 'user'::character varying]::text[])", name: "chk_conversations_summary_source"
+    t.check_constraint "title_lock_state::text = ANY (ARRAY['unlocked'::character varying, 'user_locked'::character varying]::text[])", name: "chk_conversations_title_lock_state"
+    t.check_constraint "title_source::text = ANY (ARRAY['none'::character varying, 'bootstrap'::character varying, 'generated'::character varying, 'agent'::character varying, 'user'::character varying]::text[])", name: "chk_conversations_title_source"
   end
 
   create_table "execution_capability_snapshots", force: :cascade do |t|
@@ -1079,6 +1079,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.bigint "turn_id", null: false
     t.jsonb "turn_origin", default: {}, null: false
     t.datetime "updated_at", null: false
+    t.bigint "workspace_agent_global_instructions_document_id"
     t.index ["agent_definition_version_id"], name: "index_execution_contracts_on_agent_definition_version_id"
     t.index ["execution_capability_snapshot_id"], name: "index_execution_contracts_on_execution_capability_snapshot_id"
     t.index ["execution_context_snapshot_id"], name: "index_execution_contracts_on_execution_context_snapshot_id"
@@ -1089,6 +1090,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.index ["selected_input_message_id"], name: "index_execution_contracts_on_selected_input_message_id"
     t.index ["selected_output_message_id"], name: "index_execution_contracts_on_selected_output_message_id"
     t.index ["turn_id"], name: "index_execution_contracts_on_turn_id", unique: true
+    t.index ["workspace_agent_global_instructions_document_id"], name: "idx_on_workspace_agent_global_instructions_document_b8f3f76b2d"
   end
 
   create_table "execution_leases", force: :cascade do |t|
@@ -1367,7 +1369,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.index ["lineage_store_snapshot_id"], name: "index_lineage_store_entries_on_lineage_store_snapshot_id"
     t.index ["lineage_store_value_id"], name: "index_lineage_store_entries_on_lineage_store_value_id"
     t.check_constraint "entry_kind::text = 'set'::text AND lineage_store_value_id IS NOT NULL AND value_type IS NOT NULL AND value_bytesize IS NOT NULL AND value_bytesize >= 0 AND value_bytesize <= 2097152 OR entry_kind::text = 'tombstone'::text AND lineage_store_value_id IS NULL AND value_type IS NULL AND value_bytesize IS NULL", name: "chk_lineage_store_entries_value_shape"
-    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying::text, 'tombstone'::character varying::text])", name: "chk_lineage_store_entries_kind"
+    t.check_constraint "entry_kind::text = ANY (ARRAY['set'::character varying, 'tombstone'::character varying]::text[])", name: "chk_lineage_store_entries_kind"
     t.check_constraint "octet_length(key::text) >= 1 AND octet_length(key::text) <= 128", name: "chk_lineage_store_entries_key_bytes"
   end
 
@@ -1390,8 +1392,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.datetime "updated_at", null: false
     t.index ["base_snapshot_id"], name: "index_lineage_store_snapshots_on_base_snapshot_id"
     t.index ["lineage_store_id"], name: "index_lineage_store_snapshots_on_lineage_store_id"
-    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'compaction'::character varying::text])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_lineage_store_snapshots_shape"
-    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying::text, 'write'::character varying::text, 'compaction'::character varying::text])", name: "chk_lineage_store_snapshots_kind"
+    t.check_constraint "(snapshot_kind::text = ANY (ARRAY['root'::character varying, 'compaction'::character varying]::text[])) AND base_snapshot_id IS NULL AND depth = 0 OR snapshot_kind::text = 'write'::text AND base_snapshot_id IS NOT NULL AND depth >= 1", name: "chk_lineage_store_snapshots_shape"
+    t.check_constraint "snapshot_kind::text = ANY (ARRAY['root'::character varying, 'write'::character varying, 'compaction'::character varying]::text[])", name: "chk_lineage_store_snapshots_kind"
   end
 
   create_table "lineage_store_values", force: :cascade do |t|
@@ -2010,11 +2012,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.index ["user_id"], name: "index_turns_on_user_id"
     t.index ["workflow_bootstrap_state", "workflow_bootstrap_started_at"], name: "idx_turns_workflow_bootstrap_backlog"
     t.index ["workspace_id"], name: "index_turns_on_workspace_id"
-    t.check_constraint "(workflow_bootstrap_state::text = ANY (ARRAY['not_requested'::character varying::text, 'pending'::character varying::text, 'materializing'::character varying::text, 'ready'::character varying::text])) AND workflow_bootstrap_failure_payload = '{}'::jsonb OR workflow_bootstrap_state::text = 'failed'::text AND jsonb_typeof(workflow_bootstrap_failure_payload) = 'object'::text AND workflow_bootstrap_failure_payload ?& ARRAY['error_class'::text, 'error_message'::text, 'retryable'::text] AND (workflow_bootstrap_failure_payload - ARRAY['error_class'::text, 'error_message'::text, 'retryable'::text]) = '{}'::jsonb AND jsonb_typeof(workflow_bootstrap_failure_payload -> 'retryable'::text) = 'boolean'::text", name: "chk_turns_workflow_bootstrap_failure_contract"
+    t.check_constraint "(workflow_bootstrap_state::text = ANY (ARRAY['not_requested'::character varying, 'pending'::character varying, 'materializing'::character varying, 'ready'::character varying]::text[])) AND workflow_bootstrap_failure_payload = '{}'::jsonb OR workflow_bootstrap_state::text = 'failed'::text AND jsonb_typeof(workflow_bootstrap_failure_payload) = 'object'::text AND workflow_bootstrap_failure_payload ?& ARRAY['error_class'::text, 'error_message'::text, 'retryable'::text] AND (workflow_bootstrap_failure_payload - ARRAY['error_class'::text, 'error_message'::text, 'retryable'::text]) = '{}'::jsonb AND jsonb_typeof(workflow_bootstrap_failure_payload -> 'retryable'::text) = 'boolean'::text", name: "chk_turns_workflow_bootstrap_failure_contract"
     t.check_constraint "cancellation_reason_kind IS NULL AND cancellation_requested_at IS NULL OR cancellation_reason_kind IS NOT NULL AND cancellation_requested_at IS NOT NULL", name: "chk_turns_cancellation_pairing"
-    t.check_constraint "workflow_bootstrap_state::text = 'not_requested'::text AND workflow_bootstrap_payload = '{}'::jsonb OR (workflow_bootstrap_state::text = ANY (ARRAY['pending'::character varying::text, 'materializing'::character varying::text, 'ready'::character varying::text, 'failed'::character varying::text])) AND jsonb_typeof(workflow_bootstrap_payload) = 'object'::text AND workflow_bootstrap_payload ?& ARRAY['selector_source'::text, 'selector'::text, 'root_node_key'::text, 'root_node_type'::text, 'decision_source'::text, 'metadata'::text] AND (workflow_bootstrap_payload - ARRAY['selector_source'::text, 'selector'::text, 'root_node_key'::text, 'root_node_type'::text, 'decision_source'::text, 'metadata'::text]) = '{}'::jsonb AND jsonb_typeof(workflow_bootstrap_payload -> 'metadata'::text) = 'object'::text", name: "chk_turns_workflow_bootstrap_payload_contract"
-    t.check_constraint "workflow_bootstrap_state::text = 'not_requested'::text AND workflow_bootstrap_requested_at IS NULL AND workflow_bootstrap_started_at IS NULL AND workflow_bootstrap_finished_at IS NULL OR workflow_bootstrap_state::text = 'pending'::text AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NULL AND workflow_bootstrap_finished_at IS NULL OR workflow_bootstrap_state::text = 'materializing'::text AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NOT NULL AND workflow_bootstrap_finished_at IS NULL OR (workflow_bootstrap_state::text = ANY (ARRAY['ready'::character varying::text, 'failed'::character varying::text])) AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NOT NULL AND workflow_bootstrap_finished_at IS NOT NULL", name: "chk_turns_workflow_bootstrap_timestamps"
-    t.check_constraint "workflow_bootstrap_state::text = ANY (ARRAY['not_requested'::character varying::text, 'pending'::character varying::text, 'materializing'::character varying::text, 'ready'::character varying::text, 'failed'::character varying::text])", name: "chk_turns_workflow_bootstrap_state"
+    t.check_constraint "workflow_bootstrap_state::text = 'not_requested'::text AND workflow_bootstrap_payload = '{}'::jsonb OR (workflow_bootstrap_state::text = ANY (ARRAY['pending'::character varying, 'materializing'::character varying, 'ready'::character varying, 'failed'::character varying]::text[])) AND jsonb_typeof(workflow_bootstrap_payload) = 'object'::text AND workflow_bootstrap_payload ?& ARRAY['selector_source'::text, 'selector'::text, 'root_node_key'::text, 'root_node_type'::text, 'decision_source'::text, 'metadata'::text] AND (workflow_bootstrap_payload - ARRAY['selector_source'::text, 'selector'::text, 'root_node_key'::text, 'root_node_type'::text, 'decision_source'::text, 'metadata'::text]) = '{}'::jsonb AND jsonb_typeof(workflow_bootstrap_payload -> 'metadata'::text) = 'object'::text", name: "chk_turns_workflow_bootstrap_payload_contract"
+    t.check_constraint "workflow_bootstrap_state::text = 'not_requested'::text AND workflow_bootstrap_requested_at IS NULL AND workflow_bootstrap_started_at IS NULL AND workflow_bootstrap_finished_at IS NULL OR workflow_bootstrap_state::text = 'pending'::text AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NULL AND workflow_bootstrap_finished_at IS NULL OR workflow_bootstrap_state::text = 'materializing'::text AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NOT NULL AND workflow_bootstrap_finished_at IS NULL OR (workflow_bootstrap_state::text = ANY (ARRAY['ready'::character varying, 'failed'::character varying]::text[])) AND workflow_bootstrap_requested_at IS NOT NULL AND workflow_bootstrap_started_at IS NOT NULL AND workflow_bootstrap_finished_at IS NOT NULL", name: "chk_turns_workflow_bootstrap_timestamps"
+    t.check_constraint "workflow_bootstrap_state::text = ANY (ARRAY['not_requested'::character varying, 'pending'::character varying, 'materializing'::character varying, 'ready'::character varying, 'failed'::character varying]::text[])", name: "chk_turns_workflow_bootstrap_state"
   end
 
   create_table "usage_events", force: :cascade do |t|
@@ -2147,7 +2149,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.index ["workflow_run_id", "from_node_id", "ordinal"], name: "idx_on_workflow_run_id_from_node_id_ordinal_2bc1936b9e", unique: true
     t.index ["workflow_run_id", "from_node_id", "to_node_id"], name: "idx_on_workflow_run_id_from_node_id_to_node_id_54f159bded", unique: true
     t.index ["workflow_run_id"], name: "index_workflow_edges_on_workflow_run_id"
-    t.check_constraint "requirement::text = ANY (ARRAY['required'::character varying::text, 'optional'::character varying::text])", name: "chk_workflow_edges_requirement"
+    t.check_constraint "requirement::text = ANY (ARRAY['required'::character varying, 'optional'::character varying]::text[])", name: "chk_workflow_edges_requirement"
   end
 
   create_table "workflow_node_events", force: :cascade do |t|
@@ -2230,7 +2232,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.index ["workflow_run_id"], name: "index_workflow_nodes_on_workflow_run_id"
     t.index ["workspace_id"], name: "index_workflow_nodes_on_workspace_id"
     t.index ["yielding_workflow_node_id"], name: "index_workflow_nodes_on_yielding_workflow_node_id"
-    t.check_constraint "lifecycle_state::text = ANY (ARRAY['pending'::character varying::text, 'queued'::character varying::text, 'running'::character varying::text, 'waiting'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'canceled'::character varying::text])", name: "chk_workflow_nodes_lifecycle_state"
+    t.check_constraint "lifecycle_state::text = ANY (ARRAY['pending'::character varying, 'queued'::character varying, 'running'::character varying, 'waiting'::character varying, 'completed'::character varying, 'failed'::character varying, 'canceled'::character varying]::text[])", name: "chk_workflow_nodes_lifecycle_state"
   end
 
   create_table "workflow_run_wait_details", force: :cascade do |t|
@@ -2298,6 +2300,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.datetime "created_at", null: false
     t.bigint "default_execution_runtime_id"
     t.jsonb "entry_policy_payload", default: {}, null: false
+    t.text "global_instructions"
     t.bigint "installation_id", null: false
     t.string "lifecycle_state", default: "active", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
@@ -2530,6 +2533,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
   add_foreign_key "execution_contracts", "execution_runtime_versions"
   add_foreign_key "execution_contracts", "execution_runtimes"
   add_foreign_key "execution_contracts", "installations"
+  add_foreign_key "execution_contracts", "json_documents", column: "workspace_agent_global_instructions_document_id"
   add_foreign_key "execution_contracts", "messages", column: "selected_input_message_id"
   add_foreign_key "execution_contracts", "messages", column: "selected_output_message_id"
   add_foreign_key "execution_contracts", "turns"

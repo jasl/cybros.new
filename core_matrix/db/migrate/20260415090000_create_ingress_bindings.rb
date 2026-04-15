@@ -2,7 +2,7 @@ class CreateIngressBindings < ActiveRecord::Migration[8.2]
   def change
     create_table :ingress_bindings do |t|
       t.references :installation, null: false, foreign_key: true
-      t.references :workspace_agent, null: false, foreign_key: true
+      t.references :workspace_agent, null: false
       t.references :default_execution_runtime, foreign_key: { to_table: :execution_runtimes }
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :kind, null: false, default: "channel"

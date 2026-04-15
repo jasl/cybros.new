@@ -27,6 +27,9 @@ module Workflows
       execution_contract.execution_runtime_version = @turn.execution_runtime_version
       execution_contract.selected_input_message = @turn.selected_input_message
       execution_contract.selected_output_message = @turn.selected_output_message
+      if execution_contract.new_record?
+        execution_contract.workspace_agent_global_instructions_document = workspace_agent_global_instructions_document
+      end
       execution_contract.execution_capability_snapshot = capability_snapshot
       execution_contract.execution_context_snapshot = context_snapshot
       execution_contract.provider_context = provider_context
@@ -247,6 +250,17 @@ module Workflows
       }
 
       "sha256:#{Digest::SHA256.hexdigest(JSON.generate(payload))}"
+    end
+
+    def workspace_agent_global_instructions_document
+      global_instructions = @turn.conversation.workspace_agent&.global_instructions
+      return if global_instructions.blank?
+
+      JsonDocuments::Store.call(
+        installation: @turn.installation,
+        document_kind: "workspace_agent_global_instructions",
+        payload: { "global_instructions" => global_instructions }
+      )
     end
 
     def provider_role_for(message)

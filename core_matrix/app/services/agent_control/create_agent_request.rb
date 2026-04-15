@@ -79,6 +79,7 @@ module AgentControl
       compact.delete("protocol_version")
       compact.delete("provider_context") if execution_contract.present?
       compact.delete("agent_context") if execution_contract.present?
+      compact.delete("workspace_agent_context") if execution_contract.present?
       if execution_contract.present? && @request_kind == "prepare_round"
         compact_round_context = compact_round_context(payload, workflow_node: workflow_node)
         if compact_round_context.present?

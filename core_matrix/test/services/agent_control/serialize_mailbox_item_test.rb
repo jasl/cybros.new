@@ -24,7 +24,12 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
   end
 
   test "serializes full payload documents for agent requests" do
-    context = build_agent_control_context!
+    context = build_agent_control_context!(workspace_agent_global_instructions: "Use concise Chinese.\n")
+    build_execution_snapshot_for!(
+      turn: context.fetch(:turn),
+      selector_source: "test",
+      selector: "role:mock"
+    )
     mailbox_item = AgentControl::CreateAgentRequest.call(
       agent_definition_version: context.fetch(:agent_definition_version),
       request_kind: "prepare_round",
@@ -47,6 +52,10 @@ class AgentControl::SerializeMailboxItemTest < ActiveSupport::TestCase
     assert_equal "prepare_round", serialized.dig("payload", "request_kind")
     assert_equal context.fetch(:workflow_node).public_id, serialized.dig("payload", "task", "workflow_node_id")
     assert_equal context.fetch(:turn).public_id, serialized.dig("payload", "task", "turn_id")
+    assert_equal context.fetch(:conversation).workspace_agent.public_id,
+      serialized.dig("payload", "workspace_agent_context", "workspace_agent_id")
+    assert_equal "Use concise Chinese.\n",
+      serialized.dig("payload", "workspace_agent_context", "global_instructions")
     assert_equal context.fetch(:agent).public_id, serialized.dig("payload", "runtime_context", "agent_id")
     assert_equal context.fetch(:user).public_id, serialized.dig("payload", "runtime_context", "user_id")
   end

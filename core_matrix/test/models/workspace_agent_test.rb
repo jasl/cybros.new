@@ -62,6 +62,18 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
     assert_equal %w[control side_chat], workspace_agent.disabled_capabilities
   end
 
+  test "normalizes blank global instructions to nil" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      global_instructions: " \n\t "
+    )
+
+    assert_nil workspace_agent.global_instructions
+  end
+
   test "rejects unsupported capability policy payload keys" do
     context = workspace_agent_context
     workspace_agent = WorkspaceAgent.new(

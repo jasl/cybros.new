@@ -17,12 +17,14 @@ class WorkspaceAgent < ApplicationRecord
   validate :agent_installation_match
   validate :default_execution_runtime_installation_match
   validate :single_active_mount
+  validate :global_instructions_must_be_string
   validate :capability_policy_payload_must_be_hash
   validate :capability_policy_payload_supported
   validate :immutable_after_terminal_lifecycle_state, on: :update
   validate :terminal_transition_only_allows_terminal_metadata, on: :update
 
   before_validation :normalize_capability_policy_payload
+  before_validation :normalize_global_instructions
 
   after_commit :lock_conversations_after_revocation, on: %i[create update]
 
@@ -52,10 +54,20 @@ class WorkspaceAgent < ApplicationRecord
     self.capability_policy_payload = normalized
   end
 
+  def normalize_global_instructions
+    self.global_instructions = global_instructions.presence
+  end
+
   def capability_policy_payload_must_be_hash
     return if capability_policy_payload.is_a?(Hash)
 
     errors.add(:capability_policy_payload, "must be a hash")
+  end
+
+  def global_instructions_must_be_string
+    return if global_instructions.nil? || global_instructions.is_a?(String)
+
+    errors.add(:global_instructions, "must be a string")
   end
 
   def capability_policy_payload_supported

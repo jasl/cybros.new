@@ -11,7 +11,7 @@ class BuildRoundInstructions
     assembled_prompt = Prompts::Assembler.call(
       profile: @context.dig("agent_context", "profile") || "main",
       is_subagent: @context.dig("agent_context", "is_subagent") == true,
-      workspace_instructions: workspace_instructions,
+      global_instructions: global_instructions,
       skill_overlay: skill_overlay,
       durable_state: @context["work_context_view"],
       execution_context: execution_context
@@ -28,11 +28,8 @@ class BuildRoundInstructions
 
   private
 
-  def workspace_instructions
-    workspace_root = @context.dig("workspace_context", "workspace_root")
-    return nil if workspace_root.blank?
-
-    Prompts::WorkspaceInstructionLoader.call(workspace_root: workspace_root)
+  def global_instructions
+    @context.dig("workspace_agent_context", "global_instructions")
   end
 
   def skill_overlay

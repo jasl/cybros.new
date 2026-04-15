@@ -11,6 +11,7 @@ class ExecutionContract < ApplicationRecord
   belongs_to :execution_runtime_version, class_name: "ExecutionRuntimeVersion", optional: true
   belongs_to :selected_input_message, class_name: "Message", optional: true
   belongs_to :selected_output_message, class_name: "Message", optional: true
+  belongs_to :workspace_agent_global_instructions_document, class_name: "JsonDocument", optional: true
   belongs_to :execution_capability_snapshot
   belongs_to :execution_context_snapshot
 
@@ -20,6 +21,8 @@ class ExecutionContract < ApplicationRecord
   validate :attachment_manifest_must_be_array
   validate :model_input_attachments_must_be_array
   validate :attachment_diagnostics_must_be_array
+  validate :workspace_agent_global_instructions_document_installation_match
+  validate :workspace_agent_global_instructions_document_kind_match
 
   def identity
     {
@@ -67,6 +70,14 @@ class ExecutionContract < ApplicationRecord
     Array(attachment_diagnostics).map(&:deep_dup)
   end
 
+  def workspace_agent_global_instructions
+    payload = workspace_agent_global_instructions_document&.payload
+    return unless workspace_agent_global_instructions_document&.document_kind == "workspace_agent_global_instructions"
+    return unless payload.is_a?(Hash)
+
+    payload["global_instructions"].presence
+  end
+
   private
 
   def provider_context_must_be_hash
@@ -87,5 +98,19 @@ class ExecutionContract < ApplicationRecord
 
   def attachment_diagnostics_must_be_array
     errors.add(:attachment_diagnostics, "must be an array") unless attachment_diagnostics.is_a?(Array)
+  end
+
+  def workspace_agent_global_instructions_document_installation_match
+    return if workspace_agent_global_instructions_document.blank?
+    return if workspace_agent_global_instructions_document.installation_id == installation_id
+
+    errors.add(:workspace_agent_global_instructions_document, "must belong to the same installation")
+  end
+
+  def workspace_agent_global_instructions_document_kind_match
+    return if workspace_agent_global_instructions_document.blank?
+    return if workspace_agent_global_instructions_document.document_kind == "workspace_agent_global_instructions"
+
+    errors.add(:workspace_agent_global_instructions_document, "must have document kind workspace_agent_global_instructions")
   end
 end

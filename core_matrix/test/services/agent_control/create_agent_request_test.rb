@@ -123,7 +123,12 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
   end
 
   test "reconstructs prepare_round snapshot context from the execution contract instead of storing it inline" do
-    context = build_agent_control_context!
+    context = build_agent_control_context!(workspace_agent_global_instructions: "Use concise Chinese.\n")
+    build_execution_snapshot_for!(
+      turn: context.fetch(:turn),
+      selector_source: "test",
+      selector: "role:mock"
+    )
     execution_snapshot = context.fetch(:turn).execution_snapshot
     logical_work_id = "prepare-round:#{context.fetch(:workflow_node).public_id}"
     round_context = execution_snapshot.conversation_projection.slice("messages", "context_imports", "projection_fingerprint").merge(
@@ -172,13 +177,55 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     refute stored_payload.key?("protocol_version")
     assert_equal round_context.fetch("work_context_view"),
       stored_payload.dig("round_context", "work_context_view")
+    refute stored_payload.key?("workspace_agent_context")
     refute stored_payload.key?("agent_context")
     refute stored_payload.key?("provider_context")
 
     assert_equal "agent-runtime/2026-04-01", mailbox_item.payload.fetch("protocol_version")
     assert_equal round_context, mailbox_item.payload.fetch("round_context")
+    assert_equal(
+      {
+        "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id,
+        "global_instructions" => "Use concise Chinese.\n",
+      },
+      mailbox_item.payload.fetch("workspace_agent_context")
+    )
     assert_equal expected_agent_context, mailbox_item.payload.fetch("agent_context")
     assert_equal execution_snapshot.provider_context, mailbox_item.payload.fetch("provider_context")
+  end
+
+  test "reconstructs prepare_round without a global instructions key when the mount is blank" do
+    context = build_agent_control_context!(workspace_agent_global_instructions: " \n\t ")
+    build_execution_snapshot_for!(
+      turn: context.fetch(:turn),
+      selector_source: "test",
+      selector: "role:mock"
+    )
+    logical_work_id = "prepare-round:#{context.fetch(:workflow_node).public_id}"
+
+    mailbox_item = AgentControl::CreateAgentRequest.call(
+      agent_definition_version: context.fetch(:agent_definition_version),
+      request_kind: "prepare_round",
+      payload: {
+        "protocol_version" => "agent-runtime/2026-04-01",
+        "task" => {
+          "kind" => "turn_step",
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "turn_id" => context.fetch(:turn).public_id,
+          "conversation_id" => context.fetch(:conversation).public_id,
+        },
+      },
+      logical_work_id: logical_work_id,
+      attempt_no: 1,
+      dispatch_deadline_at: 5.minutes.from_now
+    )
+
+    assert_equal(
+      { "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id },
+      mailbox_item.payload.fetch("workspace_agent_context")
+    )
+    refute mailbox_item.payload.fetch("workspace_agent_context").key?("global_instructions")
   end
 
   test "supports supervision control request kinds without workflow context" do

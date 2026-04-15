@@ -4,6 +4,7 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
   test "lists owned workspaces with nested workspace agents using public ids only" do
     context = create_workspace_context!
     context[:workspace].update!(is_default: true)
+    context[:workspace_agent].update!(global_instructions: "Use concise Chinese.\n")
     session = create_session!(user: context[:user])
     secondary_agent = create_agent!(
       installation: context[:installation],
@@ -36,6 +37,7 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
     assert_equal context[:workspace_agent].public_id, primary_payload.fetch("workspace_agents").first.fetch("workspace_agent_id")
     assert_equal context[:agent].public_id, primary_payload.fetch("workspace_agents").first.fetch("agent_id")
     assert_equal context[:execution_runtime].public_id, primary_payload.fetch("workspace_agents").first.fetch("default_execution_runtime_id")
+    assert_equal "Use concise Chinese.\n", primary_payload.fetch("workspace_agents").first.fetch("global_instructions")
 
     secondary_payload = response_body.fetch("workspaces").find { |item| item.fetch("workspace_id") == secondary_workspace.public_id }
     assert_equal secondary_workspace_agent.public_id, secondary_payload.fetch("workspace_agents").first.fetch("workspace_agent_id")

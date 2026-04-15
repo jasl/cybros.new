@@ -38,4 +38,25 @@ class Shared::PayloadContextTest < ActiveSupport::TestCase
     assert_equal ["deploy-agent"], context.dig("skill_context", "active_skill_names")
     assert_includes context.dig("skill_context", "active_skill_contents", 0), "Use evidence-backed deploy steps."
   end
+
+  test "preserves workspace agent context from the payload" do
+    context = Shared::PayloadContext.call(
+      payload: {
+        "task" => {
+          "workflow_node_id" => "workflow-node-1",
+          "conversation_id" => "conversation-1",
+          "turn_id" => "turn-1",
+          "kind" => "turn_step",
+        },
+        "workspace_agent_context" => {
+          "workspace_agent_id" => "workspace-agent-1",
+          "global_instructions" => "Use concise Chinese.\n",
+        },
+      }
+    )
+
+    assert_equal "workspace-agent-1", context.dig("workspace_agent_context", "workspace_agent_id")
+    assert_equal "Use concise Chinese.\n", context.dig("workspace_agent_context", "global_instructions")
+    refute context.key?("workspace_context")
+  end
 end

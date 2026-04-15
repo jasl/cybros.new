@@ -33,6 +33,7 @@ module ProviderExecution
         "round_context" => round_context,
         "agent_context" => agent_context,
         "provider_context" => @workflow_run.execution_snapshot.provider_context,
+        "workspace_agent_context" => @workflow_run.execution_snapshot.workspace_agent_context,
         "runtime_context" => {
           "control_plane" => "agent",
           "logical_work_id" => "prepare-round:#{@workflow_node.public_id}",
