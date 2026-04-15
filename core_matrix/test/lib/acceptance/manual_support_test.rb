@@ -238,6 +238,57 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal current_node.public_id, captured.fetch(:workflow_node).public_id
   end
 
+  test "download_public_url! follows redirects before writing the destination file" do
+    destination_dir = Dir.mktmpdir("manual-support-download")
+    destination_path = File.join(destination_dir, "artifact.zip")
+    response_double = Struct.new(:code, :headers) do
+      def [](header_name)
+        headers[header_name]
+      end
+    end
+    responses = [
+      [response_double.new("302", { "Location" => "http://example.test/files/artifact.zip" }), ""],
+      [
+        response_double.new(
+          "200",
+          {
+            "Content-Type" => "application/zip",
+            "Content-Disposition" => 'attachment; filename="artifact.zip"',
+          }
+        ),
+        "zip-bytes",
+      ],
+    ]
+    requested_urls = []
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :http_get_response,
+      lambda do |url, headers: {}|
+        requested_urls << url
+        responses.fetch(requested_urls.length - 1)
+      end
+    ) do
+      download = Acceptance::ManualSupport.download_public_url!(
+        url: "http://example.test/redirect",
+        destination_path: destination_path
+      )
+
+      assert_equal destination_path, download.fetch("path")
+      assert_equal "application/zip", download.fetch("content_type")
+      assert_equal 'attachment; filename="artifact.zip"', download.fetch("content_disposition")
+      assert_equal 9, download.fetch("byte_size")
+      assert_equal "zip-bytes", File.binread(destination_path)
+    end
+
+    assert_equal [
+      "http://example.test/redirect",
+      "http://example.test/files/artifact.zip",
+    ], requested_urls
+  ensure
+    FileUtils.rm_rf(destination_dir) if destination_dir
+  end
+
   test "reset_backend_state! disconnects, rebuilds, and reconnects the database" do
     calls = []
 
@@ -1265,7 +1316,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       end
     ) do
       result = Acceptance::ManualSupport.app_api_create_conversation!(
-        agent_id: "agt_123",
+        workspace_agent_id: "wagt_123",
         content: "Build the app",
         selector: "candidate:openrouter/openai-gpt-5.4",
         session_token: "sess_123",
@@ -1278,7 +1329,7 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
     assert_equal "/app_api/conversations", captured.fetch(0)
     assert_equal(
       {
-        agent_id: "agt_123",
+        workspace_agent_id: "wagt_123",
         content: "Build the app",
         selector: "candidate:openrouter/openai-gpt-5.4",
         execution_runtime_id: "rt_123",
@@ -1286,6 +1337,47 @@ class Acceptance::ManualSupportTest < ActiveSupport::TestCase
       captured.fetch(1)
     )
     assert_equal "sess_123", captured.fetch(2)
+  end
+
+  test "execution_runtime_publish_output_attachment! posts multipart data to the runtime attachment publish route" do
+    captured = nil
+    tempfile = Tempfile.new(["runtime-output", ".zip"])
+    tempfile.write("zip-bytes")
+    tempfile.rewind
+
+    with_redefined_singleton_method(
+      Acceptance::ManualSupport,
+      :execution_runtime_api_post_multipart_json,
+      lambda do |path, params:, file_param:, file_path:, execution_runtime_connection_credential:, content_type:|
+        captured = {
+          path: path,
+          params: params,
+          file_param: file_param,
+          file_path: file_path,
+          execution_runtime_connection_credential: execution_runtime_connection_credential,
+          content_type: content_type,
+        }
+        { "method_id" => "publish_attachment" }
+      end
+    ) do
+      result = Acceptance::ManualSupport.execution_runtime_publish_output_attachment!(
+        turn_id: "turn_123",
+        file_path: tempfile.path,
+        execution_runtime_connection_credential: "runtime-secret",
+        publication_role: "primary_deliverable"
+      )
+
+      assert_equal "publish_attachment", result.fetch("method_id")
+    end
+
+    assert_equal "/execution_runtime_api/attachments/publish", captured.fetch(:path)
+    assert_equal({ turn_id: "turn_123", publication_role: "primary_deliverable" }, captured.fetch(:params))
+    assert_equal :file, captured.fetch(:file_param)
+    assert_equal tempfile.path, captured.fetch(:file_path)
+    assert_equal "runtime-secret", captured.fetch(:execution_runtime_connection_credential)
+    assert_equal "application/zip", captured.fetch(:content_type)
+  ensure
+    tempfile&.close!
   end
 
   test "app_api_create_conversation_supervision_session! posts to the nested supervision session route" do

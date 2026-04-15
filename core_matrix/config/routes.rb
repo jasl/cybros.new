@@ -58,6 +58,7 @@ Rails.application.routes.draw do
     resources :attachments, only: [] do
       collection do
         post "request", action: :create
+        post "publish", action: :publish
       end
     end
     post "control/poll", to: "control#poll"

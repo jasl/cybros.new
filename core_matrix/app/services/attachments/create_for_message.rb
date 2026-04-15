@@ -141,7 +141,7 @@ module Attachments
           byte_size: file.size,
           identify: false,
           metadata: {},
-          publication_role: @publication_role
+          publication_role: @publication_role,
         }
       elsif file.is_a?(Hash)
         normalize_hash_file(file.deep_symbolize_keys)
@@ -164,7 +164,7 @@ module Attachments
         metadata: file.fetch(:metadata, {}).deep_stringify_keys,
         publication_role: publication_role,
         origin_attachment: file[:origin_attachment],
-        origin_message: file[:origin_message]
+        origin_message: file[:origin_message],
       }
     end
 
@@ -241,7 +241,7 @@ module Attachments
       file.fetch(:metadata).merge(
         {
           "publication_role" => file[:publication_role],
-          "source_kind" => @source_kind
+          "source_kind" => @source_kind,
         }.compact
       )
     end

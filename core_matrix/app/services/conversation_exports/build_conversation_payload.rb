@@ -62,6 +62,7 @@ module ConversationExports
         "message_public_id" => message.public_id,
         "kind" => message.user? ? "user_upload" : "generated_output",
         "publication_role" => Attachments::CreateForMessage.publication_role_for(attachment),
+        "source_kind" => Attachments::CreateForMessage.source_kind_for(attachment),
         "filename" => attachment.file.filename.to_s,
         "mime_type" => attachment.file.blob.content_type,
         "byte_size" => attachment.file.blob.byte_size,

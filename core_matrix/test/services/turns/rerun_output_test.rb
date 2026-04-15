@@ -126,6 +126,38 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:selected_output_message], "must carry source input provenance"
   end
 
+  test "rejects in place rerun after runtime artifacts were published onto the selected output" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+      ),
+      content: "Input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    output = attach_selected_output!(turn, content: "Original output")
+    attachment = create_message_attachment!(
+      message: output,
+      filename: "game-2048-dist.zip",
+      body: "zip-bytes",
+      content_type: "application/zip"
+    )
+    attachment.file.blob.update!(
+      metadata: attachment.file.blob.metadata.merge("source_kind" => "runtime_generated")
+    )
+    turn.update!(lifecycle_state: "completed")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::RerunOutput.call(
+        message: output,
+        content: "Should fail"
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must not replace the selected output after runtime artifacts were published"
+  end
+
   test "rejects branch rerun when the target output is missing source input provenance" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
@@ -170,7 +202,7 @@ class Turns::RerunOutputTest < ActiveSupport::TestCase
     output = attach_selected_output!(turn, content: "Original output")
     turn.update!(lifecycle_state: "completed")
 
-    assert_sql_query_count_at_most(17) do
+    assert_sql_query_count_at_most(19) do
       Turns::RerunOutput.call(
         message: output,
         content: "Rerun output"

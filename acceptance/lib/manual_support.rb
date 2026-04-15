@@ -53,6 +53,10 @@ module Acceptance
       }
     end
 
+    def execution_runtime_token_headers(bearer_token)
+      token_headers(bearer_token)
+    end
+
     def issue_app_api_session_token!(user:, expires_at: 30.days.from_now)
       Session.issue_for!(
         identity: user.identity,
@@ -123,19 +127,42 @@ module Acceptance
       parsed
     end
 
-    def http_download!(url, headers:, destination_path:)
-      response, body = http_get_response(url, headers:)
-      raise "HTTP #{response.code}: #{body}" unless response.code.to_i.between?(200, 299)
+    def http_download!(url, headers:, destination_path:, max_redirects: 5)
+      current_url = url
+      current_headers = headers.dup
+      redirects_remaining = max_redirects
 
-      FileUtils.mkdir_p(File.dirname(destination_path))
-      File.binwrite(destination_path, body)
+      loop do
+        response, body = http_get_response(current_url, headers: current_headers)
+        status_code = response.code.to_i
 
-      {
-        'path' => destination_path.to_s,
-        'content_type' => response['Content-Type'],
-        'content_disposition' => response['Content-Disposition'],
-        'byte_size' => body.bytesize
-      }
+        if status_code.between?(200, 299)
+          FileUtils.mkdir_p(File.dirname(destination_path))
+          File.binwrite(destination_path, body)
+
+          return {
+            'path' => destination_path.to_s,
+            'content_type' => response['Content-Type'],
+            'content_disposition' => response['Content-Disposition'],
+            'byte_size' => body.bytesize
+          }
+        end
+
+        if status_code.between?(300, 399)
+          raise "HTTP #{response.code}: redirect limit exceeded" if redirects_remaining <= 0
+
+          location = response['Location'].to_s
+          raise "HTTP #{response.code}: missing redirect location" if location.empty?
+
+          redirected_url = URI.join(current_url, location).to_s
+          current_headers = redirect_follow_headers(current_url:, redirected_url:, headers: current_headers)
+          current_url = redirected_url
+          redirects_remaining -= 1
+          next
+        end
+
+        raise "HTTP #{response.code}: #{body}"
+      end
     end
 
     def execute_http(uri, request)
@@ -147,6 +174,19 @@ module Acceptance
       raise "HTTP #{response.code}: #{body}" unless response.code.to_i.between?(200, 299)
 
       parsed
+    end
+
+    def redirect_follow_headers(current_url:, redirected_url:, headers:)
+      current_uri = URI(current_url)
+      redirected_uri = URI(redirected_url)
+
+      same_origin = current_uri.scheme == redirected_uri.scheme &&
+        current_uri.host == redirected_uri.host &&
+        current_uri.port == redirected_uri.port
+
+      return headers if same_origin
+
+      headers.except('Authorization')
     end
 
     def live_manifest(base_url:)
@@ -183,6 +223,19 @@ module Acceptance
         file_path: file_path,
         content_type: content_type,
         headers: token_headers(session_token)
+      )
+    end
+
+    def execution_runtime_api_post_multipart_json(path, params:, file_param:, file_path:,
+                                                  execution_runtime_connection_credential:,
+                                                  content_type: 'application/zip')
+      http_post_multipart_json(
+        control_url(path),
+        params: params,
+        file_param: file_param,
+        file_path: file_path,
+        content_type: content_type,
+        headers: execution_runtime_token_headers(execution_runtime_connection_credential)
       )
     end
 
@@ -287,18 +340,47 @@ module Acceptance
       )
     end
 
-    def app_api_create_conversation!(agent_id:, content:, session_token:, workspace_id: nil, selector: nil,
+    def app_api_create_conversation!(workspace_agent_id:, content:, session_token:, selector: nil,
                                      execution_runtime_id: nil)
       app_api_post_json(
         "/app_api/conversations",
         {
-          agent_id: agent_id,
+          workspace_agent_id: workspace_agent_id,
           content: content,
-          workspace_id: workspace_id,
           selector: selector,
           execution_runtime_id: execution_runtime_id
         }.compact,
         session_token: session_token
+      )
+    end
+
+    def app_api_conversation_attachment_show!(conversation_id:, attachment_id:, session_token:)
+      app_api_get_json(
+        "/app_api/conversations/#{conversation_id}/attachments/#{attachment_id}",
+        session_token: session_token
+      )
+    end
+
+    def download_public_url!(url:, destination_path:)
+      http_download!(
+        url,
+        headers: {},
+        destination_path: destination_path
+      )
+    end
+
+    def execution_runtime_publish_output_attachment!(turn_id:, file_path:, execution_runtime_connection_credential:,
+                                                     publication_role:, content_type: 'application/zip')
+      execution_runtime_api_post_multipart_json(
+        "/execution_runtime_api/attachments/publish",
+        params: {
+          turn_id: turn_id,
+          publication_role: publication_role,
+        },
+        file_param: :file,
+        file_path: file_path,
+        content_type: content_type,
+        execution_runtime_connection_credential: execution_runtime_connection_credential
       )
     end
 
@@ -1238,23 +1320,26 @@ module Acceptance
 
     def enable_default_workspace!(agent_definition_version:)
       user = User.find_by!(installation: agent_definition_version.installation, role: 'admin')
-      UserAgentBindings::Enable.call(
-        user: user,
-        agent: agent_definition_version.agent
-      )
+      workspace = Workspaces::MaterializeDefault.call(user: user, agent: agent_definition_version.agent)
+      workspace_agent = workspace.workspace_agents.where(agent: agent_definition_version.agent, lifecycle_state: 'active').order(:id).first
 
-      Workspaces::MaterializeDefault.call(user: user, agent: agent_definition_version.agent)
+      {
+        workspace: workspace,
+        workspace_agent: workspace_agent,
+      }
     end
 
     def create_conversation!(agent_definition_version:)
-      workspace = enable_default_workspace!(agent_definition_version: agent_definition_version)
+      workspace_context = enable_default_workspace!(agent_definition_version: agent_definition_version)
+      workspace = workspace_context.fetch(:workspace)
+      workspace_agent = workspace_context.fetch(:workspace_agent)
 
       {
         actor: workspace.user,
         workspace: workspace,
+        workspace_agent: workspace_agent,
         conversation: Conversations::CreateRoot.call(
-          workspace: workspace,
-          agent: agent_definition_version.agent
+          workspace_agent: workspace_agent
         )
       }
     end

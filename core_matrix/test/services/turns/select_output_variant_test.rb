@@ -105,4 +105,43 @@ class Turns::SelectOutputVariantTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:base], "must not select an output variant while close is in progress"
   end
+
+  test "rejects selecting another output variant after runtime artifacts were published onto the current selected output" do
+    context = create_workspace_context!
+    turn = Turns::StartUserTurn.call(
+      conversation: Conversations::CreateRoot.call(
+        workspace: context[:workspace],
+      ),
+      content: "Input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    first_output = attach_selected_output!(turn, content: "Output one")
+    second_output = AgentMessage.create!(
+      installation: turn.installation,
+      conversation: turn.conversation,
+      turn: turn,
+      role: "agent",
+      slot: "output",
+      variant_index: 1,
+      content: "Output two",
+      source_input_message: turn.selected_input_message
+    )
+    attachment = create_message_attachment!(
+      message: first_output,
+      filename: "game-2048-dist.zip",
+      body: "zip-bytes",
+      content_type: "application/zip"
+    )
+    attachment.file.blob.update!(
+      metadata: attachment.file.blob.metadata.merge("source_kind" => "runtime_generated")
+    )
+    turn.update!(lifecycle_state: "completed")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::SelectOutputVariant.call(message: second_output)
+    end
+
+    assert_includes error.record.errors[:base], "must not replace the selected output after runtime artifacts were published"
+  end
 end

@@ -150,6 +150,12 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       content_type: "application/pdf",
       body: "pdf-bytes"
     )
+    supported_file.file.blob.update!(
+      metadata: supported_file.file.blob.metadata.merge(
+        "publication_role" => "evidence",
+        "source_kind" => "app_upload"
+      )
+    )
 
     snapshot = build_execution_snapshot_for!(turn: current_turn)
 
@@ -222,6 +228,13 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     expected_attachment_ids = [unsupported_audio.public_id, supported_file.public_id].sort
 
     assert_equal expected_attachment_ids, snapshot.attachment_manifest.map { |item| item.fetch("attachment_id") }.sort
+    supported_entry = snapshot.attachment_manifest.find { |item| item.fetch("attachment_id") == supported_file.public_id }
+    assert_equal "evidence", supported_entry.fetch("publication_role")
+    assert_equal "app_upload", supported_entry.fetch("source_kind")
+    context_attachment_ref = current_turn.execution_contract.execution_context_snapshot.attachment_refs_list
+      .find { |item| item.fetch("attachment_id") == supported_file.public_id }
+    assert_equal "evidence", context_attachment_ref.fetch("publication_role")
+    assert_equal "app_upload", context_attachment_ref.fetch("source_kind")
     assert_equal [supported_file.public_id], snapshot.model_input_attachments.map { |item| item.fetch("attachment_id") }
     assert_equal [unsupported_audio.public_id], snapshot.attachment_diagnostics.map { |item| item.fetch("attachment_id") }
     assert_equal "unsupported_modality", snapshot.attachment_diagnostics.first.fetch("reason")

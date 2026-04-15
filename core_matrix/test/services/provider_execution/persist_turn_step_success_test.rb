@@ -178,7 +178,7 @@ class ProviderExecution::PersistTurnStepSuccessTest < ActiveSupport::TestCase
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {
-        "bot_token" => "telegram-bot-token"
+        "bot_token" => "telegram-bot-token",
       },
       config_payload: {},
       runtime_state_payload: {}

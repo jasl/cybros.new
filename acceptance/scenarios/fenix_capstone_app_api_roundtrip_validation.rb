@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require "date"
+require "digest"
 require "fileutils"
 require "json"
 require "pathname"
@@ -23,6 +24,9 @@ workspace_root = Pathname.new(ENV.fetch("CAPSTONE_WORKSPACE_ROOT", repo_root.joi
 generated_app_dir = workspace_root.join("game-2048")
 conversation_export_path = artifact_dir.join("exports", "conversation-export.zip")
 conversation_debug_export_path = artifact_dir.join("exports", "conversation-debug-export.zip")
+published_attachment_upload_path = artifact_dir.join("uploads", "game-2048-dist.zip")
+published_attachment_download_path = artifact_dir.join("downloads", "published-primary-deliverable.zip")
+published_attachment_extract_dir = artifact_dir.join("downloads", "published-primary-deliverable")
 prompt = Acceptance::CapstoneAppApiRoundtrip.prompt(generated_app_dir: generated_app_dir.to_s)
 
 def write_json(path, payload)
@@ -33,6 +37,92 @@ end
 def write_text(path, contents)
   FileUtils.mkdir_p(File.dirname(path))
   File.binwrite(path, contents)
+end
+
+def zip_entry_names(zip_path)
+  Zip::File.open(zip_path.to_s) { |zip| zip.entries.map(&:name).sort }
+end
+
+def read_zip_json(zip_path, entry_name)
+  Zip::File.open(zip_path.to_s) do |zip|
+    entry = zip.find_entry(entry_name)
+    raise "missing #{entry_name} in #{zip_path}" if entry.nil?
+
+    JSON.parse(entry.get_input_stream.read)
+  end
+end
+
+def build_zip_from_directory(source_dir:, archive_path:, root_prefix:)
+  source_dir = Pathname.new(source_dir)
+  archive_path = Pathname.new(archive_path)
+  raise "missing source directory #{source_dir}" unless source_dir.directory?
+
+  FileUtils.mkdir_p(archive_path.dirname)
+
+  Zip::OutputStream.open(archive_path.to_s) { }
+  Zip::File.open(archive_path.to_s, create: true) do |zip|
+    Dir.chdir(source_dir.to_s) do
+      Dir.glob("**/*", File::FNM_DOTMATCH).sort.each do |relative_path|
+        next if relative_path == "." || relative_path == ".."
+
+        absolute_path = source_dir.join(relative_path)
+        entry_name = [root_prefix, relative_path].join("/")
+
+        if absolute_path.directory?
+          zip.mkdir(entry_name) unless zip.find_entry(entry_name)
+          next
+        end
+
+        zip.get_output_stream(entry_name) do |stream|
+          File.open(absolute_path.to_s, "rb") do |file|
+            IO.copy_stream(file, stream)
+          end
+        end
+      end
+    end
+  end
+end
+
+def read_zip_entry(zip_path, entry_name)
+  Zip::File.open(zip_path.to_s) do |zip|
+    entry = zip.find_entry(entry_name)
+    raise "missing #{entry_name} in #{zip_path}" if entry.nil?
+
+    entry.get_input_stream.read
+  end
+end
+
+def sha256_for_file(path)
+  Digest::SHA256.file(path.to_s).hexdigest
+end
+
+def sha256_for_bytes(bytes)
+  Digest::SHA256.hexdigest(bytes)
+end
+
+def unzip_to_directory(zip_path, destination_dir)
+  FileUtils.rm_rf(destination_dir)
+  FileUtils.mkdir_p(destination_dir)
+
+  Zip::File.open(zip_path.to_s) do |zip|
+    zip.each do |entry|
+      raise "unsafe zip entry #{entry.name}" if entry.name.start_with?("/", "../") || entry.name.include?("/../")
+
+      destination_path = Pathname.new(destination_dir).join(entry.name)
+
+      if entry.directory?
+        FileUtils.mkdir_p(destination_path)
+        next
+      end
+
+      FileUtils.mkdir_p(destination_path.dirname)
+      entry.get_input_stream do |stream|
+        File.open(destination_path.to_s, "wb") do |file|
+          IO.copy_stream(stream, file)
+        end
+      end
+    end
+  end
 end
 
 unless ActiveModel::Type::Boolean.new.cast(ENV["CAPSTONE_SKIP_BACKEND_RESET"])
@@ -50,6 +140,9 @@ bundled_registration = Acceptance::ManualSupport.register_bundled_runtime_from_m
   runtime_base_url: agent_base_url,
   execution_runtime_fingerprint: "acceptance-capstone-bundled-fenix-environment",
   fingerprint: "acceptance-capstone-bundled-fenix-runtime"
+)
+workspace_context = Acceptance::ManualSupport.enable_default_workspace!(
+  agent_definition_version: bundled_registration.agent_definition_version
 )
 onboarding = Acceptance::ManualSupport.app_api_admin_create_onboarding_session!(
   target_kind: "execution_runtime",
@@ -97,6 +190,19 @@ supervision_probes = []
 supervision_messages = nil
 transcript_before = nil
 transcript_after = nil
+output_message = nil
+published_attachment_create = nil
+published_attachment = nil
+published_attachment_show = nil
+published_attachment_download = nil
+published_attachment_entry_names = []
+published_attachment_upload_sha256 = nil
+published_attachment_download_sha256 = nil
+published_attachment_export_sha256 = nil
+published_attachment_upload_byte_size = nil
+published_attachment_export_bytes = nil
+published_export_payload = nil
+published_export_entry_names = []
 probe_questions = [
   "Please tell me what the 2048 work is doing right now and what changed most recently, if known.",
   "Please tell me what the 2048 work is doing right now and what part is currently in progress.",
@@ -121,7 +227,7 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
     inline: true
   ) do
     created = Acceptance::ManualSupport.app_api_create_conversation!(
-      agent_id: bundled_registration.agent_definition_version.agent.public_id,
+      workspace_agent_id: workspace_context.fetch(:workspace_agent).public_id,
       content: prompt,
       selector: selector,
       session_token: app_api_session_token,
@@ -237,6 +343,33 @@ Acceptance::ManualSupport.with_fenix_control_worker!(
   end
 end
 
+output_message = Turn.find_by_public_id!(turn_id).selected_output_message || raise("selected output message missing for turn #{turn_id}")
+build_zip_from_directory(
+  source_dir: generated_app_dir.join("dist"),
+  archive_path: published_attachment_upload_path,
+  root_prefix: "dist"
+)
+published_attachment_upload_sha256 = sha256_for_file(published_attachment_upload_path)
+published_attachment_upload_byte_size = File.size(published_attachment_upload_path)
+published_attachment_create = Acceptance::ManualSupport.execution_runtime_publish_output_attachment!(
+  turn_id: turn_id,
+  file_path: published_attachment_upload_path,
+  execution_runtime_connection_credential: bring_your_own_runtime_registration.fetch(:execution_runtime_connection_credential),
+  publication_role: "primary_deliverable",
+)
+published_attachment = published_attachment_create.fetch("attachments").fetch(0)
+published_attachment_show = Acceptance::ManualSupport.app_api_conversation_attachment_show!(
+  conversation_id: conversation_id,
+  attachment_id: published_attachment.fetch("attachment_id"),
+  session_token: app_api_session_token
+)
+published_attachment_download = Acceptance::ManualSupport.download_public_url!(
+  url: published_attachment_show.dig("attachment", "download_url"),
+  destination_path: published_attachment_download_path
+)
+published_attachment_download_sha256 = sha256_for_file(published_attachment_download.fetch("path"))
+published_attachment_entry_names = zip_entry_names(published_attachment_download.fetch("path"))
+unzip_to_directory(published_attachment_download.fetch("path"), published_attachment_extract_dir)
 debug_export_download = Acceptance::ManualSupport.app_api_debug_export_conversation!(
   conversation_id: conversation_id,
   session_token: app_api_session_token,
@@ -263,6 +396,8 @@ export_download = Acceptance::ManualSupport.app_api_export_conversation!(
   session_token: app_api_session_token,
   destination_path: conversation_export_path
 )
+published_export_payload = read_zip_json(conversation_export_path, "conversation.json")
+published_export_entry_names = zip_entry_names(conversation_export_path)
 
 write_json(artifact_dir.join("evidence", "conversation-debug-export.json"), debug_payload)
 write_json(artifact_dir.join("evidence", "conversation-turn-runtime-events.json"), turn_runtime_events)
@@ -274,6 +409,9 @@ write_json(artifact_dir.join("evidence", "conversation-live-activity.json"), liv
 write_json(artifact_dir.join("evidence", "runtime-validation.json"), runtime_validation)
 write_json(artifact_dir.join("evidence", "conversation-debug-export-download.json"), debug_export_download)
 write_json(artifact_dir.join("evidence", "conversation-export-download.json"), export_download)
+write_json(artifact_dir.join("evidence", "published-attachment-create.json"), published_attachment_create)
+write_json(artifact_dir.join("evidence", "published-attachment-show.json"), published_attachment_show)
+write_json(artifact_dir.join("evidence", "published-attachment-download.json"), published_attachment_download)
 
 Acceptance::CapstoneReviewArtifacts.install!(
   artifact_dir: artifact_dir,
@@ -306,10 +444,9 @@ expected_conversation_state = {
 workflow_run = debug_payload.fetch("workflow_runs")
   .select { |candidate| candidate.fetch("turn_id") == turn_id }
   .max_by { |candidate| [candidate.fetch("created_at").to_s, candidate.fetch("workflow_run_id")] } || {}
-selected_output_message = debug_payload.fetch("conversation_payload")
-  .fetch("messages")
+selected_output_message = published_export_payload.fetch("messages")
   .reverse
-  .find { |message| message.fetch("turn_public_id") == turn_id && message.fetch("role") == "assistant" }
+  .find { |message| message.fetch("turn_public_id") == turn_id && message.fetch("role") == "agent" }
 supervision_session_id = supervision_session.dig("conversation_supervision_session", "supervision_session_id")
 export_supervision_messages = debug_payload.fetch("conversation_supervision_messages")
   .select { |message| message.fetch("supervision_session_id") == supervision_session_id }
@@ -365,9 +502,33 @@ observed_conversation_state = {
   "workflow_lifecycle_state" => workflow_run.fetch("lifecycle_state"),
   "workflow_wait_state" => workflow_run.fetch("wait_state"),
   "turn_lifecycle_state" => terminal.fetch("turn").fetch("lifecycle_state"),
-  "selected_output_message_id" => selected_output_message&.fetch("message_public_id", nil),
-  "selected_output_content" => selected_output_message&.fetch("content", nil),
+  "selected_output_message_id" => output_message.public_id,
+  "selected_output_content" => output_message.content,
 }.compact
+exported_attachment = Array(selected_output_message&.fetch("attachments", [])).find do |attachment|
+  attachment.fetch("attachment_public_id") == published_attachment.fetch("attachment_id")
+end
+if exported_attachment.present?
+  published_attachment_export_bytes = read_zip_entry(conversation_export_path, exported_attachment.fetch("relative_path"))
+  published_attachment_export_sha256 = sha256_for_bytes(published_attachment_export_bytes)
+end
+
+write_json(
+  artifact_dir.join("evidence", "published-attachment-inspection.json"),
+  {
+    "attachment_id" => published_attachment.fetch("attachment_id"),
+    "upload_path" => published_attachment_upload_path.to_s,
+    "upload_byte_size" => published_attachment_upload_byte_size,
+    "upload_sha256" => published_attachment_upload_sha256,
+    "download_path" => published_attachment_download.fetch("path"),
+    "download_byte_size" => published_attachment_download.fetch("byte_size"),
+    "download_sha256" => published_attachment_download_sha256,
+    "export_relative_path" => exported_attachment&.fetch("relative_path"),
+    "export_byte_size" => exported_attachment&.fetch("byte_size"),
+    "export_sha256" => published_attachment_export_sha256,
+    "entry_names" => published_attachment_entry_names,
+  }
+)
 
 passed = dag_shape_passed &&
   expected_conversation_state.all? { |key, value| observed_conversation_state[key] == value } &&
@@ -400,7 +561,26 @@ passed = dag_shape_passed &&
   export_supervision_messages.length == supervision_messages.fetch("items").length &&
   alternating_roles &&
   export_supervision_messages.map { |message| message.fetch("role") } == message_roles &&
-  supervisor_responses.uniq.length >= 4
+  supervisor_responses.uniq.length >= 4 &&
+  published_attachment_create.fetch("method_id") == "publish_attachment" &&
+  published_attachment.fetch("source_kind") == "runtime_generated" &&
+  published_attachment_show.dig("attachment", "attachment_id") == published_attachment.fetch("attachment_id") &&
+  published_attachment_show.dig("attachment", "publication_role") == "primary_deliverable" &&
+  published_attachment_show.dig("attachment", "source_kind") == "runtime_generated" &&
+  published_attachment_show.dig("attachment", "byte_size") == published_attachment_upload_byte_size &&
+  published_attachment_download.fetch("byte_size") == published_attachment_upload_byte_size &&
+  published_attachment_download_sha256 == published_attachment_upload_sha256 &&
+  published_attachment_entry_names.include?("dist/index.html") &&
+  published_attachment_entry_names.any? { |entry| entry.start_with?("dist/assets/") } &&
+  exported_attachment.present? &&
+  exported_attachment.fetch("publication_role") == "primary_deliverable" &&
+  exported_attachment.fetch("source_kind") == "runtime_generated" &&
+  exported_attachment.fetch("byte_size") == published_attachment_upload_byte_size &&
+  exported_attachment.fetch("sha256") == published_attachment_upload_sha256 &&
+  exported_attachment.fetch("sha256") == published_attachment_download_sha256 &&
+  published_attachment_export_bytes.bytesize == exported_attachment.fetch("byte_size") &&
+  published_attachment_export_sha256 == exported_attachment.fetch("sha256") &&
+  published_export_entry_names.include?(exported_attachment.fetch("relative_path"))
 
 write_text(
   artifact_dir.join("review", "summary.md"),
@@ -418,6 +598,13 @@ write_text(
     - conversation export path: `#{conversation_export_path}`
     - conversation debug export path: `#{conversation_debug_export_path}`
     - generated app dir: `#{generated_app_dir}`
+    - published attachment upload path: `#{published_attachment_upload_path}`
+    - published attachment id: `#{published_attachment.fetch("attachment_id")}`
+    - published attachment download path: `#{published_attachment_download.fetch("path")}`
+    - published attachment export path: `#{exported_attachment&.fetch("relative_path")}`
+    - published attachment upload sha256: `#{published_attachment_upload_sha256}`
+    - published attachment download sha256: `#{published_attachment_download_sha256}`
+    - published attachment export sha256: `#{published_attachment_export_sha256}`
     - review index: `#{artifact_dir.join("review", "index.md")}`
     - conversation transcript review: `#{artifact_dir.join("review", "conversation-transcript.md")}`
     - diagnostics summary review: `#{artifact_dir.join("review", "diagnostics-summary.md")}`
@@ -461,8 +648,18 @@ result = Acceptance::ManualSupport.scenario_result(
     "playwright_validation" => playwright_validation,
     "conversation_export_path" => conversation_export_path.to_s,
     "conversation_debug_export_path" => conversation_debug_export_path.to_s,
-    "selected_output_message_id" => selected_output_message&.fetch("message_public_id", nil),
-    "selected_output_content" => selected_output_message&.fetch("content", nil),
+    "selected_output_message_id" => output_message.public_id,
+    "selected_output_content" => output_message.content,
+    "published_attachment_create" => published_attachment_create,
+    "published_attachment" => published_attachment_show.fetch("attachment"),
+    "published_attachment_upload_path" => published_attachment_upload_path.to_s,
+    "published_attachment_upload_byte_size" => published_attachment_upload_byte_size,
+    "published_attachment_upload_sha256" => published_attachment_upload_sha256,
+    "published_attachment_download" => published_attachment_download,
+    "published_attachment_download_sha256" => published_attachment_download_sha256,
+    "published_attachment_entry_names" => published_attachment_entry_names,
+    "published_export_attachment" => exported_attachment,
+    "published_attachment_export_sha256" => published_attachment_export_sha256,
     "live_activity" => live_activity_snapshots,
     "live_activity_metrics" => live_activity_metrics,
     "live_activity_metrics_changed_rounds" => metrics_changed_rounds,

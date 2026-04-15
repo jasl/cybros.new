@@ -186,6 +186,10 @@ module ConversationBundleImports
           io: StringIO.new(file_bytes.fetch(attachment_payload.fetch("relative_path"))),
           filename: attachment_payload.fetch("filename"),
           content_type: attachment_payload.fetch("mime_type"),
+          metadata: {
+            "publication_role" => attachment_payload["publication_role"],
+            "source_kind" => attachment_payload["source_kind"],
+          }.compact,
           identify: false
         )
         attachment.save!

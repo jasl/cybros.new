@@ -26,7 +26,8 @@ module Turns
         end
         raise_invalid!(locked_turn, :selected_output_message, "must carry source input provenance") if @message.source_input_message.blank?
 
-        locked_turn.update!(
+        Turns::PersistSelectionState.call(
+          turn: locked_turn,
           selected_input_message: @message.source_input_message,
           selected_output_message: @message
         )

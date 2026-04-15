@@ -67,7 +67,8 @@ module ProviderExecution
             usage: @provider_result.usage
           )
 
-          current_turn.update!(
+          Turns::PersistSelectionState.call(
+            turn: current_turn,
             selected_output_message: output_message,
             lifecycle_state: "completed"
           )

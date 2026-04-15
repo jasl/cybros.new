@@ -18,7 +18,7 @@ class AppApiConversationsAttachmentsControllerTest < ActionDispatch::Integration
         params: {
           message_id: turn.selected_input_message.public_id,
           files: [upload],
-          publication_role: "evidence"
+          publication_role: "evidence",
         },
         headers: app_api_headers(session.plaintext_token)
     end
@@ -30,6 +30,7 @@ class AppApiConversationsAttachmentsControllerTest < ActionDispatch::Integration
     assert_equal conversation.public_id, response.parsed_body.fetch("conversation_id")
     assert_equal attachment.public_id, response.parsed_body.dig("attachments", 0, "attachment_id")
     assert_equal "evidence", response.parsed_body.dig("attachments", 0, "publication_role")
+    assert_equal "app_upload", response.parsed_body.dig("attachments", 0, "source_kind")
 
     get "/app_api/conversations/#{conversation.public_id}/attachments/#{attachment.public_id}",
       headers: app_api_headers(session.plaintext_token)
@@ -37,6 +38,7 @@ class AppApiConversationsAttachmentsControllerTest < ActionDispatch::Integration
     assert_response :success
     assert_equal "conversation_attachment_show", response.parsed_body.fetch("method_id")
     assert_equal attachment.public_id, response.parsed_body.dig("attachment", "attachment_id")
+    assert_equal "app_upload", response.parsed_body.dig("attachment", "source_kind")
     assert_match %r{/rails/active_storage/blobs/redirect/}, response.parsed_body.dig("attachment", "download_url")
   ensure
     upload&.tempfile&.close!
@@ -58,7 +60,7 @@ class AppApiConversationsAttachmentsControllerTest < ActionDispatch::Integration
     post "/app_api/conversations/#{conversation.public_id}/attachments",
       params: {
         message_id: turn.selected_input_message.id,
-        files: [upload]
+        files: [upload],
       },
       headers: app_api_headers(session.plaintext_token)
 
@@ -89,7 +91,7 @@ class AppApiConversationsAttachmentsControllerTest < ActionDispatch::Integration
         params: {
           message_id: turn.selected_input_message.public_id,
           files: [upload],
-          publication_role: "not_a_role"
+          publication_role: "not_a_role",
         },
         headers: app_api_headers(session.plaintext_token)
     end

@@ -99,16 +99,7 @@ module AppAPI
     end
 
     def conversation_lookup_scope(workspace: nil)
-      scope = Conversation
-        .joins(:workspace_agent, :workspace)
-        .where(
-          installation_id: current_user.installation_id,
-          deletion_state: "retained",
-          workspaces: {
-            user_id: current_user.id,
-            privacy: "private",
-          }
-        )
+      scope = Conversation.accessible_to_user(current_user)
       scope = scope.where(workspace_agents: { workspace_id: workspace.id }) if workspace.present?
       scope
     end
@@ -142,6 +133,7 @@ module AppAPI
         "content_type" => attachment.file.blob.content_type,
         "byte_size" => attachment.file.blob.byte_size,
         "publication_role" => Attachments::CreateForMessage.publication_role_for(attachment),
+        "source_kind" => Attachments::CreateForMessage.source_kind_for(attachment),
         "origin_attachment_id" => attachment.origin_attachment&.public_id,
         "origin_message_id" => attachment.origin_message&.public_id,
       }.compact

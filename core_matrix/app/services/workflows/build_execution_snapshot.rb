@@ -233,6 +233,8 @@ module Workflows
           "filename",
           "content_type",
           "byte_size",
+          "publication_role",
+          "source_kind",
           "modality"
         )
       end
@@ -270,6 +272,8 @@ module Workflows
           "filename" => attachment.file.filename.to_s,
           "content_type" => attachment.file.blob.content_type,
           "byte_size" => attachment.file.blob.byte_size,
+          "publication_role" => Attachments::CreateForMessage.publication_role_for(attachment),
+          "source_kind" => Attachments::CreateForMessage.source_kind_for(attachment),
           "modality" => modality_for(attachment.file.blob.content_type),
         }.compact
       end

@@ -18,6 +18,7 @@ module Turns
       selected_input_message_id = specified?(@selected_input_message) ? @selected_input_message&.id : @turn.selected_input_message_id
       selected_output_message_id = specified?(@selected_output_message) ? @selected_output_message&.id : @turn.selected_output_message_id
       lifecycle_state = specified?(@lifecycle_state) ? @lifecycle_state : @turn.lifecycle_state
+      Turns::GuardPublishedRuntimeArtifacts.call(turn: @turn) if selected_output_replaced?(selected_output_message_id)
 
       @turn.selected_input_message = @selected_input_message if specified?(@selected_input_message)
       @turn.selected_output_message = @selected_output_message if specified?(@selected_output_message)
@@ -35,6 +36,12 @@ module Turns
 
     def specified?(value)
       !value.equal?(UNSPECIFIED)
+    end
+
+    def selected_output_replaced?(selected_output_message_id)
+      @turn.completed? &&
+        specified?(@selected_output_message) &&
+        selected_output_message_id != @turn.selected_output_message_id
     end
   end
 end

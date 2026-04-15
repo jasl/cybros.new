@@ -17,7 +17,18 @@ class ConversationBundleImportsRehydrateConversationTest < ActiveSupport::TestCa
       filename: "question.txt",
       body: "first attachment"
     )
-    attach_selected_output!(first_turn, content: "First importable answer")
+    output_message = attach_selected_output!(first_turn, content: "First importable answer")
+    output_attachment = create_message_attachment!(
+      message: output_message,
+      filename: "game-2048-dist.zip",
+      body: "zip-bytes"
+    )
+    output_attachment.file.blob.update!(
+      metadata: output_attachment.file.blob.metadata.merge(
+        "publication_role" => "primary_deliverable",
+        "source_kind" => "runtime_generated"
+      )
+    )
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Second importable question",
@@ -57,7 +68,11 @@ class ConversationBundleImportsRehydrateConversationTest < ActiveSupport::TestCa
       imported_conversation.messages.order(:created_at, :id).map(&:content)
     assert_equal parsed_bundle.fetch("conversation_payload").fetch("messages").map { |message| message.fetch("created_at") },
       imported_conversation.messages.order(:created_at, :id).map { |message| message.created_at.iso8601(6) }
-    assert_equal 1, MessageAttachment.where(conversation: imported_conversation).count
+    assert_equal 2, MessageAttachment.where(conversation: imported_conversation).count
+    imported_output_message = imported_conversation.messages.find_by!(content: "First importable answer")
+    imported_output_attachment = imported_output_message.message_attachments.first
+    assert_equal "primary_deliverable", imported_output_attachment.file.blob.metadata["publication_role"]
+    assert_equal "runtime_generated", imported_output_attachment.file.blob.metadata["source_kind"]
     assert_equal imported_conversation.turns.order(:sequence).last, imported_conversation.latest_turn
     assert_nil imported_conversation.latest_active_turn
     assert_equal imported_conversation.messages.order(:created_at, :id).last, imported_conversation.latest_message

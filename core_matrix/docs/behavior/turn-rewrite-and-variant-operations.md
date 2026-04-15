@@ -40,6 +40,10 @@ rollback, and output-variant selection.
   records the input variant that produced it.
 - `Turns::SelectOutputVariant` restores both the selected output pointer and
   the matching selected input pointer for that output lineage.
+- once the current selected output carries a published `runtime_generated`
+  attachment, tail rewrite operations must not clear or replace that selected
+  output in place; callers keep the published output selected or branch/new-turn
+  first.
 - branch rerun replays the target output's stored source-input content, not the
   turn's current selected input pointer.
 - retry, in-place rerun, and branch rerun all fail closed when the target
@@ -80,6 +84,9 @@ rollback, and output-variant selection.
 - rerunning a non-completed output is rejected
 - retry and rerun reject outputs with missing source-input provenance
 - selecting an output variant on a non-tail or non-completed turn is rejected
+- edit-tail-input, in-place rerun, and output-variant selection reject replacing
+  a selected output that already carries published `runtime_generated`
+  attachments
 
 ## Reference Sanity Check
 

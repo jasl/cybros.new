@@ -68,6 +68,20 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     refute_includes scenario, "OnboardingSessions::Issue.call"
   end
 
+  test "capstone scenario publishes the built artifact into the conversation and re-downloads it through app api" do
+    scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
+
+    assert_includes scenario, "execution_runtime_publish_output_attachment!"
+    assert_includes scenario, 'publication_role: "primary_deliverable"'
+    assert_includes scenario, '"source_kind") == "runtime_generated"'
+    assert_includes scenario, "app_api_conversation_attachment_show!"
+    assert_includes scenario, "download_url"
+    assert_includes scenario, "conversation-export.zip"
+    assert_includes scenario, "Digest::SHA256.file"
+    assert_includes scenario, "Digest::SHA256.hexdigest"
+    refute_includes scenario, "Attachments::CreateArchiveForMessage.call"
+  end
+
   test "capstone prompt forbids foreground shell servers for long-running app startup" do
     prompt = Acceptance::CapstoneAppApiRoundtrip.prompt(
       generated_app_dir: "/tmp/fenix/game-2048"
