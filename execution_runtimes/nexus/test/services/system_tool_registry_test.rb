@@ -1,6 +1,14 @@
 require "test_helper"
 
 class SystemToolRegistryTest < ActiveSupport::TestCase
+  setup do
+    Browser::SessionManager.browser_capability_probe = { "available" => true, "reason" => nil }
+  end
+
+  teardown do
+    Browser::SessionManager.browser_capability_probe = nil
+  end
+
   test "supported tool names cover the command-run and browser executor slices" do
     assert_equal(
       %w[
@@ -57,5 +65,34 @@ class SystemToolRegistryTest < ActiveSupport::TestCase
     assert_equal "execution_runtime", process_exec_entry.dig(:catalog_entry, "tool_kind")
     assert_equal false, process_proxy_info_entry.dig(:catalog_entry, "mutates_state")
     assert_equal ["process_run_id"], process_proxy_info_entry.dig(:catalog_entry, "input_schema", "required")
+  end
+
+  test "browser executor slice is excluded when browser automation is unavailable" do
+    Browser::SessionManager.browser_capability_probe = {
+      "available" => false,
+      "reason" => "playwright_missing",
+    }
+
+    assert_equal(
+      %w[
+        command_run_list
+        command_run_read_output
+        command_run_terminate
+        command_run_wait
+        exec_command
+        process_exec
+        process_list
+        process_proxy_info
+        process_read_output
+        write_stdin
+      ],
+      SystemToolRegistry.supported_tool_names.sort
+    )
+
+    error = assert_raises(ArgumentError) do
+      SystemToolRegistry.fetch!("browser_open")
+    end
+
+    assert_match(/unsupported tool browser_open/, error.message)
   end
 end

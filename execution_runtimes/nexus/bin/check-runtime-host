@@ -107,23 +107,77 @@ require_version_value "node" "v${NODE_VERSION}" "node ${NODE_VERSION} is require
 require_version_value "npm" "${NPM_VERSION}" "npm ${NPM_VERSION} is required" --version
 require_command "corepack" "corepack is required" >/dev/null || true
 require_version_value "pnpm" "${PNPM_VERSION}" "pnpm ${PNPM_VERSION} is required" --version
-require_last_field_value "playwright" "${PLAYWRIGHT_VERSION}" "playwright ${PLAYWRIGHT_VERSION} is required" --version
 require_version_prefix "uv" "uv ${UV_VERSION}" "uv ${UV_VERSION} is required" --version
 
 for tool_name in git curl jq rg fd sqlite3; do
   require_command "${tool_name}" "${tool_name} is required" >/dev/null || true
 done
 
-if [[ -n "${browser_path}" ]]; then
-  [[ -x "${browser_path}" ]] || missing+=("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH must point to an executable browser")
-else
-  for candidate in chromium chromium-browser google-chrome google-chrome-stable; do
-    browser_path="$(find_command "${candidate}")"
-    [[ -n "${browser_path}" ]] && break
-  done
+browser_probe_output() {
+  local node_command
+  local -a probe_environment
 
-  [[ -n "${browser_path}" ]] || missing+=("install Chromium/Chrome or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH")
-fi
+  node_command="$(find_command "node")"
+  [[ -n "${node_command}" ]] || return 1
+
+  probe_environment=("PATH=${lookup_path}")
+  if [[ -n "${PLAYWRIGHT_BROWSERS_PATH:-}" ]]; then
+    probe_environment+=("PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}")
+  fi
+  if [[ -n "${browser_path}" ]]; then
+    probe_environment+=("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=${browser_path}")
+  fi
+
+  env "${probe_environment[@]}" \
+    "${node_command}" "${script_dir}/../scripts/browser/session_host.mjs" \
+    2>/dev/null <<'JSON' | head -n 1 | tr -d '\r'
+{"command":"probe","arguments":{}}
+JSON
+}
+
+verify_optional_browser_automation() {
+  local playwright_command
+  local playwright_version
+  local playwright_version_warning=""
+  local probe_output
+  local probe_available
+  local probe_reason
+  local probe_message
+
+  playwright_command="$(find_command "playwright")"
+  if [[ -n "${playwright_command}" ]]; then
+    playwright_version="$(command_output "${playwright_command}" --version | awk '{print $NF}' || true)"
+    if [[ "${playwright_version}" != "${PLAYWRIGHT_VERSION}" ]]; then
+      playwright_version_warning="playwright ${PLAYWRIGHT_VERSION} is expected (found '${playwright_version}')"
+    fi
+  fi
+
+  probe_output="$(browser_probe_output || true)"
+  probe_available="$(jq -r '.payload.available // false' <<<"${probe_output}" 2>/dev/null || true)"
+  probe_reason="$(jq -r '.payload.reason // empty' <<<"${probe_output}" 2>/dev/null || true)"
+  probe_message="$(jq -r '.payload.message // empty' <<<"${probe_output}" 2>/dev/null || true)"
+
+  if [[ "${probe_available}" != "true" ]]; then
+    case "${probe_reason}" in
+      playwright_missing)
+        warnings+=("browser automation disabled: ${probe_message:-playwright ${PLAYWRIGHT_VERSION} is not installed}")
+        ;;
+      browser_executable_missing)
+        warnings+=("browser automation disabled: ${probe_message:-install Chromium on the host, run 'playwright install chromium', or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}")
+        ;;
+      node_missing)
+        warnings+=("browser automation disabled: ${probe_message:-node is not available for the browser capability probe}")
+        ;;
+      *)
+        warnings+=("browser automation disabled: ${probe_message:-browser capability probe failed}")
+        ;;
+    esac
+  fi
+
+  if [[ -n "${playwright_version_warning}" ]]; then
+    warnings+=("browser automation dependency drift: ${playwright_version_warning}")
+  fi
+}
 
 cleanup() {
   if [[ -n "${created_runtime_root}" ]]; then
@@ -159,6 +213,7 @@ verify_managed_python_runtime() {
 }
 
 verify_managed_python_runtime
+verify_optional_browser_automation
 
 if (( ${#missing[@]} > 0 )); then
   {

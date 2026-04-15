@@ -1,6 +1,14 @@
 require "test_helper"
 
 class RuntimeManifestTest < ActionDispatch::IntegrationTest
+  setup do
+    Browser::SessionManager.browser_capability_probe = { "available" => true, "reason" => nil }
+  end
+
+  teardown do
+    Browser::SessionManager.browser_capability_probe = nil
+  end
+
   test "runtime manifest exposes a normalized runtime version package" do
     get "/runtime/manifest"
 
@@ -63,7 +71,28 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_equal "images/nexus", foundation.fetch("docker_base_project")
     assert_equal "ubuntu-24.04", foundation.fetch("canonical_host_os")
     assert_equal "bin/check-runtime-host", foundation.fetch("bare_metal_validator")
+    assert_equal true, foundation.fetch("browser_automation_available")
     refute foundation.key?("bootstrap_scripts")
+  end
+
+  test "runtime manifest omits browser tools when browser automation is unavailable" do
+    Browser::SessionManager.browser_capability_probe = {
+      "available" => false,
+      "reason" => "playwright_missing",
+    }
+
+    get "/runtime/manifest"
+
+    assert_response :success
+
+    body = JSON.parse(response.body)
+    runtime_tool_names = body.fetch("version_package").fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
+    foundation = body.dig("version_package", "capability_payload", "runtime_foundation")
+
+    refute_includes runtime_tool_names, "browser_open"
+    refute_includes runtime_tool_names, "browser_screenshot"
+    assert_equal false, foundation.fetch("browser_automation_available")
+    assert_equal "playwright_missing", foundation.fetch("browser_automation_unavailable_reason")
   end
 
   test "runtime manifest exposes idempotency policy for every executor tool" do

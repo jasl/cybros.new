@@ -20,6 +20,104 @@ module Browser
       "/opt/playwright",
     ].freeze
 
+    class << self
+      def probe(
+        node_command: ENV.fetch("NEXUS_NODE_COMMAND", "node"),
+        script_path: Rails.root.join("scripts", "browser", "session_host.mjs"),
+        runtime_env: ENV.to_h,
+        playwright_browser_roots: DEFAULT_PLAYWRIGHT_BROWSER_ROOTS,
+        capture3: Open3.method(:capture3)
+      )
+        environment = probe_environment(
+          runtime_env: runtime_env,
+          playwright_browser_roots: playwright_browser_roots
+        )
+
+        stdout, stderr, status = capture3.call(
+          environment,
+          node_command,
+          Pathname.new(script_path).expand_path.to_s,
+          chdir: Rails.root.to_s,
+          stdin_data: %({"command":"probe","arguments":{}}\n)
+        )
+
+        line = stdout.lines.first.to_s
+        payload = JSON.parse(line)
+        return payload.fetch("payload", {}).deep_stringify_keys if status.success? && payload["payload"].present?
+
+        {
+          "available" => false,
+          "reason" => "probe_failed",
+          "message" => payload["error"].presence || stderr.presence || stdout.presence || "browser capability probe failed",
+        }
+      rescue Errno::ENOENT => error
+        {
+          "available" => false,
+          "reason" => "node_missing",
+          "message" => error.message,
+        }
+      rescue JSON::ParserError => error
+        {
+          "available" => false,
+          "reason" => "probe_failed",
+          "message" => "browser capability probe returned invalid JSON: #{error.message}",
+        }
+      end
+
+      def probe_environment(runtime_env:, playwright_browser_roots:)
+        runtime_env = stringify_keys(runtime_env)
+        environment = {}
+
+        browsers_path = resolved_playwright_browsers_path(
+          runtime_env: runtime_env,
+          playwright_browser_roots: playwright_browser_roots
+        )
+        if browsers_path.present?
+          environment["PLAYWRIGHT_BROWSERS_PATH"] = browsers_path
+        elsif runtime_env.key?("PLAYWRIGHT_BROWSERS_PATH")
+          environment["PLAYWRIGHT_BROWSERS_PATH"] = runtime_env.fetch("PLAYWRIGHT_BROWSERS_PATH")
+        end
+
+        executable_path = runtime_env["PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"]
+        if executable_path.present?
+          environment["PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"] = executable_path
+        end
+
+        environment["PATH"] = runtime_env.fetch("PATH") if runtime_env["PATH"].present?
+        environment
+      end
+
+      def resolved_playwright_browsers_path(runtime_env:, playwright_browser_roots:)
+        playwright_browser_roots(runtime_env: runtime_env, playwright_browser_roots: playwright_browser_roots)
+          .find { |path| managed_browser_root?(path) }
+      end
+
+      def playwright_browser_roots(runtime_env:, playwright_browser_roots:)
+        runtime_env = stringify_keys(runtime_env)
+
+        ([runtime_env["PLAYWRIGHT_BROWSERS_PATH"]] + Array(playwright_browser_roots))
+          .compact
+          .map { |path| Pathname.new(path).expand_path.to_s }
+          .uniq
+      end
+
+      def managed_browser_root?(path)
+        return false if path.blank? || !Dir.exist?(path)
+
+        Dir.glob(File.join(path, "**", "*")).any? do |candidate|
+          File.file?(candidate) &&
+            File.executable?(candidate) &&
+            MANAGED_BROWSER_EXECUTABLE_NAMES.include?(File.basename(candidate))
+        end
+      end
+
+      def stringify_keys(value)
+        value.to_h.each_with_object({}) do |(key, entry), result|
+          result[key.to_s] = entry
+        end
+      end
+    end
+
     def initialize(
       session_id:,
       node_command: ENV.fetch("NEXUS_NODE_COMMAND", "node"),
@@ -30,7 +128,7 @@ module Browser
       @session_id = session_id
       @node_command = node_command
       @script_path = Pathname.new(script_path).expand_path
-      @runtime_env = stringify_keys(runtime_env)
+      @runtime_env = self.class.stringify_keys(runtime_env)
       @playwright_browser_roots = Array(playwright_browser_roots)
     end
 
@@ -82,48 +180,10 @@ module Browser
     end
 
     def browser_environment
-      environment = {}
-
-      browsers_path = resolved_playwright_browsers_path
-      if browsers_path.present?
-        environment["PLAYWRIGHT_BROWSERS_PATH"] = browsers_path
-      elsif @runtime_env.key?("PLAYWRIGHT_BROWSERS_PATH")
-        environment["PLAYWRIGHT_BROWSERS_PATH"] = @runtime_env.fetch("PLAYWRIGHT_BROWSERS_PATH")
-      end
-
-      executable_path = @runtime_env["PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"]
-      if executable_path.present?
-        environment["PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"] = executable_path
-      end
-
-      environment
-    end
-
-    def resolved_playwright_browsers_path
-      playwright_browser_roots.find { |path| managed_browser_root?(path) }
-    end
-
-    def playwright_browser_roots
-      ([@runtime_env["PLAYWRIGHT_BROWSERS_PATH"]] + @playwright_browser_roots)
-        .compact
-        .map { |path| Pathname.new(path).expand_path.to_s }
-        .uniq
-    end
-
-    def managed_browser_root?(path)
-      return false if path.blank? || !Dir.exist?(path)
-
-      Dir.glob(File.join(path, "**", "*")).any? do |candidate|
-        File.file?(candidate) &&
-          File.executable?(candidate) &&
-          MANAGED_BROWSER_EXECUTABLE_NAMES.include?(File.basename(candidate))
-      end
-    end
-
-    def stringify_keys(value)
-      value.to_h.each_with_object({}) do |(key, entry), result|
-        result[key.to_s] = entry
-      end
+      self.class.probe_environment(
+        runtime_env: @runtime_env,
+        playwright_browser_roots: @playwright_browser_roots
+      )
     end
 
     def unexpected_termination_message
@@ -140,8 +200,26 @@ module Browser
   end
 
   class << self
+    attr_writer :browser_capability_probe
+
     def call(...)
       new(...).call
+    end
+
+    def browser_capability_probe=(value)
+      @browser_capability_probe = value&.deep_stringify_keys
+    end
+
+    def browser_capability_probe
+      @browser_capability_probe ||= PlaywrightHost.probe
+    end
+
+    def browser_capability_payload
+      browser_capability_probe.deep_dup
+    end
+
+    def browser_tools_available?
+      browser_capability_probe.fetch("available", false)
     end
 
     def lookup(browser_session_id:)
@@ -155,6 +233,7 @@ module Browser
     def reset!
       sessions = registry.clear!
       sessions.each { |session| session.host.close }
+      @browser_capability_probe = nil
     end
 
     def register(session)

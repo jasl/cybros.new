@@ -143,6 +143,35 @@ function globalNodeModulesPath() {
 
 async function dispatch(command, argumentsPayload) {
   switch (command) {
+    case "probe": {
+      try {
+        const { chromium } = await resolvePlaywrightModule();
+        const explicitExecutablePath = configuredExecutablePath();
+        const executablePath = explicitExecutablePath || chromium.executablePath?.() || null;
+        const available = Boolean(executablePath && fs.existsSync(executablePath));
+        const missingExecutableMessage = explicitExecutablePath
+          ? `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH does not point to an executable browser (${explicitExecutablePath})`
+          : "install Chromium on the host, run 'playwright install chromium', or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH";
+
+        return {
+          available,
+          executable_path: executablePath,
+          module_available: true,
+          reason: available ? null : "browser_executable_missing",
+          message: available ? null : missingExecutableMessage,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        return {
+          available: false,
+          executable_path: null,
+          module_available: false,
+          reason: /could not load Playwright/i.test(message) ? "playwright_missing" : "probe_failed",
+          message,
+        };
+      }
+    }
     case "open": {
       const activePage = await ensurePage();
       if (argumentsPayload.url) {

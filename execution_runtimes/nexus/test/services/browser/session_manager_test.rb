@@ -368,6 +368,100 @@ class Browser::SessionManagerTest < ActiveSupport::TestCase
     end
   end
 
+  test "playwright capability probe reports unavailable when playwright cannot be resolved" do
+    Dir.mktmpdir("nexus-playwright-probe-missing") do |tmpdir|
+      script_path = write_session_host_copy(tmpdir)
+      fake_bin = File.join(tmpdir, "bin")
+      FileUtils.mkdir_p(fake_bin)
+
+      File.write(
+        File.join(fake_bin, "npm"),
+        <<~SH
+          #!/usr/bin/env bash
+          if [[ "$1" == "root" && "$2" == "-g" ]]; then
+            echo #{File.join(tmpdir, "missing-global-root").inspect}
+            exit 0
+          fi
+
+          exit 1
+        SH
+      )
+      FileUtils.chmod("+x", File.join(fake_bin, "npm"))
+
+      probe = Browser::SessionManager::PlaywrightHost.probe(
+        script_path: script_path,
+        runtime_env: {
+          "PATH" => "#{fake_bin}:#{ENV.fetch("PATH")}",
+        }
+      )
+
+      assert_equal false, probe.fetch("available")
+      assert_equal "playwright_missing", probe.fetch("reason")
+    end
+  end
+
+  test "playwright capability probe reports available when a global playwright package is present" do
+    Dir.mktmpdir("nexus-playwright-probe-global") do |tmpdir|
+      script_path = write_session_host_copy(tmpdir)
+      fake_bin = File.join(tmpdir, "bin")
+      global_root = File.join(tmpdir, "node_modules")
+      playwright_root = File.join(global_root, "playwright")
+      browser_path = File.join(tmpdir, "chrome")
+      FileUtils.mkdir_p(fake_bin)
+      FileUtils.mkdir_p(playwright_root)
+
+      File.write(
+        File.join(playwright_root, "package.json"),
+        JSON.pretty_generate(
+          name: "playwright",
+          version: "1.59.1",
+          exports: {
+            "." => {
+              import: "./index.mjs",
+            },
+          }
+        )
+      )
+      File.write(
+        File.join(playwright_root, "index.mjs"),
+        <<~JAVASCRIPT
+          export const chromium = {
+            executablePath() {
+              return #{browser_path.inspect};
+            },
+          };
+        JAVASCRIPT
+      )
+      File.write(
+        File.join(fake_bin, "npm"),
+        <<~SH
+          #!/usr/bin/env bash
+          if [[ "$1" == "root" && "$2" == "-g" ]]; then
+            echo #{global_root.inspect}
+            exit 0
+          fi
+
+          exit 1
+        SH
+      )
+      FileUtils.chmod("+x", File.join(fake_bin, "npm"))
+      File.write(browser_path, "#!/usr/bin/env bash\nexit 0\n")
+      FileUtils.chmod("+x", browser_path)
+
+      probe = Browser::SessionManager::PlaywrightHost.probe(
+        script_path: script_path,
+        runtime_env: {
+          "PATH" => "#{fake_bin}:#{ENV.fetch("PATH")}",
+          "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" => browser_path,
+        }
+      )
+
+      assert_equal true, probe.fetch("available")
+      assert_equal browser_path, probe.fetch("executable_path")
+      assert_equal true, probe.fetch("module_available")
+    end
+  end
+
   private
 
   def write_executable(path)

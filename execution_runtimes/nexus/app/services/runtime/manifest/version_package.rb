@@ -29,12 +29,16 @@ module Runtime
       end
 
       def capability_payload
+        browser_capability = Browser::SessionManager.browser_capability_payload
+
         {
           "runtime_foundation" => {
             "docker_base_project" => "images/nexus",
             "canonical_host_os" => "ubuntu-24.04",
             "bare_metal_validator" => "bin/check-runtime-host",
-          },
+            "browser_automation_available" => browser_capability.fetch("available", false),
+            "browser_automation_unavailable_reason" => browser_capability["reason"].presence,
+          }.compact,
         }
       end
 

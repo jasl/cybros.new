@@ -1,26 +1,38 @@
 class SystemToolRegistry
   class << self
-    def fetch!(tool_name)
-      REGISTRY.fetch(tool_name.to_s) do
+    def fetch!(tool_name, browser_available: browser_tooling_available?)
+      visible_registry(browser_available: browser_available).fetch(tool_name.to_s) do
         raise ArgumentError, "unsupported tool #{tool_name}"
       end
     end
 
-    def supported_tool_names
-      REGISTRY.keys
+    def supported_tool_names(browser_available: browser_tooling_available?)
+      visible_registry(browser_available: browser_available).keys
     end
 
-    def registry_backed_tool_names
-      REGISTRY.filter_map do |tool_name, entry|
+    def registry_backed_tool_names(browser_available: browser_tooling_available?)
+      visible_registry(browser_available: browser_available).filter_map do |tool_name, entry|
         tool_name if entry.fetch(:registry_backed)
       end
     end
 
-    def execution_runtime_tool_catalog
-      REGISTRY.values.map { |entry| entry.fetch(:catalog_entry).deep_dup }
+    def execution_runtime_tool_catalog(browser_available: browser_tooling_available?)
+      visible_registry(browser_available: browser_available).values.map { |entry| entry.fetch(:catalog_entry).deep_dup }
     end
 
     private
+
+    def browser_tooling_available?
+      Browser::SessionManager.browser_tools_available?
+    end
+
+    def visible_registry(browser_available:)
+      return REGISTRY if browser_available
+
+      REGISTRY.reject do |_tool_name, entry|
+        entry.dig(:catalog_entry, "operator_group") == "browser_session"
+      end
+    end
 
     def register!(entries, catalog_entry:, executor:, registry_backed: true)
       normalized_catalog_entry = catalog_entry.deep_dup

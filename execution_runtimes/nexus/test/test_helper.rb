@@ -12,6 +12,14 @@ module ActiveSupport
     fixtures :all
 
     # Add more helper methods to be used by all tests here...
+    setup do
+      Browser::SessionManager.browser_capability_probe = { "available" => true, "reason" => nil }
+    end
+
+    teardown do
+      Browser::SessionManager.browser_capability_probe = nil
+    end
+
     private
 
     def with_skill_fixture_roots(home_root: nil)
