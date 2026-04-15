@@ -28,7 +28,7 @@ module RuntimeCapabilities
       @current_profile_key ||= begin
         @conversation.subagent_connection&.profile_key ||
           explicit_turn_profile_key ||
-          @conversation.workspace_agent&.interactive_profile_key_override ||
+          profile_settings_view["interactive_profile_key"] ||
           contract.default_canonical_config.dig("interactive", "profile") ||
           contract.default_canonical_config.dig("interactive", "default_profile_key") ||
           "main"
@@ -48,12 +48,6 @@ module RuntimeCapabilities
       RuntimeCapabilities::ProfileToolMask.call(
         tool_catalog: tool_catalog,
         profile: current_profile
-      )
-    end
-
-    def effective_subagent_policy
-      contract.default_canonical_config.fetch("subagents", {}).deep_merge(
-        @conversation.override_payload.fetch("subagents", {})
       )
     end
 
@@ -87,7 +81,8 @@ module RuntimeCapabilities
       schema = entry.fetch("input_schema", {}).deep_dup
       properties = schema.fetch("properties", {}).deep_dup
       profile_key_schema = properties.fetch("profile_key", {}).deep_dup
-      explicit_profile_keys = contract.profile_policy.keys
+      model_selector_hint_schema = properties.fetch("model_selector_hint", {}).deep_dup
+      explicit_profile_keys = enabled_subagent_profile_keys
 
       properties["profile_key"] = profile_key_schema.merge(
         "type" => "string",
@@ -96,6 +91,13 @@ module RuntimeCapabilities
           profile_key_schema["description"],
           "Use #{DEFAULT_SUBAGENT_PROFILE_ALIAS.inspect} or omit this field to let the runtime choose the default subagent profile.",
           "Available explicit profiles: #{explicit_profile_keys.join(", ")}.",
+        ].compact.join(" ").strip
+      )
+      properties["model_selector_hint"] = model_selector_hint_schema.merge(
+        "type" => "string",
+        "description" => [
+          model_selector_hint_schema["description"],
+          "Optional resolved model selector hint for the spawned specialist.",
         ].compact.join(" ").strip
       )
 
@@ -118,11 +120,52 @@ module RuntimeCapabilities
     end
 
     def subagents_disabled?
-      effective_subagent_policy["enabled"] == false
+      effective_subagent_policy["enabled"] == false || enabled_subagent_profile_keys.empty?
     end
 
     def subagent_tool?(tool_name)
       SUBAGENT_TOOL_NAMES.include?(tool_name)
+    end
+
+    def enabled_subagent_profile_keys
+      explicit_enabled = profile_settings_view.key?("enabled_subagent_profile_keys")
+      return Array(profile_settings_view["enabled_subagent_profile_keys"]) - [mounted_interactive_profile_key] if explicit_enabled
+
+      contract.profile_policy.keys - [mounted_interactive_profile_key]
+    end
+
+    def mounted_interactive_profile_key
+      profile_settings_view["interactive_profile_key"] ||
+        contract.default_canonical_config.dig("interactive", "profile") ||
+        contract.default_canonical_config.dig("interactive", "default_profile_key") ||
+        "main"
+    end
+
+    def workspace_agent_subagent_policy_overrides
+      {}.tap do |overrides|
+        if profile_settings_view.key?("allow_nested_subagents")
+          overrides["allow_nested"] = profile_settings_view["allow_nested_subagents"]
+        end
+        if profile_settings_view["max_subagent_depth"].present?
+          overrides["max_depth"] = profile_settings_view["max_subagent_depth"]
+        end
+      end
+    end
+
+    def profile_settings_view
+      @profile_settings_view ||= begin
+        frozen_view = @turn&.execution_contract&.workspace_agent_profile_settings
+        source = frozen_view.presence || @conversation.workspace_agent&.profile_settings_view || {}
+        source.deep_stringify_keys
+      end
+    end
+
+    def effective_subagent_policy
+      contract.default_canonical_config.fetch("subagents", {}).deep_merge(
+        @conversation.override_payload.fetch("subagents", {})
+      ).deep_merge(
+        workspace_agent_subagent_policy_overrides
+      )
     end
   end
 end

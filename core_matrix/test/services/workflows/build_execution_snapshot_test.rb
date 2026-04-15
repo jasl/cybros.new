@@ -560,7 +560,14 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
   end
 
   test "freezes root agent context with the main profile and visible tool names" do
-    context = prepare_profile_aware_execution_context!
+    context = prepare_profile_aware_execution_context!(
+      profile_policy: default_profile_policy.deep_merge(
+        "critic" => {
+          "label" => "Critic",
+          "description" => "Delegated critique profile",
+        }
+      )
+    )
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     turn = Turns::StartUserTurn.call(
       conversation: conversation,
@@ -653,6 +660,30 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     )
   end
 
+  test "freezes child model selector hints into the capability projection" do
+    context = prepare_profile_aware_execution_context!
+    root_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    child_chain = create_subagent_conversation_chain!(
+      context: context,
+      parent_conversation: root_conversation,
+      depth: 0,
+      profile_key: "researcher",
+      resolved_model_selector_hint: "role:researcher"
+    )
+    turn = Turns::StartAgentTurn.call(
+      conversation: child_chain.fetch(:conversation),
+      content: "Delegated input",
+      sender_kind: "owner_agent",
+      sender_conversation: child_chain.fetch(:subagent_connection).owner_conversation,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = build_execution_snapshot_for!(turn: turn)
+
+    assert_equal "role:researcher", snapshot.capability_projection.fetch("model_selector_hint")
+  end
+
   private
 
   def prepare_profile_aware_execution_context!(profile_policy: default_profile_policy)
@@ -668,7 +699,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     context
   end
 
-  def create_subagent_conversation_chain!(context:, parent_conversation:, depth:, profile_key:)
+  def create_subagent_conversation_chain!(context:, parent_conversation:, depth:, profile_key:, resolved_model_selector_hint: nil)
     previous_conversation = parent_conversation
     previous_session = nil
 
@@ -690,6 +721,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
         parent_subagent_connection: previous_session,
         scope: "conversation",
         profile_key: profile_key,
+        resolved_model_selector_hint: resolved_model_selector_hint,
         depth: index
       )
 
@@ -793,7 +825,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       settings_payload: {
         "interactive_profile_key" => "main",
         "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher", "main"],
+        "enabled_subagent_profile_keys" => ["researcher"],
         "delegation_mode" => "prefer",
       }
     )
@@ -807,7 +839,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     conversation.workspace_agent.update!(
       settings_payload: {
         "delegation_mode" => "prefer",
-        "enabled_subagent_profile_keys" => ["main", "researcher"],
+        "enabled_subagent_profile_keys" => ["researcher"],
         "default_subagent_profile_key" => "researcher",
         "interactive_profile_key" => "main",
       }
@@ -826,7 +858,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       {
         "interactive_profile_key" => "main",
         "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["main", "researcher"],
+        "enabled_subagent_profile_keys" => ["researcher"],
         "delegation_mode" => "prefer",
       },
       first_snapshot.workspace_agent_context.fetch("profile_settings")
@@ -839,8 +871,8 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     conversation.workspace_agent.update!(
       settings_payload: {
         "interactive_profile_key" => "researcher",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["main", "researcher"],
+        "default_subagent_profile_key" => "main",
+        "enabled_subagent_profile_keys" => ["main"],
         "delegation_mode" => "allow",
       }
     )

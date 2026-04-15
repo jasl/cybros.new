@@ -99,6 +99,9 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
           "allowed_tool_names" => %w[compact_context subagent_spawn],
           "allow_execution_runtime_tools" => true,
         },
+        "researcher" => {
+          "allowed_tool_names" => %w[subagent_send subagent_wait subagent_close subagent_list],
+        },
       },
       tool_contract: default_tool_catalog("compact_context")
     )
@@ -246,18 +249,27 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     Turn.define_singleton_method(:new, original_new) if original_new
   end
 
-  test "subagent spawn schema advertises runtime profile choices and default alias" do
+  test "subagent spawn schema advertises enabled specialist choices plus default alias and optional model selector hint" do
     registration = register_profile_aware_runtime!
     conversation = create_root_conversation_for!(registration)
+    conversation.workspace_agent.update!(
+      settings_payload: {
+        "interactive_profile_key" => "main",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "default_subagent_profile_key" => "researcher",
+      }
+    )
 
     entry = RuntimeCapabilities::PreviewForConversation.call(
       conversation: conversation
     ).fetch("tool_catalog").find { |tool| tool.fetch("tool_name") == "subagent_spawn" }
 
-    profile_key_schema = entry.fetch("input_schema").fetch("properties").fetch("profile_key")
+    properties = entry.fetch("input_schema").fetch("properties")
+    profile_key_schema = properties.fetch("profile_key")
 
-    assert_equal %w[default main researcher], profile_key_schema.fetch("enum")
+    assert_equal %w[default researcher], profile_key_schema.fetch("enum")
     assert_includes profile_key_schema.fetch("description"), "omit this field"
+    assert_equal "string", properties.dig("model_selector_hint", "type")
   end
 
   test "conversation overrides reject interactive profile mutations" do

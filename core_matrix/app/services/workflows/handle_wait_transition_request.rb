@@ -69,6 +69,7 @@ module Workflows
           content: payload.fetch("content"),
           scope: payload.fetch("scope", "conversation"),
           profile_key: payload["profile_key"],
+          model_selector_hint: payload["model_selector_hint"],
           task_payload: payload.fetch("task_payload", {})
         )
         node.update!(

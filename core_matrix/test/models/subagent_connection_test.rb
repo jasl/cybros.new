@@ -6,6 +6,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     assert_includes SubagentConnection.column_names, "owner_conversation_id"
     assert_includes SubagentConnection.column_names, "conversation_id"
     assert_includes SubagentConnection.column_names, "profile_key"
+    assert_includes SubagentConnection.column_names, "resolved_model_selector_hint"
     assert_includes SubagentConnection.column_names, "scope"
     assert_includes SubagentConnection.column_names, "observed_status"
 
@@ -31,10 +32,12 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       agent: owner_conversation.agent,
       scope: "conversation",
       profile_key: "researcher",
+      resolved_model_selector_hint: "role:researcher",
       depth: 0
     )
 
     assert session.valid?
+    assert_equal "role:researcher", session.resolved_model_selector_hint
 
     session.profile_key = nil
     assert_not session.valid?

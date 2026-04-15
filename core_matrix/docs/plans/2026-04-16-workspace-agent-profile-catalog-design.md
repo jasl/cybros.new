@@ -427,6 +427,19 @@ When CoreMatrix spawns a child turn, it should freeze:
 Those frozen facts belong in the child turn's execution-visible contract and in
 the persisted `delegation_package`, not in mutable live-only state.
 
+Recommended persistence split:
+
+- persist `profile_key` and `resolved_model_selector_hint` on
+  `SubagentConnection`
+- project `model_selector_hint` into the child execution-visible payloads from
+  that persisted fact
+- keep the `delegation_package` field name as `model_selector_hint`, because it
+  mirrors the tool argument name that Fenix produced
+
+This keeps the wire contract small while giving later debug/export surfaces a
+stable source of truth that does not depend on re-reading mutable supervision
+payloads or reconstructing the original tool call.
+
 ## Fenix Routing Behavior
 
 ### Main-Agent Routing

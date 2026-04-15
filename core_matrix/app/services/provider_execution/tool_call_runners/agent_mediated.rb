@@ -143,6 +143,7 @@ module ProviderExecution
           "parent_subagent_connection_id" => capability_projection["parent_subagent_connection_id"],
           "subagent_depth" => capability_projection["subagent_depth"],
           "owner_conversation_id" => capability_projection["owner_conversation_id"],
+          "model_selector_hint" => capability_projection["model_selector_hint"],
           "allowed_tool_names" => [@tool_call.fetch("tool_name")],
         }.compact
       end

@@ -20,6 +20,7 @@ module ProviderExecution
           content: arguments.fetch("content"),
           scope: arguments["scope"].presence || "conversation",
           profile_key: arguments["profile_key"],
+          model_selector_hint: arguments["model_selector_hint"],
           task_payload: arguments.fetch("task_payload", {})
         )
       when "subagent_send"

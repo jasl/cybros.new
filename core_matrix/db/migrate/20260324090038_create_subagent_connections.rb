@@ -12,6 +12,7 @@ class CreateSubagentConnections < ActiveRecord::Migration[8.2]
       t.uuid :public_id, null: false, default: -> { "uuidv7()" }
       t.string :scope, null: false, default: "turn"
       t.string :profile_key, null: false
+      t.string :resolved_model_selector_hint
       t.integer :depth, null: false, default: 0
       t.string :observed_status, null: false, default: "idle"
       t.string :supervision_state, null: false, default: "queued"

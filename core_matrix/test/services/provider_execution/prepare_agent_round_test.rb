@@ -227,4 +227,71 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
     assert_equal "Please update the failing migration spec.",
       request_payload.dig("round_context", "work_context_view", "explicit_reply_context", "quoted_text")
   end
+
+  test "includes subagent model selector hints in agent_context" do
+    context = build_governed_specialist_subagent_context!
+    agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
+      prepared_rounds: [
+        {
+          "messages" => [
+            { "role" => "assistant", "content" => "Round prepared" },
+          ],
+          "visible_tool_names" => ["calculator"],
+          "summary_artifacts" => [],
+          "trace" => [],
+        },
+      ]
+    )
+
+    ProviderExecution::PrepareAgentRound.call(
+      workflow_node: context.fetch(:workflow_node),
+      transcript: [{ "role" => "user", "content" => "Continue." }],
+      agent_request_exchange: agent_request_exchange
+    )
+
+    request_payload = agent_request_exchange.prepare_round_requests.last
+
+    assert_equal "researcher", request_payload.dig("agent_context", "profile")
+    assert_equal true, request_payload.dig("agent_context", "is_subagent")
+    assert_equal "role:researcher", request_payload.dig("agent_context", "model_selector_hint")
+  end
+
+  private
+
+  def build_governed_specialist_subagent_context!
+    profile_policy = governed_profile_policy.deep_merge(
+      "researcher" => {
+        "label" => "Researcher",
+        "description" => "Delegated specialist profile",
+        "allowed_tool_names" => %w[calculator compact_context],
+      }
+    )
+    context = build_governed_tool_context!(
+      agent_tool_catalog: governed_agent_tool_catalog + [default_agent_observation_tool_entry("calculator")],
+      profile_policy: profile_policy
+    )
+    owner_conversation = Conversations::CreateRoot.call(workspace: context.fetch(:workspace))
+    owner_turn = Turns::StartUserTurn.call(
+      conversation: owner_conversation,
+      content: "Delegate",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {
+        "selector_source" => "slot",
+        "normalized_selector" => "role:mock",
+      }
+    )
+    spawn_result = SubagentConnections::Spawn.call(
+      conversation: owner_conversation,
+      origin_turn: owner_turn,
+      content: "Investigate this",
+      scope: "conversation",
+      profile_key: "researcher",
+      model_selector_hint: "role:researcher"
+    )
+    workflow_run = WorkflowRun.find_by!(public_id: spawn_result.fetch("workflow_run_id"))
+
+    {
+      workflow_node: workflow_run.workflow_nodes.find_by!(node_key: "subagent_step_1"),
+    }
+  end
 end

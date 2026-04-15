@@ -163,6 +163,43 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal "main", mailbox_item.payload.dig("workspace_agent_context", "profile_settings", "interactive_profile_key")
   end
 
+  test "reconstructs subagent model selector hints from the frozen execution snapshot" do
+    context = build_governed_tool_context!(
+      profile_policy: governed_profile_policy.deep_merge(
+        "researcher" => {
+          "label" => "Researcher",
+          "description" => "Delegated research profile",
+        }
+      )
+    )
+    owner_conversation = Conversations::CreateRoot.call(workspace: context.fetch(:workspace))
+    owner_turn = Turns::StartUserTurn.call(
+      conversation: owner_conversation,
+      content: "Delegate",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {
+        "selector_source" => "slot",
+        "normalized_selector" => "role:mock",
+      }
+    )
+    spawn_result = SubagentConnections::Spawn.call(
+      conversation: owner_conversation,
+      origin_turn: owner_turn,
+      content: "Investigate this",
+      scope: "conversation",
+      profile_key: "researcher",
+      model_selector_hint: "role:researcher"
+    )
+
+    mailbox_item = AgentControlMailboxItem.find_by!(
+      agent_task_run: AgentTaskRun.find_by!(public_id: spawn_result.fetch("agent_task_run_id")),
+      item_type: "execution_assignment"
+    )
+    payload = AgentControl::SerializeMailboxItem.call(mailbox_item)
+
+    assert_equal "role:researcher", payload.dig("payload", "capability_projection", "model_selector_hint")
+  end
+
   test "requires agent definition targeting to remain inside the targeted agent" do
     context = build_agent_control_context!
     other_agent = create_agent!(installation: context[:installation])

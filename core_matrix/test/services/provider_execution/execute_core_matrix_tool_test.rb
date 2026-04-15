@@ -113,4 +113,40 @@ class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
     assert_equal "Agent summary", conversation.summary
     assert_equal "agent", conversation.summary_source
   end
+
+  test "passes model selector hints through subagent spawn requests" do
+    context = build_governed_tool_context!(
+      profile_policy: governed_profile_policy.deep_merge(
+        "researcher" => {
+          "label" => "Researcher",
+          "description" => "Delegated research profile",
+          "allowed_tool_names" => %w[subagent_send subagent_wait subagent_close subagent_list],
+        }
+      ),
+      workspace_agent_settings_payload: {
+        "interactive_profile_key" => "main",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "default_subagent_profile_key" => "researcher",
+      }
+    )
+    workflow_node = context.fetch(:workflow_node)
+
+    result = ProviderExecution::ExecuteCoreMatrixTool.call(
+      workflow_node: workflow_node,
+      tool_call: {
+        "tool_name" => "subagent_spawn",
+        "arguments" => {
+          "content" => "Investigate the failure",
+          "scope" => "conversation",
+          "profile_key" => "researcher",
+          "model_selector_hint" => "role:researcher",
+        },
+      }
+    )
+
+    session = SubagentConnection.find_by!(public_id: result.fetch("subagent_connection_id"))
+
+    assert_equal "role:researcher", result.fetch("model_selector_hint")
+    assert_equal "role:researcher", session.resolved_model_selector_hint
+  end
 end

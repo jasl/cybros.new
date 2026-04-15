@@ -61,6 +61,7 @@ module Workflows
         "tool_surface_sha" => tool_surface_document.content_sha256,
         "agent_definition_fingerprint" => @turn.agent_definition_version.fingerprint,
         "profile_key" => current_profile_key,
+        "model_selector_hint" => subagent_connection&.resolved_model_selector_hint,
         "subagent" => subagent_connection.present?,
         "subagent_connection_id" => subagent_connection&.public_id,
         "parent_subagent_connection_id" => subagent_connection&.parent_subagent_connection&.public_id,
@@ -77,6 +78,7 @@ module Workflows
         snapshot.tool_surface_document = tool_surface_document
         snapshot.agent_definition_version = @turn.agent_definition_version
         snapshot.profile_key = current_profile_key
+        snapshot.model_selector_hint = snapshot_payload.fetch("model_selector_hint")
         snapshot.subagent = subagent_connection.present?
         snapshot.subagent_connection = subagent_connection
         snapshot.parent_subagent_connection = subagent_connection&.parent_subagent_connection

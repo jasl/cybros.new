@@ -54,6 +54,7 @@ class SubagentConnection < ApplicationRecord
 
   validates :profile_key, presence: true
   validates :depth, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+  validate :resolved_model_selector_hint_must_be_string
   validate :user_installation_match
   validate :workspace_installation_match
   validate :agent_installation_match
@@ -159,5 +160,11 @@ class SubagentConnection < ApplicationRecord
     return if depth == parent_subagent_connection.depth + 1
 
     errors.add(:depth, "must be parent depth plus one")
+  end
+
+  def resolved_model_selector_hint_must_be_string
+    return if resolved_model_selector_hint.nil? || resolved_model_selector_hint.is_a?(String)
+
+    errors.add(:resolved_model_selector_hint, "must be a string")
   end
 end

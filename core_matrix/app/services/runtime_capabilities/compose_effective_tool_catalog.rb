@@ -14,6 +14,7 @@ module RuntimeCapabilities
             "content" => { "type" => "string" },
             "scope" => { "type" => "string", "enum" => %w[conversation turn] },
             "profile_key" => { "type" => "string" },
+            "model_selector_hint" => { "type" => "string" },
             "task_payload" => { "type" => "object" },
           },
           "required" => ["content"],

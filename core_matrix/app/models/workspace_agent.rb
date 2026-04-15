@@ -66,6 +66,26 @@ class WorkspaceAgent < ApplicationRecord
     Array(normalized_settings_payload["enabled_subagent_profile_keys"])
   end
 
+  def delegation_mode_override
+    normalized_settings_payload["delegation_mode"]
+  end
+
+  def max_concurrent_subagents_override
+    normalized_settings_payload["max_concurrent_subagents"]
+  end
+
+  def max_subagent_depth_override
+    normalized_settings_payload["max_subagent_depth"]
+  end
+
+  def allow_nested_subagents_override
+    normalized_settings_payload["allow_nested_subagents"]
+  end
+
+  def default_subagent_model_selector_hint_override
+    normalized_settings_payload["default_subagent_model_selector_hint"]
+  end
+
   def profile_settings_view
     SETTINGS_PAYLOAD_KEYS.each_with_object({}) do |key, view|
       next unless normalized_settings_payload.key?(key)
@@ -105,6 +125,9 @@ class WorkspaceAgent < ApplicationRecord
     normalize_integer_setting!(normalized, "max_concurrent_subagents")
     normalize_integer_setting!(normalized, "max_subagent_depth")
     normalize_boolean_setting!(normalized, "allow_nested_subagents")
+    if normalized.key?("enabled_subagent_profile_keys")
+      normalized["enabled_subagent_profile_keys"] -= [current_interactive_profile_key(normalized)]
+    end
 
     self.settings_payload = normalized.compact
   end
@@ -167,6 +190,7 @@ class WorkspaceAgent < ApplicationRecord
 
     validate_profile_key_membership(normalized)
     validate_default_subagent_membership(normalized)
+    validate_enabled_subagent_profiles_exclude_interactive(normalized)
   end
 
   def immutable_after_terminal_lifecycle_state
@@ -310,6 +334,28 @@ class WorkspaceAgent < ApplicationRecord
     return if Array(normalized["enabled_subagent_profile_keys"]).include?(normalized["default_subagent_profile_key"])
 
     errors.add(:settings_payload, "default_subagent_profile_key must be included in enabled_subagent_profile_keys")
+  end
+
+  def validate_enabled_subagent_profiles_exclude_interactive(normalized)
+    return unless normalized.key?("enabled_subagent_profile_keys")
+
+    interactive_profile_key = current_interactive_profile_key(normalized)
+    return if interactive_profile_key.blank?
+    return unless Array(normalized["enabled_subagent_profile_keys"]).include?(interactive_profile_key)
+
+    errors.add(:settings_payload, "enabled_subagent_profile_keys must not include the interactive profile")
+  end
+
+  def current_interactive_profile_key(normalized)
+    normalized["interactive_profile_key"].presence ||
+      current_default_canonical_config.dig("interactive", "profile").presence ||
+      current_default_canonical_config.dig("interactive", "default_profile_key").presence ||
+      "main"
+  end
+
+  def current_default_canonical_config
+    current_definition_version = agent&.current_agent_definition_version || agent&.published_agent_definition_version
+    current_definition_version&.default_canonical_config || {}
   end
 
   def current_profile_policy

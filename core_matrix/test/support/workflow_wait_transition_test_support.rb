@@ -110,6 +110,7 @@ module WorkflowWaitTransitionTestSupport
                     "content" => intent.fetch(:content),
                     "scope" => intent.fetch(:scope, "conversation"),
                     "profile_key" => intent[:profile_key],
+                    "model_selector_hint" => intent[:model_selector_hint],
                     "task_payload" => intent.fetch(:task_payload, {}),
                   }.compact,
                   "idempotency_key" => "#{batch_id}:subagent:#{index}",

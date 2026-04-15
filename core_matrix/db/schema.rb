@@ -1026,6 +1026,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.datetime "created_at", null: false
     t.string "fingerprint", null: false
     t.bigint "installation_id", null: false
+    t.string "model_selector_hint"
     t.bigint "owner_conversation_id"
     t.bigint "parent_subagent_connection_id"
     t.string "profile_key", null: false
@@ -1736,6 +1737,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "recent_progress_summary"
     t.string "request_summary"
+    t.string "resolved_model_selector_hint"
     t.string "scope", default: "turn", null: false
     t.jsonb "supervision_payload", default: {}, null: false
     t.string "supervision_state", default: "queued", null: false

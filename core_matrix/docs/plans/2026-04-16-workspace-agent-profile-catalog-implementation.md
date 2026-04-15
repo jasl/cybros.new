@@ -366,9 +366,14 @@ git commit -m "feat: freeze workspace agent profile settings"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/compose_effective_tool_catalog.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/compose_visible_tool_catalog.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/execute_core_matrix_tool.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/subagent_connection.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/spawn.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/build_execution_snapshot.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/turn_execution_snapshot.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260324090038_create_subagent_connections.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/schema.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/runtime_capabilities/preview_for_conversation_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/subagent_connection_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_connections/spawn_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
 
@@ -382,6 +387,8 @@ Cover:
 - default alias resolves through mount override state
 - child `delegation_package` and frozen execution state preserve the resolved
   selector hint when present
+- persisted `SubagentConnection` rows keep the resolved selector hint as a
+  stable fact for later export/review surfaces
 
 **Step 2: Implement spawn-time resolution**
 
@@ -390,8 +397,8 @@ Add:
 - optional `model_selector_hint` argument plumbing
 - tool-schema filtering to enabled specialist keys only
 - validation against enabled specialist keys from frozen mount settings
-- persistence of resolved profile key plus selector hint in child task payload
-  and execution state
+- persistence of resolved profile key plus selector hint in child task payload,
+  `SubagentConnection`, and child execution-visible snapshot state
 
 Keep the new field optional and fallback-safe.
 
@@ -414,9 +421,14 @@ Expected: PASS.
 git add /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/compose_effective_tool_catalog.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/compose_visible_tool_catalog.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/execute_core_matrix_tool.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/subagent_connection.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/subagent_connections/spawn.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/build_execution_snapshot.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/turn_execution_snapshot.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260324090038_create_subagent_connections.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/schema.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/runtime_capabilities/preview_for_conversation_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/subagent_connection_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/subagent_connections/spawn_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/workflows/build_execution_snapshot_test.rb
 git commit -m "feat: carry specialist selector hints through subagent spawn"

@@ -83,7 +83,7 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       settings_payload: {
         "interactive_profile_key" => "main",
         "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher", "main", "", "researcher"],
+        "enabled_subagent_profile_keys" => ["researcher", "", "researcher"],
         "delegation_mode" => "prefer",
         "max_concurrent_subagents" => "3",
         "max_subagent_depth" => "2",
@@ -96,7 +96,7 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       {
         "interactive_profile_key" => "main",
         "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["main", "researcher"],
+        "enabled_subagent_profile_keys" => ["researcher"],
         "delegation_mode" => "prefer",
         "max_concurrent_subagents" => 3,
         "max_subagent_depth" => 2,
@@ -153,6 +153,20 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
 
     assert_not workspace_agent.valid?
     assert_includes workspace_agent.errors[:settings_payload], "default_subagent_profile_key must be included in enabled_subagent_profile_keys"
+  end
+
+  test "normalizes interactive profiles out of the enabled specialist list" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      settings_payload: {
+        "enabled_subagent_profile_keys" => %w[main researcher],
+      }
+    )
+
+    assert_equal ["researcher"], workspace_agent.settings_payload.fetch("enabled_subagent_profile_keys")
   end
 
   test "rejects invalid numeric subagent limits instead of dropping them" do

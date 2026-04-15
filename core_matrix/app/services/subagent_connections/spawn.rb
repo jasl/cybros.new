@@ -7,12 +7,13 @@ module SubagentConnections
       new(...).call
     end
 
-    def initialize(conversation:, origin_turn:, content:, scope:, profile_key: nil, task_payload: {})
+    def initialize(conversation:, origin_turn:, content:, scope:, profile_key: nil, model_selector_hint: nil, task_payload: {})
       @conversation = conversation
       @origin_turn = origin_turn
       @content = content
       @scope = scope
       @profile_key = profile_key
+      @model_selector_hint = model_selector_hint
       @task_payload = task_payload.deep_stringify_keys
     end
 
@@ -33,6 +34,7 @@ module SubagentConnections
         ) do |conversation|
           validate_origin_turn!(conversation:)
           validate_spawn_visibility!(conversation:)
+          validate_max_concurrent_subagents!(conversation:)
           refresh_child_conversation_from_parent!(conversation: child_conversation, parent: conversation)
           child_conversation.save!
           initialize_child_conversation!(conversation: child_conversation, parent: conversation)
@@ -47,6 +49,7 @@ module SubagentConnections
             origin_turn: scope_turn? ? @origin_turn : nil,
             scope: @scope,
             profile_key: resolved_profile_key(conversation:),
+            resolved_model_selector_hint: resolved_model_selector_hint(conversation:),
             parent_subagent_connection: conversation.subagent_connection,
             depth: next_depth(conversation:),
             observed_status: "running"
@@ -101,11 +104,11 @@ module SubagentConnections
     end
 
     def validate_spawn_visibility!(conversation:)
-      RuntimeCapabilities::PreviewForConversation.visible_tool_entry!(
-        conversation: conversation,
+      RuntimeCapabilities::ComposeForTurn.visible_tool_entry!(
+        turn: @origin_turn,
         tool_name: "subagent_spawn"
       )
-    rescue RuntimeCapabilities::PreviewForConversation::ToolNotVisibleError => error
+    rescue RuntimeCapabilities::ComposeForTurn::ToolNotVisibleError => error
       raise_invalid!(conversation, :base, error.message)
     end
 
@@ -116,7 +119,7 @@ module SubagentConnections
           if requested == DEFAULT_SUBAGENT_PROFILE_ALIAS
             default_subagent_profile_key(conversation:)
           else
-            raise_invalid!(conversation, :profile_key, "must exist in the runtime profile policy") unless profile_policy(conversation:).key?(requested)
+            raise_invalid!(conversation, :profile_key, "must be enabled for the current mount") unless enabled_subagent_profile_keys(conversation:).include?(requested)
             requested
           end
         else
@@ -126,17 +129,25 @@ module SubagentConnections
     end
 
     def default_subagent_profile_key(conversation:)
-      metadata_default = profile_policy(conversation:).find do |_key, value|
+      enabled_keys = enabled_subagent_profile_keys(conversation:)
+      configured_default = profile_settings_view(conversation:)["default_subagent_profile_key"]
+      return configured_default if configured_default.present? && enabled_keys.include?(configured_default)
+
+      metadata_default = enabled_keys.find do |key|
+        value = profile_policy(conversation:)[key]
         value.is_a?(Hash) && value["default_subagent_profile"] == true
-      end&.first
+      end
       return metadata_default if metadata_default.present?
 
-      profile_policy(conversation:).keys.find { |key| key != interactive_profile_key(conversation:) } ||
+      enabled_keys.first ||
         interactive_profile_key(conversation:)
     end
 
     def interactive_profile_key(conversation:)
-      runtime_contract(conversation:).default_canonical_config.dig("interactive", "profile") || "main"
+      profile_settings_view(conversation:)["interactive_profile_key"] ||
+        runtime_contract(conversation:).default_canonical_config.dig("interactive", "profile") ||
+        runtime_contract(conversation:).default_canonical_config.dig("interactive", "default_profile_key") ||
+        "main"
     end
 
     def profile_policy(conversation:)
@@ -159,6 +170,13 @@ module SubagentConnections
       @scope.to_s == "turn"
     end
 
+    def enabled_subagent_profile_keys(conversation:)
+      explicit_enabled = profile_settings_view(conversation:).key?("enabled_subagent_profile_keys")
+      return Array(profile_settings_view(conversation:)["enabled_subagent_profile_keys"]) - [interactive_profile_key(conversation:)] if explicit_enabled
+
+      profile_policy(conversation:).keys - [interactive_profile_key(conversation:)]
+    end
+
     def next_depth(conversation:)
       return 0 if conversation.subagent_connection.blank?
 
@@ -173,6 +191,7 @@ module SubagentConnections
         "workflow_run_id" => workflow_run.public_id,
         "agent_task_run_id" => agent_task_run.public_id,
         "profile_key" => session.profile_key,
+        "model_selector_hint" => session.resolved_model_selector_hint,
         "scope" => session.scope,
         "parent_subagent_connection_id" => session.parent_subagent_connection&.public_id,
         "subagent_depth" => session.depth,
@@ -194,6 +213,7 @@ module SubagentConnections
         "origin_turn_id" => @origin_turn.public_id,
         "scope" => @scope,
         "profile_key" => resolved_profile_key(conversation:),
+        "model_selector_hint" => resolved_model_selector_hint(conversation:),
         "content" => @content,
       }.compact
     end
@@ -235,6 +255,31 @@ module SubagentConnections
 
     def normalized_profile_key_request
       @profile_key.to_s.strip.presence
+    end
+
+    def resolved_model_selector_hint(conversation:)
+      @resolved_model_selector_hint ||= begin
+        @model_selector_hint.to_s.strip.presence ||
+          profile_settings_view(conversation:)["default_subagent_model_selector_hint"].presence
+      end
+    end
+
+    def validate_max_concurrent_subagents!(conversation:)
+      max_concurrent = profile_settings_view(conversation:)["max_concurrent_subagents"]
+      return if max_concurrent.blank?
+
+      active_children = conversation.owned_subagent_connections.close_pending_or_open.count
+      return if active_children < max_concurrent
+
+      raise_invalid!(conversation, :base, "has reached the configured subagent concurrency limit")
+    end
+
+    def profile_settings_view(conversation:)
+      @profile_settings_view ||= begin
+        frozen_view = @origin_turn.execution_contract&.workspace_agent_profile_settings
+        source = frozen_view.presence || conversation.workspace_agent&.profile_settings_view || {}
+        source.deep_stringify_keys
+      end
     end
   end
 end

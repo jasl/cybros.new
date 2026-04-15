@@ -10,6 +10,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :fingerprint, null: false
       t.string :profile_key, null: false
+      t.string :model_selector_hint
       t.boolean :subagent, null: false, default: false
       t.integer :subagent_depth
       t.jsonb :subagent_policy_snapshot, null: false, default: {}

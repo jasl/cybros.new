@@ -67,6 +67,7 @@ class TurnExecutionSnapshot
         {
           "tool_surface" => snapshot.tool_surface,
           "profile_key" => snapshot.profile_key,
+          "model_selector_hint" => snapshot.model_selector_hint,
           "is_subagent" => snapshot.subagent,
           "subagent_connection_id" => snapshot.subagent_connection&.public_id,
           "parent_subagent_connection_id" => snapshot.parent_subagent_connection&.public_id,

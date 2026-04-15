@@ -7,8 +7,8 @@ class AgentControl::SerializeMailboxItemsTest < ActiveSupport::TestCase
         workspace_agent_global_instructions: "Use concise Chinese.\n",
         workspace_agent_settings_payload: {
           "interactive_profile_key" => "researcher",
-          "enabled_subagent_profile_keys" => ["researcher"],
-          "default_subagent_profile_key" => "researcher",
+          "enabled_subagent_profile_keys" => ["main"],
+          "default_subagent_profile_key" => "main",
         }
       )
       build_execution_snapshot_for!(

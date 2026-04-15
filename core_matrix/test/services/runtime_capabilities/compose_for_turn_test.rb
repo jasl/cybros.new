@@ -99,12 +99,53 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
     assert_equal "planner", composer.current_profile_key
   end
 
+  test "subagent spawn schema stays pinned to frozen workspace agent settings for a turn" do
+    profile_policy = governed_profile_policy.deep_merge(
+      "critic" => {
+        "label" => "Critic",
+        "description" => "Critique profile",
+        "allowed_tool_names" => [],
+      },
+      "main" => {
+        "label" => "Main",
+        "description" => "Primary interactive profile",
+        "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
+      },
+      "researcher" => {
+        "label" => "Researcher",
+        "description" => "Delegated research profile",
+        "allowed_tool_names" => [],
+      }
+    )
+    context = build_governed_tool_context!(
+      profile_policy: profile_policy,
+      workspace_agent_settings_payload: {
+        "interactive_profile_key" => "main",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "default_subagent_profile_key" => "researcher",
+      }
+    )
+    context.fetch(:conversation).workspace_agent.update!(
+      settings_payload: {
+        "interactive_profile_key" => "main",
+        "enabled_subagent_profile_keys" => ["critic"],
+        "default_subagent_profile_key" => "critic",
+      }
+    )
+
+    entry = RuntimeCapabilities::ComposeForTurn.call(turn: context.fetch(:turn).reload).fetch("tool_catalog").find do |tool|
+      tool.fetch("tool_name") == "subagent_spawn"
+    end
+
+    assert_equal %w[default researcher], entry.dig("input_schema", "properties", "profile_key", "enum")
+  end
+
   private
 
-  def register_profile_aware_runtime!(profile_policy: default_profile_policy, default_canonical_config: profile_aware_default_canonical_config, execution_runtime_capability_payload: {})
+  def register_profile_aware_runtime!(profile_policy: default_profile_policy, default_canonical_config: profile_aware_default_canonical_config, execution_runtime_capability_payload: {}, tool_contract: default_tool_catalog("exec_command"))
     register_agent_runtime!(
       execution_runtime_capability_payload: execution_runtime_capability_payload,
-      tool_contract: default_tool_catalog("exec_command"),
+      tool_contract: tool_contract,
       profile_policy: profile_policy,
       canonical_config_schema: profile_aware_canonical_config_schema,
       conversation_override_schema: subagent_policy_conversation_override_schema,
