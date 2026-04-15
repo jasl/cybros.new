@@ -65,9 +65,13 @@ module ToolGovernanceTestSupport
     execution_runtime_tool_catalog: governed_execution_runtime_tool_catalog,
     agent_tool_catalog: governed_agent_tool_catalog,
     profile_policy: governed_profile_policy,
-    workspace_agent_global_instructions: nil
+    workspace_agent_global_instructions: nil,
+    workspace_agent_settings_payload: nil
   )
-    context = build_agent_control_context!(workspace_agent_global_instructions: workspace_agent_global_instructions)
+    context = build_agent_control_context!(
+      workspace_agent_global_instructions: workspace_agent_global_instructions,
+      workspace_agent_settings_payload: workspace_agent_settings_payload
+    )
     execution_runtime = context.fetch(:execution_runtime)
     execution_runtime_version = create_execution_runtime_version!(
       installation: context.fetch(:installation),

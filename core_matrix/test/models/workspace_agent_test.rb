@@ -83,7 +83,7 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       settings_payload: {
         "interactive_profile_key" => "main",
         "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher", "", "researcher"],
+        "enabled_subagent_profile_keys" => ["researcher", "main", "", "researcher"],
         "delegation_mode" => "prefer",
         "max_concurrent_subagents" => "3",
         "max_subagent_depth" => "2",
@@ -96,7 +96,7 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       {
         "interactive_profile_key" => "main",
         "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher"],
+        "enabled_subagent_profile_keys" => ["main", "researcher"],
         "delegation_mode" => "prefer",
         "max_concurrent_subagents" => 3,
         "max_subagent_depth" => 2,

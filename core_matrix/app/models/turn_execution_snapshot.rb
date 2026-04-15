@@ -113,9 +113,11 @@ class TurnExecutionSnapshot
       if workspace_agent.blank?
         {}
       else
+        profile_settings = execution_contract&.workspace_agent_profile_settings
         {
           "workspace_agent_id" => workspace_agent.public_id,
           "global_instructions" => execution_contract&.workspace_agent_global_instructions,
+          "profile_settings" => profile_settings.presence,
         }.compact
       end
     end

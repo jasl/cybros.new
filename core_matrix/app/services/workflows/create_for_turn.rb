@@ -24,14 +24,17 @@ module Workflows
 
     def call
       ApplicationRecord.transaction do
-        resolved_model_selection_snapshot = Workflows::ResolveModelSelector.call(
-          turn: @turn,
-          selector_source: @selector_source,
-          selector: @selector
-        )
-        @turn.update!(resolved_model_selection_snapshot: resolved_model_selection_snapshot)
-        execution_snapshot = Workflows::BuildExecutionSnapshot.call(turn: @turn)
-        @turn.update!(resolved_config_snapshot: @turn.resolved_config_snapshot)
+        execution_snapshot = with_workspace_agent_snapshot_lock do
+          resolved_model_selection_snapshot = Workflows::ResolveModelSelector.call(
+            turn: @turn,
+            selector_source: @selector_source,
+            selector: @selector
+          )
+          @turn.update!(resolved_model_selection_snapshot: resolved_model_selection_snapshot)
+          snapshot = Workflows::BuildExecutionSnapshot.call(turn: @turn)
+          @turn.update!(resolved_config_snapshot: @turn.resolved_config_snapshot)
+          snapshot
+        end
 
         workflow_run = WorkflowRun.create!(
           installation: @turn.installation,
@@ -113,6 +116,14 @@ module Workflows
       return "subagent-step:#{@subagent_connection.public_id}:#{@turn.public_id}" if @subagent_connection.present?
 
       "turn-step:#{@turn.public_id}"
+    end
+
+    def with_workspace_agent_snapshot_lock
+      workspace_agent_id = @turn.conversation.workspace_agent_id
+      return yield if workspace_agent_id.blank?
+
+      WorkspaceAgent.lock.find(workspace_agent_id)
+      yield
     end
   end
 end

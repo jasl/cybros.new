@@ -46,6 +46,7 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.references :selected_input_message, foreign_key: { to_table: :messages }
       t.references :selected_output_message, foreign_key: { to_table: :messages }
       t.references :workspace_agent_global_instructions_document, foreign_key: { to_table: :json_documents }
+      t.references :workspace_agent_profile_settings_document, foreign_key: { to_table: :json_documents }
       t.references :execution_capability_snapshot, null: false, foreign_key: true
       t.references :execution_context_snapshot, null: false, foreign_key: true
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false

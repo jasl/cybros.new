@@ -29,6 +29,7 @@ module Workflows
       execution_contract.selected_output_message = @turn.selected_output_message
       if execution_contract.new_record?
         execution_contract.workspace_agent_global_instructions_document = workspace_agent_global_instructions_document
+        execution_contract.workspace_agent_profile_settings_document = workspace_agent_profile_settings_document
       end
       execution_contract.execution_capability_snapshot = capability_snapshot
       execution_contract.execution_context_snapshot = context_snapshot
@@ -260,6 +261,17 @@ module Workflows
         installation: @turn.installation,
         document_kind: "workspace_agent_global_instructions",
         payload: { "global_instructions" => global_instructions }
+      )
+    end
+
+    def workspace_agent_profile_settings_document
+      profile_settings = @turn.conversation.workspace_agent&.profile_settings_view
+      return if profile_settings.blank?
+
+      JsonDocuments::Store.call(
+        installation: @turn.installation,
+        document_kind: "workspace_agent_profile_settings",
+        payload: { "profile_settings" => profile_settings }
       )
     end
 

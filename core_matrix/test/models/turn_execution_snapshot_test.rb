@@ -20,7 +20,15 @@ class TurnExecutionSnapshotTest < ActiveSupport::TestCase
   end
 
   test "builds workspace_agent_context from the frozen execution contract state" do
-    context = build_agent_control_context!(workspace_agent_global_instructions: "Use concise Chinese.\n")
+    context = build_agent_control_context!(
+      workspace_agent_global_instructions: "Use concise Chinese.\n",
+      workspace_agent_settings_payload: {
+        "interactive_profile_key" => "main",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "delegation_mode" => "prefer",
+      }
+    )
     snapshot = build_execution_snapshot_for!(
       turn: context.fetch(:turn),
       selector_source: "test",
@@ -31,6 +39,12 @@ class TurnExecutionSnapshotTest < ActiveSupport::TestCase
       {
         "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id,
         "global_instructions" => "Use concise Chinese.\n",
+        "profile_settings" => {
+          "interactive_profile_key" => "main",
+          "default_subagent_profile_key" => "researcher",
+          "enabled_subagent_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+        },
       },
       snapshot.workspace_agent_context
     )

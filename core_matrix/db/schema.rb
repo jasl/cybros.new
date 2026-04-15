@@ -1080,6 +1080,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.jsonb "turn_origin", default: {}, null: false
     t.datetime "updated_at", null: false
     t.bigint "workspace_agent_global_instructions_document_id"
+    t.bigint "workspace_agent_profile_settings_document_id"
     t.index ["agent_definition_version_id"], name: "index_execution_contracts_on_agent_definition_version_id"
     t.index ["execution_capability_snapshot_id"], name: "index_execution_contracts_on_execution_capability_snapshot_id"
     t.index ["execution_context_snapshot_id"], name: "index_execution_contracts_on_execution_context_snapshot_id"
@@ -1091,6 +1092,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.index ["selected_output_message_id"], name: "index_execution_contracts_on_selected_output_message_id"
     t.index ["turn_id"], name: "index_execution_contracts_on_turn_id", unique: true
     t.index ["workspace_agent_global_instructions_document_id"], name: "idx_on_workspace_agent_global_instructions_document_b8f3f76b2d"
+    t.index ["workspace_agent_profile_settings_document_id"], name: "idx_on_workspace_agent_profile_settings_document_id_837ba79fe6"
   end
 
   create_table "execution_leases", force: :cascade do |t|
@@ -2535,6 +2537,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
   add_foreign_key "execution_contracts", "execution_runtimes"
   add_foreign_key "execution_contracts", "installations"
   add_foreign_key "execution_contracts", "json_documents", column: "workspace_agent_global_instructions_document_id"
+  add_foreign_key "execution_contracts", "json_documents", column: "workspace_agent_profile_settings_document_id"
   add_foreign_key "execution_contracts", "messages", column: "selected_input_message_id"
   add_foreign_key "execution_contracts", "messages", column: "selected_output_message_id"
   add_foreign_key "execution_contracts", "turns"

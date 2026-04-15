@@ -293,15 +293,20 @@ git commit -m "feat: add workspace agent profile settings"
 ### Task 5: Freeze compact profile settings into execution snapshots and mailbox reconstruction
 
 **Files:**
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/execution_contract.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/build_execution_snapshot.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/turn_execution_snapshot.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_control_mailbox_item.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/prepare_agent_round.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_agent_request.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260326113000_add_agent_control_contract.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/schema.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/execution_contract_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/workflows/build_execution_snapshot_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/turn_execution_snapshot_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/provider_execution/prepare_agent_round_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/agent_control_mailbox_item_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/create_agent_request_test.rb`
 
 **Step 1: Write failing tests for `workspace_agent_context.profile_settings`**
 
@@ -316,6 +321,8 @@ Cover:
 
 Freeze only the documented settings subset inside `workspace_agent_context`.
 Do not copy profile catalog metadata or prompt fragments into CoreMatrix.
+Use a deduplicated `JsonDocument` reference on `ExecutionContract`, mirroring the
+existing frozen `workspace_agent_global_instructions_document` pattern.
 
 **Step 3: Run focused CoreMatrix tests**
 
@@ -324,9 +331,11 @@ Run:
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/rails test test/services/workflows/build_execution_snapshot_test.rb \
+  test/models/execution_contract_test.rb \
   test/models/turn_execution_snapshot_test.rb \
   test/services/provider_execution/prepare_agent_round_test.rb \
-  test/models/agent_control_mailbox_item_test.rb
+  test/models/agent_control_mailbox_item_test.rb \
+  test/services/agent_control/create_agent_request_test.rb
 ```
 
 Expected: PASS.
@@ -335,14 +344,19 @@ Expected: PASS.
 
 ```bash
 git add /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/build_execution_snapshot.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/execution_contract.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/turn_execution_snapshot.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_control_mailbox_item.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/provider_execution/prepare_agent_round.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/create_agent_request.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/20260326113000_add_agent_control_contract.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/schema.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/execution_contract_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/workflows/build_execution_snapshot_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/turn_execution_snapshot_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/provider_execution/prepare_agent_round_test.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/agent_control_mailbox_item_test.rb
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/agent_control_mailbox_item_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/create_agent_request_test.rb
 git commit -m "feat: freeze workspace agent profile settings"
 ```
 

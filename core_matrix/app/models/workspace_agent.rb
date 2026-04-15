@@ -67,7 +67,11 @@ class WorkspaceAgent < ApplicationRecord
   end
 
   def profile_settings_view
-    normalized_settings_payload.deep_dup
+    SETTINGS_PAYLOAD_KEYS.each_with_object({}) do |key, view|
+      next unless normalized_settings_payload.key?(key)
+
+      view[key] = normalized_settings_payload[key]
+    end
   end
 
   private
@@ -252,7 +256,7 @@ class WorkspaceAgent < ApplicationRecord
   def normalize_array_setting!(normalized, key)
     return unless normalized.key?(key)
 
-    normalized[key] = Array(normalized[key]).map { |value| value.to_s.strip.presence }.compact.uniq
+    normalized[key] = Array(normalized[key]).map { |value| value.to_s.strip.presence }.compact.uniq.sort
   end
 
   def normalize_integer_setting!(normalized, key)

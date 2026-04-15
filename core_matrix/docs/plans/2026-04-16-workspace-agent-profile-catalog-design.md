@@ -370,6 +370,12 @@ settings view:
 }
 ```
 
+The frozen `profile_settings` payload should follow the same storage strategy as
+`global_instructions`: keep the canonical editable value on `WorkspaceAgent`,
+but externalize the per-turn frozen copy through a deduplicated `JsonDocument`
+reference on `ExecutionContract` instead of copying the JSON inline into every
+turn-owned row.
+
 Rules:
 
 - no profile catalog crosses this boundary

@@ -42,6 +42,10 @@ module AgentControl
               :agent_definition_version,
               :execution_context_snapshot,
               :execution_capability_snapshot,
+              :execution_runtime_version,
+              :workspace_agent_global_instructions_document,
+              :workspace_agent_profile_settings_document,
+              { selected_input_message: [:conversation, :turn] },
               {
                 turn: [
                   { conversation: { workspace: :user } },
@@ -75,8 +79,19 @@ module AgentControl
       ActiveRecord::Associations::Preloader.new(
         records: turns_by_id.values,
         associations: [
-          { conversation: { workspace: :user } },
+          { conversation: [:workspace_agent, { workspace: :user }] },
           { agent_definition_version: :agent },
+          :execution_runtime_version,
+          {
+            execution_contract: [
+              :execution_context_snapshot,
+              :execution_capability_snapshot,
+              :execution_runtime_version,
+              :workspace_agent_global_instructions_document,
+              :workspace_agent_profile_settings_document,
+              { selected_input_message: [:conversation, :turn] },
+            ],
+          },
         ]
       ).call
 

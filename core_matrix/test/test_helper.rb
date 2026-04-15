@@ -1384,7 +1384,13 @@ module ActiveSupport
       }.merge(context)
     end
 
-    def build_agent_control_context!(workflow_node_key: "agent_turn_step", workflow_node_type: "turn_step", workflow_node_metadata: {}, workspace_agent_global_instructions: nil)
+    def build_agent_control_context!(
+      workflow_node_key: "agent_turn_step",
+      workflow_node_type: "turn_step",
+      workflow_node_metadata: {},
+      workspace_agent_global_instructions: nil,
+      workspace_agent_settings_payload: nil
+    )
       installation = create_installation!
       actor = create_user!(installation: installation, role: "admin")
       runtime_user = create_user!(installation: installation)
@@ -1396,6 +1402,27 @@ module ActiveSupport
         agent: agent,
         execution_runtime: execution_runtime
       )
+      if workspace_agent_settings_payload.present?
+        profile_aware_version = create_agent_definition_version!(
+          installation: installation,
+          agent: agent,
+          tool_contract: registration.fetch(:agent_definition_version).tool_contract,
+          profile_policy: default_profile_policy,
+          canonical_config_schema: profile_aware_canonical_config_schema,
+          conversation_override_schema: subagent_policy_conversation_override_schema,
+          default_canonical_config: profile_aware_default_canonical_config
+        )
+        agent.update!(
+          current_agent_definition_version: profile_aware_version,
+          published_agent_definition_version: profile_aware_version
+        )
+        AgentConfigStates::Reconcile.call(
+          agent: agent,
+          agent_definition_version: profile_aware_version
+        )
+        registration.fetch(:agent_connection).update!(agent_definition_version: profile_aware_version)
+        registration[:agent_definition_version] = profile_aware_version
+      end
       registration.fetch(:agent_connection).update!(
         health_status: "healthy",
         auto_resume_eligible: true,
@@ -1419,6 +1446,7 @@ module ActiveSupport
         agent: agent
       )
       workspace.primary_workspace_agent.update!(global_instructions: workspace_agent_global_instructions) unless workspace_agent_global_instructions.nil?
+      workspace.primary_workspace_agent.update!(settings_payload: workspace_agent_settings_payload) unless workspace_agent_settings_payload.nil?
       conversation = Conversations::CreateRoot.call(
         workspace: workspace,
         agent: agent

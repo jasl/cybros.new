@@ -79,6 +79,90 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal context[:user].public_id, mailbox_item.payload.dig("runtime_context", "user_id")
   end
 
+  test "reconstructs workspace agent profile settings from the frozen execution snapshot" do
+    context = build_agent_control_context!(
+      workspace_agent_settings_payload: {
+        "interactive_profile_key" => "main",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "delegation_mode" => "prefer",
+      }
+    )
+    build_execution_snapshot_for!(
+      turn: context.fetch(:turn),
+      selector_source: "test",
+      selector: "role:mock"
+    )
+    payload_document = JsonDocuments::Store.call(
+      installation: context[:installation],
+      document_kind: "agent_request",
+      payload: {
+        "request_kind" => "prepare_round",
+      }
+    )
+    mailbox_item = create_agent_control_mailbox_item!(
+      installation: context[:installation],
+      target_agent: context[:agent],
+      target_agent_definition_version: context[:agent_definition_version],
+      workflow_node: context[:workflow_node],
+      execution_contract: context[:turn].execution_contract,
+      item_type: "agent_request",
+      control_plane: "agent",
+      logical_work_id: "prepare-round-#{next_test_sequence}",
+      payload_document: payload_document,
+      payload: { "request_kind" => "prepare_round" }
+    )
+
+    assert_equal(
+      {
+        "interactive_profile_key" => "main",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "delegation_mode" => "prefer",
+      },
+      mailbox_item.payload.dig("workspace_agent_context", "profile_settings")
+    )
+  end
+
+  test "frozen workspace agent context wins over any inline mailbox copy" do
+    context = build_agent_control_context!(
+      workspace_agent_settings_payload: {
+        "interactive_profile_key" => "main",
+      }
+    )
+    build_execution_snapshot_for!(
+      turn: context.fetch(:turn),
+      selector_source: "test",
+      selector: "role:mock"
+    )
+    payload_document = JsonDocuments::Store.call(
+      installation: context[:installation],
+      document_kind: "agent_request",
+      payload: {
+        "request_kind" => "prepare_round",
+        "workspace_agent_context" => {
+          "workspace_agent_id" => "stale-workspace-agent",
+          "profile_settings" => { "interactive_profile_key" => "friendly" },
+        },
+      }
+    )
+    mailbox_item = create_agent_control_mailbox_item!(
+      installation: context[:installation],
+      target_agent: context[:agent],
+      target_agent_definition_version: context[:agent_definition_version],
+      workflow_node: context[:workflow_node],
+      execution_contract: context[:turn].execution_contract,
+      item_type: "agent_request",
+      control_plane: "agent",
+      logical_work_id: "prepare-round-#{next_test_sequence}",
+      payload_document: payload_document,
+      payload: { "request_kind" => "prepare_round" }
+    )
+
+    assert_equal context.fetch(:conversation).workspace_agent.public_id, mailbox_item.payload.dig("workspace_agent_context", "workspace_agent_id")
+    assert_equal "main", mailbox_item.payload.dig("workspace_agent_context", "profile_settings", "interactive_profile_key")
+  end
+
   test "requires agent definition targeting to remain inside the targeted agent" do
     context = build_agent_control_context!
     other_agent = create_agent!(installation: context[:installation])

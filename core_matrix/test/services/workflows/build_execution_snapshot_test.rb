@@ -722,6 +722,14 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       resolved_config_snapshot: {},
       resolved_model_selection_snapshot: {}
     )
+    conversation.workspace_agent.update!(
+      settings_payload: {
+        "delegation_mode" => "prefer",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "default_subagent_profile_key" => "researcher",
+        "interactive_profile_key" => "main",
+      }
+    )
     second_turn = Turns::StartUserTurn.call(
       conversation: conversation,
       content: "Second input",
@@ -775,6 +783,85 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal(
       { "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id },
       snapshot.workspace_agent_context
+    )
+  end
+
+  test "freezes workspace agent profile settings once per turn and reuses identical documents" do
+    context = prepare_profile_aware_execution_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation.workspace_agent.update!(
+      settings_payload: {
+        "interactive_profile_key" => "main",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["researcher", "main"],
+        "delegation_mode" => "prefer",
+      }
+    )
+
+    first_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "First input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    conversation.workspace_agent.update!(
+      settings_payload: {
+        "delegation_mode" => "prefer",
+        "enabled_subagent_profile_keys" => ["main", "researcher"],
+        "default_subagent_profile_key" => "researcher",
+        "interactive_profile_key" => "main",
+      }
+    )
+    second_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Second input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    first_snapshot = build_execution_snapshot_for!(turn: first_turn)
+    second_snapshot = build_execution_snapshot_for!(turn: second_turn)
+
+    assert_equal(
+      {
+        "interactive_profile_key" => "main",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["main", "researcher"],
+        "delegation_mode" => "prefer",
+      },
+      first_snapshot.workspace_agent_context.fetch("profile_settings")
+    )
+    assert_equal(
+      first_turn.execution_contract.workspace_agent_profile_settings_document_id,
+      second_turn.execution_contract.workspace_agent_profile_settings_document_id
+    )
+
+    conversation.workspace_agent.update!(
+      settings_payload: {
+        "interactive_profile_key" => "researcher",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["main", "researcher"],
+        "delegation_mode" => "allow",
+      }
+    )
+
+    assert_equal(
+      "main",
+      first_turn.reload.execution_snapshot.workspace_agent_context.dig("profile_settings", "interactive_profile_key")
+    )
+
+    third_turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Third input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    third_snapshot = build_execution_snapshot_for!(turn: third_turn)
+
+    assert_equal "researcher", third_snapshot.workspace_agent_context.dig("profile_settings", "interactive_profile_key")
+    refute_equal(
+      first_turn.execution_contract.workspace_agent_profile_settings_document_id,
+      third_turn.execution_contract.workspace_agent_profile_settings_document_id
     )
   end
 end

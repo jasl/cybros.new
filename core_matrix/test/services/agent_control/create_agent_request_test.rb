@@ -123,7 +123,15 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
   end
 
   test "reconstructs prepare_round snapshot context from the execution contract instead of storing it inline" do
-    context = build_agent_control_context!(workspace_agent_global_instructions: "Use concise Chinese.\n")
+    context = build_agent_control_context!(
+      workspace_agent_global_instructions: "Use concise Chinese.\n",
+      workspace_agent_settings_payload: {
+        "interactive_profile_key" => "main",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "delegation_mode" => "prefer",
+      }
+    )
     build_execution_snapshot_for!(
       turn: context.fetch(:turn),
       selector_source: "test",
@@ -187,6 +195,12 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
       {
         "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id,
         "global_instructions" => "Use concise Chinese.\n",
+        "profile_settings" => {
+          "interactive_profile_key" => "main",
+          "default_subagent_profile_key" => "researcher",
+          "enabled_subagent_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+        },
       },
       mailbox_item.payload.fetch("workspace_agent_context")
     )
@@ -195,7 +209,12 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
   end
 
   test "reconstructs prepare_round without a global instructions key when the mount is blank" do
-    context = build_agent_control_context!(workspace_agent_global_instructions: " \n\t ")
+    context = build_agent_control_context!(
+      workspace_agent_global_instructions: " \n\t ",
+      workspace_agent_settings_payload: {
+        "interactive_profile_key" => "main",
+      }
+    )
     build_execution_snapshot_for!(
       turn: context.fetch(:turn),
       selector_source: "test",
@@ -222,7 +241,12 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     )
 
     assert_equal(
-      { "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id },
+      {
+        "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id,
+        "profile_settings" => {
+          "interactive_profile_key" => "main",
+        },
+      },
       mailbox_item.payload.fetch("workspace_agent_context")
     )
     refute mailbox_item.payload.fetch("workspace_agent_context").key?("global_instructions")
@@ -323,7 +347,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
           "conversation_id" => context.fetch(:conversation).public_id,
         },
         "agent_context" => {
-          "profile" => "main",
+          "profile" => "mock",
           "allowed_tool_names" => %w[compact_context exec_command],
         },
         "provider_context" => execution_snapshot.provider_context,
@@ -360,7 +384,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     assert_equal "soft_threshold", stored_payload.dig("prompt_compaction", "consultation_reason")
     assert_equal "agent-runtime/2026-04-01", mailbox_item.payload.fetch("protocol_version")
     assert_equal execution_snapshot.provider_context, mailbox_item.payload.fetch("provider_context")
-    assert_equal "main", mailbox_item.payload.dig("agent_context", "profile")
+    assert_equal "mock", mailbox_item.payload.dig("agent_context", "profile")
     assert_equal(
       context.fetch(:workflow_node).public_id,
       mailbox_item.payload.dig("task", "workflow_node_id")
