@@ -90,7 +90,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     child_task_run = AgentTaskRun.find_by!(public_id: result.fetch("agent_task_run_id"))
 
     assert_equal owner_conversation, child_conversation.parent_conversation
-    assert_equal "agent_addressable", child_conversation.addressability
+    assert_equal agent_internal_entry_policy_payload, child_conversation.entry_policy_payload
     assert_equal child_conversation, child_session.conversation
     assert_equal owner_conversation, child_session.owner_conversation
     assert_equal owner_conversation.user_id, child_session.user_id
@@ -327,7 +327,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
 
     assert_instance_of Conversation, error.record
     assert error.record.fork?
-    assert_equal "agent_addressable", error.record.addressability
+    assert_equal agent_internal_entry_policy_payload, error.record.entry_policy_payload
     assert_equal owner_conversation, error.record.parent_conversation
     assert_includes error.record.errors[:deletion_state], "must be retained for subagent spawn"
   end

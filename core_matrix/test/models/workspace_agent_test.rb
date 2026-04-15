@@ -48,6 +48,73 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
     assert duplicate.errors[:workspace_id].present? || duplicate.errors[:agent_id].present? || duplicate.errors[:base].present?
   end
 
+  test "normalizes disabled capabilities from capability_policy_payload" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      capability_policy_payload: {
+        "disabled_capabilities" => %i[control side_chat control unknown]
+      }
+    )
+
+    assert_equal %w[control side_chat], workspace_agent.disabled_capabilities
+  end
+
+  test "rejects unsupported capability policy payload keys" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      capability_policy_payload: {
+        "disabled_capabilities" => ["control"],
+        "unexpected" => true
+      }
+    )
+
+    assert_not workspace_agent.valid?
+    assert_includes workspace_agent.errors[:capability_policy_payload], "must only contain supported keys"
+  end
+
+  test "becomes immutable after revocation" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      lifecycle_state: "revoked",
+      revoked_at: Time.current,
+      revoked_reason_kind: "owner_revoked"
+    )
+
+    workspace_agent.default_execution_runtime = context[:execution_runtime]
+
+    assert_not workspace_agent.valid?
+    assert_includes workspace_agent.errors[:base], "is immutable once revoked or retired"
+  end
+
+  test "rejects policy or runtime changes while transitioning to a terminal state" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      lifecycle_state: "active"
+    )
+
+    workspace_agent.assign_attributes(
+      lifecycle_state: "revoked",
+      revoked_at: Time.current,
+      revoked_reason_kind: "owner_revoked",
+      default_execution_runtime: context[:execution_runtime]
+    )
+
+    assert_not workspace_agent.valid?
+    assert_includes workspace_agent.errors[:base], "cannot change policy or runtime while transitioning to a terminal state"
+  end
+
   private
 
   def workspace_agent_context

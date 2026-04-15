@@ -31,19 +31,28 @@ module WorkspacePolicies
       nil
     end
 
-    def disabled_for(workspace:)
-      normalize_capabilities(workspace.disabled_capabilities)
+    def disabled_for(workspace:, workspace_agent: nil)
+      workspace_disabled = normalize_capabilities(workspace.disabled_capabilities)
+      mount_disabled = workspace_agent&.disabled_capabilities || []
+
+      normalize_capabilities(workspace_disabled + mount_disabled)
     end
 
-    def effective_for(workspace:, agent: nil)
-      available = available_for(agent: agent || workspace.agent)
-      disabled = disabled_for(workspace:) & available
+    def effective_for(workspace:, agent: nil, workspace_agent: nil)
+      resolved_agent = agent || workspace_agent&.agent
+      raise ArgumentError, "agent or workspace_agent is required" if resolved_agent.blank?
+
+      available = available_for(agent: resolved_agent)
+      disabled = disabled_for(workspace:, workspace_agent:) & available
       normalize_dependencies(available - disabled)
     end
 
-    def projection_attributes_for(workspace:, agent: nil)
-      available = available_for(agent: agent || workspace.agent)
-      disabled = disabled_for(workspace:) & available
+    def projection_attributes_for(workspace:, agent: nil, workspace_agent: nil)
+      resolved_agent = agent || workspace_agent&.agent
+      raise ArgumentError, "agent or workspace_agent is required" if resolved_agent.blank?
+
+      available = available_for(agent: resolved_agent)
+      disabled = disabled_for(workspace:, workspace_agent:) & available
       effective = normalize_dependencies(available - disabled)
 
       {

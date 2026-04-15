@@ -59,4 +59,50 @@ class Conversations::CreateRootTest < ActiveSupport::TestCase
     assert_nil conversation.latest_message
     assert_nil conversation.latest_active_workflow_run
   end
+
+  test "projects capability defaults from workspace agent capability policy payload" do
+    context = create_workspace_context!
+    context[:workspace_agent].update!(
+      capability_policy_payload: {
+        "disabled_capabilities" => %w[supervision]
+      }
+    )
+
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+
+    refute conversation.supervision_enabled?
+    refute conversation.detailed_progress_enabled?
+    refute conversation.side_chat_enabled?
+    refute conversation.control_enabled?
+  end
+
+  test "falls back to the mounted agent default execution runtime when the mount has no runtime" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    primary_runtime = create_execution_runtime!(installation: installation, display_name: "Primary Mount Runtime")
+    mounted_agent_runtime = create_execution_runtime!(installation: installation, display_name: "Mounted Agent Runtime")
+    create_execution_runtime_connection!(installation: installation, execution_runtime: primary_runtime)
+    create_execution_runtime_connection!(installation: installation, execution_runtime: mounted_agent_runtime)
+
+    primary_agent = create_agent!(installation: installation, default_execution_runtime: primary_runtime)
+    mounted_agent = create_agent!(installation: installation, default_execution_runtime: mounted_agent_runtime)
+    workspace = create_workspace!(installation: installation, user: user, name: "Multi Mount Workspace")
+    create_workspace_agent!(
+      installation: installation,
+      workspace: workspace,
+      agent: primary_agent,
+      default_execution_runtime: primary_runtime
+    )
+    mounted_workspace_agent = create_workspace_agent!(
+      installation: installation,
+      workspace: workspace,
+      agent: mounted_agent,
+      default_execution_runtime: nil
+    )
+
+    conversation = Conversations::CreateRoot.call(workspace_agent: mounted_workspace_agent)
+
+    assert_equal mounted_workspace_agent, conversation.workspace_agent
+    assert_equal mounted_agent_runtime, conversation.current_execution_runtime
+  end
 end

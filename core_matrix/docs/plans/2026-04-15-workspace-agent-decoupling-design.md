@@ -81,6 +81,15 @@ After this destructive refactor:
   concrete `workspace_agent_id`
 - app-facing visibility should show owned workspaces even when one mounted
   agent becomes revoked
+- workspace policy reads/writes for runtime and capability defaults must resolve
+  through an explicit `workspace_agent_id`; AppAPI must not silently fall back
+  to whichever mounted agent happens to be primary
+- services such as default-workspace resolution/materialization must stop
+  synthesizing `virtual` references as placeholders for interactive launch
+- workspace-scoped import/export helpers that queue later work must persist the
+  concrete `workspace_agent_id` they were created against and must rehydrate
+  through that exact mount instead of re-resolving through `workspace` plus
+  `agent`
 
 ### `WorkspaceAgent`
 
@@ -164,6 +173,10 @@ Instead:
 - those conversations become locked for new interaction
 - related ingress bindings become disabled
 - related automation entry should stop scheduling new work
+- the revocation transition itself must freeze the last active policy/runtime
+  snapshot; AppAPI must not allow a single update request to both revoke the
+  mount and rewrite runtime, capability policy, or entry policy in the same
+  transaction
 
 Suggested revoke reasons:
 
@@ -173,9 +186,10 @@ Suggested revoke reasons:
 
 ## Capability And Entry Policy
 
-The current `Conversation.addressability` model is too narrow for the future.
+The current `Conversation.addressability` model is too narrow for this
+refactor.
 
-Long-term recommendation:
+Required shape:
 
 - remove `Conversation.addressability`
 - replace it with explicit entry policy plus separate interaction locking
@@ -192,6 +206,12 @@ Suggested model:
 - `WorkspaceAgent.capability_policy_payload`
   - default allowed conversation features
   - default UI/control capabilities
+  - minimum required v1 shape:
+    - `disabled_capabilities`
+    - array of capability keys from the existing workspace capability domain
+      (`supervision`, `detailed_progress`, `side_chat`, `control`,
+      `regenerate`, `swipe`)
+    - absent means "no extra mount-level capability disables"
 - `Conversation`
   - snapshots or overrides those defaults when created
   - can narrow them further for child-conversation or channel-specific cases
@@ -200,9 +220,11 @@ This gives double protection for IM:
 
 - ingress source can be denied by entry policy
 - incompatible interactive features can be disabled by capability policy
+- capability resolution must require an explicit `agent`/`workspace_agent`
+  context and must not silently infer one through `Workspace.primary_workspace_agent`
 
-Long-term, `entry_policy` should distinguish at least these interaction
-surfaces:
+For this refactor, persisted conversation or mounted-agent entry policy must
+distinguish at least these interaction surfaces:
 
 - `main_transcript`
 - `sidecar_query`
@@ -225,6 +247,12 @@ This last rule is the required replacement for today's
 `Conversation.addressability = agent_addressable` behavior. Removing
 `addressability` must not collapse the agent-internal child-conversation
 boundary into the same mutable surface used by the owner or IM ingress.
+
+Conversation export and debug payloads must also stop serializing
+`addressability` once it is removed. Those payloads should instead expose the
+conversation's explicit mutability state (`interaction_lock_state`) together
+with whatever persisted entry-policy snapshot is required to distinguish
+ordinary transcript entry from `agent_internal`-only child conversations.
 
 ## Operational Sidecars, Commands, And Progress
 

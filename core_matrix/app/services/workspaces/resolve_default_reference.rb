@@ -4,6 +4,7 @@ module Workspaces
       :state,
       :workspace,
       :workspace_id,
+      :workspace_agent_id,
       :agent_id,
       :user_id,
       :name,
@@ -28,7 +29,27 @@ module Workspaces
     end
 
     def call
-      workspace = @workspace || Workspace
+      workspace = @workspace || materialized_workspace
+      workspace_agent = resolve_workspace_agent(workspace)
+      return nil if workspace.blank? || workspace_agent.blank?
+
+      Result.new(
+        state: "materialized",
+        workspace: workspace,
+        workspace_id: workspace.public_id,
+        workspace_agent_id: workspace_agent.public_id,
+        agent_id: @agent.public_id,
+        user_id: @user.public_id,
+        name: workspace.name,
+        privacy: workspace.privacy,
+        default_execution_runtime_id: workspace_agent.default_execution_runtime&.public_id || @agent.default_execution_runtime&.public_id
+      )
+    end
+
+    private
+
+    def materialized_workspace
+      Workspace
         .joins(:workspace_agents)
         .where(
           installation_id: @user.installation_id,
@@ -39,24 +60,19 @@ module Workspaces
             lifecycle_state: "active",
           }
         )
+        .includes(workspace_agents: :default_execution_runtime)
         .distinct
         .first
+    end
 
-      mounted_runtime = workspace
-        &.workspace_agents
-        &.find { |workspace_agent| workspace_agent.agent_id == @agent.id && workspace_agent.active? }
-        &.default_execution_runtime
+    def resolve_workspace_agent(workspace)
+      return nil if workspace.blank?
 
-      Result.new(
-        state: workspace.present? ? "materialized" : "virtual",
-        workspace: workspace,
-        workspace_id: workspace&.public_id,
-        agent_id: @agent.public_id,
-        user_id: @user.public_id,
-        name: workspace&.name || @name,
-        privacy: workspace&.privacy || "private",
-        default_execution_runtime_id: mounted_runtime&.public_id || @agent.default_execution_runtime&.public_id
-      )
+      if workspace.association(:workspace_agents).loaded?
+        workspace.workspace_agents.find { |workspace_agent| workspace_agent.agent_id == @agent.id && workspace_agent.active? }
+      else
+        workspace.workspace_agents.where(agent: @agent, lifecycle_state: "active").order(:id).first
+      end
     end
   end
 end

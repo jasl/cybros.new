@@ -105,7 +105,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       parent_conversation: owner_conversation,
       kind: "fork",
       agent: context[:agent],
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     parent_session = SubagentConnection.create!(
       installation: context[:installation],
@@ -125,7 +125,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       parent_conversation: child_conversation,
       kind: "fork",
       agent: context[:agent],
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     subagent_connection = SubagentConnection.create!(
       installation: context[:installation],

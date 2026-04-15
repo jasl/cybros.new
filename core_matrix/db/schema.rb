@@ -821,7 +821,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
   end
 
   create_table "conversations", force: :cascade do |t|
-    t.string "addressability", default: "owner_addressable", null: false
     t.bigint "agent_id", null: false
     t.boolean "control_enabled", default: false, null: false
     t.datetime "created_at", null: false
@@ -833,6 +832,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.boolean "detailed_progress_enabled", default: false, null: false
     t.string "during_generation_input_policy", default: "queue", null: false
     t.string "enabled_feature_ids", default: [], null: false, array: true
+    t.jsonb "entry_policy_payload", default: {}, null: false
     t.string "execution_continuity_state", default: "not_started", null: false
     t.bigint "historical_anchor_message_id"
     t.bigint "installation_id", null: false

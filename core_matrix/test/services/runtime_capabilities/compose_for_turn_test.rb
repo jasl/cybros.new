@@ -80,7 +80,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
         kind: "fork",
         execution_runtime: registration[:execution_runtime],
         agent_definition_version: registration[:agent_definition_version],
-        addressability: "agent_addressable"
+        entry_policy_payload: agent_internal_entry_policy_payload
       )
       session = SubagentConnection.create!(
         installation: registration[:installation],

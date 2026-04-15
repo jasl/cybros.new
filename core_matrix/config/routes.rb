@@ -121,7 +121,8 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :workspaces, only: [] do
+    resources :workspaces, only: :index do
+      resources :workspace_agents, only: [:create, :update], controller: "workspaces/workspace_agents", param: :workspace_agent_id
       resource :policy, only: [:show, :update], controller: "workspaces/policies"
       resources :conversation_bundle_import_requests, only: [:create, :show], controller: "workspaces/conversation_bundle_import_requests"
     end

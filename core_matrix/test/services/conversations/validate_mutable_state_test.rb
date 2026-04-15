@@ -73,6 +73,23 @@ class Conversations::ValidateMutableStateTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:base], "must not mutate while close is in progress"
   end
 
+  test "rejects interaction locked conversations with the supplied mutable message" do
+    conversation = create_conversation!
+    conversation.update!(interaction_lock_state: "locked_agent_access_revoked")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::ValidateMutableState.call(
+        conversation: conversation,
+        retained_message: "must be retained before mutating",
+        active_message: "must be active before mutating",
+        closing_message: "must not mutate while close is in progress",
+        lock_message: "must be mutable before mutating"
+      )
+    end
+
+    assert_includes error.record.errors[:interaction_lock_state], "must be mutable before mutating"
+  end
+
   private
 
   def create_conversation!

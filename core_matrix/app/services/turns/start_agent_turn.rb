@@ -21,13 +21,14 @@ module Turns
         conversation: @conversation,
         retained_message: "must be retained for agent turn entry",
         active_message: "must be active for agent turn entry",
+        lock_message: "must be mutable for agent turn entry",
         closing_message: "must not accept agent turn entry while close is in progress"
       ) do |conversation|
         raise_invalid!(conversation, :purpose, "must be interactive for agent turn entry") unless conversation.interactive?
         SubagentConnections::ValidateAddressability.call(
           conversation: conversation,
           sender_kind: @sender_kind,
-          rejection_message: "must be agent_addressable for agent turn entry"
+          rejection_message: "must allow agent internal entry for agent turn entry"
         )
         validate_sender_kind!
 

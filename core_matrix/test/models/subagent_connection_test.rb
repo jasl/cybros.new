@@ -19,7 +19,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       execution_runtime: context[:execution_runtime],
       agent_definition_version: context[:agent_definition_version],
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
 
     session = SubagentConnection.new(
@@ -73,7 +73,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       execution_runtime: context[:execution_runtime],
       agent_definition_version: context[:agent_definition_version],
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
 
     root_session = SubagentConnection.create!(
@@ -113,7 +113,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         execution_runtime: context[:execution_runtime],
         agent_definition_version: context[:agent_definition_version],
         kind: "fork",
-        addressability: "agent_addressable"
+        entry_policy_payload: agent_internal_entry_policy_payload
       ),
       user: owner_conversation.user,
       workspace: owner_conversation.workspace,
@@ -135,7 +135,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         execution_runtime: context[:execution_runtime],
         agent_definition_version: context[:agent_definition_version],
         kind: "fork",
-        addressability: "agent_addressable"
+        entry_policy_payload: agent_internal_entry_policy_payload
       ),
       user: owner_conversation.user,
       workspace: owner_conversation.workspace,
@@ -190,7 +190,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       execution_runtime: context[:execution_runtime],
       agent_definition_version: context[:agent_definition_version],
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
 
     session = SubagentConnection.new(
@@ -322,7 +322,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       execution_runtime: context[:execution_runtime],
       agent_definition_version: context[:agent_definition_version],
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
 
     open_session = SubagentConnection.create!(
@@ -347,7 +347,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         execution_runtime: context[:execution_runtime],
         agent_definition_version: context[:agent_definition_version],
         kind: "fork",
-        addressability: "agent_addressable"
+        entry_policy_payload: agent_internal_entry_policy_payload
       ),
       user: owner_conversation.user,
       workspace: owner_conversation.workspace,
@@ -371,7 +371,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         execution_runtime: context[:execution_runtime],
         agent_definition_version: context[:agent_definition_version],
         kind: "fork",
-        addressability: "agent_addressable"
+        entry_policy_payload: agent_internal_entry_policy_payload
       ),
       user: owner_conversation.user,
       workspace: owner_conversation.workspace,
@@ -396,7 +396,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         execution_runtime: context[:execution_runtime],
         agent_definition_version: context[:agent_definition_version],
         kind: "fork",
-        addressability: "agent_addressable"
+        entry_policy_payload: agent_internal_entry_policy_payload
       ),
       user: owner_conversation.user,
       workspace: owner_conversation.workspace,
@@ -422,7 +422,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
         execution_runtime: context[:execution_runtime],
         agent_definition_version: context[:agent_definition_version],
         kind: "fork",
-        addressability: "agent_addressable"
+        entry_policy_payload: agent_internal_entry_policy_payload
       ),
       user: owner_conversation.user,
       workspace: owner_conversation.workspace,
@@ -527,7 +527,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
       execution_runtime: context[:execution_runtime],
       agent_definition_version: context[:agent_definition_version],
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
 
     SubagentConnection.new(

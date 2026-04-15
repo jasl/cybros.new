@@ -4,9 +4,10 @@ module ConversationBundleImports
       new(...).call
     end
 
-    def initialize(workspace:, user:, uploaded_file:, target_agent_definition_version_id:)
+    def initialize(workspace:, user:, workspace_agent:, uploaded_file:, target_agent_definition_version_id:)
       @workspace = workspace
       @user = user
+      @workspace_agent = workspace_agent
       @uploaded_file = uploaded_file
       @target_agent_definition_version_id = target_agent_definition_version_id
     end
@@ -22,6 +23,7 @@ module ConversationBundleImports
           "bundle_kind" => ConversationExports::BuildConversationPayload::BUNDLE_KIND,
           "bundle_version" => ConversationExports::BuildConversationPayload::BUNDLE_VERSION,
           "target_agent_definition_version_id" => @target_agent_definition_version_id,
+          "target_workspace_agent_id" => @workspace_agent.public_id,
           "upload_filename" => upload_filename,
           "upload_content_type" => upload_content_type,
         }.compact

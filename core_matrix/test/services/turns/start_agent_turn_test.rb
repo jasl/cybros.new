@@ -1,12 +1,12 @@
 require "test_helper"
 
 class Turns::StartAgentTurnTest < ActiveSupport::TestCase
-  test "creates an active delegated turn on agent addressable conversations" do
+  test "creates an active delegated turn on agent internal conversations" do
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
     )
-    child_conversation = create_agent_addressable_child_conversation!(
+    child_conversation = create_agent_internal_child_conversation!(
       context: context,
       owner_conversation: owner_conversation,
       profile_key: "researcher"
@@ -48,7 +48,7 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
     assert_equal turn.selected_input_message.created_at.to_i, child_conversation.last_activity_at.to_i
   end
 
-  test "rejects owner addressable conversations" do
+  test "rejects conversations without agent internal entry" do
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
@@ -65,7 +65,7 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:addressability], "must be agent_addressable for agent turn entry"
+    assert_includes error.record.errors[:entry_policy_payload], "must allow agent internal entry for agent turn entry"
   end
 
   test "rejects unexpected keyword arguments" do
@@ -73,7 +73,7 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
     )
-    child_conversation = create_agent_addressable_child_conversation!(
+    child_conversation = create_agent_internal_child_conversation!(
       context: context,
       owner_conversation: owner_conversation,
       profile_key: "researcher"
@@ -97,7 +97,7 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
     )
-    child_conversation = create_agent_addressable_child_conversation!(
+    child_conversation = create_agent_internal_child_conversation!(
       context: context,
       owner_conversation: owner_conversation,
       profile_key: "researcher"
@@ -119,13 +119,13 @@ class Turns::StartAgentTurnTest < ActiveSupport::TestCase
 
   private
 
-  def create_agent_addressable_child_conversation!(context:, owner_conversation:, profile_key:)
+  def create_agent_internal_child_conversation!(context:, owner_conversation:, profile_key:)
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     SubagentConnection.create!(
       installation: context[:installation],

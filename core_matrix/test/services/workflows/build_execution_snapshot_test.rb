@@ -630,7 +630,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
         workspace: parent_conversation.workspace,
         parent_conversation: previous_conversation,
         kind: "fork",
-        addressability: "agent_addressable"
+        entry_policy_payload: agent_internal_entry_policy_payload
       )
       session = SubagentConnection.create!(
         installation: context[:installation],

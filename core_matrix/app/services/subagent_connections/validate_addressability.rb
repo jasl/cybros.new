@@ -17,16 +17,22 @@ module SubagentConnections
     def call
       return if allowed_sender_kind?
 
-      @record.errors.add(:addressability, @rejection_message)
+      @record.errors.add(:entry_policy_payload, @rejection_message)
       raise ActiveRecord::RecordInvalid, @record
     end
 
     private
 
     def allowed_sender_kind?
-      return AGENT_SENDER_KINDS.include?(@sender_kind) if @conversation.agent_addressable?
+      if HUMAN_SENDER_KINDS.include?(@sender_kind)
+        return @conversation.allows_entry_surface?("main_transcript")
+      end
 
-      HUMAN_SENDER_KINDS.include?(@sender_kind)
+      if AGENT_SENDER_KINDS.include?(@sender_kind)
+        return @conversation.allows_entry_surface?("agent_internal")
+      end
+
+      false
     end
   end
 end

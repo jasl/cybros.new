@@ -13,7 +13,7 @@ module AppSurface
       def call
         Workspace
           .accessible_to_user(@user)
-          .eager_load(workspace_agents: :default_execution_runtime)
+          .eager_load(workspace_agents: [:agent, :default_execution_runtime])
           .where(
             workspace_agents: {
               agent_id: @agent.id,

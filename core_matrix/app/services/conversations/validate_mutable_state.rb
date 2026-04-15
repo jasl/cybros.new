@@ -11,6 +11,8 @@ module Conversations
       retained_message:,
       active_attribute: :lifecycle_state,
       active_message:,
+      lock_attribute: :interaction_lock_state,
+      lock_message: "must be mutable",
       closing_attribute: :base,
       closing_message:
     )
@@ -20,6 +22,8 @@ module Conversations
       @retained_message = retained_message
       @active_attribute = active_attribute
       @active_message = active_message
+      @lock_attribute = lock_attribute
+      @lock_message = lock_message
       @closing_attribute = closing_attribute
       @closing_message = closing_message
     end
@@ -35,6 +39,9 @@ module Conversations
         )
       when :inactive
         invalid_record.errors.add(@active_attribute, @active_message)
+        raise ActiveRecord::RecordInvalid, invalid_record
+      when :locked
+        invalid_record.errors.add(@lock_attribute, @lock_message)
         raise ActiveRecord::RecordInvalid, invalid_record
       when :closing
         invalid_record.errors.add(@closing_attribute, @closing_message)
@@ -57,6 +64,7 @@ module Conversations
     def live_mutation_block_reason
       return :retained unless current_conversation.retained?
       return :inactive unless current_conversation.active?
+      return :locked unless current_conversation.interaction_lock_mutable?
 
       :closing if current_conversation.closing?
     end

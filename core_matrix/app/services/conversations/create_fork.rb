@@ -6,10 +6,10 @@ module Conversations
       new(...).call
     end
 
-    def initialize(parent:, historical_anchor_message_id: nil, addressability: "owner_addressable")
+    def initialize(parent:, historical_anchor_message_id: nil, entry_policy_payload: nil)
       @parent = parent
       @historical_anchor_message_id = historical_anchor_message_id
-      @addressability = addressability
+      @entry_policy_payload = entry_policy_payload
     end
 
     def call
@@ -17,7 +17,7 @@ module Conversations
         parent: @parent,
         kind: "fork",
         historical_anchor_message_id: @historical_anchor_message_id,
-        addressability: @addressability
+        entry_policy_payload: @entry_policy_payload
       )
 
       ApplicationRecord.transaction do

@@ -22,6 +22,7 @@ class Conversations::CreateForkTest < ActiveSupport::TestCase
     assert fork.interactive?
     assert fork.active?
     assert_equal root, fork.parent_conversation
+    assert_equal root.entry_policy_payload, fork.entry_policy_payload
     assert_equal anchor_turn.selected_input_message_id, fork.historical_anchor_message_id
     assert_equal [[root.id, fork.id, 1], [fork.id, fork.id, 0]],
       ConversationClosure.where(descendant_conversation: fork)

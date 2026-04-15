@@ -20,7 +20,7 @@ module SubagentConnections
       child_conversation = build_child_conversation(
         parent: @conversation,
         kind: "fork",
-        addressability: "agent_addressable"
+        entry_policy_payload: Conversation.agent_internal_entry_policy_payload
       )
 
       ApplicationRecord.transaction do

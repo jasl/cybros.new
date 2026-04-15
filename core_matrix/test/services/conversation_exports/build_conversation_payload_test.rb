@@ -41,6 +41,9 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
     assert_equal "Export summary", payload.dig("conversation", "summary")
     assert_equal "none", payload.dig("conversation", "title_source")
     assert_equal "agent", payload.dig("conversation", "summary_source")
+    assert_equal "mutable", payload.dig("conversation", "interaction_lock_state")
+    assert_equal default_interactive_entry_policy_payload, payload.dig("conversation", "entry_policy_payload")
+    refute payload.fetch("conversation").key?("addressability")
     assert_equal 2, payload.fetch("messages").length
 
     input_message = payload.fetch("messages").find { |message| message.fetch("message_public_id") == turn.selected_input_message.public_id }

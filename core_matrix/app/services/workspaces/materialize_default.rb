@@ -13,18 +13,7 @@ module Workspaces
     end
 
     def call
-      existing_workspace || Workspaces::CreateDefault.call(user: @user, agent: @agent, name: @name)
-    end
-
-    private
-
-    def existing_workspace
-      Workspace.find_by(
-        installation_id: @user.installation_id,
-        user: @user,
-        agent: @agent,
-        is_default: true
-      )
+      Workspaces::CreateDefault.call(user: @user, agent: @agent, name: @name)
     end
   end
 end

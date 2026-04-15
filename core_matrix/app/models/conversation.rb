@@ -10,6 +10,15 @@ class Conversation < ApplicationRecord
     conversation_branching
     conversation_archival
   ].freeze
+  ENTRY_SURFACE_KEYS = %w[
+    main_transcript
+    sidecar_query
+    control
+    artifact_ingress
+    channel_ingress
+    agent_internal
+    automation
+  ].freeze
   DURING_GENERATION_INPUT_POLICIES = %w[reject restart queue].freeze
 
   enum :kind,
@@ -24,12 +33,6 @@ class Conversation < ApplicationRecord
     {
       interactive: "interactive",
       automation: "automation",
-    },
-    validate: true
-  enum :addressability,
-    {
-      owner_addressable: "owner_addressable",
-      agent_addressable: "agent_addressable",
     },
     validate: true
   enum :interaction_lock_state,
@@ -216,11 +219,15 @@ class Conversation < ApplicationRecord
   validate :override_reconciliation_report_must_be_hash
   validate :interactive_selector_rules
   validate :deleted_at_consistency
+  validate :entry_policy_payload_must_be_hash
+  validate :entry_policy_surfaces_supported
   validate :enabled_feature_ids_supported
   validate :during_generation_input_policy_supported
 
   after_initialize :apply_default_feature_policy, if: :new_record?
+  after_initialize :apply_default_entry_policy, if: :new_record?
   before_validation :normalize_enabled_feature_ids
+  before_validation :normalize_entry_policy_payload
   before_validation :normalize_capability_authority
   before_validation :default_execution_continuity_state
   before_validation :default_current_execution_runtime
@@ -265,6 +272,14 @@ class Conversation < ApplicationRecord
     }
   end
 
+  def entry_policy_snapshot
+    self.class.normalize_entry_policy_payload(entry_policy_payload, purpose: purpose)
+  end
+
+  def allows_entry_surface?(surface)
+    entry_policy_snapshot.fetch(surface.to_s, false)
+  end
+
   def capability_authority_snapshot
     {
       "supervision_enabled" => supervision_enabled?,
@@ -282,6 +297,49 @@ class Conversation < ApplicationRecord
 
   private
 
+  def self.default_interactive_entry_policy_payload
+    {
+      "main_transcript" => true,
+      "sidecar_query" => true,
+      "control" => true,
+      "artifact_ingress" => true,
+      "channel_ingress" => true,
+      "agent_internal" => false,
+      "automation" => false,
+    }
+  end
+
+  def self.default_automation_entry_policy_payload
+    {
+      "main_transcript" => false,
+      "sidecar_query" => false,
+      "control" => false,
+      "artifact_ingress" => false,
+      "channel_ingress" => false,
+      "agent_internal" => false,
+      "automation" => true,
+    }
+  end
+
+  def self.agent_internal_entry_policy_payload
+    default_interactive_entry_policy_payload.merge(
+      "main_transcript" => false,
+      "sidecar_query" => false,
+      "control" => false,
+      "artifact_ingress" => false,
+      "channel_ingress" => false,
+      "agent_internal" => true
+    )
+  end
+
+  def self.normalize_entry_policy_payload(value, purpose:)
+    defaults = purpose.to_s == "automation" ? default_automation_entry_policy_payload : default_interactive_entry_policy_payload
+    return defaults if value.blank?
+    return defaults unless value.is_a?(Hash)
+
+    defaults.merge(value.deep_stringify_keys.slice(*ENTRY_SURFACE_KEYS))
+  end
+
   def apply_default_feature_policy
     return if purpose.blank?
     return if will_save_change_to_enabled_feature_ids?
@@ -289,8 +347,21 @@ class Conversation < ApplicationRecord
     self.enabled_feature_ids = default_enabled_feature_ids
   end
 
+  def apply_default_entry_policy
+    return if purpose.blank?
+    return if will_save_change_to_entry_policy_payload?
+
+    self.entry_policy_payload = self.class.normalize_entry_policy_payload(entry_policy_payload, purpose: purpose)
+  end
+
   def normalize_enabled_feature_ids
     self.enabled_feature_ids = normalize_feature_ids(enabled_feature_ids)
+  end
+
+  def normalize_entry_policy_payload
+    return unless entry_policy_payload.blank? || entry_policy_payload.is_a?(Hash)
+
+    self.entry_policy_payload = self.class.normalize_entry_policy_payload(entry_policy_payload, purpose: purpose)
   end
 
   def normalize_capability_authority
@@ -315,6 +386,23 @@ class Conversation < ApplicationRecord
     return if unsupported_ids.empty?
 
     errors.add(:enabled_feature_ids, "must only contain supported feature ids")
+  end
+
+  def entry_policy_payload_must_be_hash
+    return if entry_policy_payload.is_a?(Hash)
+
+    errors.add(:entry_policy_payload, "must be a hash")
+  end
+
+  def entry_policy_surfaces_supported
+    return unless entry_policy_payload.is_a?(Hash)
+
+    normalized = entry_policy_payload.deep_stringify_keys
+    unsupported_surfaces = normalized.keys - ENTRY_SURFACE_KEYS
+    errors.add(:entry_policy_payload, "must only contain supported entry surfaces") if unsupported_surfaces.any?
+
+    invalid_values = normalized.reject { |_surface, allowed| allowed == true || allowed == false }
+    errors.add(:entry_policy_payload, "must map supported entry surfaces to booleans") if invalid_values.any?
   end
 
   def during_generation_input_policy_supported
@@ -503,7 +591,6 @@ class Conversation < ApplicationRecord
     self.current_execution_runtime =
       parent_conversation&.current_execution_runtime ||
       workspace_agent&.default_execution_runtime ||
-      workspace&.default_execution_runtime ||
       agent&.default_execution_runtime
   end
 end

@@ -7,9 +7,10 @@ module AppSurface
         new(...).call
       end
 
-      def initialize(user:, agent:, execution_runtime: DEFAULT_RUNTIME)
+      def initialize(user:, agent:, workspace_agent: nil, execution_runtime: DEFAULT_RUNTIME)
         @user = user
         @agent = agent
+        @workspace_agent = workspace_agent
         @execution_runtime = execution_runtime
       end
 
@@ -20,7 +21,12 @@ module AppSurface
       private
 
       def launchable?
-        runtime = @execution_runtime.equal?(DEFAULT_RUNTIME) ? @agent.default_execution_runtime : @execution_runtime
+        runtime =
+          if @execution_runtime.equal?(DEFAULT_RUNTIME)
+            @workspace_agent&.default_execution_runtime || @agent.default_execution_runtime
+          else
+            @execution_runtime
+          end
 
         @agent.current_agent_definition_version.present? &&
           runtime.present? &&

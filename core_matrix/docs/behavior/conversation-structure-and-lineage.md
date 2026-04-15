@@ -5,7 +5,8 @@
 Core Matrix conversations now carry these independent concerns:
 
 - lineage shape
-- addressability
+- entry policy
+- interaction locking
 - agent binding and turn execution snapshots
 - owner and current-state anchors
 - conversation feature policy
@@ -25,9 +26,19 @@ and safe deletion support.
 - purpose:
   - `interactive`
   - `automation`
-- addressability:
-  - `owner_addressable`
-  - `agent_addressable`
+- entry policy surfaces:
+  - `main_transcript`
+  - `sidecar_query`
+  - `control`
+  - `artifact_ingress`
+  - `channel_ingress`
+  - `agent_internal`
+  - `automation`
+- interaction lock state:
+  - `mutable`
+  - `locked_agent_access_revoked`
+  - `archived`
+  - `deleted`
 - lifecycle state:
   - `active`
   - `archived`
@@ -59,10 +70,11 @@ and safe deletion support.
   - `handoff_pending`
   - `handoff_blocked`
 
-`addressability`, `lifecycle_state`, and `deletion_state` are separate axes. A
-conversation can be agent-addressable yet active, owner-addressable yet
-archived, or active yet pending deletion while safe-deletion cleanup is still
-running.
+`entry_policy_payload`, `interaction_lock_state`, `lifecycle_state`, and
+`deletion_state` are separate axes. A conversation can remain owner-visible
+while `locked_agent_access_revoked`, can allow only `agent_internal` entry
+while still `active`, or can be `active` yet pending deletion while
+safe-deletion cleanup is still running.
 
 Program binding is a separate independent concern. A conversation stays bound
 to one logical `Agent` for its whole lifetime. Concrete execution
@@ -88,6 +100,33 @@ conversations now start with:
 
 The first real execution entry materializes the epoch and moves the
 conversation to `ready`.
+
+## Entry Policy And Interaction Locking
+
+- `Conversation.entry_policy_payload` stores the explicit allowed interaction
+  surfaces for that transcript
+- supported entry-policy keys are:
+  - `main_transcript`
+  - `sidecar_query`
+  - `control`
+  - `artifact_ingress`
+  - `channel_ingress`
+  - `agent_internal`
+  - `automation`
+- interactive root conversations snapshot the mounted
+  `WorkspaceAgent.entry_policy_payload`
+- automation root conversations force `automation = true` and
+  `main_transcript = false`
+- ordinary owner-visible child conversations inherit the parent's entry policy
+- subagent child conversations narrow the inherited policy to
+  `agent_internal = true` while denying owner/channel transcript entry
+- live mutation is rejected whenever `interaction_lock_state != mutable`,
+  even if the conversation remains visible for read-side access
+- revoking or retiring a `WorkspaceAgent` moves mutable conversations to
+  `locked_agent_access_revoked`
+- conversation export and debug payloads serialize
+  `interaction_lock_state` and `entry_policy_payload`; they no longer export
+  a dedicated `addressability` field
 
 ## Conversation Feature Policy
 
@@ -121,11 +160,10 @@ conversation to `ready`.
   record a historical anchor for provenance
 - `checkpoint` conversations require both a parent conversation and a
   `historical_anchor_message_id`
-- `owner_addressable` conversations accept owner-driven turn entry
-- `agent_addressable` conversations accept delegated agent turn entry and are
-  used for subagent child conversations
 - child conversations stay in the same workspace as their parent
 - child conversations inherit the parent's `Agent`
+- ordinary owner-visible child conversations keep `main_transcript` entry
+- delegated subagent child conversations keep only `agent_internal` entry
 - automation conversations remain root-only
 - branch, checkpoint, and optional fork anchors are validated against the
   parent conversation's durable transcript history

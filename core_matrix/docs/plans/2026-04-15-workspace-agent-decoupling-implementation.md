@@ -270,6 +270,10 @@ git commit -m "refactor: separate workspace visibility from agent entitlement"
 
 **Files:**
 - Modify: `core_matrix/app/models/conversation.rb`
+- Modify: `core_matrix/app/services/conversations/validate_mutable_state.rb`
+- Modify: `core_matrix/app/services/conversations/with_mutable_state_lock.rb`
+- Modify: `core_matrix/app/services/conversations/with_conversation_entry_lock.rb`
+- Modify: `core_matrix/app/services/conversations/creation_support.rb`
 - Modify: `core_matrix/app/services/subagent_connections/validate_addressability.rb`
 - Modify: `core_matrix/app/services/subagent_connections/send_message.rb`
 - Modify: `core_matrix/app/services/subagent_connections/spawn.rb`
@@ -279,8 +283,21 @@ git commit -m "refactor: separate workspace visibility from agent entitlement"
 - Modify: `core_matrix/app/services/turns/queue_follow_up.rb`
 - Modify: `core_matrix/app/services/conversations/create_fork.rb`
 - Modify: `core_matrix/app/services/conversation_exports/build_conversation_payload.rb`
+- Modify: `core_matrix/db/migrate/20260324090019_create_conversations.rb`
+- Modify: `core_matrix/db/schema.rb`
 - Modify: `core_matrix/docs/behavior/conversation-structure-and-lineage.md`
+- Modify: `core_matrix/test/test_helper.rb`
+- Modify: `core_matrix/test/support/conversation_supervision_fixture_builder.rb`
 - Create: `core_matrix/test/services/conversations/interaction_lock_test.rb`
+- Modify: `core_matrix/test/services/conversations/validate_mutable_state_test.rb`
+- Modify: `core_matrix/test/services/conversations/with_mutable_state_lock_test.rb`
+- Modify: `core_matrix/test/services/conversations/with_conversation_entry_lock_test.rb`
+- Modify: `core_matrix/test/services/conversation_exports/build_conversation_payload_test.rb`
+- Modify: `core_matrix/test/services/conversation_debug_exports/build_payload_test.rb`
+- Modify: `core_matrix/test/services/conversations/create_fork_test.rb`
+- Modify: `core_matrix/test/services/turns/start_user_turn_test.rb`
+- Modify: `core_matrix/test/services/turns/accept_pending_user_turn_test.rb`
+- Modify: `core_matrix/test/services/turns/queue_follow_up_test.rb`
 - Modify: `core_matrix/test/services/turns/start_agent_turn_test.rb`
 - Modify: `core_matrix/test/services/subagent_connections/send_message_test.rb`
 - Modify: `core_matrix/test/services/subagent_connections/spawn_test.rb`
@@ -292,11 +309,20 @@ Cover:
 
 - revoked conversation remains readable
 - revoked conversation rejects new owner turns
+- revoked conversation rejects pending-user bootstrap entry
 - revoked conversation rejects follow-up queueing
 - ordinary owner/UI mutability is no longer modeled by
   `owner_addressable/agent_addressable`
+- revoked mount state blocks all live mutation lock helpers, not just
+  transcript-entry services
 - agent-internal child conversations still preserve a distinct bounded entry
   surface after `addressability` removal
+- owner-visible fork creation still produces an owner-enterable child
+- public/debug export payloads stop serializing `addressability` and instead
+  expose explicit lock/policy state
+- repo fixtures/helpers stop constructing conversations through
+  `addressability: "agent_addressable"` and instead express `agent_internal`
+  semantics through the new policy shape
 
 **Step 2: Implement the new model**
 
@@ -318,6 +344,23 @@ Required replacement rule:
 - child conversations that are currently `agent_addressable` must migrate to an
   explicit `agent_internal`-only policy shape instead of becoming owner- or
   channel-addressable by accident
+- `Conversations::CreationSupport` and all child-conversation builders must use
+  the new explicit policy shape instead of passing `addressability`
+- `Conversations::ValidateMutableState` and the lock wrappers above it must
+  reject non-`mutable` conversations before any live mutation path proceeds
+- `Turns::StartUserTurn`, `Turns::AcceptPendingUserTurn`, and
+  `Turns::QueueFollowUp` must reject non-owner-enterable conversations through
+  the new entry-policy contract, not through the removed enum
+- `Turns::StartAgentTurn` and `SubagentConnections::SendMessage` must accept
+  only `agent_internal` child surfaces, not ordinary owner/channel surfaces
+- the `conversations` schema must persist explicit entry-policy state so
+  root conversations can snapshot mounted policy and child conversations can
+  narrow it without relying on the removed enum
+- conversation export/debug payloads must stop emitting the removed
+  `addressability` field and replace it with explicit lock/policy data
+- repo-wide helper and fixture builders must be updated before full-suite
+  verification so the removal does not leave stale `agent_addressable`
+  construction paths outside the focused Task 4 tests
 
 **Step 3: Run the focused tests**
 
@@ -325,25 +368,46 @@ Required replacement rule:
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
   test/services/conversations/interaction_lock_test.rb \
-  test/services/turns/queue_follow_up_test.rb
+  test/services/conversations/validate_mutable_state_test.rb \
+  test/services/conversations/with_mutable_state_lock_test.rb \
+  test/services/conversations/with_conversation_entry_lock_test.rb \
+  test/services/turns/start_user_turn_test.rb \
+  test/services/turns/accept_pending_user_turn_test.rb \
+  test/services/turns/queue_follow_up_test.rb \
+  test/services/turns/start_agent_turn_test.rb \
+  test/services/subagent_connections/validate_addressability_test.rb \
+  test/services/subagent_connections/send_message_test.rb \
+  test/services/subagent_connections/spawn_test.rb \
+  test/services/conversations/create_fork_test.rb \
+  test/services/conversation_exports/build_conversation_payload_test.rb \
+  test/services/conversation_debug_exports/build_payload_test.rb
+```
+
+Then run a repo-wide stale-contract audit before leaving Task 4:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+rg -n "addressability|owner_addressable|agent_addressable" app test docs/behavior
 ```
 
 **Step 4: Commit**
 
 ```bash
-git add app/models/conversation.rb app/services docs/behavior/conversation-structure-and-lineage.md test
+git add app/models/conversation.rb app/services/conversations app/services/subagent_connections app/services/turns app/services/conversation_exports docs/behavior/conversation-structure-and-lineage.md test
 git commit -m "refactor: replace conversation addressability with interaction locking"
 ```
 
 ### Task 5: Move Runtime And Capability Defaults To `WorkspaceAgent`
 
 **Files:**
+- Modify: `core_matrix/app/models/conversation.rb`
 - Modify: `core_matrix/app/services/conversations/creation_support.rb`
 - Modify: `core_matrix/app/services/turns/select_execution_runtime.rb`
 - Modify: `core_matrix/app/services/workspace_policies/capabilities.rb`
 - Modify: `core_matrix/app/models/workspace_agent.rb`
 - Modify: `core_matrix/test/services/conversations/create_root_test.rb`
 - Modify: `core_matrix/test/services/turns/select_execution_runtime_test.rb`
+- Modify: `core_matrix/test/models/workspace_agent_test.rb`
 
 **Step 1: Write failing tests for the new resolution order**
 
@@ -352,6 +416,10 @@ Cover:
 - conversation creation resolves runtime from `WorkspaceAgent.default_execution_runtime`
 - fallback remains `Agent.default_execution_runtime`
 - capability defaults come from `WorkspaceAgent.capability_policy_payload`
+- `Conversation#default_current_execution_runtime` no longer resolves through
+  `Workspace.default_execution_runtime`
+- v1 `WorkspaceAgent.capability_policy_payload` uses
+  `disabled_capabilities: [...]` with the existing workspace capability keys
 
 **Step 2: Implement the new resolution rules**
 
@@ -364,11 +432,27 @@ Target runtime selection order:
 
 Do not resolve through `Workspace.default_execution_runtime`.
 
+`Conversation` bootstrap and `Turns::SelectExecutionRuntime` must both use that
+same order so creation-time defaults and turn-entry defaults cannot diverge.
+
+For capability defaults, treat `WorkspaceAgent.capability_policy_payload` as a
+mount-local narrowing layer over the existing workspace/agent capability
+resolver:
+
+- start from agent-supported workspace capabilities
+- apply workspace-level disables
+- apply `WorkspaceAgent.capability_policy_payload["disabled_capabilities"]`
+- project the resulting effective capability set onto the conversation
+- do not allow `WorkspacePolicies::Capabilities` to silently recover by reading
+  `Workspace.primary_workspace_agent`; callers must pass an explicit `agent`
+  and/or `workspace_agent`
+
 **Step 3: Run the focused tests**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
+  test/models/workspace_agent_test.rb \
   test/services/conversations/create_root_test.rb \
   test/services/turns/select_execution_runtime_test.rb
 ```
@@ -389,10 +473,14 @@ git commit -m "refactor: move runtime and capability defaults to workspace agent
 - Modify: `core_matrix/app/controllers/app_api/agents/workspaces_controller.rb`
 - Modify: `core_matrix/app/controllers/app_api/conversations_controller.rb`
 - Modify: `core_matrix/app/controllers/app_api/conversations/messages_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/workspaces/policies_controller.rb`
+- Modify: `core_matrix/app/controllers/app_api/workspaces/conversation_bundle_import_requests_controller.rb`
 - Modify: existing workspace policy and launch controllers as needed
 - Modify: `core_matrix/app/services/app_surface/queries/agent_home.rb`
 - Modify: `core_matrix/app/services/app_surface/presenters/workspace_presenter.rb`
 - Modify: `core_matrix/app/services/app_surface/presenters/agent_presenter.rb`
+- Modify: `core_matrix/app/services/app_surface/presenters/workspace_policy_presenter.rb`
+- Modify: `core_matrix/app/services/workspace_policies/upsert.rb`
 - Modify: `core_matrix/app/services/workspaces/resolve_default_reference.rb`
 - Modify: `core_matrix/app/services/workspaces/create_default.rb`
 - Modify: `core_matrix/app/services/workspaces/materialize_default.rb`
@@ -401,7 +489,12 @@ git commit -m "refactor: move runtime and capability defaults to workspace agent
 - Create: `core_matrix/test/requests/app_api/workspaces/workspace_agents_controller_test.rb`
 - Modify: `core_matrix/test/requests/app_api/agent_homes_test.rb`
 - Modify: `core_matrix/test/requests/app_api/workspaces_test.rb`
+- Modify: `core_matrix/test/requests/app_api/workspace_policies_test.rb`
+- Modify: `core_matrix/test/requests/app_api/conversation_bundle_import_requests_test.rb`
 - Modify: `core_matrix/test/requests/app_api/conversations_test.rb`
+- Modify: `core_matrix/test/services/workspaces/resolve_default_reference_test.rb`
+- Modify: `core_matrix/test/services/workspaces/create_default_test.rb`
+- Modify: `core_matrix/test/services/workspaces/materialize_default_test.rb`
 - Modify: `core_matrix/test/services/workbench/create_conversation_from_agent_test.rb`
 - Modify: `core_matrix/test/services/workbench/send_message_test.rb`
 
@@ -413,8 +506,18 @@ Cover:
 - mount can choose a default execution runtime
 - mount can be revoked/disabled
 - revoked mount keeps workspace visible but prevents interactive launch
+- workspace policy request tests no longer construct `Workspace` with direct
+  `agent` / `default_execution_runtime` assignment
+- workspace policy show/update require an explicit `workspace_agent_id`
+- workspace policy runtime/capability reads and writes target the requested
+  mounted agent, never an implicit primary mount
+- workspace-scoped import/export helper endpoints that need an agent definition
+  version must also require `workspace_agent_id` instead of inferring from the
+  primary mounted agent
 - the old `default_workspace_ref` / virtual-default-workspace contract is
   intentionally removed
+- `Workspaces::ResolveDefaultReference`, `CreateDefault`, and
+  `MaterializeDefault` stop synthesizing interactive launch placeholders
 - browser launch and follow-up message APIs resolve through `workspace_agent_id`
   instead of `agent_id` plus an implicit default workspace flow
 
@@ -443,13 +546,39 @@ This task also intentionally removes the old agent-centric browser surface:
 - stop returning `default_workspace_ref`
 - stop materializing a default workspace as a hidden side effect of conversation
   creation
+- `WorkspacePolicyPresenter` and `WorkspacePolicies::Upsert` must resolve
+  runtime/capability state through the requested `workspace_agent_id`, not
+  through `Workspace.primary_workspace_agent`
+- workspace-scoped bundle import endpoints must resolve the target agent
+  definition version through the requested `workspace_agent_id`
+- queued bundle import requests must persist that concrete
+  `target_workspace_agent_id`, and rehydrate must resolve through that exact
+  active mount instead of re-binding by `workspace` plus `agent`
+- `WorkspaceAgent` lifecycle is one-way for this refactor: active mounts may be
+  revoked/retired, but revoked/retired mounts are immutable and must not be
+  edited back into service
+- the active -> revoked/retired transition itself must also be narrow: one
+  update may record terminal lifecycle metadata, but it must not batch a
+  runtime or policy rewrite into the same revocation/retirement request
+- existing request/service tests that still build `Workspace` with direct agent
+  attributes must be rewritten to materialize `WorkspaceAgent` explicitly
 
 **Step 3: Run the focused tests**
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 PARALLEL_WORKERS=1 bin/rails test \
-  test/requests/app_api/workspaces/workspace_agents_controller_test.rb
+  test/requests/app_api/workspaces/workspace_agents_controller_test.rb \
+  test/requests/app_api/agent_homes_test.rb \
+  test/requests/app_api/workspaces_test.rb \
+  test/requests/app_api/workspace_policies_test.rb \
+  test/requests/app_api/conversation_bundle_import_requests_test.rb \
+  test/requests/app_api/conversations_test.rb \
+  test/services/workspaces/resolve_default_reference_test.rb \
+  test/services/workspaces/create_default_test.rb \
+  test/services/workspaces/materialize_default_test.rb \
+  test/services/workbench/create_conversation_from_agent_test.rb \
+  test/services/workbench/send_message_test.rb
 ```
 
 **Step 4: Commit**

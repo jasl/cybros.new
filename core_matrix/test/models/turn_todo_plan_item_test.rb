@@ -73,7 +73,7 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
       execution_runtime: fixture.fetch(:context).fetch(:execution_runtime),
       agent_definition_version: fixture.fetch(:context).fetch(:agent_definition_version),
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     unrelated_session = SubagentConnection.create!(
       installation: fixture.fetch(:installation),
@@ -115,7 +115,7 @@ class TurnTodoPlanItemTest < ActiveSupport::TestCase
       execution_runtime: context.fetch(:execution_runtime),
       agent_definition_version: context.fetch(:agent_definition_version),
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     subagent_connection = SubagentConnection.create!(
       installation: context.fetch(:installation),

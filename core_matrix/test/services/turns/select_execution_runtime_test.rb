@@ -93,4 +93,64 @@ class Turns::SelectExecutionRuntimeTest < ActiveSupport::TestCase
 
     assert_equal workspace_default_runtime, Turns::SelectExecutionRuntime.call(conversation: conversation)
   end
+
+  test "uses the conversation workspace agent default runtime when the current runtime cache is empty" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    primary_runtime = create_execution_runtime!(installation: installation, display_name: "Primary Mount Runtime")
+    mounted_runtime = create_execution_runtime!(installation: installation, display_name: "Mounted Runtime")
+    create_execution_runtime_connection!(installation: installation, execution_runtime: primary_runtime)
+    create_execution_runtime_connection!(installation: installation, execution_runtime: mounted_runtime)
+
+    primary_agent = create_agent!(installation: installation, default_execution_runtime: primary_runtime)
+    mounted_agent = create_agent!(installation: installation, default_execution_runtime: nil)
+    workspace = create_workspace!(installation: installation, user: user, name: "Runtime Selection Workspace")
+    create_workspace_agent!(
+      installation: installation,
+      workspace: workspace,
+      agent: primary_agent,
+      default_execution_runtime: primary_runtime
+    )
+    mounted_workspace_agent = create_workspace_agent!(
+      installation: installation,
+      workspace: workspace,
+      agent: mounted_agent,
+      default_execution_runtime: mounted_runtime
+    )
+    conversation = Conversations::CreateRoot.call(workspace_agent: mounted_workspace_agent)
+
+    conversation.update_columns(current_execution_runtime_id: nil)
+
+    assert_equal mounted_runtime, Turns::SelectExecutionRuntime.call(conversation: conversation.reload)
+  end
+
+  test "falls back to the conversation agent default runtime when the mount has no runtime" do
+    installation = create_installation!
+    user = create_user!(installation: installation)
+    primary_runtime = create_execution_runtime!(installation: installation, display_name: "Primary Mount Runtime")
+    agent_default_runtime = create_execution_runtime!(installation: installation, display_name: "Mounted Agent Default")
+    create_execution_runtime_connection!(installation: installation, execution_runtime: primary_runtime)
+    create_execution_runtime_connection!(installation: installation, execution_runtime: agent_default_runtime)
+
+    primary_agent = create_agent!(installation: installation, default_execution_runtime: primary_runtime)
+    mounted_agent = create_agent!(installation: installation, default_execution_runtime: agent_default_runtime)
+    workspace = create_workspace!(installation: installation, user: user, name: "Agent Runtime Fallback Workspace")
+    create_workspace_agent!(
+      installation: installation,
+      workspace: workspace,
+      agent: primary_agent,
+      default_execution_runtime: primary_runtime
+    )
+    mounted_workspace_agent = create_workspace_agent!(
+      installation: installation,
+      workspace: workspace,
+      agent: mounted_agent,
+      default_execution_runtime: nil
+    )
+    conversation = Conversations::CreateRoot.call(workspace_agent: mounted_workspace_agent)
+
+    conversation.update_columns(current_execution_runtime_id: nil)
+
+    assert_equal agent_default_runtime, Turns::SelectExecutionRuntime.call(conversation: conversation.reload)
+  end
 end

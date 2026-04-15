@@ -4,11 +4,12 @@ module Conversations
       new(*args, **kwargs).call(&block)
     end
 
-    def initialize(conversation:, record: nil, retained_message:, active_message:, closing_message:)
+    def initialize(conversation:, record: nil, retained_message:, active_message:, lock_message: "must be mutable", closing_message:)
       @conversation = conversation
       @record = record || conversation
       @retained_message = retained_message
       @active_message = active_message
+      @lock_message = lock_message
       @closing_message = closing_message
     end
 
@@ -18,6 +19,7 @@ module Conversations
         record: @record,
         retained_message: @retained_message,
         active_message: @active_message,
+        lock_message: @lock_message,
         closing_message: @closing_message
       ) do |conversation|
         yield conversation

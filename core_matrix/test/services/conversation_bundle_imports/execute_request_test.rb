@@ -21,6 +21,7 @@ class ConversationBundleImportsExecuteRequestTest < ActiveSupport::TestCase
       lifecycle_state: "queued",
       request_payload: {
         "target_agent_definition_version_id" => context[:agent_definition_version].public_id,
+        "target_workspace_agent_id" => context[:workspace_agent].public_id,
       }
     )
     request.upload_file.attach(

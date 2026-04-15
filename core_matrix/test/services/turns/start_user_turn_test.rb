@@ -163,7 +163,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
     end
   end
 
-  test "rejects agent addressable conversations" do
+  test "rejects agent internal only conversations" do
     context = create_workspace_context!
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
@@ -173,7 +173,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: root_conversation,
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     SubagentConnection.create!(
       installation: context[:installation],
@@ -196,7 +196,7 @@ class Turns::StartUserTurnTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:addressability], "must be owner_addressable for user turn entry"
+    assert_includes error.record.errors[:entry_policy_payload], "must allow main transcript entry for user turn entry"
   end
 
   test "rejects pending delete conversations" do

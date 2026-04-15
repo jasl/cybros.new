@@ -12,8 +12,7 @@ module ConversationBundleImports
     def call
       ApplicationRecord.transaction do
         conversation = Conversations::CreateRoot.call(
-          workspace: @request.workspace,
-          agent: target_agent_definition_version.agent
+          workspace_agent: target_workspace_agent
         )
         restore_conversation_timestamps!(conversation)
         rehydrate_turns!(conversation)
@@ -30,6 +29,15 @@ module ConversationBundleImports
       )
     end
 
+    def target_workspace_agent
+      @target_workspace_agent ||= WorkspaceAgent.find_by!(
+        installation_id: @request.installation_id,
+        workspace: @request.workspace,
+        public_id: @request.request_payload.fetch("target_workspace_agent_id"),
+        lifecycle_state: "active"
+      )
+    end
+
     def conversation_payload
       @parsed_bundle.fetch("conversation_payload")
     end
@@ -39,7 +47,7 @@ module ConversationBundleImports
     end
 
     def target_execution_runtime
-      @target_execution_runtime ||= target_agent_definition_version.agent.default_execution_runtime
+      @target_execution_runtime ||= target_workspace_agent.default_execution_runtime || target_agent_definition_version.agent.default_execution_runtime
     end
 
     def restore_conversation_timestamps!(conversation)

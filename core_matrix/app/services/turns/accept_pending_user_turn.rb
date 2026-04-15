@@ -23,13 +23,14 @@ module Turns
         conversation: @conversation,
         retained_message: "must be retained for user turn entry",
         active_message: "must be active for user turn entry",
+        lock_message: "must be mutable for user turn entry",
         closing_message: "must not accept new turn entry while close is in progress"
       ) do |conversation|
         raise_invalid!(conversation, :purpose, "must be interactive for user turn entry") unless conversation.interactive?
         SubagentConnections::ValidateAddressability.call(
           conversation: conversation,
           sender_kind: "human",
-          rejection_message: "must be owner_addressable for user turn entry"
+          rejection_message: "must allow main transcript entry for user turn entry"
         )
 
         execution_identity = Turns::FreezeExecutionIdentity.call(

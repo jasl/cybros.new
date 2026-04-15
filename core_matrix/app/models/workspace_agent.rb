@@ -2,6 +2,7 @@ class WorkspaceAgent < ApplicationRecord
   include HasPublicId
 
   LIFECYCLE_STATES = %w[active revoked retired].freeze
+  CAPABILITY_POLICY_KEYS = %w[disabled_capabilities].freeze
 
   belongs_to :installation
   belongs_to :workspace
@@ -15,6 +16,12 @@ class WorkspaceAgent < ApplicationRecord
   validate :agent_installation_match
   validate :default_execution_runtime_installation_match
   validate :single_active_mount
+  validate :capability_policy_payload_must_be_hash
+  validate :capability_policy_payload_supported
+  validate :immutable_after_terminal_lifecycle_state, on: :update
+  validate :terminal_transition_only_allows_terminal_metadata, on: :update
+
+  before_validation :normalize_capability_policy_payload
 
   after_commit :lock_conversations_after_revocation, on: %i[create update]
 
@@ -24,7 +31,63 @@ class WorkspaceAgent < ApplicationRecord
 
   def retired? = lifecycle_state == "retired"
 
+  def disabled_capabilities
+    WorkspacePolicies::Capabilities.normalize_capabilities(
+      capability_policy_payload.is_a?(Hash) ? capability_policy_payload["disabled_capabilities"] : nil
+    )
+  end
+
   private
+
+  def normalize_capability_policy_payload
+    return self.capability_policy_payload = {} if capability_policy_payload.blank?
+    return unless capability_policy_payload.is_a?(Hash)
+
+    normalized = capability_policy_payload.deep_stringify_keys
+    if normalized["disabled_capabilities"].is_a?(Array)
+      normalized["disabled_capabilities"] = WorkspacePolicies::Capabilities.normalize_capabilities(normalized["disabled_capabilities"])
+    end
+
+    self.capability_policy_payload = normalized
+  end
+
+  def capability_policy_payload_must_be_hash
+    return if capability_policy_payload.is_a?(Hash)
+
+    errors.add(:capability_policy_payload, "must be a hash")
+  end
+
+  def capability_policy_payload_supported
+    return unless capability_policy_payload.is_a?(Hash)
+
+    normalized = capability_policy_payload.deep_stringify_keys
+    unsupported_keys = normalized.keys - CAPABILITY_POLICY_KEYS
+    errors.add(:capability_policy_payload, "must only contain supported keys") if unsupported_keys.any?
+
+    if normalized.key?("disabled_capabilities") && !normalized["disabled_capabilities"].is_a?(Array)
+      errors.add(:capability_policy_payload, "disabled_capabilities must be an array")
+    end
+  end
+
+  def immutable_after_terminal_lifecycle_state
+    previous_state = lifecycle_state_in_database
+    return if previous_state.blank? || previous_state == "active"
+    return unless changes_to_save.except("updated_at").any?
+
+    errors.add(:base, "is immutable once revoked or retired")
+  end
+
+  def terminal_transition_only_allows_terminal_metadata
+    previous_state = lifecycle_state_in_database
+    return unless previous_state == "active"
+    return unless lifecycle_state.in?(%w[revoked retired])
+
+    allowed_changes = %w[lifecycle_state updated_at]
+    allowed_changes.concat(%w[revoked_at revoked_reason_kind]) if lifecycle_state == "revoked"
+    return if changes_to_save.except(*allowed_changes).empty?
+
+    errors.add(:base, "cannot change policy or runtime while transitioning to a terminal state")
+  end
 
   def workspace_installation_match
     return if workspace.blank?

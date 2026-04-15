@@ -11,6 +11,8 @@ module Conversations
       retained_message:,
       active_attribute: :lifecycle_state,
       active_message:,
+      lock_attribute: :interaction_lock_state,
+      lock_message: "must be mutable",
       closing_attribute: :base,
       closing_message:
     )
@@ -20,6 +22,8 @@ module Conversations
       @retained_message = retained_message
       @active_attribute = active_attribute
       @active_message = active_message
+      @lock_attribute = lock_attribute
+      @lock_message = lock_message
       @closing_attribute = closing_attribute
       @closing_message = closing_message
     end
@@ -33,6 +37,8 @@ module Conversations
           retained_message: @retained_message,
           active_attribute: @active_attribute,
           active_message: @active_message,
+          lock_attribute: @lock_attribute,
+          lock_message: @lock_message,
           closing_attribute: @closing_attribute,
           closing_message: @closing_message
         )

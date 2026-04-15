@@ -32,6 +32,23 @@ class Conversations::WithMutableStateLockTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:deletion_state], "must be retained before mutating"
   end
 
+  test "rejects interaction locked conversations after acquiring the conversation lock" do
+    conversation = create_conversation!
+    conversation.update!(interaction_lock_state: "locked_agent_access_revoked")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::WithMutableStateLock.call(
+        conversation: conversation,
+        retained_message: "must be retained before mutating",
+        active_message: "must be active before mutating",
+        closing_message: "must not mutate while close is in progress",
+        lock_message: "must be mutable before mutating"
+      ) { flunk "should not yield" }
+    end
+
+    assert_includes error.record.errors[:interaction_lock_state], "must be mutable before mutating"
+  end
+
   private
 
   def create_conversation!

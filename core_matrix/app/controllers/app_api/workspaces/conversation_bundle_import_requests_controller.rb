@@ -2,12 +2,18 @@ module AppAPI
   module Workspaces
     class ConversationBundleImportRequestsController < AppAPI::Workspaces::BaseController
       def create
-        agent_definition_version = @workspace.agent.current_agent_definition_version
+        workspace_agent = find_workspace_agent!(
+          params.fetch(:workspace_agent_id),
+          workspace: @workspace,
+          launchable_only: true
+        )
+        agent_definition_version = workspace_agent.agent.current_agent_definition_version
         raise ActiveRecord::RecordNotFound, "Couldn't find AgentDefinitionVersion" if agent_definition_version.blank?
 
         request = ConversationBundleImports::CreateRequest.call(
           workspace: @workspace,
           user: current_user,
+          workspace_agent: workspace_agent,
           uploaded_file: params[:upload_file],
           target_agent_definition_version_id: agent_definition_version.public_id
         )
@@ -31,6 +37,10 @@ module AppAPI
       end
 
       private
+
+      def workspace_lookup_scope
+        Workspace.accessible_to_user(current_user)
+      end
 
       def find_import_request!(request_id)
         ConversationBundleImportRequest

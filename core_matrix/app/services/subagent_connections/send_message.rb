@@ -20,13 +20,14 @@ module SubagentConnections
         record: @conversation,
         retained_message: "must be retained for subagent delivery",
         active_message: "must be active for subagent delivery",
+        lock_message: "must be mutable for subagent delivery",
         closing_message: "must not accept subagent delivery while close is in progress"
       ) do |conversation|
         validate_session_mutable!(conversation:)
         SubagentConnections::ValidateAddressability.call(
           conversation: conversation,
           sender_kind: @sender_kind,
-          rejection_message: "must be agent_addressable for subagent delivery"
+          rejection_message: "must allow agent internal entry for subagent delivery"
         )
         validate_sender_kind!(conversation:)
         execution_identity = Turns::FreezeExecutionIdentity.call(conversation: conversation)

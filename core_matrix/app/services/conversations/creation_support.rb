@@ -5,7 +5,8 @@ module Conversations
     def create_root_conversation!(workspace_agent:, workspace:, agent:, purpose:, execution_runtime: nil)
       capability_projection = WorkspacePolicies::Capabilities.projection_attributes_for(
         workspace: workspace,
-        agent: agent
+        agent: agent,
+        workspace_agent: workspace_agent
       )
 
       conversation = Conversation.create!(
@@ -18,6 +19,10 @@ module Conversations
         current_execution_runtime: execution_runtime,
         kind: "root",
         purpose: purpose,
+        entry_policy_payload: Conversation.normalize_entry_policy_payload(
+          workspace_agent.entry_policy_payload,
+          purpose: purpose
+        ),
         lifecycle_state: "active",
         last_activity_at: Time.current,
         **capability_projection
@@ -34,7 +39,7 @@ module Conversations
       conversation
     end
 
-    def build_child_conversation(parent:, kind:, historical_anchor_message_id: nil, addressability: "owner_addressable")
+    def build_child_conversation(parent:, kind:, historical_anchor_message_id: nil, entry_policy_payload: nil)
       Conversation.new(
         installation: parent.installation,
         user: parent.user,
@@ -45,7 +50,7 @@ module Conversations
         parent_conversation: parent,
         kind: kind,
         purpose: parent.purpose,
-        addressability: addressability,
+        entry_policy_payload: (entry_policy_payload || parent.entry_policy_payload).deep_dup,
         lifecycle_state: "active",
         historical_anchor_message_id: historical_anchor_message_id,
         supervision_enabled: parent.supervision_enabled?,
@@ -64,6 +69,7 @@ module Conversations
       conversation.current_execution_runtime = parent.current_execution_runtime
       conversation.parent_conversation = parent
       conversation.purpose = parent.purpose
+      conversation.entry_policy_payload ||= parent.entry_policy_payload.deep_dup
       conversation.lifecycle_state = "active"
       conversation.supervision_enabled = parent.supervision_enabled?
       conversation.detailed_progress_enabled = parent.detailed_progress_enabled?

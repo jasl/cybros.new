@@ -119,6 +119,9 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     assert_equal 2, payload.fetch("conversation_supervision_messages").length
     assert_equal %w[user supervisor_agent], payload.fetch("conversation_supervision_messages").map { |message| message.fetch("role") }
     assert_equal result.dig("human_sidechat", "content"), payload.fetch("conversation_supervision_messages").last.fetch("content")
+    assert_equal "mutable", payload.dig("conversation_payload", "conversation", "interaction_lock_state")
+    assert_equal default_interactive_entry_policy_payload, payload.dig("conversation_payload", "conversation", "entry_policy_payload")
+    refute payload.dig("conversation_payload", "conversation").key?("addressability")
     refute_includes JSON.generate(payload), %("#{session.id}")
   end
 
@@ -157,7 +160,7 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       execution_runtime: context[:execution_runtime],
       agent_definition_version: context[:agent_definition_version],
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     subagent_connection = SubagentConnection.create!(
       installation: context[:installation],

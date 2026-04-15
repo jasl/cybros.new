@@ -45,6 +45,44 @@ module AppAPI
       agent
     end
 
+    def find_workspace_agent!(workspace_agent_id, workspace: nil, launchable_only: false)
+      if workspace.present? && workspace.association(:workspace_agents).loaded?
+        candidate = workspace.workspace_agents.find do |loaded_workspace_agent|
+          loaded_workspace_agent.public_id == workspace_agent_id &&
+            (!launchable_only || loaded_workspace_agent.active?)
+        end
+        return candidate if candidate.present?
+      end
+
+      scope = WorkspaceAgent
+        .joins(:workspace)
+        .where(
+          installation_id: current_user.installation_id,
+          public_id: workspace_agent_id,
+          workspaces: {
+            user_id: current_user.id,
+            privacy: "private",
+          }
+        )
+        .includes(:agent, :default_execution_runtime, :workspace)
+      scope = scope.where(workspace: workspace) if workspace.present?
+      scope = scope.where(lifecycle_state: "active") if launchable_only
+
+      scope.first || raise(ActiveRecord::RecordNotFound, "Couldn't find WorkspaceAgent")
+    end
+
+    def find_launchable_workspace_agent!(workspace_agent_id, execution_runtime: AppSurface::Policies::AgentLaunchability::DEFAULT_RUNTIME)
+      workspace_agent = find_workspace_agent!(workspace_agent_id, launchable_only: true)
+      raise ActiveRecord::RecordNotFound, "Couldn't find WorkspaceAgent" unless AppSurface::Policies::AgentLaunchability.call(
+        user: current_user,
+        agent: workspace_agent.agent,
+        workspace_agent: workspace_agent,
+        execution_runtime: execution_runtime
+      )
+
+      workspace_agent
+    end
+
     def workspace_lookup_scope
       Workspace
         .accessible_to_user(current_user)

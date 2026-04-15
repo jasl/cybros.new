@@ -9,7 +9,7 @@ class Workbench::SendMessageTest < ActiveSupport::TestCase
 
     result = nil
 
-    assert_no_difference(["UserAgentBinding.count", "Workspace.count", "Conversation.count"]) do
+    assert_no_difference(["Workspace.count", "WorkspaceAgent.count", "Conversation.count"]) do
       assert_enqueued_with(job: Turns::MaterializeAndDispatchJob) do
         assert_difference(["Turn.count", "Message.count"], +1) do
           assert_no_difference("WorkflowRun.count") do
@@ -27,6 +27,7 @@ class Workbench::SendMessageTest < ActiveSupport::TestCase
     assert_equal [result.conversation.public_id, result.turn.public_id], title_job[:args]
 
     assert_equal conversation, result.conversation
+    assert_equal conversation.workspace_agent, result.conversation.workspace_agent
     assert_equal "Follow up", result.message.content
     assert_equal result.turn, result.message.turn
     assert_equal "pending", result.turn.workflow_bootstrap_state

@@ -1,7 +1,7 @@
 require "test_helper"
 
 class SubagentConnections::ValidateAddressabilityTest < ActiveSupport::TestCase
-  test "owner-addressable conversations only allow human senders" do
+  test "main transcript entry only allows human senders" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -10,21 +10,21 @@ class SubagentConnections::ValidateAddressabilityTest < ActiveSupport::TestCase
     SubagentConnections::ValidateAddressability.call(
       conversation: conversation,
       sender_kind: "human",
-      rejection_message: "must be owner_addressable"
+      rejection_message: "must allow main transcript entry"
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
       SubagentConnections::ValidateAddressability.call(
         conversation: conversation,
         sender_kind: "owner_agent",
-        rejection_message: "must be owner_addressable"
+        rejection_message: "must allow main transcript entry"
       )
     end
 
-    assert_includes error.record.errors[:addressability], "must be owner_addressable"
+    assert_includes error.record.errors[:entry_policy_payload], "must allow main transcript entry"
   end
 
-  test "agent-addressable conversations allow agent senders and reject humans" do
+  test "agent internal conversations allow agent senders and reject humans" do
     context = create_workspace_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -36,23 +36,23 @@ class SubagentConnections::ValidateAddressabilityTest < ActiveSupport::TestCase
       kind: "fork",
       execution_runtime: context[:execution_runtime],
       agent_definition_version: context[:agent_definition_version],
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
 
     SubagentConnections::ValidateAddressability.call(
       conversation: conversation,
       sender_kind: "owner_agent",
-      rejection_message: "must be agent_addressable"
+      rejection_message: "must allow agent internal entry"
     )
 
     error = assert_raises(ActiveRecord::RecordInvalid) do
       SubagentConnections::ValidateAddressability.call(
         conversation: conversation,
         sender_kind: "human",
-        rejection_message: "must be agent_addressable"
+        rejection_message: "must allow agent internal entry"
       )
     end
 
-    assert_includes error.record.errors[:addressability], "must be agent_addressable"
+    assert_includes error.record.errors[:entry_policy_payload], "must allow agent internal entry"
   end
 end

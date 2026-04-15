@@ -166,7 +166,7 @@ class Conversations::RequestCloseTest < ActiveSupport::TestCase
       kind: "fork",
       execution_runtime: context[:execution_runtime],
       agent_definition_version: context[:agent_definition_version],
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
 
     SubagentConnection.create!(

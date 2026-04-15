@@ -145,7 +145,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       parent_conversation: context[:conversation],
       kind: "fork",
       agent: context[:agent],
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
@@ -185,7 +185,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       parent_conversation: context[:conversation],
       kind: "fork",
       agent: context[:agent],
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     subagent_connection = SubagentConnection.create!(
       installation: context[:installation],

@@ -17,13 +17,14 @@ module Turns
         conversation: @conversation,
         retained_message: "must be retained for follow up turn entry",
         active_message: "must be active for follow up turn entry",
+        lock_message: "must be mutable for follow up turn entry",
         closing_message: "must not accept new turn entry while close is in progress"
       ) do |conversation|
         raise_invalid!(conversation, :purpose, "must be interactive for follow up turn entry") unless conversation.interactive?
         SubagentConnections::ValidateAddressability.call(
           conversation: conversation,
           sender_kind: "human",
-          rejection_message: "must be owner_addressable for follow up turn entry"
+          rejection_message: "must allow main transcript entry for follow up turn entry"
         )
 
         unless conversation.turns.where(lifecycle_state: %w[queued active]).exists?

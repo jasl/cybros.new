@@ -2,14 +2,13 @@ module AppAPI
   class ConversationsController < BaseController
     def create
       execution_runtime = resolve_initial_execution_runtime
-      agent = find_launchable_agent!(
-        params.fetch(:agent_id),
+      workspace_agent = find_launchable_workspace_agent!(
+        params.fetch(:workspace_agent_id),
         execution_runtime: execution_runtime || AppSurface::Policies::AgentLaunchability::DEFAULT_RUNTIME
       )
       result = Workbench::CreateConversationFromAgent.call(
         user: current_user,
-        agent: agent,
-        workspace_id: params[:workspace_id],
+        workspace_agent: workspace_agent,
         content: params.fetch(:content),
         selector: params[:selector],
         execution_runtime: execution_runtime
@@ -18,8 +17,12 @@ module AppAPI
       render_method_response(
         method_id: "conversation_create",
         status: :created,
-        agent_id: agent.public_id,
-        workspace: AppSurface::Presenters::WorkspacePresenter.call(workspace: result.workspace),
+        agent_id: workspace_agent.agent.public_id,
+        workspace: AppSurface::Presenters::WorkspacePresenter.call(
+          workspace: result.workspace,
+          agent_public_id: workspace_agent.agent.public_id,
+          workspace_agents: [workspace_agent]
+        ),
         conversation: AppSurface::Presenters::ConversationPresenter.call(conversation: result.conversation),
         turn_id: result.turn.public_id,
         execution_status: result.turn.workflow_bootstrap_state,

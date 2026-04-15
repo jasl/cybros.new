@@ -13,6 +13,7 @@ module AppSurface
         {
           "conversation_id" => @conversation.public_id,
           "workspace_id" => @conversation.workspace.public_id,
+          "workspace_agent_id" => @conversation.workspace_agent.public_id,
           "agent_id" => @conversation.agent.public_id,
           "current_execution_epoch_id" => @conversation.current_execution_epoch&.public_id,
           "current_execution_runtime_id" => @conversation.current_execution_runtime&.public_id,

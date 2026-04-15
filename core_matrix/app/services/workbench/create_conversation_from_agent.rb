@@ -12,25 +12,22 @@ module Workbench
       new(...).call
     end
 
-    def initialize(user:, agent:, content:, workspace_id: nil, selector: nil, execution_runtime: nil)
+    def initialize(user:, workspace_agent:, content:, selector: nil, execution_runtime: nil)
       @user = user
-      @agent = agent
+      @workspace_agent = workspace_agent
       @content = content
-      @workspace_id = workspace_id
       @selector = selector
       @execution_runtime = execution_runtime
     end
 
     def call
-      UserAgentBindings::Enable.call(user: @user, agent: @agent)
-      workspace = resolve_workspace
+      workspace = @workspace_agent.workspace
       conversation = nil
       turn = nil
 
       ApplicationRecord.transaction do
         conversation = Conversations::CreateRoot.call(
-          workspace: workspace,
-          agent: @agent,
+          workspace_agent: @workspace_agent,
           execution_runtime: @execution_runtime
         )
         turn = Turns::AcceptPendingUserTurn.call(
@@ -50,19 +47,6 @@ module Workbench
         conversation: conversation,
         turn: turn,
         message: turn.selected_input_message
-      )
-    end
-
-    private
-
-    def resolve_workspace
-      return Workspaces::MaterializeDefault.call(user: @user, agent: @agent) if @workspace_id.blank?
-
-      Workspace.find_by!(
-        public_id: @workspace_id,
-        installation: @user.installation,
-        user: @user,
-        agent: @agent
       )
     end
 

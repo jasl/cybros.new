@@ -6,49 +6,22 @@ end
 class Workbench::CreateConversationFromAgentTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
-  test "enables the agent materializes the default workspace and accepts the first user turn as pending bootstrap work" do
-    installation = create_installation!
-    user = create_user!(installation: installation)
-    execution_runtime = create_execution_runtime!(installation: installation)
-    create_execution_runtime_connection!(installation: installation, execution_runtime: execution_runtime)
-    agent = create_agent!(
-      installation: installation,
-      visibility: "public",
-      default_execution_runtime: execution_runtime
-    )
-    create_agent_connection!(installation: installation, agent: agent)
-    ProviderEntitlement.create!(
-      installation: installation,
-      provider_handle: "codex_subscription",
-      entitlement_key: "shared_window",
-      window_kind: "rolling_five_hours",
-      window_seconds: 5.hours.to_i,
-      quota_limit: 200_000,
-      active: true,
-      metadata: {}
-    )
-    ProviderCredential.create!(
-      installation: installation,
-      provider_handle: "codex_subscription",
-      credential_kind: "oauth_codex",
-      access_token: "oauth-codex-access-token",
-      refresh_token: "oauth-codex-refresh-token",
-      expires_at: 2.hours.from_now,
-      last_rotated_at: Time.current,
-      metadata: {}
-    )
+  test "creates a conversation from an explicit workspace agent mount" do
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
 
     result = nil
 
     assert_enqueued_with(job: Turns::MaterializeAndDispatchJob) do
-      assert_difference(["UserAgentBinding.count", "Workspace.count", "Conversation.count", "Turn.count", "Message.count"], +1) do
-        assert_no_difference("WorkflowRun.count") do
-        result = Workbench::CreateConversationFromAgent.call(
-          user: user,
-          agent: agent,
-          content: "Help me start",
-          selector: "candidate:codex_subscription/gpt-5.3-codex"
-        )
+      assert_no_difference(["Workspace.count", "WorkspaceAgent.count"]) do
+        assert_difference(["Conversation.count", "Turn.count", "Message.count"], +1) do
+          assert_no_difference("WorkflowRun.count") do
+            result = Workbench::CreateConversationFromAgent.call(
+              user: context[:user],
+              workspace_agent: context[:workspace_agent],
+              content: "Help me start",
+              selector: "candidate:codex_subscription/gpt-5.3-codex"
+            )
+          end
         end
       end
     end
@@ -57,9 +30,9 @@ class Workbench::CreateConversationFromAgentTest < ActiveSupport::TestCase
     assert title_job.present?
     assert_equal [result.conversation.public_id, result.turn.public_id], title_job[:args]
 
-    assert_equal user, result.workspace.user
-    assert_equal agent, result.conversation.agent
-    assert result.workspace.is_default?
+    assert_equal context[:workspace], result.workspace
+    assert_equal context[:workspace_agent], result.conversation.workspace_agent
+    assert_equal context[:agent], result.conversation.agent
     assert_equal "Help me start", result.message.content
     assert_equal result.conversation, result.turn.conversation
     assert_equal "pending", result.turn.workflow_bootstrap_state
@@ -70,45 +43,17 @@ class Workbench::CreateConversationFromAgentTest < ActiveSupport::TestCase
   end
 
   test "allows overriding the execution runtime for the first turn" do
-    installation = create_installation!
-    user = create_user!(installation: installation)
-    default_runtime = create_execution_runtime!(installation: installation)
-    override_runtime = create_execution_runtime!(installation: installation)
-    create_execution_runtime_connection!(installation: installation, execution_runtime: default_runtime)
-    create_execution_runtime_connection!(installation: installation, execution_runtime: override_runtime)
-    agent = create_agent!(
-      installation: installation,
-      visibility: "public",
-      default_execution_runtime: default_runtime
-    )
-    create_agent_connection!(installation: installation, agent: agent)
-    ProviderEntitlement.create!(
-      installation: installation,
-      provider_handle: "codex_subscription",
-      entitlement_key: "shared_window",
-      window_kind: "rolling_five_hours",
-      window_seconds: 5.hours.to_i,
-      quota_limit: 200_000,
-      active: true,
-      metadata: {}
-    )
-    ProviderCredential.create!(
-      installation: installation,
-      provider_handle: "codex_subscription",
-      credential_kind: "oauth_codex",
-      access_token: "oauth-codex-access-token",
-      refresh_token: "oauth-codex-refresh-token",
-      expires_at: 2.hours.from_now,
-      last_rotated_at: Time.current,
-      metadata: {}
-    )
+    context = prepare_workflow_execution_setup!(create_workspace_context!)
+    default_runtime = context[:execution_runtime]
+    override_runtime = create_execution_runtime!(installation: context[:installation])
+    create_execution_runtime_connection!(installation: context[:installation], execution_runtime: override_runtime)
 
     result = nil
 
     assert_enqueued_with(job: Turns::MaterializeAndDispatchJob) do
       result = Workbench::CreateConversationFromAgent.call(
-        user: user,
-        agent: agent,
+        user: context[:user],
+        workspace_agent: context[:workspace_agent],
         content: "Use the other runtime",
         selector: "candidate:codex_subscription/gpt-5.3-codex",
         execution_runtime: override_runtime
@@ -121,6 +66,7 @@ class Workbench::CreateConversationFromAgentTest < ActiveSupport::TestCase
 
     assert_equal override_runtime, result.turn.execution_runtime
     assert_equal default_runtime, result.workspace.default_execution_runtime
+    assert_equal context[:workspace_agent], result.conversation.workspace_agent
     assert_equal "pending", result.turn.workflow_bootstrap_state
     assert_equal I18n.t("conversations.defaults.untitled_title"), result.conversation.reload.title
     assert result.conversation.title_source_none?

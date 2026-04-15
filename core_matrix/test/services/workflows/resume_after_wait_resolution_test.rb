@@ -60,7 +60,7 @@ class Workflows::ResumeAfterWaitResolutionTest < ActiveSupport::TestCase
         installation: context[:installation],
         parent_conversation: conversation,
         kind: "fork",
-        addressability: "agent_addressable",
+        entry_policy_payload: agent_internal_entry_policy_payload,
         execution_runtime: context[:execution_runtime],
         agent_definition_version: context[:agent_definition_version]
       )

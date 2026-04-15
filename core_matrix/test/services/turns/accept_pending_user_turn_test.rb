@@ -57,4 +57,40 @@ class Turns::AcceptPendingUserTurnTest < ActiveSupport::TestCase
     assert_equal "Build a complete browser-playable React 2048 game and add automated tests.", state.request_summary
     assert_equal turn.workflow_bootstrap_requested_at.to_i, state.last_progress_at.to_i
   end
+
+  test "rejects agent internal only conversations" do
+    context = create_workspace_context!
+    root_conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace]
+    )
+    child_conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      parent_conversation: root_conversation,
+      kind: "fork",
+      entry_policy_payload: agent_internal_entry_policy_payload
+    )
+    SubagentConnection.create!(
+      installation: context[:installation],
+      conversation: child_conversation,
+      owner_conversation: root_conversation,
+      user: child_conversation.user,
+      workspace: child_conversation.workspace,
+      agent: child_conversation.agent,
+      scope: "conversation",
+      profile_key: "researcher",
+      depth: 0
+    )
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::AcceptPendingUserTurn.call(
+        conversation: child_conversation,
+        content: "Blocked",
+        selector_source: "app_api",
+        selector: "candidate:codex_subscription/gpt-5.3-codex"
+      )
+    end
+
+    assert_includes error.record.errors[:entry_policy_payload], "must allow main transcript entry for user turn entry"
+  end
 end

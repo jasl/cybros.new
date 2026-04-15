@@ -87,4 +87,25 @@ class Conversations::WithConversationEntryLockTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:base], "must not create child conversations while close is in progress"
   end
+
+  test "rejects interaction locked conversations with caller supplied mutable messaging" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+    conversation.update!(interaction_lock_state: "locked_agent_access_revoked")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::WithConversationEntryLock.call(
+        conversation: conversation,
+        record: conversation,
+        retained_message: "must be retained before checkpointing",
+        active_message: "must be active before checkpointing",
+        closing_message: "must not create child conversations while close is in progress",
+        lock_message: "must be mutable before checkpointing"
+      ) { flunk "should not yield" }
+    end
+
+    assert_includes error.record.errors[:interaction_lock_state], "must be mutable before checkpointing"
+  end
 end

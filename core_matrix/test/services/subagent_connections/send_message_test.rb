@@ -6,7 +6,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
     )
-    child_conversation = create_agent_addressable_child_conversation!(
+    child_conversation = create_agent_internal_child_conversation!(
       context: context,
       owner_conversation: root_conversation
     )
@@ -38,7 +38,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes invalid_sender.record.errors[:addressability], "must be agent_addressable for subagent delivery"
+    assert_includes invalid_sender.record.errors[:entry_policy_payload], "must allow agent internal entry for subagent delivery"
     assert_includes wrong_owner.record.errors[:sender_kind], "must match the owner conversation for owner_agent delivery"
     assert_includes wrong_self.record.errors[:sender_kind], "must match the target conversation for subagent_self delivery"
   end
@@ -48,7 +48,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
     )
-    child_conversation = create_agent_addressable_child_conversation!(
+    child_conversation = create_agent_internal_child_conversation!(
       context: context,
       owner_conversation: root_conversation
     )
@@ -99,7 +99,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
     )
-    child_conversation = create_agent_addressable_child_conversation!(
+    child_conversation = create_agent_internal_child_conversation!(
       context: context,
       owner_conversation: root_conversation
     )
@@ -115,7 +115,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
 
   private
 
-  def create_agent_addressable_child_conversation!(context:, owner_conversation:)
+  def create_agent_internal_child_conversation!(context:, owner_conversation:)
     child_conversation = create_conversation_record!(
       installation: context[:installation],
       workspace: context[:workspace],
@@ -123,7 +123,7 @@ class SubagentConnections::SendMessageTest < ActiveSupport::TestCase
       kind: "fork",
       execution_runtime: context[:execution_runtime],
       agent_definition_version: context[:agent_definition_version],
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     SubagentConnection.create!(
       installation: context[:installation],

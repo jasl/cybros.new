@@ -689,7 +689,8 @@ module ActiveSupport
       workspace
     end
 
-    def create_workspace_agent!(installation: create_installation!, workspace: create_workspace!(installation: installation), agent: create_agent!(installation: installation), default_execution_runtime: nil, lifecycle_state: "active", capability_policy_payload: {}, entry_policy_payload: {}, **attrs)
+    def create_workspace_agent!(installation: create_installation!, workspace: create_workspace!(installation: installation), agent: create_agent!(installation: installation), default_execution_runtime: nil, lifecycle_state: "active", capability_policy_payload: {}, entry_policy_payload: nil, **attrs)
+      entry_policy_payload ||= default_interactive_entry_policy_payload
       WorkspaceAgent.create!({
         installation: installation,
         workspace: workspace,
@@ -699,6 +700,42 @@ module ActiveSupport
         capability_policy_payload: capability_policy_payload,
         entry_policy_payload: entry_policy_payload,
       }.merge(attrs))
+    end
+
+    def default_interactive_entry_policy_payload(overrides = {})
+      {
+        "main_transcript" => true,
+        "sidecar_query" => true,
+        "control" => true,
+        "artifact_ingress" => true,
+        "channel_ingress" => true,
+        "agent_internal" => false,
+        "automation" => false,
+      }.merge(overrides.deep_stringify_keys)
+    end
+
+    def agent_internal_entry_policy_payload(overrides = {})
+      default_interactive_entry_policy_payload(
+        "main_transcript" => false,
+        "sidecar_query" => false,
+        "control" => false,
+        "artifact_ingress" => false,
+        "channel_ingress" => false,
+        "agent_internal" => true,
+        "automation" => false,
+      ).merge(overrides.deep_stringify_keys)
+    end
+
+    def default_automation_entry_policy_payload(overrides = {})
+      {
+        "main_transcript" => false,
+        "sidecar_query" => false,
+        "control" => false,
+        "artifact_ingress" => false,
+        "channel_ingress" => false,
+        "agent_internal" => false,
+        "automation" => true,
+      }.merge(overrides.deep_stringify_keys)
     end
 
     def create_workspace_context!
@@ -1202,17 +1239,30 @@ module ActiveSupport
     end
 
     def create_conversation_record!(workspace:, installation: workspace.installation, kind: "root", purpose: "interactive", lifecycle_state: "active", parent_conversation: nil, execution_runtime: nil, agent: nil, agent_definition_version: nil, historical_anchor_message_id: nil, interactive_selector_mode: "auto", override_payload: {}, override_reconciliation_report: {}, deletion_state: "retained", **attrs)
+      workspace_agent = parent_conversation&.workspace_agent || workspace.primary_workspace_agent
       agent ||= parent_conversation&.agent
       agent ||= agent_definition_version&.agent
       agent ||= workspace.agent
       agent ||= create_agent!(installation: installation, default_execution_runtime: execution_runtime)
+      workspace_agent ||= create_workspace_agent!(
+        installation: installation,
+        workspace: workspace,
+        agent: agent,
+        default_execution_runtime: execution_runtime || agent.default_execution_runtime
+      )
       execution_runtime ||= parent_conversation&.current_execution_runtime
-      execution_runtime ||= workspace.default_execution_runtime
+      execution_runtime ||= workspace_agent.default_execution_runtime
       execution_runtime ||= agent.default_execution_runtime
-      capability_attrs = WorkspacePolicies::Capabilities.projection_attributes_for(workspace:)
+      capability_attrs = WorkspacePolicies::Capabilities.projection_attributes_for(
+        workspace: workspace,
+        agent: agent,
+        workspace_agent: workspace_agent
+      )
+      normalized_attrs = attrs.deep_symbolize_keys
 
       Conversation.create!({
         installation: installation,
+        workspace_agent: workspace_agent,
         workspace: workspace,
         agent: agent,
         user_id: workspace.user_id,
@@ -1226,7 +1276,7 @@ module ActiveSupport
         override_payload: override_payload,
         override_reconciliation_report: override_reconciliation_report,
         deletion_state: deletion_state,
-      }.merge(capability_attrs).merge(attrs.symbolize_keys.slice(*Conversation.attribute_names.map(&:to_sym))))
+      }.merge(capability_attrs).merge(normalized_attrs.slice(*Conversation.attribute_names.map(&:to_sym))))
     end
 
     def initialize_current_execution_epoch!(conversation, execution_runtime: nil)
@@ -1362,11 +1412,6 @@ module ActiveSupport
         entitlement.active = true
         entitlement.metadata = {}
       end
-      user_agent_binding = create_user_agent_binding!(
-        installation: installation,
-        user: runtime_user,
-        agent: agent
-      )
       workspace = create_workspace!(
         installation: installation,
         user: runtime_user,

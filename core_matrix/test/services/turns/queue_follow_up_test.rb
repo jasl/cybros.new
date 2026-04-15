@@ -127,7 +127,7 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:purpose], "must be interactive for follow up turn entry"
   end
 
-  test "rejects queueing follow up on agent addressable conversations before active work checks" do
+  test "rejects queueing follow up on agent internal only conversations before active work checks" do
     context = create_workspace_context!
     root_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace]
@@ -137,7 +137,7 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: root_conversation,
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     SubagentConnection.create!(
       installation: context[:installation],
@@ -160,7 +160,7 @@ class Turns::QueueFollowUpTest < ActiveSupport::TestCase
       )
     end
 
-    assert_includes error.record.errors[:addressability], "must be owner_addressable for follow up turn entry"
+    assert_includes error.record.errors[:entry_policy_payload], "must allow main transcript entry for follow up turn entry"
   end
 
   test "rejects queueing follow up on a pending delete conversation" do

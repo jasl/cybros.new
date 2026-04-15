@@ -166,7 +166,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       parent_conversation: owner_conversation,
       kind: "fork",
-      addressability: "agent_addressable"
+      entry_policy_payload: agent_internal_entry_policy_payload
     )
     subagent_connection = SubagentConnection.create!(
       installation: context[:installation],
