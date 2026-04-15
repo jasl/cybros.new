@@ -8,6 +8,7 @@ module IngressAPI
       :authorization_result,
       :coalesced_message_ids,
       :attachment_records,
+      :channel_inbound_message,
       :media_digest,
       :dispatch_decision,
       :origin_payload,
@@ -27,6 +28,7 @@ module IngressAPI
       authorization_result: nil,
       coalesced_message_ids: [],
       attachment_records: [],
+      channel_inbound_message: nil,
       media_digest: nil,
       dispatch_decision: nil,
       origin_payload: {},
@@ -45,6 +47,7 @@ module IngressAPI
       @authorization_result = authorization_result
       @coalesced_message_ids = coalesced_message_ids
       @attachment_records = attachment_records
+      @channel_inbound_message = channel_inbound_message
       @media_digest = media_digest
       @dispatch_decision = dispatch_decision
       @origin_payload = origin_payload

@@ -82,6 +82,50 @@ class ConversationRuntime::PublishEventTest < ActiveSupport::TestCase
     refute_includes projection.first.payload.keys, "text"
   end
 
+  test "dispatches channel runtime progress only after runtime publication succeeds" do
+    context = build_runtime_context!
+    calls = []
+
+    ConversationRuntime::PublishEvent.call(
+      conversation: context.fetch(:conversation),
+      turn: context.fetch(:turn),
+      event_kind: "runtime.workflow_node.started",
+      payload: {
+        "workflow_run_id" => context.fetch(:workflow_run).public_id,
+        "workflow_node_id" => context.fetch(:workflow_node).public_id,
+        "state" => "running",
+      },
+      broadcaster: ->(**) { calls << :broadcast },
+      projector: ->(**) { calls << :project },
+      progress_dispatcher: ->(**) { calls << :progress }
+    )
+
+    assert_equal [:broadcast, :project, :progress], calls
+  end
+
+  test "does not dispatch channel runtime progress if runtime publication fails" do
+    context = build_runtime_context!
+    calls = []
+
+    error = assert_raises(RuntimeError) do
+      ConversationRuntime::PublishEvent.call(
+        conversation: context.fetch(:conversation),
+        turn: context.fetch(:turn),
+        event_kind: "runtime.workflow_node.started",
+        payload: {
+          "workflow_run_id" => context.fetch(:workflow_run).public_id,
+          "workflow_node_id" => context.fetch(:workflow_node).public_id,
+          "state" => "running",
+        },
+        broadcaster: ->(**) { raise "broadcast failed" },
+        progress_dispatcher: ->(**) { calls << :progress }
+      )
+    end
+
+    assert_equal "broadcast failed", error.message
+    assert_empty calls
+  end
+
   private
 
   def build_runtime_context!

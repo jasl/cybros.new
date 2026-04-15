@@ -1,7 +1,7 @@
 require "test_helper"
 
 class IngressAPI::ReceiveEventTest < ActiveSupport::TestCase
-  test "runs middleware and preprocessors in the designed order" do
+  test "runs middleware and preprocessors in the designed order and materializes transcript entry" do
     context = ingress_runtime_context
     adapter = fake_adapter_for(
       context,
@@ -10,28 +10,34 @@ class IngressAPI::ReceiveEventTest < ActiveSupport::TestCase
       text: "hello from telegram"
     )
 
-    result = IngressAPI::ReceiveEvent.call(
-      adapter: adapter,
-      raw_payload: { "update_id" => 1001 },
-      request_metadata: { "source" => "http" }
-    )
+    assert_difference("Turn.count", 1) do
+      result = IngressAPI::ReceiveEvent.call(
+        adapter: adapter,
+        raw_payload: { "update_id" => 1001 },
+        request_metadata: { "source" => "http" }
+      )
 
-    assert_equal %w[
-      capture_raw_payload
-      verify_request
-      adapter_normalize_envelope
-      deduplicate_inbound
-      resolve_channel_session
-      authorize_and_pair
-      create_or_bind_conversation
-      dispatch_command
-      coalesce_burst
-      materialize_attachments
-      resolve_dispatch_decision
-    ], result.trace
-    assert_equal "ready_for_turn_entry", result.status
-    assert_equal context[:channel_session], result.channel_session
-    assert_equal context[:conversation], result.conversation
+      assert_equal %w[
+        capture_raw_payload
+        verify_request
+        adapter_normalize_envelope
+        deduplicate_inbound
+        resolve_channel_session
+        authorize_and_pair
+        create_or_bind_conversation
+        dispatch_command
+        coalesce_burst
+        materialize_attachments
+        resolve_dispatch_decision
+        materialize_turn_entry
+      ], result.trace
+      assert result.handled?
+      assert_equal "transcript_entry", result.handled_via
+      assert_equal context[:channel_session], result.channel_session
+      assert_equal context[:conversation], result.conversation
+    end
+
+    assert_equal "hello from telegram", context[:conversation].reload.latest_turn.selected_input_message.content
   end
 
   test "ignores duplicate external event keys idempotently" do
@@ -74,35 +80,83 @@ class IngressAPI::ReceiveEventTest < ActiveSupport::TestCase
   end
 
   test "can be called from either an http controller or a connector runner" do
-    context = ingress_runtime_context
+    http_context = ingress_runtime_context
+    runner_context = ingress_runtime_context
     http_adapter = fake_adapter_for(
-      context,
+      http_context,
       external_event_key: "telegram:update:1003",
       external_message_key: "telegram:chat:1:message:1003",
       text: "from http"
     )
     runner_adapter = fake_adapter_for(
-      context,
+      runner_context,
       external_event_key: "telegram:update:1004",
       external_message_key: "telegram:chat:1:message:1004",
       text: "from runner"
     )
 
-    http_result = IngressAPI::ReceiveEvent.call(
-      adapter: http_adapter,
-      raw_payload: { "update_id" => 1003 },
+    assert_difference("Turn.count", 2) do
+      http_result = IngressAPI::ReceiveEvent.call(
+        adapter: http_adapter,
+        raw_payload: { "update_id" => 1003 },
+        request_metadata: { "source" => "http" }
+      )
+      runner_result = IngressAPI::ReceiveEvent.call(
+        adapter: runner_adapter,
+        raw_payload: { "update_id" => 1004 },
+        request_metadata: { "source" => "runner" }
+      )
+
+      assert_equal "handled", http_result.status
+      assert_equal "handled", runner_result.status
+      assert_equal "http", http_result.request_metadata["source"]
+      assert_equal "runner", runner_result.request_metadata["source"]
+    end
+  end
+
+  test "materializes inbound attachments onto the transcript input message" do
+    context = ingress_runtime_context
+    adapter = fake_adapter_for(
+      context,
+      external_event_key: "telegram:update:1005",
+      external_message_key: "telegram:chat:1:message:1005",
+      text: "User sent 1 attachment.",
+      attachments: [
+        {
+          "file_id" => "document-1",
+          "modality" => "file",
+          "filename" => "notes.txt",
+          "content_type" => "text/plain",
+          "byte_size" => 12
+        }
+      ]
+    )
+    original_call = IngressAPI::Telegram::DownloadAttachment.method(:call)
+    IngressAPI::Telegram::DownloadAttachment.singleton_class.send(:define_method, :call) do |**kwargs|
+      {
+        "file_id" => kwargs.fetch(:attachment_descriptor).fetch("file_id"),
+        "filename" => "notes.txt",
+        "content_type" => "text/plain",
+        "byte_size" => 12,
+        "modality" => "file",
+        "io" => StringIO.new("attachment body"),
+        "transport_metadata" => { "file_path" => "telegram/path/notes.txt" }
+      }
+    end
+
+    IngressAPI::ReceiveEvent.call(
+      adapter: adapter,
+      raw_payload: { "update_id" => 1005 },
       request_metadata: { "source" => "http" }
     )
-    runner_result = IngressAPI::ReceiveEvent.call(
-      adapter: runner_adapter,
-      raw_payload: { "update_id" => 1004 },
-      request_metadata: { "source" => "runner" }
-    )
 
-    assert_equal "ready_for_turn_entry", http_result.status
-    assert_equal "ready_for_turn_entry", runner_result.status
-    assert_equal "http", http_result.request_metadata["source"]
-    assert_equal "runner", runner_result.request_metadata["source"]
+    input_message = context[:conversation].reload.latest_turn.selected_input_message
+    assert_equal 1, input_message.message_attachments.count
+    assert_equal "notes.txt", input_message.message_attachments.first.file.blob.filename.to_s
+    assert_equal "document-1", input_message.message_attachments.first.file.blob.metadata["source_file_id"]
+    assert_equal({ "file_path" => "telegram/path/notes.txt" }, input_message.message_attachments.first.file.blob.metadata["transport_metadata"])
+  ensure
+    IngressAPI::Telegram::DownloadAttachment.singleton_class.send(:define_method, :call, original_call)
   end
 
   private
@@ -127,7 +181,9 @@ class IngressAPI::ReceiveEventTest < ActiveSupport::TestCase
       transport_kind: "webhook",
       label: "Primary Telegram",
       lifecycle_state: "active",
-      credential_ref_payload: {},
+      credential_ref_payload: {
+        "bot_token" => "telegram-bot-token"
+      },
       config_payload: {},
       runtime_state_payload: {}
     )
@@ -158,7 +214,7 @@ class IngressAPI::ReceiveEventTest < ActiveSupport::TestCase
     )
   end
 
-  def fake_adapter_for(context, external_event_key:, external_message_key:, text:)
+  def fake_adapter_for(context, external_event_key:, external_message_key:, text:, attachments: [])
     envelope = IngressAPI::Envelope.new(
       platform: "telegram",
       driver: "telegram_bot_api",
@@ -172,7 +228,7 @@ class IngressAPI::ReceiveEventTest < ActiveSupport::TestCase
       external_sender_id: "telegram-user-1",
       sender_snapshot: { "label" => "Alice" },
       text: text,
-      attachments: [],
+      attachments: attachments,
       reply_to_external_message_key: nil,
       quoted_external_message_key: nil,
       quoted_text: nil,

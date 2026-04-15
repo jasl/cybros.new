@@ -49,7 +49,7 @@ module IngressCommands
       Conversations::RequestTurnInterrupt.call(turn: active_turn) if active_turn.present?
 
       IngressAPI::Result.handled(
-        handled_via: "control",
+        handled_via: "control_command",
         trace: @context.pipeline_trace,
         envelope: @context.envelope,
         conversation: @context.conversation,

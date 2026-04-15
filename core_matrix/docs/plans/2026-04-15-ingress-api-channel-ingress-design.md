@@ -350,6 +350,9 @@ Notes:
 
 - `driver` distinguishes `telegram_bot_api` from `claw_bot_sdk_weixin`
 - `transport_kind` distinguishes `webhook` from `poller`
+- `credential_ref_payload` stores connector credentials or references to them;
+  in v1, Telegram reads the bot token from
+  `credential_ref_payload["bot_token"]`
 - `runtime_state_payload` can hold account-scoped live state such as QR login
   progress or a poll cursor
 - v1 should enforce one active `ChannelConnector` per `IngressBinding`
@@ -825,17 +828,24 @@ inputs second.
 
 V1 rules:
 
-- every external update becomes one `ChannelInboundMessage`
+- every session-bound external update becomes one `ChannelInboundMessage`
 - transcript input may represent one or more merged inbound messages
 - v1 uses deterministic merge rules only
 - v1 does not use LLM rewriting
+- the first IM-usable milestone does not add a separate delayed turnless burst
+  buffer; short-burst merge is implemented inside the same-sender
+  pre-side-effect active-turn window
+- pre-approval DM first-contact events stop at pairing-request creation and do
+  not need to materialize transcript or attachment rows before a session exists
 
 Merge windows:
 
 1. `pre-turn merge window`
-   - short quiet-period buffering before opening a new turn
+   - reserved for a later delayed-buffer implementation if product needs a true
+     turnless quiet-period hold
 2. `same-turn steer window`
    - use `Turns::SteerCurrentInput` before side effects are committed
+   - v1 first usable IM milestone performs deterministic short-burst merge here
 3. `post-boundary follow-up window`
    - create queued follow-up work using frozen policy
 

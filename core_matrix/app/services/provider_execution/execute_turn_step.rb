@@ -326,7 +326,8 @@ module ProviderExecution
         payload: payload.merge(
           "workflow_run_id" => @workflow_run.public_id,
           "workflow_node_id" => @workflow_node.public_id
-        )
+        ),
+        progress_dispatcher: ChannelDeliveries::DispatchRuntimeProgress
       )
     end
 

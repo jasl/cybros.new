@@ -98,6 +98,7 @@ module ProviderExecution
 
       Workflows::RefreshRunLifecycle.call(workflow_run: @workflow_run)
       Workflows::DispatchRunnableNodes.call(workflow_run: @workflow_run)
+      dispatch_channel_output!(result.output_message) if result&.output_message.present?
       result
     end
 
@@ -122,6 +123,16 @@ module ProviderExecution
           payload: payload.merge("state" => state)
         )
       end
+    end
+
+    def dispatch_channel_output!(message)
+      ChannelDeliveries::DispatchConversationOutput.call(
+        conversation: @workflow_run.conversation,
+        turn: @turn,
+        message: message
+      )
+    rescue StandardError => error
+      Rails.logger.warn("channel delivery dispatch failed for #{@turn.public_id}: #{error.class}: #{error.message}")
     end
   end
 end

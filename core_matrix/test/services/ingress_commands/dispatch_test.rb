@@ -31,7 +31,7 @@ class IngressCommands::DispatchTest < ActiveSupport::TestCase
       result = IngressCommands::Dispatch.call(command: command, context: ingress_context)
 
       assert result.handled?
-      assert_equal "control", result.handled_via
+      assert_equal "control_command", result.handled_via
       assert active_turn.reload.cancellation_requested_at.present? || active_turn.reload.canceled?
     end
   end

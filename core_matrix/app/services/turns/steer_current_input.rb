@@ -32,7 +32,7 @@ module Turns
       ) do |turn|
         raise_invalid!(turn, :lifecycle_state, "must be active to steer current input") unless turn.active?
         validate_expected_turn_id!(turn)
-        if !paused_turn_resume_guidance?(turn) && side_effect_boundary_crossed?(turn)
+        if !paused_turn_resume_guidance?(turn) && Turns::TranscriptSideEffectBoundary.crossed?(turn)
           return Workflows::Scheduler.apply_during_generation_policy(
             turn: turn,
             content: @content,
@@ -54,6 +54,18 @@ module Turns
           content: @content
         )
 
+        next_origin_payload = resolved_origin_payload(turn)
+        next_source_ref_type = resolved_source_ref_type(turn)
+        next_source_ref_id = resolved_source_ref_id(turn)
+        if turn.origin_payload != next_origin_payload ||
+          turn.source_ref_type != next_source_ref_type ||
+          turn.source_ref_id != next_source_ref_id
+          turn.update!(
+            origin_payload: next_origin_payload,
+            source_ref_type: next_source_ref_type,
+            source_ref_id: next_source_ref_id
+          )
+        end
         Turns::PersistSelectionState.call(turn: turn, selected_input_message: message)
         Conversations::RefreshLatestTurnAnchors.call(
           conversation: turn.conversation,
@@ -66,17 +78,6 @@ module Turns
     end
 
     private
-
-    def side_effect_boundary_crossed?(turn)
-      turn.selected_output_message.present? || workflow_run_side_effect_nodes_exist?(turn)
-    end
-
-    def workflow_run_side_effect_nodes_exist?(turn)
-      workflow_run = turn.workflow_run
-      return false if workflow_run.blank?
-
-      WorkflowNode.where(workflow_run: workflow_run, transcript_side_effect_committed: true).exists?
-    end
 
     def paused_turn_resume_guidance?(turn)
       turn.workflow_run&.paused_turn?

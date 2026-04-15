@@ -150,6 +150,24 @@ conversation to `ready`.
 - later conversation-level policy edits affect future work only; turns and
   workflow-owned active work keep the frozen snapshot captured when that work
   was created
+- during-generation follow-up routing is origin-sensitive:
+  - owner-user turns queue owner-user follow-up work
+  - channel-ingress turns queue channel-ingress follow-up work and keep the
+    upstream ingress provenance attached to the queued turn
+
+## Channel Ingress Entry
+
+- channel-created transcript work still lands inside ordinary interactive
+  conversations; external platforms do not replace `Conversation`
+- transcript-bearing IM entry uses `Turns::StartChannelIngressTurn` with:
+  - `origin_kind = channel_ingress`
+  - `source_ref_type = ChannelInboundMessage`
+  - `source_ref_id = ChannelInboundMessage.public_id`
+- transcript-bearing IM follow-up after the side-effect boundary queues
+  through `Turns::QueueChannelFollowUp`
+- `IngressAPI::MaterializeTurnEntry` is the explicit application boundary for
+  channel transcript entry, workflow-bootstrap enqueue, and optional title
+  bootstrap enqueue
 
 ## Kind Rules
 

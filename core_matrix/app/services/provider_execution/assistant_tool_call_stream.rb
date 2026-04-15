@@ -143,7 +143,8 @@ module ProviderExecution
         conversation: @conversation,
         turn: @turn,
         event_kind: event_kind,
-        payload: payload
+        payload: payload,
+        progress_dispatcher: ChannelDeliveries::DispatchRuntimeProgress
       )
     end
   end

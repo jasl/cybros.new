@@ -499,6 +499,8 @@ Add `gem "telegram-bot"` and keep the responsibility split explicit:
 
 - webhook server remains CoreMatrix code
 - Bot API requests go through the gem
+- v1 reads the Telegram bot token from
+  `ChannelConnector.credential_ref_payload["bot_token"]`
 - the gem does not own session, pairing, batching, or routing behavior
 - if preview-draft experiments later use Bot API draft methods, keep them
   behind optional adapter support rather than making them a required gem-level
@@ -620,6 +622,9 @@ Keep rules deterministic:
 - preserve source inbound message ids in context
 - only coalesce bursts from the same external sender in shared conversations
 - do not use LLM rewrite
+- for the first IM-usable milestone, implement short-burst merge inside the
+  same-sender pre-side-effect active-turn window instead of adding a separate
+  delayed turnless quiet-period buffer
 
 `ResolveDispatchDecision` should choose among:
 

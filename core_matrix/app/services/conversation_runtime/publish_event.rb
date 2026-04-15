@@ -16,16 +16,19 @@ module ConversationRuntime
       new(...).call
     end
 
-    def initialize(conversation:, event_kind:, payload:, turn: nil, occurred_at: Time.current)
+    def initialize(conversation:, event_kind:, payload:, turn: nil, occurred_at: Time.current, broadcaster: ConversationRuntime::Broadcast, projector: ConversationEvents::Project, progress_dispatcher: nil)
       @conversation = conversation
       @event_kind = event_kind
       @payload = payload.deep_stringify_keys
       @turn = turn
       @occurred_at = occurred_at
+      @broadcaster = broadcaster
+      @projector = projector
+      @progress_dispatcher = progress_dispatcher
     end
 
     def call
-      Broadcast.call(
+      @broadcaster.call(
         conversation: @conversation,
         turn: @turn,
         event_kind: @event_kind,
@@ -33,15 +36,17 @@ module ConversationRuntime
         occurred_at: @occurred_at
       )
 
-      return unless persistable?
+      if persistable?
+        @projector.call(
+          conversation: @conversation,
+          turn: @turn,
+          event_kind: @event_kind,
+          stream_key: stream_key,
+          payload: projected_payload
+        )
+      end
 
-      ConversationEvents::Project.call(
-        conversation: @conversation,
-        turn: @turn,
-        event_kind: @event_kind,
-        stream_key: stream_key,
-        payload: projected_payload
-      )
+      dispatch_channel_progress
     end
 
     private
@@ -62,6 +67,17 @@ module ConversationRuntime
 
     def projected_payload
       @payload.except(*Array(REDACTED_PAYLOAD_KEYS[@event_kind]))
+    end
+
+    def dispatch_channel_progress
+      return if @turn.blank? || @progress_dispatcher.blank?
+
+      @progress_dispatcher.call(
+        conversation: @conversation,
+        turn: @turn,
+        event_kind: @event_kind,
+        payload: @payload
+      )
     end
   end
 end

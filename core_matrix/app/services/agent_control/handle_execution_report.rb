@@ -368,7 +368,8 @@ module AgentControl
         turn: agent_task_run.turn,
         event_kind: event_kind,
         payload: payload,
-        occurred_at: @occurred_at
+        occurred_at: @occurred_at,
+        progress_dispatcher: ChannelDeliveries::DispatchRuntimeProgress
       )
     end
 

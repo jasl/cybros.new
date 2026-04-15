@@ -21,7 +21,7 @@ module IngressAPI
           normalized_thread_key: normalized_thread_key
         )
 
-        if @context.channel_session.blank?
+        if @context.channel_session.blank? && @context.envelope.peer_kind != "dm"
           @context.result = IngressAPI::Result.rejected(
             rejection_reason: "channel_session_not_found",
             trace: @context.pipeline_trace,

@@ -83,16 +83,7 @@ module Workflows
         ApplicationRecord.transaction do
           cancel_existing_queued_turns!
 
-          queued_turn = Turns::QueueFollowUp.call(
-            conversation: @turn.conversation,
-            content: @content,
-            origin_kind: @origin_kind,
-            origin_payload: @origin_payload,
-            source_ref_type: @source_ref_type,
-            source_ref_id: @source_ref_id,
-            resolved_config_snapshot: @turn.resolved_config_snapshot,
-            resolved_model_selection_snapshot: @turn.resolved_model_selection_snapshot
-          )
+          queued_turn = queue_follow_up_service.call(**queue_follow_up_attributes)
 
           queued_turn.update!(
             origin_payload: queued_turn.origin_payload.merge(
@@ -121,6 +112,26 @@ module Workflows
 
           queued_turn
         end
+      end
+
+      def queue_follow_up_service
+        @turn.channel_ingress? ? Turns::QueueChannelFollowUp : Turns::QueueFollowUp
+      end
+
+      def queue_follow_up_attributes
+        base_attributes = {
+          conversation: @turn.conversation,
+          content: @content,
+          resolved_config_snapshot: @turn.resolved_config_snapshot,
+          resolved_model_selection_snapshot: @turn.resolved_model_selection_snapshot
+        }
+
+        return base_attributes unless @turn.channel_ingress?
+
+        base_attributes.merge(
+          origin_payload: @origin_payload,
+          source_ref_id: @source_ref_id
+        )
       end
 
       def cancel_existing_queued_turns!

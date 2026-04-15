@@ -65,6 +65,9 @@ Rails.application.routes.draw do
   end
 
   namespace :ingress_api do
+    namespace :telegram do
+      post "bindings/:public_ingress_id/updates", to: "updates#create"
+    end
   end
 
   namespace :app_api do

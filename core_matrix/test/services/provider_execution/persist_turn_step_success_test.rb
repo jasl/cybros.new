@@ -141,4 +141,82 @@ class ProviderExecution::PersistTurnStepSuccessTest < ActiveSupport::TestCase
     assert_equal "available", result.usage_event.prompt_cache_status
     assert_equal 6, result.usage_event.cached_input_tokens
   end
+
+  test "dispatches final conversation output for a bound channel session after persistence succeeds" do
+    catalog = build_mock_chat_catalog
+    workflow_run = create_mock_turn_step_workflow_run!(
+      resolved_config_snapshot: {
+        "temperature" => 0.4,
+      },
+      catalog: catalog
+    )
+    workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
+    turn = workflow_run.turn
+    turn.update!(
+      origin_kind: "channel_ingress",
+      origin_payload: {
+        "external_message_key" => "telegram:chat:42:message:1001",
+        "external_sender_id" => "telegram-user-1",
+      }
+    )
+    ingress_binding = IngressBinding.create!(
+      installation: workflow_run.installation,
+      workspace_agent: workflow_run.conversation.workspace_agent,
+      default_execution_runtime: workflow_run.conversation.current_execution_runtime,
+      routing_policy_payload: {},
+      manual_entry_policy: {
+        "allow_app_entry" => true,
+        "allow_external_entry" => true,
+      }
+    )
+    channel_connector = ChannelConnector.create!(
+      installation: workflow_run.installation,
+      ingress_binding: ingress_binding,
+      platform: "telegram",
+      driver: "telegram_bot_api",
+      transport_kind: "webhook",
+      label: "Primary Telegram",
+      lifecycle_state: "active",
+      credential_ref_payload: {
+        "bot_token" => "telegram-bot-token"
+      },
+      config_payload: {},
+      runtime_state_payload: {}
+    )
+    ChannelSession.create!(
+      installation: workflow_run.installation,
+      ingress_binding: ingress_binding,
+      channel_connector: channel_connector,
+      conversation: workflow_run.conversation,
+      platform: "telegram",
+      peer_kind: "dm",
+      peer_id: "42",
+      thread_key: nil,
+      session_metadata: {}
+    )
+    request_context = build_request_context_for(workflow_run, catalog: catalog)
+    provider_result = build_provider_chat_result
+    dispatched = []
+    original_dispatch = ChannelDeliveries::DispatchConversationOutput.method(:call)
+    ChannelDeliveries::DispatchConversationOutput.singleton_class.send(:define_method, :call) do |**kwargs|
+      dispatched << kwargs
+      []
+    end
+
+    result = ProviderExecution::PersistTurnStepSuccess.call(
+      workflow_node: workflow_node,
+      request_context: request_context,
+      provider_result: provider_result,
+      provider_request_id: "provider-request-telegram-1",
+      messages_count: turn_step_messages_for(workflow_run).length,
+      duration_ms: 123
+    )
+
+    assert_equal 1, dispatched.length
+    assert_equal workflow_run.conversation, dispatched.first.fetch(:conversation)
+    assert_equal turn, dispatched.first.fetch(:turn)
+    assert_equal result.output_message, dispatched.first.fetch(:message)
+  ensure
+    ChannelDeliveries::DispatchConversationOutput.singleton_class.send(:define_method, :call, original_dispatch)
+  end
 end

@@ -17,7 +17,8 @@ module Processes
         turn: @process_run.turn,
         event_kind: @event_kind,
         occurred_at: @occurred_at,
-        payload: base_payload.merge(@payload)
+        payload: base_payload.merge(@payload),
+        progress_dispatcher: ChannelDeliveries::DispatchRuntimeProgress
       )
     end
 

@@ -69,6 +69,7 @@ execution-snapshot persistence on the turn row.
   - `external_event_key`
 - supported v1 origin kinds are:
   - `manual_user`
+  - `channel_ingress`
   - `automation_schedule`
   - `automation_webhook`
   - `system_internal`
@@ -109,6 +110,9 @@ execution-snapshot persistence on the turn row.
 
 - `Turns::StartUserTurn` creates an active manual-user turn plus an initial
   selected `UserMessage`
+- `Turns::StartChannelIngressTurn` creates an active channel-ingress turn plus
+  an initial selected `UserMessage`, using `ChannelInboundMessage.public_id`
+  as the durable source reference
 - execution continuity is conversation-scoped through
   `Conversation.current_execution_epoch` plus the cached
   `Conversation.current_execution_runtime`
@@ -148,6 +152,10 @@ execution-snapshot persistence on the turn row.
   version `public_id` in `source_ref_id`
 - `Turns::QueueFollowUp` creates a queued manual-user turn only when the
   conversation already has active or queued work
+- `Turns::QueueChannelFollowUp` creates a queued channel-ingress turn that
+  preserves ingress provenance, sender identity, and
+  `ChannelInboundMessage.public_id` source references for post-boundary
+  follow-up input
 - queued follow-up turns freeze a fresh turn-level feature-policy snapshot at
   creation time, so later follow-up work is auditable against the policy that
   existed when the queued turn was appended
@@ -171,12 +179,22 @@ execution-snapshot persistence on the turn row.
 - once the turn has crossed a transcript side-effect boundary, steering uses
   the turn's frozen `during_generation_input_policy` rather than the current
   live conversation setting
+- `Workflows::Scheduler.apply_during_generation_policy` routes queued
+  follow-up creation by the active turn origin:
+  - owner-user turns queue through `Turns::QueueFollowUp`
+  - channel-ingress turns queue through `Turns::QueueChannelFollowUp`
 - later conversation policy edits therefore affect newly created turns, but do
   not retroactively rewrite the active turn's during-generation behavior
 - paused turns still accept steering because the turn remains active and
   resumable; that steering becomes the input carried into the next same-turn
   resume attempt and therefore bypasses the live during-generation queue or
   restart policy that applies only to still-running work
+- `IngressAPI::MaterializeTurnEntry` is the application boundary that turns a
+  normalized channel ingress event into:
+  - a transcript-bearing channel-ingress turn
+  - one enqueued workflow-bootstrap dispatch job
+  - optional title bootstrap scheduling when the caller wants the turn to
+    participate in title generation
 
 ## Invariants
 
