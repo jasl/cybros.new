@@ -689,7 +689,7 @@ module ActiveSupport
       workspace
     end
 
-    def create_workspace_agent!(installation: create_installation!, workspace: create_workspace!(installation: installation), agent: create_agent!(installation: installation), default_execution_runtime: nil, lifecycle_state: "active", capability_policy_payload: {}, entry_policy_payload: nil, **attrs)
+    def create_workspace_agent!(installation: create_installation!, workspace: create_workspace!(installation: installation), agent: create_agent!(installation: installation), default_execution_runtime: nil, lifecycle_state: "active", settings_payload: {}, capability_policy_payload: {}, entry_policy_payload: nil, **attrs)
       entry_policy_payload ||= default_interactive_entry_policy_payload
       WorkspaceAgent.create!({
         installation: installation,
@@ -697,6 +697,7 @@ module ActiveSupport
         agent: agent,
         default_execution_runtime: default_execution_runtime,
         lifecycle_state: lifecycle_state,
+        settings_payload: settings_payload,
         capability_policy_payload: capability_policy_payload,
         entry_policy_payload: entry_policy_payload,
       }.merge(attrs))

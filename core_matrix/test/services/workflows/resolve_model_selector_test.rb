@@ -229,6 +229,119 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     end
   end
 
+  test "workspace agent interactive profile override prefers a matching role without mutating agent config state" do
+    context = create_selector_context!
+    planner_version = create_compatible_agent_definition_version!(
+      agent_definition_version: context[:agent_definition_version],
+      profile_policy: default_profile_policy.merge(
+        "planner" => {
+          "label" => "Planner",
+          "description" => "Planning profile",
+        }
+      ),
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
+    )
+    adopt_agent_definition_version!(context, planner_version, turn: nil)
+    context[:workspace_agent].update!(
+      settings_payload: {
+        "interactive_profile_key" => "planner",
+      }
+    )
+
+    turn = Turns::StartUserTurn.call(
+      conversation: context[:conversation],
+      content: "Selector input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = Workflows::ResolveModelSelector.call(
+      turn: turn,
+      selector_source: "conversation"
+    )
+
+    assert_equal "role:planner", snapshot["normalized_selector"]
+    assert_equal "planner", snapshot["resolved_role_name"]
+    assert_equal "openai", snapshot["resolved_provider_handle"]
+    assert_equal "gpt-5.4", snapshot["resolved_model_ref"]
+    assert_equal "main", context[:agent].agent_config_state.effective_payload.dig("interactive", "profile")
+  end
+
+  test "workspace agent interactive profile override does not shadow an explicit selector" do
+    context = create_selector_context!
+    planner_version = create_compatible_agent_definition_version!(
+      agent_definition_version: context[:agent_definition_version],
+      profile_policy: default_profile_policy.merge(
+        "planner" => {
+          "label" => "Planner",
+          "description" => "Planning profile",
+        }
+      ),
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
+    )
+    adopt_agent_definition_version!(context, planner_version, turn: nil)
+    context[:workspace_agent].update!(
+      settings_payload: {
+        "interactive_profile_key" => "researcher",
+      }
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: context[:conversation],
+      content: "Selector input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = Workflows::ResolveModelSelector.call(
+      turn: turn,
+      selector_source: "slot",
+      selector: "role:planner"
+    )
+
+    assert_equal "role:planner", snapshot["normalized_selector"]
+    assert_equal "planner", snapshot["resolved_role_name"]
+  end
+
+  test "workspace agent interactive profile override falls back cleanly when the profile has no provider role" do
+    context = create_selector_context!
+    friendly_version = create_compatible_agent_definition_version!(
+      agent_definition_version: context[:agent_definition_version],
+      profile_policy: default_profile_policy.merge(
+        "friendly" => {
+          "label" => "Friendly",
+          "description" => "Interactive profile with local prompt-only routing",
+        }
+      ),
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
+    )
+    adopt_agent_definition_version!(context, friendly_version, turn: nil)
+    context[:workspace_agent].update!(
+      settings_payload: {
+        "interactive_profile_key" => "friendly",
+      }
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: context[:conversation],
+      content: "Selector input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = Workflows::ResolveModelSelector.call(
+      turn: turn,
+      selector_source: "conversation"
+    )
+
+    assert_equal "role:main", snapshot["normalized_selector"]
+    assert_equal "main", snapshot["resolved_role_name"]
+  end
+
   private
 
   def create_selector_context!(

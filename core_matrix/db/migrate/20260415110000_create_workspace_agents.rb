@@ -10,6 +10,7 @@ class CreateWorkspaceAgents < ActiveRecord::Migration[8.2]
       t.datetime :revoked_at
       t.string :revoked_reason_kind
       t.text :global_instructions
+      t.jsonb :settings_payload, null: false, default: {}
       t.jsonb :capability_policy_payload, null: false, default: {}
       t.jsonb :entry_policy_payload, null: false, default: {}
 

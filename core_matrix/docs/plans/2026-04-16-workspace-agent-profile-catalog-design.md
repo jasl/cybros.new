@@ -324,6 +324,12 @@ Consequences:
   workspace without mutating the underlying agent config state
 - selector resolution for mounted interactive turns must respect the mount
   override before falling back to the agent-owned default interactive profile
+- that mount override only applies to implicit mounted interactive turns; an
+  explicit selector or explicit candidate chosen for a turn remains
+  authoritative
+- if the mount profile key does not map cleanly onto a provider-role selector,
+  model selection may fall back to the agent-owned default while runtime/profile
+  projection still uses the mounted profile key
 - the implementation must be explicit about how the mount override maps onto
   the existing `interactive.default_profile_key` / normalized `interactive.profile`
   projection already used by current runtime contracts

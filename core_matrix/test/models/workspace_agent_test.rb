@@ -74,6 +74,39 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
     assert_nil workspace_agent.global_instructions
   end
 
+  test "normalizes compact settings payload" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.create!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      settings_payload: {
+        "interactive_profile_key" => "main",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["researcher", "", "researcher"],
+        "delegation_mode" => "prefer",
+        "max_concurrent_subagents" => "3",
+        "max_subagent_depth" => "2",
+        "allow_nested_subagents" => false,
+        "default_subagent_model_selector_hint" => "coding-fast",
+      }
+    )
+
+    assert_equal(
+      {
+        "interactive_profile_key" => "main",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "delegation_mode" => "prefer",
+        "max_concurrent_subagents" => 3,
+        "max_subagent_depth" => 2,
+        "allow_nested_subagents" => false,
+        "default_subagent_model_selector_hint" => "coding-fast",
+      },
+      workspace_agent.settings_payload
+    )
+  end
+
   test "rejects unsupported capability policy payload keys" do
     context = workspace_agent_context
     workspace_agent = WorkspaceAgent.new(
@@ -88,6 +121,53 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
 
     assert_not workspace_agent.valid?
     assert_includes workspace_agent.errors[:capability_policy_payload], "must only contain supported keys"
+  end
+
+  test "rejects unsupported settings payload keys" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      settings_payload: {
+        "interactive_profile_key" => "main",
+        "unexpected" => true,
+      }
+    )
+
+    assert_not workspace_agent.valid?
+    assert_includes workspace_agent.errors[:settings_payload], "must only contain supported keys"
+  end
+
+  test "requires the default subagent profile to remain enabled when the enabled list is present" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      settings_payload: {
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => [],
+      }
+    )
+
+    assert_not workspace_agent.valid?
+    assert_includes workspace_agent.errors[:settings_payload], "default_subagent_profile_key must be included in enabled_subagent_profile_keys"
+  end
+
+  test "rejects invalid numeric subagent limits instead of dropping them" do
+    context = workspace_agent_context
+    workspace_agent = WorkspaceAgent.new(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      agent: context[:agent],
+      settings_payload: {
+        "max_concurrent_subagents" => "abc",
+      }
+    )
+
+    assert_not workspace_agent.valid?
+    assert_includes workspace_agent.errors[:settings_payload], "max_concurrent_subagents must be a positive integer"
   end
 
   test "becomes immutable after revocation" do
@@ -177,6 +257,19 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
     )
     execution_runtime = create_execution_runtime!(installation: installation)
     agent = create_agent!(installation: installation)
+    agent_definition_version = create_agent_definition_version!(
+      installation: installation,
+      agent: agent,
+      profile_policy: default_profile_policy,
+      canonical_config_schema: profile_aware_canonical_config_schema,
+      conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_canonical_config: profile_aware_default_canonical_config
+    )
+    create_agent_connection!(
+      installation: installation,
+      agent: agent,
+      agent_definition_version: agent_definition_version
+    )
 
     {
       installation: installation,

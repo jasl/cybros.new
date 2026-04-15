@@ -38,6 +38,7 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
     assert_equal context[:agent].public_id, primary_payload.fetch("workspace_agents").first.fetch("agent_id")
     assert_equal context[:execution_runtime].public_id, primary_payload.fetch("workspace_agents").first.fetch("default_execution_runtime_id")
     assert_equal "Use concise Chinese.\n", primary_payload.fetch("workspace_agents").first.fetch("global_instructions")
+    assert_equal({}, primary_payload.fetch("workspace_agents").first.fetch("settings_payload"))
 
     secondary_payload = response_body.fetch("workspaces").find { |item| item.fetch("workspace_id") == secondary_workspace.public_id }
     assert_equal secondary_workspace_agent.public_id, secondary_payload.fetch("workspace_agents").first.fetch("workspace_agent_id")
@@ -65,6 +66,14 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
   test "lists owned workspaces within seven SQL queries" do
     context = create_workspace_context!
     context[:workspace].update!(is_default: true)
+    context[:workspace_agent].update!(
+      settings_payload: {
+        "interactive_profile_key" => "main",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "delegation_mode" => "prefer",
+      }
+    )
     workspace = create_workspace!(
       installation: context[:installation],
       user: context[:user],
@@ -84,5 +93,7 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
+    payload = response.parsed_body.fetch("workspaces").find { |item| item.fetch("workspace_id") == context[:workspace].public_id }
+    assert_equal "prefer", payload.fetch("workspace_agents").first.dig("settings_payload", "delegation_mode")
   end
 end

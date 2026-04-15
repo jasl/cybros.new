@@ -3,10 +3,11 @@ module RuntimeCapabilities
     SUBAGENT_TOOL_NAMES = RuntimeCapabilityContract::RESERVED_SUBAGENT_TOOL_NAMES
     DEFAULT_SUBAGENT_PROFILE_ALIAS = RuntimeCapabilityContract::DEFAULT_SUBAGENT_PROFILE_ALIAS
 
-    def initialize(conversation:, agent_definition_version: nil, execution_runtime:)
+    def initialize(conversation:, agent_definition_version: nil, execution_runtime:, turn: nil)
       @conversation = conversation
       @agent_definition_version = agent_definition_version
       @execution_runtime = execution_runtime
+      @turn = turn
     end
 
     def call
@@ -26,7 +27,10 @@ module RuntimeCapabilities
     def current_profile_key
       @current_profile_key ||= begin
         @conversation.subagent_connection&.profile_key ||
+          explicit_turn_profile_key ||
+          @conversation.workspace_agent&.interactive_profile_key_override ||
           contract.default_canonical_config.dig("interactive", "profile") ||
+          contract.default_canonical_config.dig("interactive", "default_profile_key") ||
           "main"
       end
     end
@@ -55,6 +59,20 @@ module RuntimeCapabilities
 
     def current_profile
       contract.profile_policy.fetch(current_profile_key, {})
+    end
+
+    def explicit_turn_profile_key
+      return if @turn.blank?
+
+      selector_source = @turn.resolved_model_selection_snapshot["selector_source"].presence ||
+        @turn.workflow_bootstrap_payload["selector_source"]
+      return if selector_source.blank? || selector_source == "conversation"
+
+      selector = @turn.resolved_model_selection_snapshot["normalized_selector"].presence ||
+        @turn.workflow_bootstrap_payload["selector"]
+      return unless selector.to_s.start_with?("role:")
+
+      selector.delete_prefix("role:")
     end
 
     def contextualize_tool_catalog(tool_catalog)

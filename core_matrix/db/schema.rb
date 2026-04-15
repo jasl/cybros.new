@@ -2306,6 +2306,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "revoked_at"
     t.string "revoked_reason_kind"
+    t.jsonb "settings_payload", default: {}, null: false
     t.datetime "updated_at", null: false
     t.bigint "workspace_id", null: false
     t.index ["agent_id"], name: "index_workspace_agents_on_agent_id"

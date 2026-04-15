@@ -218,10 +218,14 @@ Cover:
 - supported keys normalize into a stable hash
 - blank/absent values collapse cleanly
 - unsupported keys are rejected
+- `default_subagent_profile_key` cannot point outside the enabled specialist set
 - app create/update/read surfaces expose only public ids and compact JSON
 - workspace list fan-out remains preload-safe
 - mounted interactive turns use `interactive_profile_key` as a mount override
   without mutating agent-owned canonical config state
+- explicit selectors/candidates remain authoritative over the mount override
+- implicit mounted interactive turns fall back cleanly when the mounted profile
+  key has no provider-role selector mapping
 
 **Step 2: Implement `WorkspaceAgent.settings_payload`**
 
@@ -232,7 +236,8 @@ Add:
 - controller strong-parameter handling
 - presenter output
 - mount-aware overlay logic for interactive profile selection in runtime
-  capability composition and selector resolution
+  capability composition and selector resolution, without overriding explicit
+  selector/candidate choices
 
 Keep the supported schema narrow to the documented keys only.
 

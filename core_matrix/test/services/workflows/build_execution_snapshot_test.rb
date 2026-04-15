@@ -582,6 +582,41 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     )
   end
 
+  test "freezes the explicit role selector profile key instead of the mounted default" do
+    context = prepare_profile_aware_execution_context!(
+      profile_policy: default_profile_policy.merge(
+        "planner" => {
+          "label" => "Planner",
+          "description" => "Planning profile",
+        }
+      )
+    )
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation.workspace_agent.update!(
+      settings_payload: {
+        "interactive_profile_key" => "researcher",
+      }
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Current input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = build_execution_snapshot_for!(
+      turn: turn,
+      selector_source: "slot",
+      selector: "role:planner"
+    )
+
+    assert_equal "planner", snapshot.capability_projection.fetch("profile_key")
+    assert_equal(
+      RuntimeCapabilities::ComposeForTurn.call(turn: turn).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
+      snapshot.capability_projection.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
+    )
+  end
+
   test "freezes child agent context with profile session lineage and allowed tool names" do
     context = prepare_profile_aware_execution_context!(
       profile_policy: profile_policy_with_allowed_tool_names(

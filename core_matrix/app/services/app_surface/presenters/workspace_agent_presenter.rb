@@ -19,6 +19,7 @@ module AppSurface
           "global_instructions" => @workspace_agent.global_instructions,
           "revoked_reason_kind" => @workspace_agent.revoked_reason_kind,
           "revoked_at" => @workspace_agent.revoked_at&.iso8601(6),
+          "settings_payload" => @workspace_agent.profile_settings_view,
           "capability_policy_payload" => @workspace_agent.capability_policy_payload || {},
           "entry_policy_payload" => @workspace_agent.entry_policy_payload || {},
         }.compact

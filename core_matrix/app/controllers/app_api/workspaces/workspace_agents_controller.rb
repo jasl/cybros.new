@@ -8,6 +8,7 @@ module AppAPI
           agent: find_agent!(params.fetch(:agent_id)),
           default_execution_runtime: resolve_default_execution_runtime,
           global_instructions: resolve_global_instructions,
+          settings_payload: resolve_settings_payload,
           capability_policy_payload: resolve_capability_policy_payload,
           entry_policy_payload: resolve_entry_policy_payload
         )
@@ -25,6 +26,7 @@ module AppAPI
         attributes = {}
         attributes[:default_execution_runtime] = resolve_default_execution_runtime if params.key?(:default_execution_runtime_id)
         attributes[:global_instructions] = resolve_global_instructions if params.key?(:global_instructions)
+        attributes[:settings_payload] = resolve_settings_payload if params.key?(:settings_payload)
         attributes[:capability_policy_payload] = resolve_capability_policy_payload if params.key?(:capability_policy_payload)
         attributes[:entry_policy_payload] = resolve_entry_policy_payload if params.key?(:entry_policy_payload)
 
@@ -57,6 +59,10 @@ module AppAPI
         params[:global_instructions].presence
       end
 
+      def resolve_settings_payload
+        coerce_json_object_param(:settings_payload)
+      end
+
       def resolve_capability_policy_payload
         return {} if params[:capability_policy_payload].blank?
 
@@ -67,6 +73,14 @@ module AppAPI
         return Conversation.default_interactive_entry_policy_payload if params[:entry_policy_payload].blank?
 
         params.fetch(:entry_policy_payload).to_unsafe_h
+      end
+
+      def coerce_json_object_param(key)
+        value = params[key]
+        return {} if value.blank?
+        return value.to_unsafe_h if value.respond_to?(:to_unsafe_h)
+
+        value
       end
     end
   end

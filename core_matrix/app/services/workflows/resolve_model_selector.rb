@@ -11,7 +11,7 @@ module Workflows
     end
 
     def call
-      result = effective_catalog.resolve_selector(selector: raw_selector)
+      result = resolve_selector_result
 
       unless result.usable?
         return raise_unavailable!("unknown model role #{result.normalized_selector.delete_prefix("role:")}") if result.reason_key == "unknown_model_role"
@@ -36,11 +36,33 @@ module Workflows
 
     private
 
+    def resolve_selector_result
+      return effective_catalog.resolve_selector(selector: raw_selector) if raw_selector.present?
+
+      if apply_mount_interactive_profile_selector?
+        result = effective_catalog.resolve_selector(selector: mount_interactive_profile_selector)
+        return result if result.usable?
+      end
+
+      effective_catalog.resolve_selector(selector: nil)
+    end
+
     def raw_selector
       return @selector if @selector.present?
       return "#{@turn.conversation.interactive_selector_provider_handle}/#{@turn.conversation.interactive_selector_model_ref}" if @turn.conversation.explicit_candidate?
 
       nil
+    end
+
+    def mount_interactive_profile_selector
+      profile_key = @turn.conversation.workspace_agent&.interactive_profile_key_override
+      return if profile_key.blank?
+
+      "role:#{profile_key}"
+    end
+
+    def apply_mount_interactive_profile_selector?
+      @selector_source == "conversation" && mount_interactive_profile_selector.present?
     end
 
     def effective_catalog

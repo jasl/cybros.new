@@ -43,15 +43,72 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
     assert_equal "main", composer.contract.default_canonical_config.dig("interactive", "profile")
   end
 
+  test "mounted interactive turns use workspace agent settings as a profile override" do
+    profile_policy = default_profile_policy.merge(
+      "planner" => {
+        "label" => "Planner",
+        "description" => "Planning profile",
+      }
+    )
+    registration = register_profile_aware_runtime!(profile_policy: profile_policy)
+    conversation = create_root_conversation_for!(registration)
+    conversation.workspace_agent.update!(
+      settings_payload: {
+        "interactive_profile_key" => "planner",
+      }
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Profile override test",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    composer = RuntimeCapabilities::ComposeForTurn.new(turn: turn)
+
+    assert_equal "planner", composer.current_profile_key
+    assert_equal "main", composer.contract.default_canonical_config.dig("interactive", "profile")
+  end
+
+  test "explicit role selectors stay authoritative over the mounted interactive profile override" do
+    profile_policy = default_profile_policy.merge(
+      "planner" => {
+        "label" => "Planner",
+        "description" => "Planning profile",
+      }
+    )
+    registration = register_profile_aware_runtime!(profile_policy: profile_policy)
+    conversation = create_root_conversation_for!(registration)
+    conversation.workspace_agent.update!(
+      settings_payload: {
+        "interactive_profile_key" => "researcher",
+      }
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Profile override test",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {
+        "selector_source" => "slot",
+        "normalized_selector" => "role:planner",
+      }
+    )
+
+    composer = RuntimeCapabilities::ComposeForTurn.new(turn: turn)
+
+    assert_equal "planner", composer.current_profile_key
+  end
+
   private
 
-  def register_profile_aware_runtime!
+  def register_profile_aware_runtime!(profile_policy: default_profile_policy, default_canonical_config: profile_aware_default_canonical_config, execution_runtime_capability_payload: {})
     register_agent_runtime!(
+      execution_runtime_capability_payload: execution_runtime_capability_payload,
       tool_contract: default_tool_catalog("exec_command"),
-      profile_policy: default_profile_policy,
+      profile_policy: profile_policy,
       canonical_config_schema: profile_aware_canonical_config_schema,
       conversation_override_schema: subagent_policy_conversation_override_schema,
-      default_canonical_config: profile_aware_default_canonical_config
+      default_canonical_config: default_canonical_config
     )
   end
 

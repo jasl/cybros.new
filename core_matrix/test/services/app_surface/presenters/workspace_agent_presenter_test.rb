@@ -8,7 +8,15 @@ end
 class AppSurface::Presenters::WorkspaceAgentPresenterTest < ActiveSupport::TestCase
   test "emits mount-scoped global instructions" do
     context = create_workspace_context!
-    context[:workspace_agent].update!(global_instructions: "Use concise Chinese.\n")
+    context[:workspace_agent].update!(
+      global_instructions: "Use concise Chinese.\n",
+      settings_payload: {
+        "interactive_profile_key" => "main",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => ["researcher"],
+        "delegation_mode" => "prefer",
+      }
+    )
 
     payload = AppSurface::Presenters::WorkspaceAgentPresenter.call(
       workspace_agent: context[:workspace_agent]
@@ -18,6 +26,7 @@ class AppSurface::Presenters::WorkspaceAgentPresenterTest < ActiveSupport::TestC
     assert_equal context[:workspace].public_id, payload.fetch("workspace_id")
     assert_equal context[:agent].public_id, payload.fetch("agent_id")
     assert_equal "Use concise Chinese.\n", payload.fetch("global_instructions")
+    assert_equal "prefer", payload.dig("settings_payload", "delegation_mode")
     refute_includes payload.to_json, %("#{context[:workspace_agent].id}")
   end
 end

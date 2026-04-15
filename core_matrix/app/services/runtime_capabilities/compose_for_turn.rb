@@ -46,7 +46,8 @@ module RuntimeCapabilities
       @visible_tool_catalog_composer ||= RuntimeCapabilities::ComposeVisibleToolCatalog.new(
         conversation: @turn.conversation,
         agent_definition_version: @turn.agent_definition_version,
-        execution_runtime: @turn.execution_runtime
+        execution_runtime: @turn.execution_runtime,
+        turn: @turn
       )
     end
   end
