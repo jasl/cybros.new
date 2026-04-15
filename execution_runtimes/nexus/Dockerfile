@@ -3,8 +3,8 @@
 
 # This Dockerfile expects a prebuilt cowork runtime base image. Build the base first:
 # docker build -f images/nexus/Dockerfile -t nexus-local .
-# docker build --build-arg NEXUS_BASE_IMAGE=nexus-local:latest -f agents/nexus/Dockerfile -t nexus-local agents/nexus
-# docker run -d -p 3101:80 --env-file agents/nexus/.env --name nexus nexus-local
+# docker build --build-arg NEXUS_BASE_IMAGE=nexus-local:latest -f execution_runtimes/nexus/Dockerfile -t nexus-local execution_runtimes/nexus
+# docker run -d -p 3101:80 --env-file execution_runtimes/nexus/.env --name nexus nexus-local
 
 # For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
 
