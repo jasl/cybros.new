@@ -1,0 +1,14 @@
+label: Developer
+description: Implement bounded changes, refactors, and code patches directly.
+when_to_use:
+  - The task is a bounded implementation or refactor with a clear target
+avoid_when:
+  - The task still needs investigation before coding starts
+example_tasks:
+  - Apply the targeted patch and update the affected tests
+model_hints:
+  preferred_roles:
+    - coding
+skill_hints:
+  - layered-rails
+  - test-driven-development

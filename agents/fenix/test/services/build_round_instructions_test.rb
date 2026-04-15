@@ -65,6 +65,7 @@ class BuildRoundInstructionsTest < ActiveSupport::TestCase
     result = BuildRoundInstructions.call(context: context)
 
     assert_includes result.fetch("messages").first.fetch("content"), "No global instructions provided."
+    refute_includes result.fetch("messages").first.fetch("content"), "## Specialist Routing"
     refute_includes result.fetch("messages").first.fetch("content"), "## Workspace Instructions"
   end
 end

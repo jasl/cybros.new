@@ -1,0 +1,13 @@
+label: Friendly
+description: Friendly interactive profile for collaborative cowork sessions.
+when_to_use:
+  - The user wants a warmer interactive collaboration style
+avoid_when:
+  - A delegated specialist should take over the task
+example_tasks:
+  - Explain a refactor path in a more collaborative tone
+model_hints:
+  preferred_roles:
+    - coding
+skill_hints:
+  - layered-rails

@@ -65,7 +65,14 @@ module Shared
     end
 
     def workspace_agent_context
-      normalize_context_payload(@payload["workspace_agent_context"])
+      explicit = normalize_context_payload(@payload["workspace_agent_context"])
+      return {} if explicit.blank?
+
+      {
+        "workspace_agent_id" => explicit["workspace_agent_id"],
+        "global_instructions" => explicit["global_instructions"],
+        "profile_settings" => normalize_profile_settings(explicit["profile_settings"]),
+      }.compact
     end
 
     def transcript_messages
@@ -112,6 +119,29 @@ module Shared
       return {} if value.blank?
 
       value.respond_to?(:deep_stringify_keys) ? value.deep_stringify_keys : value
+    end
+
+    def normalize_profile_settings(value)
+      explicit = normalize_context_payload(value)
+      return {} if explicit.blank?
+
+      normalized = {}
+      normalized["interactive_profile_key"] = explicit["interactive_profile_key"].to_s if explicit["interactive_profile_key"].present?
+      normalized["default_subagent_profile_key"] = explicit["default_subagent_profile_key"].to_s if explicit["default_subagent_profile_key"].present?
+
+      enabled_keys = Array(explicit["enabled_subagent_profile_keys"]).map(&:to_s).filter_map(&:presence).uniq
+      normalized["enabled_subagent_profile_keys"] = enabled_keys if enabled_keys.any?
+
+      normalized["delegation_mode"] = explicit["delegation_mode"].to_s if explicit["delegation_mode"].present?
+      normalized["max_concurrent_subagents"] = explicit["max_concurrent_subagents"].to_i if explicit["max_concurrent_subagents"].present?
+      normalized["max_subagent_depth"] = explicit["max_subagent_depth"].to_i if explicit["max_subagent_depth"].present?
+      normalized["default_subagent_model_selector_hint"] = explicit["default_subagent_model_selector_hint"].to_s if explicit["default_subagent_model_selector_hint"].present?
+
+      if explicit.key?("allow_nested_subagents")
+        normalized["allow_nested_subagents"] = explicit["allow_nested_subagents"] == true
+      end
+
+      normalized
     end
   end
 end

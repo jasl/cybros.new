@@ -14,7 +14,8 @@ class BuildRoundInstructions
       global_instructions: global_instructions,
       skill_overlay: skill_overlay,
       durable_state: @context["work_context_view"],
-      execution_context: execution_context
+      execution_context: execution_context,
+      routing_summary: routing_summary
     )
 
     {
@@ -42,5 +43,11 @@ class BuildRoundInstructions
       "runtime" => @context.fetch("runtime_context", {}),
       "provider" => @context.fetch("provider_context", {}),
     }
+  end
+
+  def routing_summary
+    Prompts::RoutingSummary.call(
+      profile_settings: @context.dig("workspace_agent_context", "profile_settings") || {}
+    )
   end
 end

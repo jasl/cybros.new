@@ -1,0 +1,14 @@
+label: Researcher
+description: Gather evidence, inspect context, and narrow the real problem before coding.
+when_to_use:
+  - The task is mostly investigation, diagnosis, or evidence gathering
+avoid_when:
+  - The task is a bounded implementation patch that should be written directly
+example_tasks:
+  - Audit the code path and identify the regression cause
+model_hints:
+  preferred_roles:
+    - reasoning
+skill_hints:
+  - layered-rails
+  - systematic-debugging

@@ -1,0 +1,14 @@
+label: Main
+description: Main interactive profile for direct engineering work.
+when_to_use:
+  - General interactive coding and debugging sessions
+avoid_when:
+  - A specialist route is clearly better
+example_tasks:
+  - Fix the failing Rails test and explain the root cause
+model_hints:
+  preferred_roles:
+    - coding
+skill_hints:
+  - layered-rails
+  - systematic-debugging

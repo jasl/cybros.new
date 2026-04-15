@@ -6,26 +6,29 @@ module Prompts
       new(...).call
     end
 
-    def initialize(profile:, is_subagent:, global_instructions:, skill_overlay:, durable_state:, execution_context:)
+    def initialize(profile:, is_subagent:, global_instructions:, skill_overlay:, durable_state:, execution_context:, routing_summary: nil, catalog: nil)
       @profile = profile.to_s
       @is_subagent = is_subagent == true
       @global_instructions = global_instructions
       @skill_overlay = Array(skill_overlay).filter_map(&:presence)
       @durable_state = durable_state.presence
       @execution_context = execution_context.presence || {}
+      @routing_summary = routing_summary.presence
+      @catalog = catalog || ProfileCatalogLoader.default
     end
 
     def call
       {
         "system_prompt" => [
-          section("Code-Owned Base", prompt_file("SOUL.md")),
+          section("Code-Owned Base", bundle.soul_prompt),
           section("Role Overlay", role_overlay),
+          routing_section,
           section("Global Instructions", global_instruction_text),
           section("Skill Overlay", skill_overlay_text),
           section("Supervisor Guidance", supervisor_guidance_text),
           section("CoreMatrix Durable State", durable_state_text),
           section("Execution-Local Fenix Context", execution_context_text),
-        ].join("\n\n"),
+        ].compact.join("\n\n"),
       }
     end
 
@@ -36,7 +39,13 @@ module Prompts
     end
 
     def role_overlay
-      prompt_file(@is_subagent || @profile == "researcher" ? "WORKER.md" : "USER.md")
+      bundle.prompt_for(mode: @is_subagent ? :subagent : :interactive)
+    end
+
+    def routing_section
+      return nil unless @routing_summary
+
+      section("Specialist Routing", @routing_summary)
     end
 
     def global_instruction_text
@@ -86,8 +95,8 @@ module Prompts
       JSON.pretty_generate(@execution_context)
     end
 
-    def prompt_file(filename)
-      Rails.root.join("prompts", filename).read
+    def bundle
+      @bundle ||= @catalog.resolve(profile_key: @profile, is_subagent: @is_subagent)
     end
   end
 end

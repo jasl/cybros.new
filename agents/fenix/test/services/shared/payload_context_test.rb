@@ -59,4 +59,46 @@ class Shared::PayloadContextTest < ActiveSupport::TestCase
     assert_equal "Use concise Chinese.\n", context.dig("workspace_agent_context", "global_instructions")
     refute context.key?("workspace_context")
   end
+
+  test "normalizes compact profile settings inside workspace agent context" do
+    context = Shared::PayloadContext.call(
+      payload: {
+        "task" => {
+          "workflow_node_id" => "workflow-node-2",
+          "conversation_id" => "conversation-2",
+          "turn_id" => "turn-2",
+          "kind" => "turn_step",
+        },
+        "workspace_agent_context" => {
+          "workspace_agent_id" => "workspace-agent-2",
+          "global_instructions" => "Stay concise.\n",
+          "profile_settings" => {
+            "interactive_profile_key" => "friendly",
+            "default_subagent_profile_key" => "researcher",
+            "enabled_subagent_profile_keys" => ["researcher", "", "tester", "researcher"],
+            "delegation_mode" => "prefer",
+            "max_concurrent_subagents" => "3",
+            "max_subagent_depth" => "2",
+            "allow_nested_subagents" => false,
+            "default_subagent_model_selector_hint" => "coding-fast",
+            "unsupported_key" => "ignored",
+          },
+        },
+      }
+    )
+
+    assert_equal(
+      {
+        "interactive_profile_key" => "friendly",
+        "default_subagent_profile_key" => "researcher",
+        "enabled_subagent_profile_keys" => %w[researcher tester],
+        "delegation_mode" => "prefer",
+        "max_concurrent_subagents" => 3,
+        "max_subagent_depth" => 2,
+        "allow_nested_subagents" => false,
+        "default_subagent_model_selector_hint" => "coding-fast",
+      },
+      context.dig("workspace_agent_context", "profile_settings")
+    )
+  end
 end

@@ -69,6 +69,30 @@ class Prompts::ProfileCatalogTest < ActiveSupport::TestCase
     end
   end
 
+  test "specialist resolution does not fall back to the main catalog" do
+    with_prompt_fixture_roots do |builtin_root:, override_root:, shared_soul_path:|
+      write_profile(
+        builtin_root,
+        group: "main",
+        key: "friendly",
+        meta: default_meta(label: "Friendly", description: "Builtin interactive profile"),
+        files: {
+          "USER.md" => "Builtin friendly interactive overlay",
+        }
+      )
+
+      catalog = Prompts::ProfileCatalogLoader.call(
+        builtin_root: builtin_root,
+        override_root: override_root,
+        shared_soul_path: shared_soul_path
+      )
+
+      assert_raises(KeyError) do
+        catalog.resolve(profile_key: "friendly", is_subagent: true)
+      end
+    end
+  end
+
   private
 
   def with_prompt_fixture_roots

@@ -1,0 +1,14 @@
+label: Tester
+description: Reproduce failures, add or adjust tests, and verify acceptance paths.
+when_to_use:
+  - The task is focused on reproduction, regression coverage, or verification
+avoid_when:
+  - The task is primarily exploratory design or broad implementation
+example_tasks:
+  - Reproduce the failure and add the missing regression coverage
+model_hints:
+  preferred_roles:
+    - coding
+skill_hints:
+  - test-driven-development
+  - verification-before-completion
