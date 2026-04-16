@@ -104,6 +104,11 @@ module CoreMatrixCLI
 
   class AuthCLI < Thor
     include CommandHelpers
+    remove_command :tree
+
+    def self.banner(command, *_args)
+      "cmctl auth #{command.usage}"
+    end
 
     desc "login", "Log in as an operator"
     def login
@@ -140,8 +145,13 @@ module CoreMatrixCLI
 
   class CodexCLI < Thor
     include CommandHelpers
+    remove_command :tree
     POLL_TIMEOUT = 10
     POLL_INTERVAL = 0.01
+
+    def self.banner(command, *_args)
+      "cmctl providers codex #{command.usage}"
+    end
 
     desc "login", "Authorize the Codex subscription"
     def login
@@ -195,12 +205,23 @@ module CoreMatrixCLI
   end
 
   class ProvidersCLI < Thor
+    remove_command :tree
+
+    def self.banner(command, *_args)
+      "cmctl providers #{command.usage}"
+    end
+
     desc "codex SUBCOMMAND", "Manage the Codex provider"
     subcommand "codex", CodexCLI
   end
 
   class WorkspaceCLI < Thor
     include CommandHelpers
+    remove_command :tree
+
+    def self.banner(command, *_args)
+      "cmctl workspace #{command.usage}"
+    end
 
     desc "list", "List available workspaces"
     def list
@@ -245,6 +266,11 @@ module CoreMatrixCLI
 
   class AgentCLI < Thor
     include CommandHelpers
+    remove_command :tree
+
+    def self.banner(command, *_args)
+      "cmctl agent #{command.usage}"
+    end
 
     option :workspace_id, type: :string, desc: "Workspace public id"
     option :agent_id, type: :string, required: true, desc: "Agent public id"
@@ -272,6 +298,11 @@ module CoreMatrixCLI
 
   class TelegramCLI < Thor
     include CommandHelpers
+    remove_command :tree
+
+    def self.banner(command, *_args)
+      "cmctl ingress telegram #{command.usage}"
+    end
 
     long_desc <<~HELP
       Preparation:
@@ -339,6 +370,11 @@ module CoreMatrixCLI
 
   class WeixinCLI < Thor
     include CommandHelpers
+    remove_command :tree
+
+    def self.banner(command, *_args)
+      "cmctl ingress weixin #{command.usage}"
+    end
 
     long_desc <<~HELP
       Preparation:
@@ -421,6 +457,12 @@ module CoreMatrixCLI
   end
 
   class IngressCLI < Thor
+    remove_command :tree
+
+    def self.banner(command, *_args)
+      "cmctl ingress #{command.usage}"
+    end
+
     desc "telegram SUBCOMMAND", "Manage Telegram ingress"
     subcommand "telegram", TelegramCLI
 
@@ -430,6 +472,7 @@ module CoreMatrixCLI
 
   class CLI < Thor
     include CommandHelpers
+    remove_command :tree
 
     desc "init", "Bootstrap or continue operator setup"
     def init

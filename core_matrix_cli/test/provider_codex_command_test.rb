@@ -1,6 +1,17 @@
 require "test_helper"
 
 class CoreMatrixCLICodexCommandTest < CoreMatrixCLITestCase
+  def test_codex_help_uses_full_nested_command_path
+    runtime = FakeRuntime.new(
+      config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),
+      credential_store: CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
+    )
+
+    output = run_cli("providers", "codex", "help", "login", runtime: runtime)
+
+    assert_includes output, "cmctl providers codex login"
+  end
+
   def test_codex_login_opens_authorization_url_and_polls_until_authorized
     runtime = FakeRuntime.new(
       config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),

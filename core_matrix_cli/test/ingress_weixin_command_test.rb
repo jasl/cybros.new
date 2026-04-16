@@ -47,6 +47,7 @@ class CoreMatrixCLIWeixinCommandTest < CoreMatrixCLITestCase
 
     output = run_cli("ingress", "weixin", "help", "setup", runtime: runtime)
 
+    assert_includes output, "cmctl ingress weixin setup"
     assert_includes output, "render ANSI QR"
     assert_includes output, "qr_code_url"
   end

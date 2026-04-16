@@ -1,6 +1,17 @@
 require "test_helper"
 
 class CoreMatrixCLIAuthCommandTest < CoreMatrixCLITestCase
+  def test_auth_help_hides_internal_tree_command
+    runtime = FakeRuntime.new(
+      config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),
+      credential_store: CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
+    )
+
+    output = run_cli("auth", "help", runtime: runtime)
+
+    refute_includes output, "auth_c_l_i tree"
+  end
+
   def test_login_persists_session_token_and_operator_email
     runtime = FakeRuntime.new(
       config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),

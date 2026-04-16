@@ -45,6 +45,7 @@ class CoreMatrixCLITelegramCommandTest < CoreMatrixCLITestCase
 
     output = run_cli("ingress", "telegram", "help", "setup", runtime: runtime)
 
+    assert_includes output, "cmctl ingress telegram setup"
     assert_includes output, "BotFather"
     assert_includes output, "secret token"
   end
