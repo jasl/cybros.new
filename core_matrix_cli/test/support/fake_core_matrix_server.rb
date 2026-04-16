@@ -261,6 +261,27 @@ class FakeCoreMatrixServer
       return true
     end
 
+    if request.request_method == "GET" && request.path.match?(%r{\A/app_api/workspace_agents/[^/]+/ingress_bindings/[^/]+\z})
+      ingress_binding_id = request.path.split("/").last
+      ingress_binding = state.ingress_bindings.fetch(ingress_binding_id)
+      configured = ingress_binding.fetch("platform") == "telegram" ? state.telegram_connector_payload.any? : true
+
+      respond_json(
+        response,
+        200,
+        {
+          method_id: "ingress_binding_show",
+          ingress_binding: {
+            ingress_binding_id: ingress_binding_id,
+            channel_connector: {
+              configured: configured,
+            },
+          },
+        }
+      )
+      return true
+    end
+
     if request.request_method == "POST" && request.path.match?(%r{\A/app_api/workspace_agents/[^/]+/ingress_bindings/[^/]+/weixin/start_login\z})
       respond_json(
         response,

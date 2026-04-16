@@ -38,6 +38,8 @@ class CoreMatrixCLIFullSetupContractTest < CoreMatrixCLITestCase
 
         assert_includes combined_output, "authorized"
         assert_includes combined_output, "connected"
+        assert_includes combined_output, "telegram: configured"
+        assert_includes combined_output, "weixin: connected"
         assert_equal "sess_contract_123", credential_store.read.fetch("session_token")
         assert_equal "https://bot.example.com", server.state.telegram_connector_payload.dig("config_payload", "webhook_base_url")
         assert_equal "123:abc", server.state.telegram_connector_payload.dig("credential_ref_payload", "bot_token")

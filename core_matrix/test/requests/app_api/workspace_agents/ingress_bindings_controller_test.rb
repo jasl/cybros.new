@@ -96,6 +96,31 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
     assert ingress_binding.reload.matches_ingress_secret?(secret_token)
   end
 
+  test "shows ingress binding configuration status for telegram" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    ingress_binding = create_ingress_binding!(context, platform: "telegram")
+
+    patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}",
+      params: {
+        channel_connector: {
+          credential_ref_payload: { bot_token: "123:abc" },
+          config_payload: { webhook_base_url: "https://bot.example.com" },
+        },
+      },
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    get "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}",
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :success
+    assert_equal "ingress_binding_show", response.parsed_body.fetch("method_id")
+    assert_equal ingress_binding.public_id, response.parsed_body.dig("ingress_binding", "ingress_binding_id")
+    assert_equal true, response.parsed_body.dig("ingress_binding", "channel_connector", "configured")
+  end
+
   test "does not expose bindings outside the workspace agent owner scope" do
     context = create_workspace_context!
     owner_binding = create_ingress_binding!(context, platform: "telegram")

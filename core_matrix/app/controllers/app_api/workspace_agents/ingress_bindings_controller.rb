@@ -13,7 +13,15 @@ module AppAPI
       }.freeze
 
       before_action :set_workspace_agent
-      before_action :set_ingress_binding, only: [:update, :weixin_start_login, :weixin_login_status, :weixin_disconnect]
+      before_action :set_ingress_binding, only: [:show, :update, :weixin_start_login, :weixin_login_status, :weixin_disconnect]
+
+      def show
+        render_method_response(
+          method_id: "ingress_binding_show",
+          workspace_agent_id: @workspace_agent.public_id,
+          ingress_binding: serialize_ingress_binding(@ingress_binding)
+        )
+      end
 
       def create
         platform = params.fetch(:platform)
@@ -178,6 +186,7 @@ module AppAPI
           "transport_kind" => connector.transport_kind,
           "label" => connector.label,
           "lifecycle_state" => connector.lifecycle_state,
+          "configured" => channel_connector_configured?(connector),
         }
       end
 
@@ -213,6 +222,16 @@ module AppAPI
         plaintext_secret_token, secret_digest = IngressBinding.issue_ingress_secret
         @ingress_binding.update!(ingress_secret_digest: secret_digest)
         plaintext_secret_token
+      end
+
+      def channel_connector_configured?(connector)
+        case connector.platform
+        when "telegram"
+          connector.credential_ref_payload.fetch("bot_token", "").present? &&
+            connector.config_payload.fetch("webhook_base_url", "").present?
+        else
+          connector.lifecycle_state == "active"
+        end
       end
     end
   end

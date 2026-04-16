@@ -139,7 +139,7 @@ Rails.application.routes.draw do
     end
 
     resources :workspace_agents, only: [], controller: "workspaces/workspace_agents", param: :workspace_agent_id do
-      resources :ingress_bindings, only: [:create, :update], controller: "workspace_agents/ingress_bindings", param: :ingress_binding_id do
+      resources :ingress_bindings, only: [:create, :show, :update], controller: "workspace_agents/ingress_bindings", param: :ingress_binding_id do
         member do
           post "weixin/start_login", action: :weixin_start_login
           get "weixin/login_status", action: :weixin_login_status

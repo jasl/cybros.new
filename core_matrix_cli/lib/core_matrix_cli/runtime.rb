@@ -138,6 +138,12 @@ module CoreMatrixCLI
       )
     end
 
+    def show_ingress_binding(workspace_agent_id:, ingress_binding_id:)
+      authenticated_client.get(
+        "/app_api/workspace_agents/#{workspace_agent_id}/ingress_bindings/#{ingress_binding_id}"
+      )
+    end
+
     def start_weixin_login(workspace_agent_id:, ingress_binding_id:)
       authenticated_client.post(
         "/app_api/workspace_agents/#{workspace_agent_id}/ingress_bindings/#{ingress_binding_id}/weixin/start_login"
@@ -194,9 +200,29 @@ module CoreMatrixCLI
           "missing"
         end
 
+      workspace_agent_id = config_store.read["workspace_agent_id"]
+      telegram_binding_id = stored_ingress_binding_id("telegram")
+      if workspace_agent_id.to_s.strip != "" && telegram_binding_id.to_s.strip != ""
+        telegram_binding = show_ingress_binding(
+          workspace_agent_id: workspace_agent_id,
+          ingress_binding_id: telegram_binding_id
+        ).fetch("ingress_binding", {})
+        snapshot["telegram"] = telegram_binding.dig("channel_connector", "configured") ? "configured" : "missing"
+      end
+
+      weixin_binding_id = stored_ingress_binding_id("weixin")
+      if workspace_agent_id.to_s.strip != "" && weixin_binding_id.to_s.strip != ""
+        snapshot["weixin"] = weixin_login_status(
+          workspace_agent_id: workspace_agent_id,
+          ingress_binding_id: weixin_binding_id
+        ).dig("weixin", "login_state") || "unknown"
+      end
+
       snapshot
     rescue HTTPClient::UnauthorizedError
       clear_session_token
+      snapshot
+    rescue HTTPClient::NotFoundError
       snapshot
     end
 
