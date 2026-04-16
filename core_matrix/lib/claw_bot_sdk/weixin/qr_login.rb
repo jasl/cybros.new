@@ -3,16 +3,22 @@ module ClawBotSDK
     class QrLogin
       def self.start(channel_connector:)
         runtime_state = channel_connector.runtime_state_payload.deep_stringify_keys
-        channel_connector.update!(
-          runtime_state_payload: runtime_state.merge(
+        updated_runtime_state = runtime_state.merge(
             "login_state" => "pending",
             "login_started_at" => Time.current.iso8601
           )
+        channel_connector.update!(
+          runtime_state_payload: updated_runtime_state
         )
 
-        {
-          "login_state" => "pending",
-        }
+        updated_runtime_state.slice(
+          "login_state",
+          "login_started_at",
+          "account_id",
+          "base_url",
+          "qr_text",
+          "qr_code_url"
+        )
       end
 
       def self.status(channel_connector:)
@@ -20,7 +26,9 @@ module ClawBotSDK
           "login_state",
           "login_started_at",
           "account_id",
-          "base_url"
+          "base_url",
+          "qr_text",
+          "qr_code_url"
         )
       end
 
@@ -32,7 +40,11 @@ module ClawBotSDK
             "bot_token",
             "account_id",
             "typing_ticket",
-            "get_updates_buf"
+            "get_updates_buf",
+            "qr_text",
+            "qr_code_url",
+            "login_started_at",
+            "login_state"
           )
         )
       end

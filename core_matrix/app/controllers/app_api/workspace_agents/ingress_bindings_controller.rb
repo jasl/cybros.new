@@ -18,6 +18,7 @@ module AppAPI
       def create
         platform = params.fetch(:platform)
         connector_defaults = PLATFORM_CONNECTOR_DEFAULTS.fetch(platform)
+        plaintext_secret_token, secret_digest = IngressBinding.issue_ingress_secret
 
         ingress_binding = nil
         IngressBinding.transaction do
@@ -25,6 +26,7 @@ module AppAPI
             installation: current_user.installation,
             workspace_agent: @workspace_agent,
             default_execution_runtime: resolve_default_execution_runtime,
+            ingress_secret_digest: secret_digest,
             routing_policy_payload: {},
             manual_entry_policy: IngressBinding::DEFAULT_MANUAL_ENTRY_POLICY
           )
@@ -46,7 +48,10 @@ module AppAPI
           method_id: "ingress_binding_create",
           status: :created,
           workspace_agent_id: @workspace_agent.public_id,
-          ingress_binding: serialize_ingress_binding(ingress_binding.reload)
+          ingress_binding: serialize_ingress_binding(
+            ingress_binding.reload,
+            plaintext_secret_token: plaintext_secret_token
+          )
         )
       end
 
@@ -54,9 +59,10 @@ module AppAPI
         attributes = {}
         attributes[:default_execution_runtime] = resolve_default_execution_runtime if params.key?(:default_execution_runtime_id)
         attributes[:lifecycle_state] = params.fetch(:lifecycle_state) if params.key?(:lifecycle_state)
+        plaintext_secret_token = nil
 
         IngressBinding.transaction do
-          @ingress_binding.update!(attributes)
+          @ingress_binding.update!(attributes) if attributes.present?
 
           if params[:lifecycle_state] == "disabled"
             @ingress_binding.channel_connectors.where(lifecycle_state: "active").update_all(
@@ -64,12 +70,29 @@ module AppAPI
               updated_at: Time.current
             )
           end
+
+          if params.key?(:channel_connector)
+            ::IngressBindings::UpdateConnector.call(
+              channel_connector: @ingress_binding.channel_connectors.order(:id).last,
+              attributes: params.require(:channel_connector).permit(
+                :label,
+                :lifecycle_state,
+                credential_ref_payload: {},
+                config_payload: {}
+              ).to_h
+            )
+          end
+
+          plaintext_secret_token = reissue_setup_secret! if ActiveModel::Type::Boolean.new.cast(params[:reissue_setup_secret])
         end
 
         render_method_response(
           method_id: "ingress_binding_update",
           workspace_agent_id: @workspace_agent.public_id,
-          ingress_binding: serialize_ingress_binding(@ingress_binding.reload)
+          ingress_binding: serialize_ingress_binding(
+            @ingress_binding.reload,
+            plaintext_secret_token: plaintext_secret_token
+          )
         )
       end
 
@@ -129,7 +152,7 @@ module AppAPI
         @weixin_channel_connector ||= @ingress_binding.channel_connectors.find_by!(platform: "weixin")
       end
 
-      def serialize_ingress_binding(ingress_binding)
+      def serialize_ingress_binding(ingress_binding, plaintext_secret_token: nil)
         connector = ingress_binding.channel_connectors.order(:id).last
 
         {
@@ -141,7 +164,7 @@ module AppAPI
           "routing_policy_payload" => ingress_binding.routing_policy_payload,
           "manual_entry_policy" => ingress_binding.manual_entry_policy,
           "channel_connector" => serialize_channel_connector(connector),
-          "setup" => setup_payload_for(ingress_binding, connector),
+          "setup" => setup_payload_for(ingress_binding, connector, plaintext_secret_token: plaintext_secret_token),
         }.compact
       end
 
@@ -158,7 +181,7 @@ module AppAPI
         }
       end
 
-      def setup_payload_for(ingress_binding, connector)
+      def setup_payload_for(ingress_binding, connector, plaintext_secret_token: nil)
         return {} if connector.blank?
 
         case connector.platform
@@ -166,6 +189,7 @@ module AppAPI
           {
             "platform" => "telegram",
             "webhook_path" => "/ingress_api/telegram/bindings/#{ingress_binding.public_ingress_id}/updates",
+            "webhook_secret_token" => plaintext_secret_token,
           }
         when "weixin"
           {
@@ -183,6 +207,12 @@ module AppAPI
 
       def ingress_binding_public_id
         params[:ingress_binding_id].presence || params.fetch(:ingress_binding_ingress_binding_id)
+      end
+
+      def reissue_setup_secret!
+        plaintext_secret_token, secret_digest = IngressBinding.issue_ingress_secret
+        @ingress_binding.update!(ingress_secret_digest: secret_digest)
+        plaintext_secret_token
       end
     end
   end
