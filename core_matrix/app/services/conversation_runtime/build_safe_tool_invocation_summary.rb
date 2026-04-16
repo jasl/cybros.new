@@ -48,12 +48,12 @@ module ConversationRuntime
           started_summary: "Started editing workspace files."
         )
       when "subagent_spawn"
-        profile_key = @response_payload["profile_key"].presence || @arguments["profile_key"].presence || "worker"
+        profile_key = @response_payload["profile_key"].presence || @arguments["profile_key"].presence
         {
           "title" => "Delegate child work",
-          "summary" => "Spawned child task #{profile_key}#1",
+          "summary" => profile_key.present? ? "Spawned child task #{profile_key}#1" : "Spawned child task",
           "started_summary" => "Started delegating child work.",
-          "detail" => "Delegated with profile `#{profile_key}`.",
+          "detail" => profile_key.present? ? "Delegated with profile `#{profile_key}`." : "Delegated child work without a profile-specific label.",
           "phase" => "build",
           "user_visible" => true,
         }

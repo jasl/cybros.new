@@ -48,6 +48,7 @@
     },
     "capability_projection": {
       "tool_surface": [
+        { "tool_name": "subagent_spawn" },
         { "tool_name": "subagent_send" },
         { "tool_name": "subagent_wait" },
         { "tool_name": "subagent_close" },
@@ -55,7 +56,8 @@
         { "tool_name": "compact_context" },
         { "tool_name": "estimate_messages" },
         { "tool_name": "estimate_tokens" },
-        { "tool_name": "calculator" }
+        { "tool_name": "calculator" },
+        { "tool_name": "conversation_metadata_update" }
       ],
       "profile_key": "researcher",
       "is_subagent": true,

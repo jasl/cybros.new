@@ -8,7 +8,6 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     installation = create_installation!
     configuration = bundled_agent_configuration(
       enabled: true,
-      profile_policy: default_profile_policy,
       execution_runtime_capability_payload: {
         attachment_access: { request_attachment: true },
       },
@@ -70,7 +69,6 @@ class Installations::RegisterBundledAgentRuntimeTest < ActiveSupport::TestCase
     assert first.agent_definition_version.healthy?
     assert_equal first.agent_connection, AgentConnection.find_by_plaintext_connection_credential(first.agent_connection_credential)
     assert_equal first.execution_runtime_connection, ExecutionRuntimeConnection.find_by_plaintext_connection_credential(first.execution_runtime_connection_credential)
-    assert_equal default_profile_policy, first.agent_definition_version.profile_policy
     assert_equal ["exec_command"], first.agent_definition_version.tool_contract.map { |entry| entry.fetch("tool_name") }
     assert_equal ["title_bootstrap"], first.agent_definition_version.feature_contract.map { |entry| entry.fetch("feature_key") }
     assert_equal(

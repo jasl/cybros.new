@@ -29,17 +29,25 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
           default_execution_runtime_id: runtime.public_id,
           global_instructions: "Always prefer concise Chinese responses.\n",
           settings_payload: {
-            interactive: {
-              profile_key: "friendly",
-              model_selector: "role:main",
+            agent: {
+              interactive: {
+                profile_key: "friendly",
+              },
+              subagents: {
+                default_profile_key: "researcher",
+                enabled_profile_keys: ["researcher"],
+                delegation_mode: "prefer",
+              },
             },
-            subagents: {
-              default_profile_key: "researcher",
-              enabled_profile_keys: ["researcher"],
-              delegation_mode: "prefer",
-              max_concurrent: 2,
-              max_depth: 1,
-              allow_nested: false,
+            core_matrix: {
+              interactive: {
+                model_selector: "role:main",
+              },
+              subagents: {
+                max_concurrent: 2,
+                max_depth: 1,
+                allow_nested: false,
+              },
             },
           },
         },
@@ -56,9 +64,9 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal runtime.public_id, response.parsed_body.dig("workspace_agent", "default_execution_runtime_id")
     assert_equal "Always prefer concise Chinese responses.\n",
       response.parsed_body.dig("workspace_agent", "global_instructions")
-    assert_equal "prefer", response.parsed_body.dig("workspace_agent", "settings_payload", "subagents", "delegation_mode")
+    assert_equal "prefer", response.parsed_body.dig("workspace_agent", "settings_payload", "agent", "subagents", "delegation_mode")
     assert_equal "object", response.parsed_body.dig("workspace_agent", "settings_schema", "type")
-    assert_equal "pragmatic", response.parsed_body.dig("workspace_agent", "default_settings_payload", "interactive", "profile_key")
+    assert_equal "pragmatic", response.parsed_body.dig("workspace_agent", "default_settings_payload", "agent", "interactive", "profile_key")
   end
 
   test "updates and clears workspace agent global instructions and settings payload" do
@@ -69,13 +77,15 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
       params: {
         global_instructions: "Prefer concise Chinese responses.\n",
         settings_payload: {
-          interactive: {
-            profile_key: "main",
-          },
-          subagents: {
-            default_profile_key: "researcher",
-            enabled_profile_keys: ["researcher"],
-            delegation_mode: "allow",
+          agent: {
+            interactive: {
+              profile_key: "friendly",
+            },
+            subagents: {
+              default_profile_key: "researcher",
+              enabled_profile_keys: ["researcher"],
+              delegation_mode: "allow",
+            },
           },
         },
       },
@@ -85,7 +95,7 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "Prefer concise Chinese responses.\n",
       response.parsed_body.dig("workspace_agent", "global_instructions")
-    assert_equal "allow", response.parsed_body.dig("workspace_agent", "settings_payload", "subagents", "delegation_mode")
+    assert_equal "allow", response.parsed_body.dig("workspace_agent", "settings_payload", "agent", "subagents", "delegation_mode")
 
     patch "/app_api/workspaces/#{context[:workspace].public_id}/workspace_agents/#{context[:workspace_agent].public_id}",
       params: {
@@ -198,7 +208,7 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
-  test "rejects unsupported settings payload keys" do
+  test "accepts opaque settings payload keys" do
     context = create_workspace_context!
     session = create_session!(user: context[:user])
     agent = create_agent!(installation: context[:installation], visibility: "public")
@@ -216,8 +226,10 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
       params: {
         agent_id: agent.public_id,
         settings_payload: {
-          interactive: {
-            profile_key: "main",
+          agent: {
+            interactive: {
+              profile_key: "friendly",
+            },
           },
           unexpected: true,
         },
@@ -225,7 +237,7 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
       headers: app_api_headers(session.plaintext_token),
       as: :json
 
-    assert_response :unprocessable_entity
+    assert_response :created
   end
 
   test "rejects non-hash settings payload values" do

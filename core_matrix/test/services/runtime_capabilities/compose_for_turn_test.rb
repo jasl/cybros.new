@@ -1,7 +1,7 @@
 require "test_helper"
 
 class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
-  test "exposes the current profile key for root turns" do
+  test "root turns do not expose a CoreMatrix-owned profile key" do
     registration = register_profile_aware_runtime!
     conversation = create_root_conversation_for!(registration)
     turn = Turns::StartUserTurn.call(
@@ -16,7 +16,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
     assert_equal turn.execution_runtime.public_id, composer.call.fetch("execution_runtime_id")
     assert_equal turn.execution_runtime_version.public_id, composer.call.fetch("execution_runtime_version_id")
     assert_equal turn.agent_definition_version.public_id, composer.call.fetch("agent_definition_version_id")
-    assert_equal "pragmatic", composer.current_profile_key
+    assert_nil composer.current_profile_key
   end
 
   test "exposes the capability contract and child profile key for subagent turns" do
@@ -43,111 +43,21 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
     assert_equal "main", composer.contract.default_canonical_config.dig("interactive", "profile")
   end
 
-  test "mounted interactive turns use workspace agent settings as a profile override" do
-    profile_policy = default_profile_policy.merge(
-      "planner" => {
-        "label" => "Planner",
-        "description" => "Planning profile",
-      }
-    )
-    registration = register_profile_aware_runtime!(profile_policy: profile_policy)
-    conversation = create_root_conversation_for!(registration)
-    conversation.workspace_agent.update!(
-      settings_payload: {
-        "interactive_profile_key" => "planner",
-      }
-    )
-    turn = Turns::StartUserTurn.call(
-      conversation: conversation,
-      content: "Profile override test",
-      resolved_config_snapshot: {},
-      resolved_model_selection_snapshot: {}
-    )
-
-    composer = RuntimeCapabilities::ComposeForTurn.new(turn: turn)
-
-    assert_equal "planner", composer.current_profile_key
-    assert_equal "main", composer.contract.default_canonical_config.dig("interactive", "profile")
-  end
-
-  test "explicit role selectors stay authoritative over the mounted interactive profile override" do
-    profile_policy = default_profile_policy.merge(
-      "planner" => {
-        "label" => "Planner",
-        "description" => "Planning profile",
-      }
-    )
-    registration = register_profile_aware_runtime!(profile_policy: profile_policy)
-    conversation = create_root_conversation_for!(registration)
-    conversation.workspace_agent.update!(
-      settings_payload: {
-        "interactive_profile_key" => "researcher",
-      }
-    )
-    turn = Turns::StartUserTurn.call(
-      conversation: conversation,
-      content: "Profile override test",
-      resolved_config_snapshot: {},
-      resolved_model_selection_snapshot: {
-        "selector_source" => "slot",
-        "normalized_selector" => "role:planner",
-      }
-    )
-
-    composer = RuntimeCapabilities::ComposeForTurn.new(turn: turn)
-
-    assert_equal "planner", composer.current_profile_key
-  end
-
-  test "unknown explicit role selectors fall back to the mounted interactive profile" do
-    registration = register_profile_aware_runtime!
-    conversation = create_root_conversation_for!(registration)
-    turn = Turns::StartUserTurn.call(
-      conversation: conversation,
-      content: "Unknown role selector fallback test",
-      resolved_config_snapshot: {},
-      resolved_model_selection_snapshot: {
-        "selector_source" => "slot",
-        "normalized_selector" => "role:mock",
-      }
-    )
-
-    composer = RuntimeCapabilities::ComposeForTurn.new(turn: turn)
-
-    assert_equal "pragmatic", composer.current_profile_key
-  end
-
-  test "subagent spawn schema stays pinned to frozen workspace agent settings for a turn" do
-    profile_policy = governed_profile_policy.deep_merge(
-      "critic" => {
-        "label" => "Critic",
-        "description" => "Critique profile",
-        "allowed_tool_names" => [],
-      },
-      "pragmatic" => {
-        "label" => "Pragmatic",
-        "description" => "Primary interactive profile",
-        "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
-      },
-      "researcher" => {
-        "label" => "Researcher",
-        "description" => "Delegated research profile",
-        "allowed_tool_names" => [],
-      }
-    )
+  test "subagent spawn schema stays profile-agnostic even when workspace settings change" do
     context = build_governed_tool_context!(
-      profile_policy: profile_policy,
       workspace_agent_settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "default_subagent_profile_key" => "researcher",
+        "subagents" => {
+          "enabled_profile_keys" => ["researcher"],
+          "default_profile_key" => "researcher",
+        },
       }
     )
     context.fetch(:conversation).workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "enabled_subagent_profile_keys" => ["critic"],
-        "default_subagent_profile_key" => "critic",
+        "subagents" => {
+          "enabled_profile_keys" => ["critic"],
+          "default_profile_key" => "critic",
+        },
       }
     )
 
@@ -155,7 +65,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
       tool.fetch("tool_name") == "subagent_spawn"
     end
 
-    assert_equal %w[default researcher], entry.dig("input_schema", "properties", "profile_key", "enum")
+    refute entry.dig("input_schema", "properties", "profile_key").key?("enum")
   end
 
   private

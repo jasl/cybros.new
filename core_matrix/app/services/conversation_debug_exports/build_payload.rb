@@ -484,8 +484,6 @@ module ConversationDebugExports
         "parent_subagent_connection_id" => session.parent_subagent_connection&.public_id,
         "scope" => session.scope,
         "profile_key" => session.profile_key,
-        "specialist_key" => specialist_key_for(session.profile_key),
-        "profile_group" => profile_group_for(session.profile_key),
         "resolved_model_selector_hint" => session.resolved_model_selector_hint,
         "depth" => session.depth,
         "close_state" => session.close_state,
@@ -495,16 +493,6 @@ module ConversationDebugExports
         "created_at" => session.created_at&.iso8601(6),
         "updated_at" => session.updated_at&.iso8601(6),
       }.compact
-    end
-
-    def specialist_key_for(profile_key)
-      profile_key.to_s.strip.presence
-    end
-
-    def profile_group_for(profile_key)
-      return if specialist_key_for(profile_key).blank?
-
-      "specialist"
     end
 
     def serialize_conversation_supervision_session(session)

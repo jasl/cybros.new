@@ -12,7 +12,16 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
 
     bindings = task_run.reload.tool_bindings.includes(:tool_definition, :tool_implementation).order(:id).to_a
 
-    assert_equal %w[compact_context conversation_metadata_update exec_command subagent_spawn],
+    assert_equal %w[
+      compact_context
+      conversation_metadata_update
+      exec_command
+      subagent_close
+      subagent_list
+      subagent_send
+      subagent_spawn
+      subagent_wait
+    ],
       bindings.map { |binding| binding.tool_definition.tool_name }.sort
     assert_equal "env/exec_command",
       bindings.find { |binding| binding.tool_definition.tool_name == "exec_command" }.tool_implementation.implementation_ref
@@ -32,15 +41,33 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
     first_attempt = create_agent_task_run!(workflow_node: context.fetch(:workflow_node), logical_work_id: "tool-task", attempt_no: 1)
     second_attempt = create_agent_task_run!(workflow_node: context.fetch(:workflow_node), logical_work_id: "tool-task", attempt_no: 2)
 
-    assert_equal %w[compact_context conversation_metadata_update exec_command subagent_spawn],
+    assert_equal %w[
+      compact_context
+      conversation_metadata_update
+      exec_command
+      subagent_close
+      subagent_list
+      subagent_send
+      subagent_spawn
+      subagent_wait
+    ],
       first_attempt.reload.tool_bindings.includes(:tool_definition).map { |binding| binding.tool_definition.tool_name }.sort
-    assert_equal %w[compact_context conversation_metadata_update exec_command subagent_spawn],
+    assert_equal %w[
+      compact_context
+      conversation_metadata_update
+      exec_command
+      subagent_close
+      subagent_list
+      subagent_send
+      subagent_spawn
+      subagent_wait
+    ],
       second_attempt.reload.tool_bindings.includes(:tool_definition).map { |binding| binding.tool_definition.tool_name }.sort
     refute_equal first_attempt.tool_bindings.order(:id).pluck(:public_id),
       second_attempt.tool_bindings.order(:id).pluck(:public_id)
   end
 
-  test "freezes runtime-backed tools when the current profile admits runtime tools dynamically" do
+  test "freezes runtime-backed tools alongside the reserved core matrix surface" do
     context = build_governed_tool_context!(
       agent_tool_catalog: [
         {
@@ -53,13 +80,7 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
           "streaming_support" => false,
           "idempotency_policy" => "best_effort",
         },
-      ],
-      profile_policy: {
-        "pragmatic" => {
-          "allowed_tool_names" => %w[compact_context subagent_spawn],
-          "allow_execution_runtime_tools" => true,
-        },
-      }
+      ]
     )
     ToolBindings::ProjectCapabilitySnapshot.call(
       agent_definition_version: context.fetch(:agent_definition_version),
@@ -69,6 +90,15 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
     tool_names = task_run.reload.tool_bindings.includes(:tool_definition).map { |binding| binding.tool_definition.tool_name }.sort
 
-    assert_equal %w[compact_context exec_command], tool_names
+    assert_equal %w[
+      compact_context
+      conversation_metadata_update
+      exec_command
+      subagent_close
+      subagent_list
+      subagent_send
+      subagent_spawn
+      subagent_wait
+    ], tool_names
   end
 end

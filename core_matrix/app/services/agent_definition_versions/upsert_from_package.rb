@@ -14,7 +14,6 @@ module AgentDefinitionVersions
     ].freeze
 
     REQUIRED_HASH_FIELDS = %w[
-      profile_policy
       canonical_config_schema
       conversation_override_schema
       workspace_agent_settings_schema
@@ -78,7 +77,6 @@ module AgentDefinitionVersions
           feature_contract_document: find_or_create_document("agent_feature_contract", @definition_package.fetch("feature_contract", [])),
           request_preparation_contract_document: find_or_create_document("agent_request_preparation_contract", @definition_package.fetch("request_preparation_contract", {})),
           tool_contract_document: find_or_create_document("agent_tool_contract", @definition_package.fetch("tool_contract", [])),
-          profile_policy_document: find_or_create_document("agent_profile_policy", @definition_package.fetch("profile_policy", {})),
           canonical_config_schema_document: find_or_create_document("canonical_config_schema", @definition_package.fetch("canonical_config_schema", {})),
           conversation_override_schema_document: find_or_create_document("conversation_override_schema", @definition_package.fetch("conversation_override_schema", {})),
           workspace_agent_settings_schema_document: find_or_create_document("workspace_agent_settings_schema", @definition_package.fetch("workspace_agent_settings_schema", {})),

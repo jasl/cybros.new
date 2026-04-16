@@ -79,13 +79,17 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     assert_equal context[:user].public_id, mailbox_item.payload.dig("runtime_context", "user_id")
   end
 
-  test "reconstructs workspace agent profile settings from the frozen execution snapshot" do
+  test "reconstructs workspace agent settings from the frozen execution snapshot" do
     context = build_agent_control_context!(
       workspace_agent_settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "delegation_mode" => "prefer",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+        },
       }
     )
     build_execution_snapshot_for!(
@@ -115,19 +119,25 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
 
     assert_equal(
       {
-        "interactive_profile_key" => "pragmatic",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "delegation_mode" => "prefer",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+        },
       },
-      mailbox_item.payload.dig("workspace_agent_context", "profile_settings")
+      mailbox_item.payload.dig("workspace_agent_context", "settings_payload")
     )
   end
 
   test "frozen workspace agent context wins over any inline mailbox copy" do
     context = build_agent_control_context!(
       workspace_agent_settings_payload: {
-        "interactive_profile_key" => "pragmatic",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
       }
     )
     build_execution_snapshot_for!(
@@ -142,7 +152,11 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
         "request_kind" => "prepare_round",
         "workspace_agent_context" => {
           "workspace_agent_id" => "stale-workspace-agent",
-          "profile_settings" => { "interactive_profile_key" => "friendly" },
+          "settings_payload" => {
+            "interactive" => {
+              "profile_key" => "pragmatic",
+            },
+          },
         },
       }
     )
@@ -160,7 +174,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     )
 
     assert_equal context.fetch(:conversation).workspace_agent.public_id, mailbox_item.payload.dig("workspace_agent_context", "workspace_agent_id")
-    assert_equal "pragmatic", mailbox_item.payload.dig("workspace_agent_context", "profile_settings", "interactive_profile_key")
+    assert_equal "friendly", mailbox_item.payload.dig("workspace_agent_context", "settings_payload", "interactive", "profile_key")
   end
 
   test "reconstructs subagent model selector hints from the frozen execution snapshot" do

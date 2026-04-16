@@ -91,8 +91,8 @@ Related design note:
   - `ExecutionRuntime`
   - `AgentDefinitionVersion`
   - `Core Matrix`
-- the agent profile policy may still mask tools from that effective set through
-  `allowed_tool_names` before a turn freezes visible bindings
+- turn-time visibility is derived from the frozen execution capability surface
+  plus generic CoreMatrix runtime policy such as subagent nesting limits
 - reserved `core_matrix__*` system tools remain outside ordinary collision
   resolution
 - `governed_effective_tool_catalog` decorates the effective entries with:
@@ -140,10 +140,10 @@ Related design note:
   - `ImplementationSource`
   - `ToolDefinition`
   - `ToolImplementation`
-- projection is idempotent per agent definition version and profile policy:
-  - if profiles declare `allowed_tool_names`, the governed projection is
-    limited to the union of those declared logical tools
-  - otherwise projection falls back to the full effective tool catalog
+- projection is idempotent per agent definition version and effective tool
+  catalog:
+  - governed projection reflects the durable tool definitions that CoreMatrix
+    can bind for that version/runtime pair
 - paused-work recovery now also relies on that same capability-contract shape:
   `ExecutionIdentityRecovery::ResolveTarget` compares the replacement
   agent definition version against the paused turn's frozen capability surface before it

@@ -96,7 +96,7 @@ module Prompts
     end
 
     def bundle
-      @bundle ||= @catalog.resolve(profile_key: @profile, is_subagent: @is_subagent)
+      @bundle ||= @catalog.resolve_with_fallback(profile_key: @profile, is_subagent: @is_subagent)
     end
   end
 end

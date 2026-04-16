@@ -31,7 +31,7 @@ class Requests::PrepareRoundTest < ActiveSupport::TestCase
           },
         },
         "agent_context" => {
-          "profile" => "pragmatic",
+          "profile_key" => "pragmatic",
           "allowed_tool_names" => %w[compact_context exec_command browser_open],
         },
         "provider_context" => {
@@ -145,17 +145,25 @@ class Requests::PrepareRoundTest < ActiveSupport::TestCase
           "context_imports" => [],
         },
         "agent_context" => {
-          "profile" => "friendly",
+          "profile_key" => "friendly",
           "allowed_tool_names" => %w[subagent_spawn exec_command],
         },
         "workspace_agent_context" => {
           "workspace_agent_id" => "workspace-agent-2",
           "global_instructions" => "Stay within the mounted workspace agent scope.\n",
-          "profile_settings" => {
-            "default_subagent_profile_key" => "researcher",
-            "enabled_subagent_profile_keys" => %w[researcher tester],
-            "delegation_mode" => "prefer",
-            "max_subagent_depth" => 2,
+          "settings_payload" => {
+            "agent" => {
+              "subagents" => {
+                "default_profile_key" => "researcher",
+                "enabled_profile_keys" => %w[researcher tester],
+                "delegation_mode" => "prefer",
+              },
+            },
+            "core_matrix" => {
+              "subagents" => {
+                "max_depth" => 2,
+              },
+            },
           },
         },
       }
@@ -186,17 +194,21 @@ class Requests::PrepareRoundTest < ActiveSupport::TestCase
           "context_imports" => [],
         },
         "agent_context" => {
-          "profile" => "developer",
+          "profile_key" => "developer",
           "is_subagent" => true,
           "allowed_tool_names" => %w[exec_command],
         },
         "workspace_agent_context" => {
           "workspace_agent_id" => "workspace-agent-3",
           "global_instructions" => "Stay within the mounted workspace agent scope.\n",
-          "profile_settings" => {
-            "default_subagent_profile_key" => "developer",
-            "enabled_subagent_profile_keys" => %w[researcher developer tester],
-            "delegation_mode" => "allow",
+          "settings_payload" => {
+            "agent" => {
+              "subagents" => {
+                "default_profile_key" => "developer",
+                "enabled_profile_keys" => %w[researcher developer tester],
+                "delegation_mode" => "allow",
+              },
+            },
           },
         },
       }

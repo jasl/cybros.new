@@ -1,7 +1,7 @@
 require "test_helper"
 
 class SubagentConnectionTest < ActiveSupport::TestCase
-  test "requires owner and child conversations plus a profile key" do
+  test "requires owner and child conversations while allowing a missing profile key" do
     assert Object.const_defined?(:SubagentConnection), "Expected SubagentConnection to be defined"
     assert_includes SubagentConnection.column_names, "owner_conversation_id"
     assert_includes SubagentConnection.column_names, "conversation_id"
@@ -40,8 +40,7 @@ class SubagentConnectionTest < ActiveSupport::TestCase
     assert_equal "role:researcher", session.resolved_model_selector_hint
 
     session.profile_key = nil
-    assert_not session.valid?
-    assert_includes session.errors[:profile_key], "can't be blank"
+    assert session.valid?
 
     session.profile_key = "researcher"
     session.owner_conversation = nil

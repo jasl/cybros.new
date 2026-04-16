@@ -218,7 +218,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_equal ["quoted_context"], snapshot.conversation_projection.fetch("context_imports").map { |item| item.fetch("kind") }
     assert_equal conversation.public_id, snapshot.conversation_projection.fetch("context_imports").first.fetch("source_conversation_id")
     assert_equal "Earlier summary", snapshot.conversation_projection.fetch("context_imports").first.fetch("content")
-    assert_equal "pragmatic", snapshot.capability_projection.fetch("profile_key")
+    refute snapshot.capability_projection.key?("profile_key")
     assert_equal false, snapshot.capability_projection.fetch("is_subagent")
     assert_equal(
       RuntimeCapabilities::ComposeForTurn.call(turn: current_turn).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
@@ -559,7 +559,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:resolved_config_snapshot], "runtime_override loop_policy.max_rounds must be an integer between 1 and 256"
   end
 
-  test "freezes root agent context with the pragmatic profile and visible tool names" do
+  test "freezes root agent context without a CoreMatrix-owned profile key and with visible tool names" do
     context = prepare_profile_aware_execution_context!(
       profile_policy: default_profile_policy.deep_merge(
         "critic" => {
@@ -578,7 +578,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     snapshot = build_execution_snapshot_for!(turn: turn)
 
-    assert_equal "pragmatic", snapshot.capability_projection.fetch("profile_key")
+    refute snapshot.capability_projection.key?("profile_key")
     assert_equal false, snapshot.capability_projection.fetch("is_subagent")
     assert_nil snapshot.capability_projection["subagent_connection_id"]
     assert_nil snapshot.capability_projection["parent_subagent_connection_id"]
@@ -589,7 +589,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     )
   end
 
-  test "freezes the explicit role selector profile key instead of the mounted default" do
+  test "explicit role selectors do not become CoreMatrix-owned profile facts" do
     context = prepare_profile_aware_execution_context!(
       profile_policy: default_profile_policy.merge(
         "planner" => {
@@ -601,7 +601,9 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "researcher",
+        "interactive" => {
+          "profile_key" => "researcher",
+        },
       }
     )
     turn = Turns::StartUserTurn.call(
@@ -617,7 +619,7 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
       selector: "role:planner"
     )
 
-    assert_equal "planner", snapshot.capability_projection.fetch("profile_key")
+    refute snapshot.capability_projection.key?("profile_key")
     assert_equal(
       RuntimeCapabilities::ComposeForTurn.call(turn: turn).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") },
       snapshot.capability_projection.fetch("tool_surface").map { |entry| entry.fetch("tool_name") }
@@ -682,6 +684,70 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     snapshot = build_execution_snapshot_for!(turn: turn)
 
     assert_equal "role:researcher", snapshot.capability_projection.fetch("model_selector_hint")
+  end
+
+  test "freezes subagent profile labels per turn instead of sharing them through the capability snapshot" do
+    context = prepare_profile_aware_execution_context!
+    root_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    child_chain = create_subagent_conversation_chain!(
+      context: context,
+      parent_conversation: root_conversation,
+      depth: 0,
+      profile_key: "researcher"
+    )
+
+    first_turn = Turns::StartAgentTurn.call(
+      conversation: child_chain.fetch(:conversation),
+      content: "First delegated input",
+      sender_kind: "owner_agent",
+      sender_conversation: child_chain.fetch(:subagent_connection).owner_conversation,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    first_snapshot = build_execution_snapshot_for!(turn: first_turn)
+
+    child_chain.fetch(:subagent_connection).update!(profile_key: "developer")
+
+    second_turn = Turns::StartAgentTurn.call(
+      conversation: child_chain.fetch(:conversation),
+      content: "Second delegated input",
+      sender_kind: "owner_agent",
+      sender_conversation: child_chain.fetch(:subagent_connection).owner_conversation,
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    second_snapshot = build_execution_snapshot_for!(turn: second_turn)
+
+    assert_equal "researcher", first_snapshot.capability_projection.fetch("profile_key")
+    assert_equal "developer", second_snapshot.capability_projection.fetch("profile_key")
+    assert_equal first_turn.execution_contract.execution_capability_snapshot_id, second_turn.execution_contract.execution_capability_snapshot_id
+  end
+
+  test "freezes the effective subagent policy after applying workspace-agent settings" do
+    context = prepare_profile_aware_execution_context!
+    conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    conversation.workspace_agent.update!(
+      settings_payload: {
+        "core_matrix" => {
+          "subagents" => {
+            "allow_nested" => false,
+            "max_depth" => 1,
+          },
+        },
+      }
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Current input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    snapshot = build_execution_snapshot_for!(turn: turn)
+
+    assert_equal false, snapshot.capability_projection.dig("subagent_policy", "allow_nested")
+    assert_equal 1, snapshot.capability_projection.dig("subagent_policy", "max_depth")
+    assert_equal true, snapshot.capability_projection.dig("subagent_policy", "enabled")
   end
 
   private
@@ -756,10 +822,14 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     )
     conversation.workspace_agent.update!(
       settings_payload: {
-        "delegation_mode" => "prefer",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "default_subagent_profile_key" => "researcher",
-        "interactive_profile_key" => "pragmatic",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "delegation_mode" => "prefer",
+          "enabled_profile_keys" => ["researcher"],
+          "default_profile_key" => "researcher",
+        },
       }
     )
     second_turn = Turns::StartUserTurn.call(
@@ -818,15 +888,19 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     )
   end
 
-  test "freezes workspace agent profile settings once per turn and reuses identical documents" do
+  test "freezes workspace agent settings payload once per turn and reuses identical documents" do
     context = prepare_profile_aware_execution_context!
     conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "delegation_mode" => "prefer",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+        },
       }
     )
 
@@ -838,10 +912,14 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     )
     conversation.workspace_agent.update!(
       settings_payload: {
-        "delegation_mode" => "prefer",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "default_subagent_profile_key" => "researcher",
-        "interactive_profile_key" => "pragmatic",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "delegation_mode" => "prefer",
+          "enabled_profile_keys" => ["researcher"],
+          "default_profile_key" => "researcher",
+        },
       }
     )
     second_turn = Turns::StartUserTurn.call(
@@ -856,30 +934,38 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
 
     assert_equal(
       {
-        "interactive_profile_key" => "pragmatic",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "delegation_mode" => "prefer",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+        },
       },
-      first_snapshot.workspace_agent_context.fetch("profile_settings")
+      first_snapshot.workspace_agent_context.fetch("settings_payload")
     )
     assert_equal(
-      first_turn.execution_contract.workspace_agent_profile_settings_document_id,
-      second_turn.execution_contract.workspace_agent_profile_settings_document_id
+      first_turn.execution_contract.workspace_agent_settings_document_id,
+      second_turn.execution_contract.workspace_agent_settings_document_id
     )
 
     conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "researcher",
-        "default_subagent_profile_key" => "developer",
-        "enabled_subagent_profile_keys" => ["developer"],
-        "delegation_mode" => "allow",
+        "interactive" => {
+          "profile_key" => "researcher",
+        },
+        "subagents" => {
+          "default_profile_key" => "developer",
+          "enabled_profile_keys" => ["developer"],
+          "delegation_mode" => "allow",
+        },
       }
     )
 
     assert_equal(
-      "pragmatic",
-      first_turn.reload.execution_snapshot.workspace_agent_context.dig("profile_settings", "interactive_profile_key")
+      "friendly",
+      first_turn.reload.execution_snapshot.workspace_agent_context.dig("settings_payload", "interactive", "profile_key")
     )
 
     third_turn = Turns::StartUserTurn.call(
@@ -890,10 +976,10 @@ class Workflows::BuildExecutionSnapshotTest < ActiveSupport::TestCase
     )
     third_snapshot = build_execution_snapshot_for!(turn: third_turn)
 
-    assert_equal "researcher", third_snapshot.workspace_agent_context.dig("profile_settings", "interactive_profile_key")
+    assert_equal "researcher", third_snapshot.workspace_agent_context.dig("settings_payload", "interactive", "profile_key")
     refute_equal(
-      first_turn.execution_contract.workspace_agent_profile_settings_document_id,
-      third_turn.execution_contract.workspace_agent_profile_settings_document_id
+      first_turn.execution_contract.workspace_agent_settings_document_id,
+      third_turn.execution_contract.workspace_agent_settings_document_id
     )
   end
 end

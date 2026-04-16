@@ -168,19 +168,8 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     assert_equal "Investigate this", package.fetch("content")
   end
 
-  test "conversation scoped spawn resolves explicit or default profile for reusable sessions" do
-    profile_policy = default_profile_policy.deep_merge(
-      "researcher" => {
-        "default_subagent_profile" => true,
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
-      },
-      "critic" => {
-        "label" => "Critic",
-        "description" => "Delegated critique profile",
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
-      }
-    )
-    context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
+  test "conversation scoped spawn persists explicit labels and leaves omitted labels unset" do
+    context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
     )
@@ -213,17 +202,11 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     assert_equal "critic", explicit_connection.profile_key
     assert default_connection.scope_conversation?
     assert_nil default_connection.origin_turn
-    assert_equal "researcher", default_connection.profile_key
+    assert_nil default_connection.profile_key
   end
 
-  test "explicit default alias resolves the runtime default subagent profile" do
-    profile_policy = default_profile_policy.deep_merge(
-      "researcher" => {
-        "default_subagent_profile" => true,
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
-      }
-    )
-    context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
+  test "explicit default alias remains an opaque label" do
+    context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
     )
@@ -244,29 +227,64 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
 
     session = SubagentConnection.find_by!(public_id: result.fetch("subagent_connection_id"))
 
-    assert_equal "researcher", session.profile_key
-    assert_equal "researcher", result.fetch("profile_key")
+    assert_equal "default", session.profile_key
+    assert_equal "default", result.fetch("profile_key")
   end
 
-  test "mount default subagent profile override wins over runtime metadata default" do
-    profile_policy = default_profile_policy.deep_merge(
-      "critic" => {
-        "label" => "Critic",
-        "description" => "Delegated critique profile",
-        "default_subagent_profile" => true,
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
-      },
-      "researcher" => {
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
-      }
+  test "spawn works without a profile when the mounted agent does not define one" do
+    context = prepare_profile_aware_execution_context!
+    adopt_agent_definition_version!(
+      context,
+      create_compatible_agent_definition_version!(
+        agent_definition_version: context.fetch(:agent_definition_version),
+        version: 99,
+        default_workspace_agent_settings: {
+          "subagents" => {
+            "delegation_mode" => "allow",
+            "max_concurrent" => 3,
+            "max_depth" => 3,
+            "allow_nested" => true,
+          },
+        },
+      ),
+      turn: nil
     )
-    context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
+
+    owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    owner_turn = Turns::StartUserTurn.call(
+      conversation: owner_conversation,
+      content: "Delegate",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+
+    result = SubagentConnections::Spawn.call(
+      conversation: owner_conversation,
+      origin_turn: owner_turn,
+      content: "Generic child work",
+      scope: "conversation"
+    )
+
+    session = SubagentConnection.find_by!(public_id: result.fetch("subagent_connection_id"))
+
+    assert_nil session.profile_key
+    refute result.key?("profile_key")
+  end
+
+  test "workspace agent settings do not rewrite explicit labels" do
+    context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "enabled_subagent_profile_keys" => %w[critic researcher],
-        "default_subagent_profile_key" => "researcher",
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
+          "subagents" => {
+            "enabled_profile_keys" => %w[critic researcher],
+            "default_profile_key" => "researcher",
+          },
+        },
       }
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -286,25 +304,21 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
 
     session = SubagentConnection.find_by!(public_id: result.fetch("subagent_connection_id"))
 
-    assert_equal "researcher", session.profile_key
-    assert_equal "researcher", result.fetch("profile_key")
+    assert_equal "default", session.profile_key
+    assert_equal "default", result.fetch("profile_key")
   end
 
-  test "rejects explicit specialist keys that are not enabled by mount settings" do
-    profile_policy = default_profile_policy.deep_merge(
-      "critic" => {
-        "label" => "Critic",
-        "description" => "Delegated critique profile",
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
-      }
-    )
-    context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
+  test "explicit specialist keys remain pass-through even when not listed in mount settings" do
+    context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "default_subagent_profile_key" => "researcher",
+        "agent" => {
+          "subagents" => {
+            "enabled_profile_keys" => ["researcher"],
+            "default_profile_key" => "researcher",
+          },
+        },
       }
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -314,17 +328,15 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    error = assert_raises(ActiveRecord::RecordInvalid) do
-      SubagentConnections::Spawn.call(
-        conversation: owner_conversation,
-        origin_turn: owner_turn,
-        content: "Forbidden specialist",
-        scope: "conversation",
-        profile_key: "critic"
-      )
-    end
+    result = SubagentConnections::Spawn.call(
+      conversation: owner_conversation,
+      origin_turn: owner_turn,
+      content: "Explicit specialist",
+      scope: "conversation",
+      profile_key: "critic"
+    )
 
-    assert_includes error.record.errors[:profile_key], "must be enabled for the current mount"
+    assert_equal "critic", result.fetch("profile_key")
   end
 
   test "persists resolved model selector hints on the session and delegation package" do
@@ -356,28 +368,25 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     assert_equal "role:planner", package.fetch("model_selector_hint")
   end
 
-  test "uses frozen workspace agent defaults for profile resolution and model selector hints" do
-    profile_policy = default_profile_policy.deep_merge(
-      "critic" => {
-        "label" => "Critic",
-        "description" => "Delegated critique profile",
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
-      }
-    )
-    context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
+  test "uses frozen workspace agent settings for model selector hints" do
+    context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive" => {
-          "profile_key" => "main",
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
+          "subagents" => {
+            "enabled_profile_keys" => %w[critic researcher],
+            "default_profile_key" => "researcher",
+          },
         },
-        "subagents" => {
-          "enabled_profile_keys" => %w[critic researcher],
-          "default_profile_key" => "researcher",
-          "default_model_selector" => "role:critic",
-          "profile_overrides" => {
-            "researcher" => {
-              "model_selector" => "role:planner",
+        "core_matrix" => {
+          "subagents" => {
+            "default_model_selector" => "role:critic",
+            "label_model_selectors" => {
+              "researcher" => "role:planner",
             },
           },
         },
@@ -396,16 +405,20 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     )
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive" => {
-          "profile_key" => "main",
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
+          "subagents" => {
+            "enabled_profile_keys" => %w[critic researcher],
+            "default_profile_key" => "critic",
+          },
         },
-        "subagents" => {
-          "enabled_profile_keys" => %w[critic researcher],
-          "default_profile_key" => "critic",
-          "default_model_selector" => "role:critic",
-          "profile_overrides" => {
-            "critic" => {
-              "model_selector" => "role:planner",
+        "core_matrix" => {
+          "subagents" => {
+            "default_model_selector" => "role:critic",
+            "label_model_selectors" => {
+              "critic" => "role:planner",
             },
           },
         },
@@ -417,7 +430,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       origin_turn: owner_turn.reload,
       content: "Frozen specialist defaults",
       scope: "conversation",
-      profile_key: "default"
+      profile_key: "researcher"
     )
 
     session = SubagentConnection.find_by!(public_id: result.fetch("subagent_connection_id"))
@@ -433,20 +446,15 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
   end
 
   test "frozen sparse workspace agent settings do not inherit later live overrides" do
-    profile_policy = default_profile_policy.deep_merge(
-      "critic" => {
-        "label" => "Critic",
-        "description" => "Delegated critique profile",
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
-      }
-    )
-    context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
+    context = prepare_profile_aware_execution_context!
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "subagents" => {
-          "enabled_profile_keys" => %w[critic researcher],
-          "default_profile_key" => "researcher",
+        "agent" => {
+          "subagents" => {
+            "enabled_profile_keys" => %w[critic researcher],
+            "default_profile_key" => "researcher",
+          },
         },
       }
     )
@@ -463,13 +471,19 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     )
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive" => {
-          "profile_key" => "researcher",
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "researcher",
+          },
+          "subagents" => {
+            "enabled_profile_keys" => ["critic"],
+            "default_profile_key" => "critic",
+          },
         },
-        "subagents" => {
-          "enabled_profile_keys" => ["critic"],
-          "default_profile_key" => "critic",
-          "default_model_selector" => "role:critic",
+        "core_matrix" => {
+          "subagents" => {
+            "default_model_selector" => "role:critic",
+          },
         },
       }
     )
@@ -478,25 +492,26 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       conversation: owner_conversation,
       origin_turn: owner_turn.reload,
       content: "Frozen sparse specialist defaults",
-      scope: "conversation",
-      profile_key: "default"
+      scope: "conversation"
     )
 
-    assert_equal "researcher", result.fetch("profile_key")
+    refute result.key?("profile_key")
     assert_equal "role:main", result.fetch("model_selector_hint")
   end
 
-  test "spawn respects the current profile tool mask when subagent_spawn is hidden" do
-    profile_policy = default_profile_policy.deep_merge(
-      "pragmatic" => {
-        "allowed_tool_names" => %w[compact_context],
-      },
-      "researcher" => {
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
+  test "spawn remains available when workspace settings disable a specialist" do
+    context = prepare_profile_aware_execution_context!
+    owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
+    owner_conversation.workspace_agent.update!(
+      settings_payload: {
+        "agent" => {
+          "subagents" => {
+            "enabled_profile_keys" => ["researcher"],
+            "default_profile_key" => "researcher",
+          },
+        },
       }
     )
-    context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
-    owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
       content: "Delegate",
@@ -504,17 +519,15 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       resolved_model_selection_snapshot: {}
     )
 
-    error = assert_raises(ActiveRecord::RecordInvalid) do
-      SubagentConnections::Spawn.call(
-        conversation: owner_conversation,
-        origin_turn: owner_turn,
-        content: "Hidden specialist",
-        scope: "conversation",
-        profile_key: "researcher"
-      )
-    end
+    result = SubagentConnections::Spawn.call(
+      conversation: owner_conversation,
+      origin_turn: owner_turn,
+      content: "Still available",
+      scope: "conversation",
+      profile_key: "developer"
+    )
 
-    assert_includes error.record.errors[:base].join(", "), "subagent_spawn is not visible"
+    assert_equal "developer", result.fetch("profile_key")
   end
 
   test "enforces mount max concurrent subagent limits" do
@@ -522,10 +535,17 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "default_subagent_profile_key" => "researcher",
-        "max_concurrent_subagents" => 1,
+        "agent" => {
+          "subagents" => {
+            "enabled_profile_keys" => ["researcher"],
+            "default_profile_key" => "researcher",
+          },
+        },
+        "core_matrix" => {
+          "subagents" => {
+            "max_concurrent" => 1,
+          },
+        },
       }
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -561,10 +581,17 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "default_subagent_profile_key" => "researcher",
-        "allow_nested_subagents" => false,
+        "agent" => {
+          "subagents" => {
+            "enabled_profile_keys" => ["researcher"],
+            "default_profile_key" => "researcher",
+          },
+        },
+        "core_matrix" => {
+          "subagents" => {
+            "allow_nested" => false,
+          },
+        },
       }
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -601,10 +628,17 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "default_subagent_profile_key" => "researcher",
-        "max_subagent_depth" => 1,
+        "agent" => {
+          "subagents" => {
+            "enabled_profile_keys" => ["researcher"],
+            "default_profile_key" => "researcher",
+          },
+        },
+        "core_matrix" => {
+          "subagents" => {
+            "max_depth" => 1,
+          },
+        },
       }
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -645,23 +679,14 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:base].join(", "), "subagent_spawn is not visible"
   end
 
-  test "uses default workspace-agent interactive profile before canonical config when selecting enabled specialists" do
-    profile_policy = default_profile_policy.deep_merge(
-      "critic" => {
-        "label" => "Critic",
-        "description" => "Delegated critique profile",
-        "default_subagent_profile" => true,
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
-      }
-    )
-    context = prepare_profile_aware_execution_context!(profile_policy: profile_policy)
+  test "spawn does not infer a profile from canonical config defaults" do
+    context = prepare_profile_aware_execution_context!
     adopt_agent_definition_version!(
       context,
       create_compatible_agent_definition_version!(
         agent_definition_version: context.fetch(:agent_definition_version),
         version: 3,
         tool_contract: default_tool_catalog("exec_command", "compact_context", "calculator", "subagent_send", "subagent_wait", "subagent_close", "subagent_list"),
-        profile_policy: profile_policy,
         canonical_config_schema: profile_aware_canonical_config_schema,
         conversation_override_schema: subagent_policy_conversation_override_schema,
         default_canonical_config: profile_aware_default_canonical_config.deep_merge(
@@ -684,9 +709,8 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     default_result = SubagentConnections::Spawn.call(
       conversation: owner_conversation,
       origin_turn: owner_turn,
-      content: "Default specialist",
-      scope: "conversation",
-      profile_key: "default"
+      content: "Generic child work",
+      scope: "conversation"
     )
 
     explicit_result = SubagentConnections::Spawn.call(
@@ -697,7 +721,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       profile_key: "researcher"
     )
 
-    assert_equal "critic", default_result.fetch("profile_key")
+    refute default_result.key?("profile_key")
     assert_equal "researcher", explicit_result.fetch("profile_key")
   end
 
@@ -791,16 +815,22 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
 
   private
 
-  def prepare_profile_aware_execution_context!(profile_policy: default_profile_policy)
+  def prepare_profile_aware_execution_context!
     context = prepare_workflow_execution_setup!(create_workspace_context!)
-    allowed_tool_names = profile_policy.values.flat_map do |profile|
-      Array(profile["allowed_tool_names"])
-    end
     capability_snapshot = create_compatible_agent_definition_version!(
       agent_definition_version: context[:agent_definition_version],
       version: 2,
-      tool_contract: default_tool_catalog("exec_command", *allowed_tool_names),
-      profile_policy: profile_policy,
+      tool_contract: default_tool_catalog(
+        "exec_command",
+        "compact_context",
+        "estimate_messages",
+        "estimate_tokens",
+        "calculator",
+        "subagent_send",
+        "subagent_wait",
+        "subagent_close",
+        "subagent_list"
+      ),
       canonical_config_schema: profile_aware_canonical_config_schema,
       conversation_override_schema: subagent_policy_conversation_override_schema,
       default_canonical_config: profile_aware_default_canonical_config

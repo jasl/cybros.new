@@ -205,8 +205,8 @@ governance stay separate concerns:
 #### `ToolBindings::FreezeForTask`
 
 - runs at `AgentTaskRun` creation
-- reads the persisted turn snapshot plus the current profile policy to decide
-  which logical tools are visible for this task boundary
+- reads the persisted turn snapshot capability surface to decide which logical
+  tools are visible for this task boundary
 - creates one binding row per visible governed tool
 
 #### `ToolInvocations::Start` and `ToolInvocations::Complete`

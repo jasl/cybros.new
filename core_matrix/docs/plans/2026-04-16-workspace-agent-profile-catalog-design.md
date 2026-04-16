@@ -4,8 +4,8 @@
 
 Introduce a Fenix-owned profile catalog for interactive and delegated work,
 keep all prompt/business content local to Fenix, and let `WorkspaceAgent`
-carry only small mount-scoped override settings that choose profiles and
-constrain delegation behavior.
+carry only agent-owned settings payloads plus the small CoreMatrix-owned
+subagent runtime limits and model-selector preferences.
 
 This round is a follow-up to
 [`2026-04-16-workspace-agent-global-instructions-design.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-16-workspace-agent-global-instructions-design.md).
@@ -31,25 +31,27 @@ That is too narrow for the next round of `WorkspaceAgent` settings:
 
 The design therefore needs a clean split:
 
-- Fenix owns profile catalog content and routing hints
-- CoreMatrix owns mount-scoped override state and capability enforcement
-- the protocol carries only small resolved facts, not prompt bundles
+- Fenix owns profile catalog content, routing, and stale-settings handling
+- CoreMatrix stores mount-scoped settings and resolves model selectors
+- the protocol carries only raw settings payload plus small runtime facts, not
+  prompt bundles or interpreted profile policy
 
 ## Design Principles
 
 1. Prompt/profile content remains agent-owned. CoreMatrix must not persist
    prompt fragments, routing copy, or model-hint catalogs.
-2. Mount settings carry only overrides and policy. They choose among agent-owned
-   profile keys; they do not define profiles.
-3. The wire contract stays small. Cross-service payloads carry only profile
-   keys and small resolved selector hints when strictly necessary.
+2. Mount settings are agent-owned data. CoreMatrix stores them and may validate
+   writes against the current agent schema, but it does not reinterpret prompt
+   or profile business rules from them.
+3. The wire contract stays small. Cross-service payloads carry raw settings
+   payloads and small resolved selector hints when strictly necessary.
 4. Delegation behavior must be auditable. Child turns must freeze the selected
    specialist key and any resolved model-selector hint used for that spawn.
-5. Capability authority stays in CoreMatrix. Fenix may bias or describe tool
-   usage in prompt text, but it does not declare runtime-visible tools.
+5. Capability authority stays in CoreMatrix, but not through profile-aware
+   policy. Prompt/business routing remains agent-owned.
 6. Built-in external keys should be readable at the product surface. This round
-   should expose interactive profile keys that communicate working style
-   directly, such as `pragmatic` and `friendly`.
+   exposes interactive profile keys such as `pragmatic` and `friendly`, but
+   CoreMatrix must treat them as opaque strings.
 
 ## Recommended Ownership Split
 
@@ -65,18 +67,17 @@ Fenix should own:
 
 These live in the `agents/fenix` repo and are loaded locally by Fenix.
 
-### CoreMatrix owns mount-scoped override state
+### CoreMatrix owns mount-scoped storage and model-selector/runtime policy
 
 CoreMatrix should own only small mutable settings on `WorkspaceAgent`, such as:
 
-- which interactive profile key is active for this mount
-- which specialist profile key is the default delegation target
-- which specialist profile keys are enabled
+- the raw agent-owned settings payload
 - delegation depth/concurrency policy
 - optional small model-selector override hints
 
-CoreMatrix stores those scalar settings because they are durable per-mount
-product state. It must not store the catalog those keys refer to.
+CoreMatrix stores those values because they are durable per-mount product
+state. It must not store the catalog those keys refer to, and it must not
+derive prompt/business behavior from them.
 
 ## Fenix Profile Catalog
 
@@ -117,9 +118,8 @@ The first round should expose readable interactive keys directly:
 - use `friendly` as the alternate interactive key
 - keep `researcher` as the existing delegated specialist key
 
-Legacy `main` should normalize to `pragmatic` where older payloads still appear,
-but new manifests, app surfaces, and tests should speak in terms of
-`pragmatic`.
+This is an agent-owned naming choice. CoreMatrix should not add any special
+normalization logic for these keys.
 
 ### Initial Builtin Profile Set
 
@@ -248,7 +248,7 @@ Rules:
 This "whole directory replace" rule keeps prompt/profile provenance legible and
 prevents mixed-source half-overrides.
 
-## WorkspaceAgent Mount Overrides
+## WorkspaceAgent Settings Storage
 
 ### Storage
 
@@ -256,30 +256,47 @@ Introduce a new mount-scoped JSON field on `WorkspaceAgent`:
 
 - `settings_payload`
 
-This field is authoritative current editable override state for one mounted
-agent in one workspace.
+This field is authoritative current editable agent settings state for one
+mounted agent in one workspace.
+
+CoreMatrix treats it as opaque agent-owned data except for two narrow areas:
+
+- model-selector preferences that feed CoreMatrix model resolution
+- CoreMatrix-owned subagent runtime limits such as depth/concurrency
 
 Suggested shape for this round:
 
 ```json
 {
-  "interactive_profile_key": "friendly",
-  "default_subagent_profile_key": "researcher",
-  "enabled_subagent_profile_keys": ["researcher"],
-  "delegation_mode": "allow",
-  "max_concurrent_subagents": 3,
-  "max_subagent_depth": 2,
-  "allow_nested_subagents": true,
-  "default_subagent_model_selector_hint": "coding-fast"
+  "agent": {
+    "interactive": {
+      "profile_key": "friendly"
+    },
+    "subagents": {
+      "default_profile_key": "researcher",
+      "enabled_profile_keys": ["researcher"],
+      "delegation_mode": "allow"
+    }
+  },
+  "core_matrix": {
+    "interactive": {
+      "model_selector": "coding-fast"
+    },
+    "subagents": {
+      "max_concurrent": 3,
+      "max_depth": 2,
+      "allow_nested": true,
+      "default_model_selector": "coding-fast"
+    }
+  }
 }
 ```
 
 Rules:
 
 - blank or absent means "use agent/runtime defaults"
-- only supported keys are accepted
-- unknown keys are rejected
-- values normalize into a stable JSON shape
+- CoreMatrix only requires the payload itself to remain a hash
+- agent-owned stale/incompatible values are interpreted by Fenix
 - this payload stores only small mount-scoped settings, never prompt bodies
 
 ### Scope of Settings
@@ -294,7 +311,7 @@ That includes:
 - active interactive profile key
 - enabled/default specialist keys
 - delegation policy
-- optional default subagent model-selector hint
+- generic CoreMatrix model-selector preferences and subagent runtime limits
 
 This round does **not** add:
 
@@ -309,29 +326,28 @@ rewrite agent-owned defaults on `AgentDefinitionVersion` or `AgentConfigState`.
 
 Required precedence:
 
-1. agent/runtime-owned defaults from the effective canonical config remain the
-   base layer
+1. agent-owned defaults from `AgentDefinitionVersion.default_workspace_agent_settings`
+   remain the base layer for this storage contract
 2. mount-scoped `WorkspaceAgent.settings_payload` overlays that base only for
-   conversations running through that mounted agent
+   the narrow CoreMatrix-owned fields it understands
 3. existing conversation-scoped mutable overrides remain limited to the current
    narrow subagent policy surface; this round does not reopen conversation-level
    interactive profile mutation
 
 Consequences:
 
-- `interactive_profile_key` must affect turn/runtime behavior for the mounted
-  workspace without mutating the underlying agent config state
+- only explicit generic model-selector settings must affect CoreMatrix turn/runtime
+  behavior for the mounted workspace
 - selector resolution for mounted interactive turns must respect the mount
-  override before falling back to the agent-owned default interactive profile
+  `core_matrix.interactive.model_selector` override before falling back to agent-owned
+  defaults
 - that mount override only applies to implicit mounted interactive turns; an
   explicit selector or explicit candidate chosen for a turn remains
   authoritative
-- if the mount profile key does not map cleanly onto a provider-role selector,
-  model selection may fall back to the agent-owned default while runtime/profile
-  projection still uses the mounted profile key
-- the implementation must be explicit about how the mount override maps onto
-  the existing `interactive.default_profile_key` / normalized `interactive.profile`
-  projection already used by current runtime contracts
+- CoreMatrix must not infer provider selectors from profile keys, validate
+  profile-key compatibility, or normalize legacy profile aliases
+- agent-specific profile selection and stale/incompatible setting handling stay
+  inside Fenix
 
 ### App Surface
 
@@ -347,29 +363,42 @@ App-facing payloads must continue to use only public ids and small JSON values.
 
 ### `workspace_agent_context`
 
-Extend the existing `workspace_agent_context` contract with a compact profile
-settings view:
+Extend the existing `workspace_agent_context` contract with the raw frozen mount
+settings payload:
 
 ```json
 {
   "workspace_agent_context": {
     "workspace_agent_id": "wsa_...",
     "global_instructions": "...",
-    "profile_settings": {
-      "interactive_profile_key": "friendly",
-      "default_subagent_profile_key": "researcher",
-      "enabled_subagent_profile_keys": ["researcher"],
-      "delegation_mode": "allow",
-      "max_concurrent_subagents": 3,
-      "max_subagent_depth": 2,
-      "allow_nested_subagents": true,
-      "default_subagent_model_selector_hint": "coding-fast"
+    "settings_payload": {
+      "agent": {
+        "interactive": {
+          "profile_key": "friendly"
+        },
+        "subagents": {
+          "default_profile_key": "researcher",
+          "enabled_profile_keys": ["researcher"],
+          "delegation_mode": "allow"
+        }
+      },
+      "core_matrix": {
+        "interactive": {
+          "model_selector": "coding-fast"
+        },
+        "subagents": {
+          "max_concurrent": 3,
+          "max_depth": 2,
+          "allow_nested": true,
+          "default_model_selector": "coding-fast"
+        }
+      }
     }
   }
 }
 ```
 
-The frozen `profile_settings` payload should follow the same storage strategy as
+The frozen `settings_payload` payload should follow the same storage strategy as
 `global_instructions`: keep the canonical editable value on `WorkspaceAgent`,
 but externalize the per-turn frozen copy through a deduplicated `JsonDocument`
 reference on `ExecutionContract` instead of copying the JSON inline into every
@@ -379,11 +408,10 @@ Rules:
 
 - no profile catalog crosses this boundary
 - no prompt text other than `global_instructions` crosses this boundary
-- this payload contains only the current mount-scoped override state needed by
-  Fenix to route work
-- `default_subagent_model_selector_hint` is present when the mount sets one, so
-  Fenix can use it as the fallback hint when constructing `subagent_spawn`
-  requests that do not choose a more specific specialist hint locally
+- this payload contains only the current mount-scoped override state; CoreMatrix
+  does not reshape it into an agent-specific compact view
+- Fenix is responsible for interpreting profile keys or other agent-specific
+  settings and for handling stale/incompatible values
 
 This shape must remain consistent across:
 
@@ -406,15 +434,9 @@ fall back cleanly to normal selector behavior when absent or unsupported.
 This is the only new profile-related field that needs to cross the delegation
 tool boundary in this round.
 
-The `profile_key` choices exposed in the visible `subagent_spawn` tool schema
-must be narrowed to:
-
-- `default`
-- explicitly enabled specialist profile keys for the current mount
-
-Interactive-only profiles must not appear in that schema. The main agent should
-not be invited to choose disabled or non-specialist profiles and then learn via
-runtime rejection.
+The visible `subagent_spawn` tool schema should continue to expose `profile_key`
+only as an optional opaque string. CoreMatrix must not enumerate or validate
+agent-owned profile choices beyond preserving the string when one is provided.
 
 ### Frozen Child State
 
@@ -446,7 +468,7 @@ payloads or reconstructing the original tool call.
 The main agent should decide whether to delegate using:
 
 - current task/request context
-- `workspace_agent_context.profile_settings`
+- `workspace_agent_context.settings_payload`
 - its local specialist catalog metadata
 
 Fenix should synthesize a compact internal routing summary from:
@@ -496,7 +518,7 @@ Rules:
 - Fenix may use local `model_hints` to resolve a small `model_selector_hint`
   when spawning a child specialist
 - when no stronger specialist-local hint is selected, Fenix may fall back to
-  `workspace_agent_context.profile_settings.default_subagent_model_selector_hint`
+  `workspace_agent_context.settings_payload.subagents.default_model_selector`
 - if the current runtime/provider cannot satisfy that hint, CoreMatrix falls
   back to the ordinary default selection path
 - this round does not require CoreMatrix to know the full profile-local model
@@ -542,8 +564,6 @@ Recommended shape:
       "subagent_connection_id": "subagent_...",
       "origin_turn_id": "turn_...",
       "profile_key": "researcher",
-      "specialist_key": "researcher",
-      "profile_group": "specialist",
       "close_outcome_kind": "completed"
     }
   ]
@@ -563,8 +583,7 @@ Extend `conversation debug export` so `subagent_connections.json` and related
 workflow/task records include the new specialist-facing facts introduced by
 this round:
 
-- `profile_group`
-- `specialist_key`
+- `profile_key`
 - `resolved_model_selector_hint` when present
 
 The debug export should remain the complete internal trace surface, while the
@@ -599,7 +618,7 @@ This design intentionally does **not** do the following:
 - no deep merge of prompt/profile overrides
 - no file-level partial override inside one profile
 - no per-profile tool allow/deny metadata
-- no generic arbitrary mount settings bag beyond the documented keys
+- no CoreMatrix-side interpretation of agent-specific profile semantics
 - no requirement that interactive model selection use profile-local metadata in
   the first request path
 - no widening of the protocol to carry full profile descriptors
@@ -625,9 +644,8 @@ Focused tests should lock:
 - workspace list preload behavior
 - mount-scoped interactive profile override precedence against the existing
   agent canonical config layer
-- execution snapshot freezing of `workspace_agent_context.profile_settings`
+- execution snapshot freezing of `workspace_agent_context.settings_payload`
 - mailbox compaction/reconstruction for the same frozen shape
-- `subagent_spawn` schema filtering to enabled specialist keys plus `default`
 - `subagent_spawn` validation and persistence of optional
   `model_selector_hint`
 - child turn execution state preserving frozen profile/model-selector facts

@@ -69,9 +69,9 @@ Related design note:
 
 - `AgentDefinitionVersion` is the immutable version and capability snapshot for
   one `Agent`.
-- It stores the protocol methods, tool catalog, profile policy, canonical
-  config schema, default canonical config, and reflected surface advertised by
-  one agent program release.
+- It stores the protocol methods, tool catalog, canonical config schema,
+  workspace-agent settings schema/defaults, default canonical config, and
+  reflected surface advertised by one agent program release.
 - It does not own live connectivity, connection credentials, or execution-runtime
   state.
 

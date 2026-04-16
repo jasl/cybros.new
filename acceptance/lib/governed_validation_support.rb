@@ -35,8 +35,9 @@ module GovernedValidationSupport
     execution_runtime_fingerprint:,
     fingerprint:,
     tool_contract:,
-    profile_policy:,
     default_canonical_config:,
+    workspace_agent_settings_schema: {},
+    default_workspace_agent_settings: {},
     execution_runtime_capability_payload: {},
     execution_runtime_tool_catalog: []
   )
@@ -78,12 +79,13 @@ module GovernedValidationSupport
         sdk_version: "fenix-0.1.0",
         protocol_methods: DEFAULT_PROTOCOL_METHODS,
         tool_contract: tool_contract,
-        profile_policy: profile_policy,
         canonical_config_schema: base_canonical_config_schema,
         conversation_override_schema: {
           "type" => "object",
           "properties" => {},
         },
+        workspace_agent_settings_schema: workspace_agent_settings_schema,
+        default_workspace_agent_settings: default_workspace_agent_settings,
         default_canonical_config: default_canonical_config,
       }
     )

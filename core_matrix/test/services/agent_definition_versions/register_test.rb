@@ -50,7 +50,7 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
     assert result.agent_connection.pending?
     assert_equal result.agent_connection, AgentConnection.find_by_plaintext_connection_credential(result.agent_connection_credential)
     assert_equal result.agent_definition_version, agent.agent_config_state.base_agent_definition_version
-    assert_equal "main", agent.agent_config_state.effective_payload.dig("interactive", "default_profile_key")
+    assert_equal "pragmatic", agent.agent_config_state.effective_payload.dig("interactive", "default_profile_key")
 
     audit_log = AuditLog.find_by!(action: "agent_connection.registered")
     assert_equal result.agent_connection, audit_log.subject
@@ -105,10 +105,6 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
       "sdk_version" => "fenix-0.1.0",
       "protocol_methods" => default_protocol_methods("agent_health", "capabilities_handshake"),
       "tool_contract" => default_tool_catalog("compact_context"),
-      "profile_policy" => {
-        "pragmatic" => { "role_slot" => "main" },
-        "researcher" => { "role_slot" => "main", "default_subagent_profile" => true },
-      },
       "canonical_config_schema" => profile_aware_canonical_config_schema,
       "conversation_override_schema" => subagent_policy_conversation_override_schema,
       "workspace_agent_settings_schema" => {
@@ -128,14 +124,17 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
         "interactive" => { "profile_key" => "pragmatic" },
       },
       "default_canonical_config" => {
-        "interactive" => { "default_profile_key" => "main" },
+        "interactive" => { "default_profile_key" => "pragmatic" },
         "role_slots" => {
-          "pragmatic" => { "selector" => "role:main", "fallback_role_slot" => nil },
+          "main" => { "selector" => "role:main", "fallback_role_slot" => nil },
           "summary" => { "selector" => "role:summary", "fallback_role_slot" => "main" },
         },
         "profile_runtime_overrides" => {
           "pragmatic" => { "role_slot" => "main" },
+          "friendly" => { "role_slot" => "main" },
           "researcher" => { "role_slot" => "main" },
+          "developer" => { "role_slot" => "main" },
+          "tester" => { "role_slot" => "main" },
         },
         "subagents" => { "enabled" => true, "allow_nested" => true, "max_depth" => 3 },
         "tool_policy_overlays" => [],

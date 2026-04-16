@@ -11,7 +11,6 @@ class AgentDefinitionVersion < ApplicationRecord
   belongs_to :feature_contract_document, class_name: "JsonDocument"
   belongs_to :request_preparation_contract_document, class_name: "JsonDocument"
   belongs_to :tool_contract_document, class_name: "JsonDocument"
-  belongs_to :profile_policy_document, class_name: "JsonDocument"
   belongs_to :canonical_config_schema_document, class_name: "JsonDocument"
   belongs_to :conversation_override_schema_document, class_name: "JsonDocument"
   belongs_to :workspace_agent_settings_schema_document, class_name: "JsonDocument"
@@ -62,10 +61,6 @@ class AgentDefinitionVersion < ApplicationRecord
 
   def tool_contract
     payload_array(tool_contract_document)
-  end
-
-  def profile_policy
-    payload_hash(profile_policy_document)
   end
 
   def canonical_config_schema
@@ -200,13 +195,12 @@ class AgentDefinitionVersion < ApplicationRecord
 
     {
       "tool_surface" => composer.call.fetch("tool_catalog"),
-      "profile_key" => composer.current_profile_key,
       "is_subagent" => turn.conversation.subagent_connection.present?,
       "subagent_connection_id" => turn.conversation.subagent_connection&.public_id,
       "parent_subagent_connection_id" => turn.conversation.subagent_connection&.parent_subagent_connection&.public_id,
       "subagent_depth" => turn.conversation.subagent_connection&.depth,
       "owner_conversation_id" => turn.conversation.subagent_connection&.owner_conversation&.public_id,
-      "subagent_policy" => deep_stringify(composer.contract.default_canonical_config.fetch("subagents", {})),
+      "subagent_policy" => deep_stringify(composer.effective_subagent_policy),
     }.compact
   end
 
@@ -226,7 +220,6 @@ class AgentDefinitionVersion < ApplicationRecord
 
   def recovery_context_keys
     %w[
-      profile_key
       is_subagent
       subagent_connection_id
       parent_subagent_connection_id
@@ -253,14 +246,7 @@ class AgentDefinitionVersion < ApplicationRecord
   end
 
   def normalize_tool_entry_for_recovery(entry)
-    normalized = deep_stringify(entry)
-    return normalized unless normalized["tool_name"] == "subagent_spawn"
-
-    profile_key_schema = normalized.dig("input_schema", "properties", "profile_key")
-    return normalized unless profile_key_schema.is_a?(Hash)
-
-    normalized["input_schema"]["properties"]["profile_key"] = profile_key_schema.except("enum", "description")
-    normalized
+    deep_stringify(entry)
   end
 
   def deep_stringify(value)
@@ -375,7 +361,6 @@ class AgentDefinitionVersion < ApplicationRecord
       feature_contract_document
       request_preparation_contract_document
       tool_contract_document
-      profile_policy_document
       canonical_config_schema_document
       conversation_override_schema_document
       workspace_agent_settings_schema_document

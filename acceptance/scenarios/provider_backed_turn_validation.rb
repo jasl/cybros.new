@@ -6,7 +6,7 @@ require_relative "../lib/boot"
 
 runtime_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 fingerprint = "acceptance-provider-backed-runtime"
-selector = ENV.fetch("PHASE2_PROVIDER_SELECTOR", "candidate:openrouter/openai-gpt-5.4")
+selector = ENV.fetch("PHASE2_PROVIDER_SELECTOR", "role:main")
 artifact_stamp = ENV.fetch("PROVIDER_BACKED_TURN_ARTIFACT_STAMP") do
   "#{Time.current.strftime("%Y-%m-%d-%H%M%S")}-provider-backed-turn-validation"
 end

@@ -78,7 +78,6 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
     activate_agent_definition_version!(
       context,
       tool_contract: fenix_tool_catalog,
-      profile_policy: fenix_profile_policy,
       canonical_config_schema: profile_aware_canonical_config_schema,
       conversation_override_schema: subagent_policy_conversation_override_schema,
       default_canonical_config: profile_aware_default_canonical_config
@@ -116,7 +115,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       agent: child_conversation.agent,
       origin_turn: owner_turn,
       scope: "conversation",
-      profile_key: "main",
+      profile_key: "pragmatic",
       depth: 0
     )
     subagent_conversation = create_conversation_record!(
@@ -217,21 +216,6 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
         "idempotency_policy" => "best_effort",
       }
     end
-  end
-
-  def fenix_profile_policy
-    {
-      "pragmatic" => {
-        "label" => "Pragmatic",
-        "description" => "Primary interactive profile",
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_spawn subagent_send subagent_wait subagent_close subagent_list],
-      },
-      "researcher" => {
-        "label" => "Researcher",
-        "description" => "Delegated research profile",
-        "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_send subagent_wait subagent_close subagent_list],
-      },
-    }
   end
 
   def normalize_for_contract(serialized)

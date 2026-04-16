@@ -36,6 +36,10 @@ module RuntimeCapabilities
       visible_tool_catalog_composer.current_profile_key
     end
 
+    def effective_subagent_policy
+      visible_tool_catalog_composer.effective_subagent_policy
+    end
+
     private
 
     def visible_tool_catalog

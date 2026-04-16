@@ -1,0 +1,15 @@
+label: Default
+description: Hidden fallback profile used when a requested profile is missing or invalid.
+hidden: true
+when_to_use:
+  - Internal fallback when no requested profile can be resolved safely
+avoid_when:
+  - A valid visible profile is available for the task
+example_tasks:
+  - Recover safely from stale or invalid profile selections
+model_hints:
+  preferred_roles:
+    - coding
+skill_hints:
+  - layered-rails
+  - systematic-debugging

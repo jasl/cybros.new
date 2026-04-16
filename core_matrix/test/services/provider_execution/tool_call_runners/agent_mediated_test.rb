@@ -156,7 +156,7 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
 
     request_payload = agent_request_exchange.execute_tool_requests.last
 
-    assert_equal "researcher", request_payload.dig("agent_context", "profile")
+    assert_equal "researcher", request_payload.dig("agent_context", "profile_key")
     assert_equal true, request_payload.dig("agent_context", "is_subagent")
     assert_equal "role:planner", request_payload.dig("agent_context", "model_selector_hint")
   end

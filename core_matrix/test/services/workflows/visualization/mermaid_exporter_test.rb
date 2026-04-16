@@ -28,7 +28,7 @@ class Workflows::Visualization::MermaidExporterTest < ActiveSupport::TestCase
     assert_includes output, "resume successor"
   end
 
-  test "renders specialist labels for spawned subagent nodes" do
+  test "renders profile labels for spawned subagent nodes" do
     fixture = build_workflow_proof_fixture!(with_subagent_spawn: true)
     fixture.fetch(:workflow_run).update!(
       wait_state: "waiting",
@@ -39,7 +39,7 @@ class Workflows::Visualization::MermaidExporterTest < ActiveSupport::TestCase
 
     output = Workflows::Visualization::MermaidExporter.call(bundle: bundle)
 
-    assert_includes output, "specialist: researcher"
+    assert_includes output, "profile: researcher"
     assert_includes output, "wait: human_interaction"
   end
 

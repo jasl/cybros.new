@@ -17,6 +17,12 @@ This repository is a monorepo. Treat each top-level product directory as an inde
 
 - Run commands from the target project directory.
 - Keep changes scoped to the requested subproject whenever possible.
+- Treat the `CoreMatrix` / `Agent` / `ExecutionRuntime` boundary as a hard architectural law:
+  - `CoreMatrix` owns orchestration, persistence, public identifiers, generic model resolution, and CoreMatrix-owned runtime policy. It must not own or infer agent prompt or business semantics.
+  - `Agent` owns prompt packs, profiles, routing heuristics, business-facing configuration semantics, and compatibility handling for agent-owned settings payloads. It must not assume host facts that are not explicitly provided.
+  - `ExecutionRuntime` owns host capabilities, tool/process execution, and runtime-local environment facts. It must not own conversation, prompt, or business semantics.
+  - No layer may normalize, classify, validate, or silently reinterpret another layer's business-specific payloads beyond an explicitly versioned generic contract.
+  - When in doubt, move prompt/profile/business semantics toward the Agent, move host/tool execution details toward the ExecutionRuntime, and keep CoreMatrix limited to generic coordination and persistence.
 - For `core_matrix`, do not expose internal `bigint` ids at external or
   agent-facing boundaries; use `public_id` and see
   `core_matrix/docs/behavior/identifier-policy.md` for the product-specific

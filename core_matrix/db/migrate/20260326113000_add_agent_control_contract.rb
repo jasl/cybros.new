@@ -9,7 +9,6 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.references :agent_definition_version, null: false, foreign_key: true
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false
       t.string :fingerprint, null: false
-      t.string :profile_key, null: false
       t.string :model_selector_hint
       t.boolean :subagent, null: false, default: false
       t.integer :subagent_depth
@@ -46,8 +45,9 @@ class AddAgentControlContract < ActiveRecord::Migration[8.2]
       t.references :execution_runtime_version, foreign_key: true
       t.references :selected_input_message, foreign_key: { to_table: :messages }
       t.references :selected_output_message, foreign_key: { to_table: :messages }
+      t.string :subagent_profile_key
       t.references :workspace_agent_global_instructions_document, foreign_key: { to_table: :json_documents }
-      t.references :workspace_agent_profile_settings_document, foreign_key: { to_table: :json_documents }
+      t.references :workspace_agent_settings_document, foreign_key: { to_table: :json_documents }
       t.references :execution_capability_snapshot, null: false, foreign_key: true
       t.references :execution_context_snapshot, null: false, foreign_key: true
       t.uuid :public_id, default: -> { "uuidv7()" }, null: false

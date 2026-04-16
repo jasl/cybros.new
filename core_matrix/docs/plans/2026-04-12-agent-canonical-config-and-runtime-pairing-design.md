@@ -271,9 +271,10 @@ It should carry normalized, kernel-meaningful projections such as:
 - `prompt_pack_fingerprint`
 - `protocol_methods_document`
 - `tool_contract_document`
-- `profile_policy_document`
 - `canonical_config_schema_document`
 - `conversation_override_schema_document`
+- `workspace_agent_settings_schema_document`
+- `default_workspace_agent_settings_document`
 - `default_canonical_config_document`
 - `reflected_surface_document`
 
@@ -878,16 +879,18 @@ The platform model now uses:
 
 - `definition_package`
 - `version_package`
-- `profile_policy`
 - `canonical_config_schema`
+- `workspace_agent_settings_schema`
+- `default_workspace_agent_settings`
 - `default_canonical_config`
 
 But several higher-level contracts still expose compatibility aliases such as:
 
 - `tool_catalog`
-- `profile_policy`
 - `canonical_config_schema`
 - `conversation_override_schema`
+- `workspace_agent_settings_schema`
+- `default_workspace_agent_settings`
 - `default_canonical_config`
 
 These aliases still appear in:

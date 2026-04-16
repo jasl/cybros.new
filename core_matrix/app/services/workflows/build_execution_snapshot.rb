@@ -27,9 +27,10 @@ module Workflows
       execution_contract.execution_runtime_version = @turn.execution_runtime_version
       execution_contract.selected_input_message = @turn.selected_input_message
       execution_contract.selected_output_message = @turn.selected_output_message
+      execution_contract.subagent_profile_key = current_profile_key
       if execution_contract.new_record?
         execution_contract.workspace_agent_global_instructions_document = workspace_agent_global_instructions_document
-        execution_contract.workspace_agent_profile_settings_document = workspace_agent_profile_settings_document
+        execution_contract.workspace_agent_settings_document = workspace_agent_settings_document
       end
       execution_contract.execution_capability_snapshot = capability_snapshot
       execution_contract.execution_context_snapshot = context_snapshot
@@ -60,14 +61,13 @@ module Workflows
       snapshot_payload = {
         "tool_surface_sha" => tool_surface_document.content_sha256,
         "agent_definition_fingerprint" => @turn.agent_definition_version.fingerprint,
-        "profile_key" => current_profile_key,
         "model_selector_hint" => subagent_connection&.resolved_model_selector_hint,
         "subagent" => subagent_connection.present?,
         "subagent_connection_id" => subagent_connection&.public_id,
         "parent_subagent_connection_id" => subagent_connection&.parent_subagent_connection&.public_id,
         "subagent_depth" => subagent_connection&.depth,
         "owner_conversation_id" => subagent_connection&.owner_conversation&.public_id,
-        "subagent_policy" => deep_stringify(capability_contract.default_canonical_config.fetch("subagents", {})),
+        "subagent_policy" => deep_stringify(capability_surface_composer.effective_subagent_policy),
       }
       fingerprint = "sha256:#{Digest::SHA256.hexdigest(JSON.generate(snapshot_payload))}"
 
@@ -77,7 +77,6 @@ module Workflows
       ) do |snapshot|
         snapshot.tool_surface_document = tool_surface_document
         snapshot.agent_definition_version = @turn.agent_definition_version
-        snapshot.profile_key = current_profile_key
         snapshot.model_selector_hint = snapshot_payload.fetch("model_selector_hint")
         snapshot.subagent = subagent_connection.present?
         snapshot.subagent_connection = subagent_connection
@@ -266,14 +265,14 @@ module Workflows
       )
     end
 
-    def workspace_agent_profile_settings_document
-      profile_settings = @turn.conversation.workspace_agent&.profile_settings_view
-      return if profile_settings.blank?
+    def workspace_agent_settings_document
+      settings_payload = @turn.conversation.workspace_agent&.settings_payload_view
+      return if settings_payload.blank?
 
       JsonDocuments::Store.call(
         installation: @turn.installation,
-        document_kind: "workspace_agent_profile_settings",
-        payload: { "profile_settings" => profile_settings }
+        document_kind: "workspace_agent_settings",
+        payload: { "settings_payload" => settings_payload }
       )
     end
 
@@ -288,6 +287,10 @@ module Workflows
 
     def visible_tool_surface
       capability_surface.fetch("tool_catalog", []).map { |entry| deep_stringify(entry) }
+    end
+
+    def capability_surface_composer
+      @capability_surface_composer ||= RuntimeCapabilities::ComposeForTurn.new(turn: @turn)
     end
 
     def build_raw_attachment_manifest
@@ -410,7 +413,7 @@ module Workflows
     end
 
     def capability_contract
-      @capability_contract ||= RuntimeCapabilities::ComposeForTurn.new(turn: @turn).contract
+      @capability_contract ||= capability_surface_composer.contract
     end
 
     def subagent_connection
@@ -418,7 +421,7 @@ module Workflows
     end
 
     def current_profile_key
-      RuntimeCapabilities::ComposeForTurn.new(turn: @turn).current_profile_key
+      capability_surface_composer.current_profile_key
     end
   end
 end

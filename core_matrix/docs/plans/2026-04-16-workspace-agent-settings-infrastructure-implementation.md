@@ -4,7 +4,13 @@
 
 **Goal:** Replace the current flat `WorkspaceAgent.settings_payload` ad hoc keys with a structured settings infrastructure backed by agent-version-owned schema/default documents, while keeping runtime turn payloads compact and making mount model-selector preferences real soft selector overrides.
 
-**Architecture:** Fenix publishes `workspace_agent_settings_schema` and `default_workspace_agent_settings` in its definition package. CoreMatrix stores nested mount overrides on `WorkspaceAgent.settings_payload`, validates them against the versioned settings contract plus profile-policy domain rules, projects a compact `profile_settings` view into execution snapshots, uses mount interactive selector preferences during model resolution, and uses mount specialist selector preferences when spawning child workflows.
+**Architecture:** Fenix publishes `workspace_agent_settings_schema` and
+`default_workspace_agent_settings` in its definition package. CoreMatrix stores
+nested mount overrides on `WorkspaceAgent.settings_payload`, validates writes
+against the versioned settings contract without interpreting profile business
+rules, freezes the raw settings payload into execution snapshots, uses only the
+generic model-selector fields during model resolution, and treats any
+profile/specialist keys as opaque strings.
 
 **Tech Stack:** Ruby on Rails, Active Record JSON columns, `JsonDocument` deduplication, existing execution snapshot/mailbox paths, Fenix runtime manifest, Minitest.
 
@@ -124,8 +130,11 @@ Cover:
   - `workspace_agent_settings_schema`
   - `default_workspace_agent_settings`
 - defaults reflect the builtin profile catalog
-- default specialist selector preferences are soft strings such as
-  `role:researcher`, `role:developer`, `role:tester`
+- generic CoreMatrix defaults stay conservative:
+  `core_matrix.interactive.model_selector = role:main`
+  and `core_matrix.subagents.default_model_selector = role:main`
+- label-specific selector preferences are optional mount overrides, not shipped
+  defaults
 
 **Step 2: Implement manifest publication**
 
@@ -165,7 +174,7 @@ Cover:
 
 - `WorkspaceAgent` validates nested payloads against the current agent version
   settings schema/default contract
-- domain rules for profile membership still apply
+- CoreMatrix does not apply extra profile-membership rules beyond the schema
 - presenter exposes nested `settings_payload` plus schema/default payloads
 - workspace list fan-out stays preload-safe
 
@@ -174,7 +183,7 @@ Cover:
 Add:
 
 - a small schema/default resolver for the current mounted agent definition
-- a validator that normalizes the nested payload and enforces domain rules
+- a validator that normalizes the nested payload against schema types only
 - app-surface exposure for schema/default payloads
 
 Keep `settings_payload` as the persisted column name.
@@ -185,7 +194,7 @@ Run the Task 1 command again.
 
 Expected: PASS.
 
-### Task 5: Project compact runtime settings and freeze them into execution contracts
+### Task 5: Freeze raw runtime settings into execution contracts
 
 **Files:**
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/execution_contract.rb`
@@ -201,22 +210,18 @@ Expected: PASS.
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/provider_execution/prepare_agent_round_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/create_agent_request_test.rb`
 
-**Step 1: Write failing tests for the compact runtime projection**
+**Step 1: Write failing tests for the runtime settings payload**
 
 Cover:
 
-- nested mount settings project to the new compact `profile_settings` shape
-- projection includes:
-  - `interactive_model_selector`
-  - `default_subagent_model_selector`
-  - `subagent_model_selectors`
+- nested mount settings freeze as the raw `settings_payload` shape
 - snapshot/mailbox reconstruction stays stable
 - changing mount settings later does not mutate earlier frozen turns
 
 **Step 2: Implement the compact projection**
 
-Keep the existing deduplicated `JsonDocument` strategy, but freeze the new
-compact projection instead of the nested stored payload.
+Keep the existing deduplicated `JsonDocument` strategy, but freeze the raw
+nested stored payload instead of a profile-aware compact projection.
 
 **Step 3: Run focused CoreMatrix tests**
 
@@ -246,10 +251,8 @@ Cover:
 
 - explicit selector/candidate still wins
 - if no explicit selector exists, `interactive.model_selector` is tried first
-- if that selector is unavailable/unknown, resolution falls back to
-  `interactive.profile_key -> role:<profile>`
-- if the profile-derived selector is unavailable, resolution falls back to the
-  normal catalog default
+- if that selector is unavailable/unknown, resolution falls back to the normal
+  catalog default
 
 **Step 2: Implement soft interactive selector fallback**
 
@@ -287,12 +290,15 @@ Cover:
   - `subagents.default_model_selector`
 - if none resolve, the child falls back to the origin turn selector
 - `resolved_model_selector_hint` stores the chosen successful selector
-- visible tool schema remains narrowed to enabled specialist keys
+- `subagent_spawn` no longer requires CoreMatrix-side profile enumeration or
+  enabled-profile validation
 
 **Step 2: Implement spawn-side selector selection**
 
 Keep the tool argument name `model_selector_hint`, but treat it as a soft
-selector preference and apply it to child workflow creation.
+selector preference and apply it to child workflow creation. Any profile-label
+lookups against `label_model_selectors` are opaque string matches only, and the
+absence of a label-specific entry must fall through to the default selector.
 
 **Step 3: Run focused tests**
 

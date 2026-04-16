@@ -78,13 +78,30 @@ class RuntimeCapabilities::ComposeEffectiveToolCatalogTest < ActiveSupport::Test
     assert_equal %w[summary title], entry.fetch("input_schema").fetch("properties").keys.sort
     assert_equal "string", entry.dig("input_schema", "properties", "title", "type")
     assert_equal "string", entry.dig("input_schema", "properties", "summary", "type")
-    assert_equal(
-      [
-        { "required" => ["title"] },
-        { "required" => ["summary"] },
-      ],
-      entry.fetch("input_schema").fetch("anyOf")
+    assert_equal false, entry.fetch("input_schema").fetch("additionalProperties")
+    assert_equal 1, entry.fetch("input_schema").fetch("minProperties")
+  end
+
+  test "core matrix tool schemas remain compatible with chat completions function constraints" do
+    registration = register_agent_runtime!(
+      execution_runtime_tool_catalog: [],
+      tool_contract: default_tool_catalog("exec_command")
     )
+
+    top_level_composition_keywords = %w[oneOf anyOf allOf enum not]
+    effective_catalog = RuntimeCapabilities::ComposeEffectiveToolCatalog.call(
+      execution_runtime: registration[:execution_runtime],
+      agent_definition_version: registration[:agent_definition_version]
+    )
+
+    effective_catalog.each do |entry|
+      schema = entry.fetch("input_schema")
+
+      assert_equal "object", schema.fetch("type"), "expected #{entry.fetch("tool_name")} schema to use a top-level object"
+      top_level_composition_keywords.each do |keyword|
+        refute schema.key?(keyword), "expected #{entry.fetch("tool_name")} schema to avoid top-level #{keyword}"
+      end
+    end
   end
 
   test "reserved subagent tool names cannot be overridden by runtime tools" do

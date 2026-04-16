@@ -13,7 +13,16 @@ class ToolBindings::ProjectCapabilitySnapshotTest < ActiveSupport::TestCase
       agent_definition_version: context.fetch(:agent_definition_version)
     ).order(:tool_name)
 
-    assert_equal %w[compact_context conversation_metadata_update exec_command subagent_spawn], definitions.pluck(:tool_name)
+    assert_equal %w[
+      compact_context
+      conversation_metadata_update
+      exec_command
+      subagent_close
+      subagent_list
+      subagent_send
+      subagent_spawn
+      subagent_wait
+    ], definitions.pluck(:tool_name)
     assert_equal "replaceable", definitions.find_by!(tool_name: "compact_context").governance_mode
     assert_equal "whitelist_only", definitions.find_by!(tool_name: "exec_command").governance_mode
     assert_equal "reserved", definitions.find_by!(tool_name: "subagent_spawn").governance_mode
@@ -32,7 +41,7 @@ class ToolBindings::ProjectCapabilitySnapshotTest < ActiveSupport::TestCase
     assert_equal false, subagent_definition.policy_payload.dig("execution_policy", "parallel_safe")
   end
 
-  test "projects runtime-backed tools when the profile policy allows runtime tools dynamically" do
+  test "projects runtime-backed tools alongside the full reserved core matrix surface" do
     context = build_governed_tool_context!(
       agent_tool_catalog: [
         {
@@ -45,13 +54,7 @@ class ToolBindings::ProjectCapabilitySnapshotTest < ActiveSupport::TestCase
           "streaming_support" => false,
           "idempotency_policy" => "best_effort",
         },
-      ],
-      profile_policy: {
-        "pragmatic" => {
-          "allowed_tool_names" => %w[compact_context subagent_spawn],
-          "allow_execution_runtime_tools" => true,
-        },
-      }
+      ]
     )
 
     ToolBindings::ProjectCapabilitySnapshot.call(
@@ -63,7 +66,16 @@ class ToolBindings::ProjectCapabilitySnapshotTest < ActiveSupport::TestCase
       agent_definition_version: context.fetch(:agent_definition_version)
     ).order(:tool_name)
 
-    assert_equal %w[compact_context exec_command subagent_spawn], definitions.pluck(:tool_name)
+    assert_equal %w[
+      compact_context
+      conversation_metadata_update
+      exec_command
+      subagent_close
+      subagent_list
+      subagent_send
+      subagent_spawn
+      subagent_wait
+    ], definitions.pluck(:tool_name)
     assert_equal "whitelist_only", definitions.find_by!(tool_name: "exec_command").governance_mode
   end
 end

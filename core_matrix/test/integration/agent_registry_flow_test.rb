@@ -79,7 +79,6 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
             "idempotency_policy" => "best_effort",
           },
         ],
-        "profile_policy" => default_profile_policy,
         "canonical_config_schema" => {
           "type" => "object",
           "properties" => {},

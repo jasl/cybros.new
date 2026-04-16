@@ -1,6 +1,4 @@
 class RuntimeCapabilityContract
-  DEFAULT_SUBAGENT_PROFILE_ALIAS = "default"
-
   RESERVED_SUBAGENT_TOOL_NAMES = %w[
     subagent_spawn
     subagent_send
@@ -20,7 +18,6 @@ class RuntimeCapabilityContract
     execution_runtime_tool_catalog: nil,
     protocol_methods: nil,
     tool_contract: nil,
-    profile_policy: nil,
     canonical_config_schema: nil,
     conversation_override_schema: nil,
     workspace_agent_settings_schema: nil,
@@ -42,9 +39,6 @@ class RuntimeCapabilityContract
     )
     @agent_tool_contract = normalize_array(
       tool_contract.nil? ? @agent_definition_version&.tool_contract : tool_contract
-    )
-    @profile_policy = normalize_hash(
-      profile_policy.nil? ? @agent_definition_version&.profile_policy : profile_policy
     )
     @canonical_config_schema = normalize_hash(
       canonical_config_schema.nil? ? @agent_definition_version&.canonical_config_schema : canonical_config_schema
@@ -84,10 +78,6 @@ class RuntimeCapabilityContract
     @canonical_config_schema.deep_dup
   end
 
-  def profile_policy
-    @profile_policy.deep_dup
-  end
-
   def conversation_override_schema
     @conversation_override_schema.deep_dup
   end
@@ -122,7 +112,6 @@ class RuntimeCapabilityContract
       "agent_definition_fingerprint" => agent_definition_fingerprint,
       "protocol_methods" => protocol_methods,
       "tool_contract" => tool_contract,
-      "profile_policy" => profile_policy,
       "canonical_config_schema" => canonical_config_schema,
       "conversation_override_schema" => conversation_override_schema,
       "workspace_agent_settings_schema" => workspace_agent_settings_schema,
@@ -177,7 +166,6 @@ class RuntimeCapabilityContract
       "agent_definition_fingerprint" => agent_definition_fingerprint,
       "protocol_methods" => protocol_methods,
       "tool_contract" => tool_contract,
-      "profile_policy" => profile_policy,
       "canonical_config_schema" => canonical_config_schema,
       "conversation_override_schema" => conversation_override_schema,
       "workspace_agent_settings_schema" => workspace_agent_settings_schema,

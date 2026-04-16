@@ -229,7 +229,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     end
   end
 
-  test "workspace agent interactive profile override prefers a matching role without mutating agent config state" do
+  test "workspace agent profile settings do not affect selector resolution without an explicit model selector" do
     context = create_selector_context!
     planner_version = create_compatible_agent_definition_version!(
       agent_definition_version: context[:agent_definition_version],
@@ -246,7 +246,9 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     adopt_agent_definition_version!(context, planner_version, turn: nil)
     context[:workspace_agent].update!(
       settings_payload: {
-        "interactive_profile_key" => "planner",
+        "interactive" => {
+          "profile_key" => "planner",
+        },
       }
     )
 
@@ -262,9 +264,9 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
       selector_source: "conversation"
     )
 
-    assert_equal "role:planner", snapshot["normalized_selector"]
-    assert_equal "planner", snapshot["resolved_role_name"]
-    assert_equal "openai", snapshot["resolved_provider_handle"]
+    assert_equal "role:main", snapshot["normalized_selector"]
+    assert_equal "main", snapshot["resolved_role_name"]
+    assert_equal "codex_subscription", snapshot["resolved_provider_handle"]
     assert_equal "gpt-5.4", snapshot["resolved_model_ref"]
     assert_equal "main", context[:agent].agent_config_state.effective_payload.dig("interactive", "profile")
   end
@@ -286,7 +288,9 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     adopt_agent_definition_version!(context, planner_version, turn: nil)
     context[:workspace_agent].update!(
       settings_payload: {
-        "interactive_profile_key" => "researcher",
+        "interactive" => {
+          "profile_key" => "researcher",
+        },
       }
     )
     turn = Turns::StartUserTurn.call(
@@ -323,7 +327,9 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     adopt_agent_definition_version!(context, friendly_version, turn: nil)
     context[:workspace_agent].update!(
       settings_payload: {
-        "interactive_profile_key" => "friendly",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
       }
     )
     turn = Turns::StartUserTurn.call(
@@ -359,9 +365,15 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     adopt_agent_definition_version!(context, planner_version, turn: nil)
     context[:workspace_agent].update!(
       settings_payload: {
-        "interactive" => {
-          "profile_key" => "researcher",
-          "model_selector" => "role:planner",
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "researcher",
+          },
+        },
+        "core_matrix" => {
+          "interactive" => {
+            "model_selector" => "role:planner",
+          },
         },
       }
     )
@@ -382,7 +394,7 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     assert_equal "planner", snapshot["resolved_role_name"]
   end
 
-  test "workspace agent interactive model selector override falls back to the profile selector when unavailable" do
+  test "workspace agent interactive model selector override falls back to the default interactive selector when unavailable" do
     context = create_selector_context!
     planner_version = create_compatible_agent_definition_version!(
       agent_definition_version: context[:agent_definition_version],
@@ -399,9 +411,15 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
     adopt_agent_definition_version!(context, planner_version, turn: nil)
     context[:workspace_agent].update!(
       settings_payload: {
-        "interactive" => {
-          "profile_key" => "planner",
-          "model_selector" => "role:friendly",
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "planner",
+          },
+        },
+        "core_matrix" => {
+          "interactive" => {
+            "model_selector" => "role:friendly",
+          },
         },
       }
     )
@@ -418,8 +436,8 @@ class Workflows::ResolveModelSelectorTest < ActiveSupport::TestCase
       selector_source: "conversation"
     )
 
-    assert_equal "role:planner", snapshot["normalized_selector"]
-    assert_equal "planner", snapshot["resolved_role_name"]
+    assert_equal "role:main", snapshot["normalized_selector"]
+    assert_equal "main", snapshot["resolved_role_name"]
   end
 
   private

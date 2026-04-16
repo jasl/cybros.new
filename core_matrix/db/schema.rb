@@ -174,7 +174,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.string "definition_fingerprint", null: false
     t.bigint "feature_contract_document_id", null: false
     t.bigint "installation_id", null: false
-    t.bigint "profile_policy_document_id", null: false
     t.string "program_manifest_fingerprint", null: false
     t.string "prompt_pack_fingerprint", null: false
     t.string "prompt_pack_ref", null: false
@@ -197,7 +196,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.index ["default_workspace_agent_settings_document_id"], name: "idx_on_default_workspace_agent_settings_document_id_ab9d916353"
     t.index ["feature_contract_document_id"], name: "idx_on_feature_contract_document_id_265ef940ad"
     t.index ["installation_id"], name: "index_agent_definition_versions_on_installation_id"
-    t.index ["profile_policy_document_id"], name: "index_agent_definition_versions_on_profile_policy_document_id"
     t.index ["protocol_methods_document_id"], name: "idx_on_protocol_methods_document_id_6c0cdfb44d"
     t.index ["public_id"], name: "index_agent_definition_versions_on_public_id", unique: true
     t.index ["reflected_surface_document_id"], name: "idx_on_reflected_surface_document_id_86042215e8"
@@ -1033,7 +1031,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.string "model_selector_hint"
     t.bigint "owner_conversation_id"
     t.bigint "parent_subagent_connection_id"
-    t.string "profile_key", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.boolean "subagent", default: false, null: false
     t.bigint "subagent_connection_id"
@@ -1081,11 +1078,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.bigint "selected_input_message_id"
     t.bigint "selected_output_message_id"
+    t.string "subagent_profile_key"
     t.bigint "turn_id", null: false
     t.jsonb "turn_origin", default: {}, null: false
     t.datetime "updated_at", null: false
     t.bigint "workspace_agent_global_instructions_document_id"
-    t.bigint "workspace_agent_profile_settings_document_id"
+    t.bigint "workspace_agent_settings_document_id"
     t.index ["agent_definition_version_id"], name: "index_execution_contracts_on_agent_definition_version_id"
     t.index ["execution_capability_snapshot_id"], name: "index_execution_contracts_on_execution_capability_snapshot_id"
     t.index ["execution_context_snapshot_id"], name: "index_execution_contracts_on_execution_context_snapshot_id"
@@ -1097,7 +1095,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.index ["selected_output_message_id"], name: "index_execution_contracts_on_selected_output_message_id"
     t.index ["turn_id"], name: "index_execution_contracts_on_turn_id", unique: true
     t.index ["workspace_agent_global_instructions_document_id"], name: "idx_on_workspace_agent_global_instructions_document_b8f3f76b2d"
-    t.index ["workspace_agent_profile_settings_document_id"], name: "idx_on_workspace_agent_profile_settings_document_id_837ba79fe6"
+    t.index ["workspace_agent_settings_document_id"], name: "idx_on_workspace_agent_settings_document_id_2d4e8291a4"
   end
 
   create_table "execution_leases", force: :cascade do |t|
@@ -1737,7 +1735,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.bigint "origin_turn_id"
     t.bigint "owner_conversation_id", null: false
     t.bigint "parent_subagent_connection_id"
-    t.string "profile_key", null: false
+    t.string "profile_key"
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.string "recent_progress_summary"
     t.string "request_summary"
@@ -2376,7 +2374,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
   add_foreign_key "agent_definition_versions", "json_documents", column: "default_canonical_config_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "default_workspace_agent_settings_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "feature_contract_document_id"
-  add_foreign_key "agent_definition_versions", "json_documents", column: "profile_policy_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "protocol_methods_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "reflected_surface_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "request_preparation_contract_document_id"
@@ -2545,7 +2542,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
   add_foreign_key "execution_contracts", "execution_runtimes"
   add_foreign_key "execution_contracts", "installations"
   add_foreign_key "execution_contracts", "json_documents", column: "workspace_agent_global_instructions_document_id"
-  add_foreign_key "execution_contracts", "json_documents", column: "workspace_agent_profile_settings_document_id"
+  add_foreign_key "execution_contracts", "json_documents", column: "workspace_agent_settings_document_id"
   add_foreign_key "execution_contracts", "messages", column: "selected_input_message_id"
   add_foreign_key "execution_contracts", "messages", column: "selected_output_message_id"
   add_foreign_key "execution_contracts", "turns"

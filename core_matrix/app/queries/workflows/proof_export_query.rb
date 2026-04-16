@@ -235,8 +235,6 @@ module Workflows
           out[id] = {
             "subagent_connection_id" => public_id,
             "profile_key" => profile_key,
-            "specialist_key" => specialist_key_for(profile_key),
-            "profile_group" => profile_group_for(profile_key),
             "resolved_model_selector_hint" => resolved_model_selector_hint.presence,
           }.compact.freeze
         end
@@ -437,16 +435,6 @@ module Workflows
       else
         value.frozen? ? value : value.freeze
       end
-    end
-
-    def specialist_key_for(profile_key)
-      profile_key.to_s.strip.presence
-    end
-
-    def profile_group_for(profile_key)
-      return if specialist_key_for(profile_key).blank?
-
-      "specialist"
     end
 
     EMPTY_ARRAY = [].freeze

@@ -152,10 +152,8 @@ module RuntimeCapabilities
             "title" => { "type" => "string" },
             "summary" => { "type" => "string" },
           },
-          "anyOf" => [
-            { "required" => ["title"] },
-            { "required" => ["summary"] },
-          ],
+          "additionalProperties" => false,
+          "minProperties" => 1,
         },
         "result_schema" => {
           "type" => "object",

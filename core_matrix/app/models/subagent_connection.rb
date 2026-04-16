@@ -52,7 +52,6 @@ class SubagentConnection < ApplicationRecord
   scope :close_pending_or_open, -> { where(close_state: %w[open requested acknowledged]) }
   scope :running_for_barriers, -> { close_pending_or_open.where(observed_status: "running") }
 
-  validates :profile_key, presence: true
   validates :depth, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validate :resolved_model_selector_hint_must_be_string
   validate :user_installation_match

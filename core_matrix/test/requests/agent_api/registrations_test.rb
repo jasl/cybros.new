@@ -121,7 +121,6 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
           definition_package: definition_package_payload.merge(
             "protocol_methods" => "invalid-methods",
             "tool_contract" => "invalid-tools",
-            "profile_policy" => ["invalid-profiles"],
             "canonical_config_schema" => "invalid-schema",
             "conversation_override_schema" => ["invalid-overrides"],
             "workspace_agent_settings_schema" => "invalid-settings-schema",
@@ -137,7 +136,6 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
 
     error_message = JSON.parse(response.body).fetch("error")
     assert_includes error_message, "Definition package protocol_methods must be an Array"
-    assert_includes error_message, "Definition package profile_policy must be a Hash"
     assert_includes error_message, "Definition package canonical_config_schema must be a Hash"
     assert_includes error_message, "Definition package conversation_override_schema must be a Hash"
     assert_includes error_message, "Definition package workspace_agent_settings_schema must be a Hash"
@@ -173,10 +171,6 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
       "sdk_version" => "fenix-0.1.0",
       "protocol_methods" => default_protocol_methods("agent_health", "capabilities_handshake"),
       "tool_contract" => default_tool_catalog("compact_context"),
-      "profile_policy" => {
-        "pragmatic" => { "role_slot" => "main" },
-        "researcher" => { "role_slot" => "main", "default_subagent_profile" => true },
-      },
       "canonical_config_schema" => profile_aware_canonical_config_schema,
       "conversation_override_schema" => subagent_policy_conversation_override_schema,
       "workspace_agent_settings_schema" => {
@@ -196,14 +190,17 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
         "interactive" => { "profile_key" => "pragmatic" },
       },
       "default_canonical_config" => {
-        "interactive" => { "default_profile_key" => "main" },
+        "interactive" => { "default_profile_key" => "pragmatic" },
         "role_slots" => {
-          "pragmatic" => { "selector" => "role:main", "fallback_role_slot" => nil },
+          "main" => { "selector" => "role:main", "fallback_role_slot" => nil },
           "summary" => { "selector" => "role:summary", "fallback_role_slot" => "main" },
         },
         "profile_runtime_overrides" => {
           "pragmatic" => { "role_slot" => "main" },
+          "friendly" => { "role_slot" => "main" },
           "researcher" => { "role_slot" => "main" },
+          "developer" => { "role_slot" => "main" },
+          "tester" => { "role_slot" => "main" },
         },
         "subagents" => { "enabled" => true, "allow_nested" => true, "max_depth" => 3 },
         "tool_policy_overlays" => [],

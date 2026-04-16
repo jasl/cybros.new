@@ -1296,9 +1296,10 @@ module Acceptance
           sdk_version: resolved_sdk_version,
           protocol_methods: manifest.fetch('protocol_methods'),
           tool_contract: manifest.fetch('tool_contract'),
-          profile_policy: manifest.fetch('profile_policy'),
           canonical_config_schema: manifest.fetch('canonical_config_schema'),
           conversation_override_schema: manifest.fetch('conversation_override_schema'),
+          workspace_agent_settings_schema: manifest.fetch('workspace_agent_settings_schema', {}),
+          default_workspace_agent_settings: manifest.fetch('default_workspace_agent_settings', {}),
           default_canonical_config: manifest.fetch('default_canonical_config')
         }
       )

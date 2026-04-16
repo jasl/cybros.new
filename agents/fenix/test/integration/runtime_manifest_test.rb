@@ -34,7 +34,6 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_equal body.fetch("feature_contract"), definition_package.fetch("feature_contract")
     assert_equal body.fetch("request_preparation_contract"), definition_package.fetch("request_preparation_contract")
     assert_equal body.fetch("tool_contract"), definition_package.fetch("tool_contract")
-    assert_equal body.fetch("profile_policy"), definition_package.fetch("profile_policy")
     assert_equal body.fetch("canonical_config_schema"), definition_package.fetch("canonical_config_schema")
     assert_equal body.fetch("conversation_override_schema"), definition_package.fetch("conversation_override_schema")
     assert_equal body.fetch("workspace_agent_settings_schema"), definition_package.fetch("workspace_agent_settings_schema")
@@ -61,7 +60,6 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_equal body.fetch("feature_contract"), body.dig("agent_plane", "feature_contract")
     assert_equal body.fetch("request_preparation_contract"), body.dig("agent_plane", "request_preparation_contract")
     assert_equal body.fetch("tool_contract"), body.dig("agent_plane", "tool_contract")
-    assert_equal body.fetch("profile_policy"), body.dig("agent_plane", "profile_policy")
     assert_equal body.fetch("workspace_agent_settings_schema"), body.dig("agent_plane", "workspace_agent_settings_schema")
     assert_equal body.fetch("default_workspace_agent_settings"), body.dig("agent_plane", "default_workspace_agent_settings")
     assert_includes feature_keys, "title_bootstrap"
@@ -70,29 +68,20 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_includes agent_tool_names, "compact_context"
     refute_includes agent_tool_names, "exec_command"
 
-    assert_includes definition_package.fetch("profile_policy").keys, "pragmatic"
-    assert_includes definition_package.fetch("profile_policy").keys, "friendly"
-    assert_includes definition_package.fetch("profile_policy").keys, "researcher"
-    assert_includes definition_package.fetch("profile_policy").keys, "developer"
-    assert_includes definition_package.fetch("profile_policy").keys, "tester"
-    assert_equal true, definition_package.dig("profile_policy", "pragmatic", "allow_execution_runtime_tools")
-    assert_equal true, definition_package.dig("profile_policy", "friendly", "allow_execution_runtime_tools")
-    assert_equal true, definition_package.dig("profile_policy", "researcher", "default_subagent_profile")
-    assert_equal true, definition_package.dig("profile_policy", "researcher", "allow_execution_runtime_tools")
-    assert_equal true, definition_package.dig("profile_policy", "developer", "allow_execution_runtime_tools")
-    assert_equal true, definition_package.dig("profile_policy", "tester", "allow_execution_runtime_tools")
     assert_equal "object", definition_package.dig("workspace_agent_settings_schema", "type")
-    assert_equal "pragmatic", definition_package.dig("default_workspace_agent_settings", "interactive", "profile_key")
-    assert_equal "role:main", definition_package.dig("default_workspace_agent_settings", "interactive", "model_selector")
-    assert_equal "researcher", definition_package.dig("default_workspace_agent_settings", "subagents", "default_profile_key")
-    assert_equal %w[researcher developer tester], definition_package.dig("default_workspace_agent_settings", "subagents", "enabled_profile_keys")
-    assert_equal "role:main", definition_package.dig("default_workspace_agent_settings", "subagents", "default_model_selector")
-    assert_equal "role:researcher", definition_package.dig("default_workspace_agent_settings", "subagents", "profile_overrides", "researcher", "model_selector")
-    assert_equal "role:developer", definition_package.dig("default_workspace_agent_settings", "subagents", "profile_overrides", "developer", "model_selector")
-    assert_equal "role:tester", definition_package.dig("default_workspace_agent_settings", "subagents", "profile_overrides", "tester", "model_selector")
-    assert_equal "main", definition_package.dig("default_canonical_config", "interactive", "default_profile_key")
+    assert_equal "pragmatic", definition_package.dig("default_workspace_agent_settings", "agent", "interactive", "profile_key")
+    assert_equal "researcher", definition_package.dig("default_workspace_agent_settings", "agent", "subagents", "default_profile_key")
+    assert_equal %w[researcher developer tester], definition_package.dig("default_workspace_agent_settings", "agent", "subagents", "enabled_profile_keys")
+    assert_equal "role:main", definition_package.dig("default_workspace_agent_settings", "core_matrix", "interactive", "model_selector")
+    assert_equal "role:main", definition_package.dig("default_workspace_agent_settings", "core_matrix", "subagents", "default_model_selector")
+    assert_nil definition_package.dig("default_workspace_agent_settings", "core_matrix", "subagents", "label_model_selectors")
+    assert_equal "default", definition_package.dig("default_canonical_config", "interactive", "default_profile_key")
     assert_equal "role:main", definition_package.dig("default_canonical_config", "role_slots", "main", "selector")
     assert_equal "main", definition_package.dig("default_canonical_config", "role_slots", "summary", "fallback_role_slot")
+    assert definition_package.dig("default_canonical_config", "profile_runtime_overrides", "default").present?
+    assert definition_package.dig("reflected_surface", "profiles", "friendly").present?
+    assert definition_package.dig("reflected_surface", "profiles", "pragmatic").present?
+    refute definition_package.dig("reflected_surface", "profiles", "default").present?
     assert_equal "embedded_only", definition_package.dig("canonical_config_schema", "properties", "features", "properties", "title_bootstrap", "properties", "strategy", "default")
     assert_equal "runtime_first", definition_package.dig("canonical_config_schema", "properties", "features", "properties", "prompt_compaction", "properties", "strategy", "default")
     assert_equal "embedded_only", definition_package.dig("default_canonical_config", "features", "title_bootstrap", "strategy")

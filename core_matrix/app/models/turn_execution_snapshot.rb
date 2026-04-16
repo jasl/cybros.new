@@ -66,7 +66,7 @@ class TurnExecutionSnapshot
       else
         {
           "tool_surface" => snapshot.tool_surface,
-          "profile_key" => snapshot.profile_key,
+          "profile_key" => execution_contract&.frozen_subagent_profile_key,
           "model_selector_hint" => snapshot.model_selector_hint,
           "is_subagent" => snapshot.subagent,
           "subagent_connection_id" => snapshot.subagent_connection&.public_id,
@@ -114,11 +114,11 @@ class TurnExecutionSnapshot
       if workspace_agent.blank?
         {}
       else
-        profile_settings = execution_contract&.workspace_agent_profile_settings
+        settings_payload = execution_contract&.workspace_agent_settings_payload
         {
           "workspace_agent_id" => workspace_agent.public_id,
           "global_instructions" => execution_contract&.workspace_agent_global_instructions,
-          "profile_settings" => profile_settings.presence,
+          "settings_payload" => settings_payload.presence,
         }.compact
       end
     end

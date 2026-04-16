@@ -38,7 +38,7 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
       context.fetch(:workflow_run).provider_context.dig("request_preparation", "prompt_compaction"),
       request_payload.dig("provider_context", "request_preparation", "prompt_compaction")
     )
-    assert_equal "pragmatic", request_payload.fetch("agent_context").fetch("profile")
+    refute request_payload.fetch("agent_context").key?("profile_key")
     assert_includes request_payload.fetch("agent_context").fetch("allowed_tool_names"), "exec_command"
     assert_equal(
       {
@@ -87,8 +87,12 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
     context = build_governed_tool_context!(
       workspace_agent_global_instructions: "Use concise Chinese.\n",
       workspace_agent_settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "delegation_mode" => "prefer",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "delegation_mode" => "prefer",
+        },
       }
     )
     build_execution_snapshot_for!(
@@ -121,9 +125,13 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
       {
         "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id,
         "global_instructions" => "Use concise Chinese.\n",
-        "profile_settings" => {
-          "interactive_profile_key" => "pragmatic",
-          "delegation_mode" => "prefer",
+        "settings_payload" => {
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
+          "subagents" => {
+            "delegation_mode" => "prefer",
+          },
         },
       },
       request_payload.fetch("workspace_agent_context")
@@ -251,7 +259,7 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
 
     request_payload = agent_request_exchange.prepare_round_requests.last
 
-    assert_equal "researcher", request_payload.dig("agent_context", "profile")
+    assert_equal "researcher", request_payload.dig("agent_context", "profile_key")
     assert_equal true, request_payload.dig("agent_context", "is_subagent")
     assert_equal "role:planner", request_payload.dig("agent_context", "model_selector_hint")
   end

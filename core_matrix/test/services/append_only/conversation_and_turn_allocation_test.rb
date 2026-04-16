@@ -85,7 +85,6 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
       "sdk_version" => registration[:agent_definition_version].sdk_version,
       "protocol_methods" => registration[:agent_definition_version].protocol_methods,
       "tool_contract" => registration[:agent_definition_version].tool_contract,
-      "profile_policy" => registration[:agent_definition_version].profile_policy,
       "canonical_config_schema" => registration[:agent_definition_version].canonical_config_schema,
       "conversation_override_schema" => registration[:agent_definition_version].conversation_override_schema,
       "workspace_agent_settings_schema" => registration[:agent_definition_version].workspace_agent_settings_schema,

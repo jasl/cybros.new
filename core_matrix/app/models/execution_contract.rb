@@ -12,7 +12,7 @@ class ExecutionContract < ApplicationRecord
   belongs_to :selected_input_message, class_name: "Message", optional: true
   belongs_to :selected_output_message, class_name: "Message", optional: true
   belongs_to :workspace_agent_global_instructions_document, class_name: "JsonDocument", optional: true
-  belongs_to :workspace_agent_profile_settings_document, class_name: "JsonDocument", optional: true
+  belongs_to :workspace_agent_settings_document, class_name: "JsonDocument", optional: true
   belongs_to :execution_capability_snapshot
   belongs_to :execution_context_snapshot
 
@@ -24,8 +24,8 @@ class ExecutionContract < ApplicationRecord
   validate :attachment_diagnostics_must_be_array
   validate :workspace_agent_global_instructions_document_installation_match
   validate :workspace_agent_global_instructions_document_kind_match
-  validate :workspace_agent_profile_settings_document_installation_match
-  validate :workspace_agent_profile_settings_document_kind_match
+  validate :workspace_agent_settings_document_installation_match
+  validate :workspace_agent_settings_document_kind_match
 
   def identity
     {
@@ -81,13 +81,17 @@ class ExecutionContract < ApplicationRecord
     payload["global_instructions"].presence
   end
 
-  def workspace_agent_profile_settings
-    payload = workspace_agent_profile_settings_document&.payload
-    return {} unless workspace_agent_profile_settings_document&.document_kind == "workspace_agent_profile_settings"
+  def workspace_agent_settings_payload
+    payload = workspace_agent_settings_document&.payload
+    return {} unless workspace_agent_settings_document&.document_kind == "workspace_agent_settings"
     return {} unless payload.is_a?(Hash)
 
-    value = payload["profile_settings"]
+    value = payload["settings_payload"]
     value.is_a?(Hash) ? value.deep_dup : {}
+  end
+
+  def frozen_subagent_profile_key
+    self[:subagent_profile_key].presence
   end
 
   private
@@ -126,17 +130,17 @@ class ExecutionContract < ApplicationRecord
     errors.add(:workspace_agent_global_instructions_document, "must have document kind workspace_agent_global_instructions")
   end
 
-  def workspace_agent_profile_settings_document_installation_match
-    return if workspace_agent_profile_settings_document.blank?
-    return if workspace_agent_profile_settings_document.installation_id == installation_id
+  def workspace_agent_settings_document_installation_match
+    return if workspace_agent_settings_document.blank?
+    return if workspace_agent_settings_document.installation_id == installation_id
 
-    errors.add(:workspace_agent_profile_settings_document, "must belong to the same installation")
+    errors.add(:workspace_agent_settings_document, "must belong to the same installation")
   end
 
-  def workspace_agent_profile_settings_document_kind_match
-    return if workspace_agent_profile_settings_document.blank?
-    return if workspace_agent_profile_settings_document.document_kind == "workspace_agent_profile_settings"
+  def workspace_agent_settings_document_kind_match
+    return if workspace_agent_settings_document.blank?
+    return if workspace_agent_settings_document.document_kind == "workspace_agent_settings"
 
-    errors.add(:workspace_agent_profile_settings_document, "must have document kind workspace_agent_profile_settings")
+    errors.add(:workspace_agent_settings_document, "must have document kind workspace_agent_settings")
   end
 end

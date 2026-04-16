@@ -70,7 +70,7 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
     refute_includes json, %("#{turn.id}")
   end
 
-  test "includes a compact delegation summary with specialist facts and public ids only" do
+  test "includes a compact delegation summary with profile facts and public ids only" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -118,8 +118,6 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
         "subagent_connection_id" => session.public_id,
         "origin_turn_id" => turn.public_id,
         "profile_key" => "researcher",
-        "specialist_key" => "researcher",
-        "profile_group" => "specialist",
         "close_outcome_kind" => "graceful",
       },
     ], payload.fetch("delegation_summary")

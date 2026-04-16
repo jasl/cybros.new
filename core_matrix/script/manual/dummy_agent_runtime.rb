@@ -92,7 +92,6 @@ class DummyAgentRuntime
         "sdk_version" => ENV.fetch("CORE_MATRIX_SDK_VERSION", "dummy-runtime-0.1.0"),
         "protocol_methods" => DEFAULT_PROTOCOL_METHODS,
         "tool_contract" => DEFAULT_TOOL_CATALOG,
-        "profile_policy" => {},
         "canonical_config_schema" => {
           "type" => "object",
           "properties" => {
@@ -108,6 +107,11 @@ class DummyAgentRuntime
           "type" => "object",
           "properties" => {},
         },
+        "workspace_agent_settings_schema" => {
+          "type" => "object",
+          "properties" => {},
+        },
+        "default_workspace_agent_settings" => {},
         "default_canonical_config" => {
           "sandbox" => "workspace-write",
           "interactive" => {

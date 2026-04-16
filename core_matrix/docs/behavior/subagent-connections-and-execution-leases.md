@@ -30,8 +30,10 @@ instead of scraping child workflow internals after the fact.
 - nested connections point to `parent_subagent_connection`
 - `depth` is `0` at the root of a subagent tree and otherwise must equal the
   parent depth plus one
-- `profile_key` is always present and is resolved from the runtime-declared
-  `profile_policy`
+- `profile_key` is optional and, when present, is treated as an opaque
+  agent-owned label rather than a CoreMatrix-owned contract
+- turn snapshots replay that label from the per-turn execution contract rather
+  than from shared capability compatibility state
 - the persisted `user_id`, `workspace_id`, and `agent_id` must match the owner
   conversation so supervision and barrier reads can filter connections without
   reconstructing owner context from child graphs

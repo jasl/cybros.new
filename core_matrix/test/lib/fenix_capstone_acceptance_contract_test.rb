@@ -49,7 +49,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
   test "capstone scenario requires a real provider-backed turn plus runtime and host validation" do
     scenario = Rails.root.join("../acceptance/scenarios/fenix_capstone_app_api_roundtrip_validation.rb").read
 
-    assert_includes scenario, 'ENV.fetch("CAPSTONE_SELECTOR", "candidate:openrouter/openai-gpt-5.4")'
+    assert_includes scenario, 'ENV.fetch("CAPSTONE_SELECTOR", "role:main")'
     assert_includes scenario, 'ENV.fetch("CAPSTONE_HOST_PREVIEW_PORT", "4274")'
     assert_includes scenario, "issue_app_api_session_token!"
     assert_includes scenario, "app_api_admin_create_onboarding_session!"

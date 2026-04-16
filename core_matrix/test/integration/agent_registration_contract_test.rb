@@ -72,7 +72,6 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
           protocol_version: "2026-03-24",
           sdk_version: "fenix-0.1.0",
           protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake"),
-          profile_policy: default_profile_policy,
           tool_contract: default_tool_catalog("exec_command", "subagent_spawn"),
           canonical_config_schema: profile_aware_canonical_config_schema,
           conversation_override_schema: subagent_policy_conversation_override_schema,
@@ -99,9 +98,6 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     assert_equal "fenix-host-a", registration_body["execution_runtime_fingerprint"]
     assert_equal AgentDefinitionVersion.find_by_public_id!(registration_body.fetch("agent_definition_version_id")).public_id, registration_body["agent_definition_version_id"]
     assert_equal registration_body["execution_runtime_id"], capability_body["execution_runtime_id"]
-    assert_equal default_profile_policy, registration_body.dig("agent_plane", "profile_policy")
-    assert_equal default_profile_policy, capability_body.fetch("profile_policy")
-    assert_equal default_profile_policy, capability_body.fetch("agent_plane").fetch("profile_policy")
     assert_equal "main", capability_body.dig("default_canonical_config", "interactive", "profile")
     assert_equal 3, capability_body.dig("default_canonical_config", "subagents", "max_depth")
     assert_nil capability_body.dig("conversation_override_schema", "properties", "interactive")

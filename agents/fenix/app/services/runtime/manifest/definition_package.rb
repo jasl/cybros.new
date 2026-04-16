@@ -110,6 +110,12 @@ module Runtime
         new(...).call
       end
 
+      def initialize(catalog: Prompts::ProfileCatalogLoader.default, config_root: Rails.root.join("config"), prompt_roots: nil)
+        @catalog = catalog
+        @config_root = Pathname(config_root)
+        @prompt_roots = Array(prompt_roots || [Rails.root.join("prompts"), Rails.root.join("prompts.d")]).map { |path| Pathname(path) }
+      end
+
       def call
         settings_contract = workspace_agent_settings_contract
         package_body = {
@@ -121,7 +127,6 @@ module Runtime
           "feature_contract" => feature_contract,
           "request_preparation_contract" => request_preparation_contract,
           "tool_contract" => tool_contract,
-          "profile_policy" => settings_contract.fetch("profile_policy"),
           "canonical_config_schema" => canonical_config_schema,
           "conversation_override_schema" => conversation_override_schema,
           "workspace_agent_settings_schema" => settings_contract.fetch("schema"),
@@ -158,11 +163,18 @@ module Runtime
       end
 
       def default_canonical_config
-        read_json_config("canonical_config.defaults.json")
+        read_json_config("canonical_config.defaults.json").deep_merge(
+          "interactive" => {
+            "default_profile_key" => "default",
+          },
+          "profile_runtime_overrides" => profile_runtime_overrides_payload
+        )
       end
 
       def reflected_surface
-        read_json_config("reflected_surface.json")
+        read_json_config("reflected_surface.json").merge(
+          "profiles" => @catalog.visible_profiles
+        )
       end
 
       def conversation_override_schema
@@ -170,23 +182,26 @@ module Runtime
       end
 
       def prompt_pack_fingerprint
-        payload = prompt_pack_files.each_with_object({}) do |path, manifest|
-          relative_path = path.relative_path_from(Rails.root).to_s
+        payload = prompt_pack_file_entries.each_with_object({}) do |(relative_path, path), manifest|
           manifest[relative_path] = Digest::SHA256.hexdigest(path.read)
         end
 
         digest_for(payload)
       end
 
-      def prompt_pack_files
-        @prompt_pack_files ||= Dir[Rails.root.join("prompts/**/*")].sort.filter_map do |path|
-          pathname = Pathname.new(path)
-          pathname.file? ? pathname : nil
-        end
+      def prompt_pack_file_entries
+        @prompt_pack_file_entries ||= @prompt_roots.flat_map do |root|
+          Dir[root.join("**/*")].sort.filter_map do |path|
+            pathname = Pathname.new(path)
+            next unless pathname.file?
+
+            [prompt_pack_relative_path(root, pathname), pathname]
+          end
+        end.uniq
       end
 
       def read_json_config(filename)
-        JSON.parse(Rails.root.join("config", filename).read)
+        JSON.parse(@config_root.join(filename).read)
       end
 
       def digest_for(payload)
@@ -195,8 +210,22 @@ module Runtime
 
       def workspace_agent_settings_contract
         @workspace_agent_settings_contract ||= Runtime::Manifest::WorkspaceAgentSettings.call(
+          catalog: @catalog,
           default_canonical_config: default_canonical_config
         )
+      end
+
+      def profile_runtime_overrides_payload
+        @catalog.keys_for("main", include_hidden: true)
+          .concat(@catalog.keys_for("specialists", include_hidden: true))
+          .uniq
+          .index_with { { "role_slot" => "main" } }
+      end
+
+      def prompt_pack_relative_path(root, pathname)
+        return pathname.relative_path_from(Rails.root).to_s if pathname.to_s.start_with?(Rails.root.to_s)
+
+        Pathname(root).basename.join(pathname.relative_path_from(Pathname(root))).to_s
       end
     end
   end

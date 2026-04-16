@@ -38,8 +38,7 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     assert_equal true, round_node_payload.fetch("transcript_side_effect_committed")
     assert_equal 1, payload.fetch("workflow_node_events").length
     assert_equal subagent_connection.public_id, payload.fetch("subagent_connections").first.fetch("subagent_connection_id")
-    assert_equal "specialist", payload.fetch("subagent_connections").first.fetch("profile_group")
-    assert_equal "researcher", payload.fetch("subagent_connections").first.fetch("specialist_key")
+    assert_equal "researcher", payload.fetch("subagent_connections").first.fetch("profile_key")
     assert_equal "role:researcher", payload.fetch("subagent_connections").first.fetch("resolved_model_selector_hint")
     assert_not payload.fetch("subagent_connections").first.key?("summary")
     assert_equal(

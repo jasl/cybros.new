@@ -3,13 +3,14 @@ class BuildRoundInstructions
     new(...).call
   end
 
-  def initialize(context:)
+  def initialize(context:, catalog: Prompts::ProfileCatalogLoader.default)
     @context = context.deep_stringify_keys
+    @catalog = catalog
   end
 
   def call
     assembled_prompt = Prompts::Assembler.call(
-      profile: @context.dig("agent_context", "profile") || "pragmatic",
+      profile: selected_profile_key,
       is_subagent: @context.dig("agent_context", "is_subagent") == true,
       global_instructions: global_instructions,
       skill_overlay: skill_overlay,
@@ -47,7 +48,14 @@ class BuildRoundInstructions
 
   def routing_summary
     Prompts::RoutingSummary.call(
-      profile_settings: @context.dig("workspace_agent_context", "profile_settings") || {}
+      settings_payload: @context.dig("workspace_agent_context", "settings_payload") || {}
     )
+  end
+
+  def selected_profile_key
+    explicit_profile = @context.dig("agent_context", "profile_key").presence
+    return explicit_profile if explicit_profile.present?
+
+    @context.dig("workspace_agent_context", "settings_payload", "agent", "interactive", "profile_key").presence || @catalog.default_interactive_key
   end
 end

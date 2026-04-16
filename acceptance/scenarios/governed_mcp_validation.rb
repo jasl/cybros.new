@@ -37,13 +37,6 @@ begin
         "idempotency_policy" => "best_effort",
       },
     ],
-    profile_policy: {
-      "main" => {
-        "label" => "Main",
-        "description" => "Primary interactive profile",
-        "allowed_tool_names" => ["remote_echo"],
-      },
-    },
     default_canonical_config: {
       "sandbox" => "workspace-write",
       "interactive" => {

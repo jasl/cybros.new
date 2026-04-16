@@ -46,17 +46,7 @@ module ToolBindings
     end
 
     def projectable_tool_names
-      @projectable_tool_names ||= begin
-        profiles = @agent_definition_version.profile_policy
-        return [] if profiles.blank?
-
-        profiles.values.flat_map do |profile|
-          RuntimeCapabilities::ProfileToolMask.tool_names(
-            tool_catalog: effective_tool_catalog,
-            profile: profile
-          )
-        end.uniq
-      end
+      @projectable_tool_names ||= effective_tool_catalog.map { |entry| entry.fetch("tool_name") }.uniq
     end
 
     def candidates_for(tool_name)

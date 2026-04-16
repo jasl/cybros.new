@@ -6,9 +6,13 @@ class AgentControl::SerializeMailboxItemsTest < ActiveSupport::TestCase
       context = build_agent_control_context!(
         workspace_agent_global_instructions: "Use concise Chinese.\n",
         workspace_agent_settings_payload: {
-          "interactive_profile_key" => "researcher",
-          "enabled_subagent_profile_keys" => ["developer"],
-          "default_subagent_profile_key" => "developer",
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
+          "subagents" => {
+            "enabled_profile_keys" => ["developer"],
+            "default_profile_key" => "developer",
+          },
         }
       )
       build_execution_snapshot_for!(
@@ -46,7 +50,7 @@ class AgentControl::SerializeMailboxItemsTest < ActiveSupport::TestCase
 
       assert_equal 3, serialized.length
       serialized.each do |payload|
-        assert_equal "researcher", payload.dig("payload", "workspace_agent_context", "profile_settings", "interactive_profile_key")
+        assert_equal "friendly", payload.dig("payload", "workspace_agent_context", "settings_payload", "interactive", "profile_key")
         assert_equal "Use concise Chinese.\n", payload.dig("payload", "workspace_agent_context", "global_instructions")
       end
     end

@@ -41,7 +41,7 @@ class Workflows::ProofExportQueryTest < ActiveSupport::TestCase
     assert_raises(FrozenError) { bundle.nodes << :extra }
   end
 
-  test "includes spawned subagent specialist metadata when a workflow node opened a specialist conversation" do
+  test "includes spawned subagent profile metadata when a workflow node opened a child conversation" do
     fixture = build_workflow_proof_fixture!(with_subagent_spawn: true)
 
     bundle = nil
@@ -54,8 +54,6 @@ class Workflows::ProofExportQueryTest < ActiveSupport::TestCase
 
     assert_equal fixture.fetch(:subagent_connection).public_id, governed_tool.metadata.dig("spawned_subagent", "subagent_connection_id")
     assert_equal "researcher", governed_tool.metadata.dig("spawned_subagent", "profile_key")
-    assert_equal "researcher", governed_tool.metadata.dig("spawned_subagent", "specialist_key")
-    assert_equal "specialist", governed_tool.metadata.dig("spawned_subagent", "profile_group")
     assert_equal "role:researcher", governed_tool.metadata.dig("spawned_subagent", "resolved_model_selector_hint")
   end
 end

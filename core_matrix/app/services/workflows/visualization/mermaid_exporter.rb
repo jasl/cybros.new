@@ -51,7 +51,7 @@ module Workflows
           "state: #{node.state}",
           "policy: #{node.presentation_policy}",
         ]
-        lines << "specialist: #{spawned_subagent["specialist_key"]}" if spawned_subagent["specialist_key"].present?
+        lines << "profile: #{spawned_subagent["profile_key"]}" if spawned_subagent["profile_key"].present?
         lines << "yielding from: #{node.yielding_node_key}" if node.yielding_node_key.present?
         lines << "resume successor" if node.resume_successor
         lines.join("\n")

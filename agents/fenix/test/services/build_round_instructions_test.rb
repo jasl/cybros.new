@@ -4,7 +4,7 @@ class BuildRoundInstructionsTest < ActiveSupport::TestCase
   test "builds a system prompt plus transcript without inferring durable state from transcript" do
     context = {
       "agent_context" => {
-        "profile" => "pragmatic",
+        "profile_key" => "pragmatic",
         "is_subagent" => false,
         "allowed_tool_names" => %w[exec_command browser_open],
       },
@@ -49,7 +49,7 @@ class BuildRoundInstructionsTest < ActiveSupport::TestCase
   test "uses the global-instructions fallback when no workspace agent context is provided" do
     context = {
       "agent_context" => {
-        "profile" => "pragmatic",
+        "profile_key" => "pragmatic",
         "is_subagent" => false,
         "allowed_tool_names" => %w[exec_command],
       },
@@ -67,5 +67,26 @@ class BuildRoundInstructionsTest < ActiveSupport::TestCase
     assert_includes result.fetch("messages").first.fetch("content"), "No global instructions provided."
     refute_includes result.fetch("messages").first.fetch("content"), "## Specialist Routing"
     refute_includes result.fetch("messages").first.fetch("content"), "## Workspace Instructions"
+  end
+
+  test "falls back to the internal default profile when the requested interactive profile is unknown" do
+    context = {
+      "agent_context" => {
+        "profile_key" => "missing-interactive-profile",
+        "is_subagent" => false,
+        "allowed_tool_names" => %w[exec_command],
+      },
+      "runtime_context" => {
+        "logical_work_id" => "prepare-round:workflow-node-1",
+      },
+      "provider_context" => {},
+      "transcript_messages" => [
+        { "role" => "user", "content" => "Continue." },
+      ],
+    }
+
+    result = BuildRoundInstructions.call(context: context)
+
+    assert_includes result.fetch("messages").first.fetch("content"), "You are Fenix, the default fallback profile."
   end
 end

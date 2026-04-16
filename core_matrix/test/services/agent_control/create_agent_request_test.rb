@@ -126,10 +126,14 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     context = build_agent_control_context!(
       workspace_agent_global_instructions: "Use concise Chinese.\n",
       workspace_agent_settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "delegation_mode" => "prefer",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+        },
       }
     )
     build_execution_snapshot_for!(
@@ -144,7 +148,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     )
     capability_projection = execution_snapshot.capability_projection
     expected_agent_context = {
-      "profile" => capability_projection.fetch("profile_key", "main"),
+      "profile_key" => capability_projection["profile_key"],
       "is_subagent" => capability_projection["is_subagent"] == true,
       "subagent_connection_id" => capability_projection["subagent_connection_id"],
       "parent_subagent_connection_id" => capability_projection["parent_subagent_connection_id"],
@@ -195,11 +199,15 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
       {
         "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id,
         "global_instructions" => "Use concise Chinese.\n",
-        "profile_settings" => {
-          "interactive_profile_key" => "pragmatic",
-          "default_subagent_profile_key" => "researcher",
-          "enabled_subagent_profile_keys" => ["researcher"],
-          "delegation_mode" => "prefer",
+        "settings_payload" => {
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
+          "subagents" => {
+            "default_profile_key" => "researcher",
+            "enabled_profile_keys" => ["researcher"],
+            "delegation_mode" => "prefer",
+          },
         },
       },
       mailbox_item.payload.fetch("workspace_agent_context")
@@ -212,7 +220,9 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     context = build_agent_control_context!(
       workspace_agent_global_instructions: " \n\t ",
       workspace_agent_settings_payload: {
-        "interactive_profile_key" => "pragmatic",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
       }
     )
     build_execution_snapshot_for!(
@@ -243,8 +253,10 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     assert_equal(
       {
         "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id,
-        "profile_settings" => {
-          "interactive_profile_key" => "pragmatic",
+        "settings_payload" => {
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
         },
       },
       mailbox_item.payload.fetch("workspace_agent_context")
@@ -347,7 +359,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
           "conversation_id" => context.fetch(:conversation).public_id,
         },
         "agent_context" => {
-          "profile" => "mock",
+          "profile_key" => "mock",
           "allowed_tool_names" => %w[compact_context exec_command],
         },
         "provider_context" => execution_snapshot.provider_context,
@@ -384,7 +396,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     assert_equal "soft_threshold", stored_payload.dig("prompt_compaction", "consultation_reason")
     assert_equal "agent-runtime/2026-04-01", mailbox_item.payload.fetch("protocol_version")
     assert_equal execution_snapshot.provider_context, mailbox_item.payload.fetch("provider_context")
-    assert_equal "pragmatic", mailbox_item.payload.dig("agent_context", "profile")
+    refute mailbox_item.payload.fetch("agent_context").key?("profile_key")
     assert_equal(
       context.fetch(:workflow_node).public_id,
       mailbox_item.payload.dig("task", "workflow_node_id")

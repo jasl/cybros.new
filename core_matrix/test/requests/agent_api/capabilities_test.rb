@@ -3,7 +3,6 @@ require "test_helper"
 class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
   test "capabilities refresh returns separate agent and execution runtime sections" do
     registration = register_agent_runtime!(
-      profile_policy: default_profile_policy,
       canonical_config_schema: profile_aware_canonical_config_schema,
       conversation_override_schema: subagent_policy_conversation_override_schema,
       default_canonical_config: profile_aware_default_canonical_config,
@@ -59,10 +58,8 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_equal registration[:execution_runtime].execution_runtime_fingerprint, response_body["execution_runtime_fingerprint"]
     assert_equal registration[:execution_runtime].current_execution_runtime_version.public_id, response_body["execution_runtime_version_id"]
     assert_equal registration[:agent_definition_version].public_id, response_body["agent_definition_version_id"]
-    assert_equal default_profile_policy, response_body.fetch("profile_policy")
-    assert_equal default_profile_policy, response_body.fetch("agent_plane").fetch("profile_policy")
     assert_equal "object", response_body.dig("workspace_agent_settings_schema", "type")
-    assert_equal "pragmatic", response_body.dig("default_workspace_agent_settings", "interactive", "profile_key")
+    assert_equal "pragmatic", response_body.dig("default_workspace_agent_settings", "agent", "interactive", "profile_key")
     assert_equal "object", response_body.dig("agent_plane", "workspace_agent_settings_schema", "type")
     assert_equal "main", response_body.dig("default_canonical_config", "interactive", "profile")
     assert_equal 3, response_body.dig("default_canonical_config", "subagents", "max_depth")
@@ -78,7 +75,6 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
 
   test "capabilities handshake refreshes the frozen agent definition contract without mutating the current runtime contract" do
     registration = register_agent_runtime!(
-      profile_policy: default_profile_policy,
       canonical_config_schema: profile_aware_canonical_config_schema,
       conversation_override_schema: subagent_policy_conversation_override_schema,
       default_canonical_config: profile_aware_default_canonical_config
@@ -95,7 +91,6 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
           "sdk_version" => registration[:agent_definition_version].sdk_version,
           "protocol_methods" => registration[:agent_definition_version].protocol_methods,
           "tool_contract" => registration[:agent_definition_version].tool_contract,
-          "profile_policy" => registration[:agent_definition_version].profile_policy,
           "canonical_config_schema" => registration[:agent_definition_version].canonical_config_schema,
           "conversation_override_schema" => registration[:agent_definition_version].conversation_override_schema,
           "workspace_agent_settings_schema" => registration[:agent_definition_version].workspace_agent_settings_schema,
@@ -116,8 +111,6 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     )
 
     assert_equal registration[:agent_definition_version].definition_fingerprint, response_body.dig("agent_plane", "agent_definition_fingerprint")
-    assert_equal default_profile_policy, response_body.fetch("profile_policy")
-    assert_equal default_profile_policy, response_body.fetch("agent_plane").fetch("profile_policy")
     assert_equal contract.effective_tool_catalog, response_body.fetch("effective_tool_catalog")
     assert_equal contract.execution_runtime_plane, response_body.fetch("execution_runtime_plane")
     assert_equal previous_runtime_payload, registration[:execution_runtime].reload.capability_payload
@@ -125,7 +118,6 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
 
   test "capabilities handshake rejects malformed agent contract payloads without changing the runtime contract" do
     registration = register_agent_runtime!(
-      profile_policy: default_profile_policy,
       canonical_config_schema: profile_aware_canonical_config_schema,
       conversation_override_schema: subagent_policy_conversation_override_schema,
       default_canonical_config: profile_aware_default_canonical_config
@@ -142,7 +134,6 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
           "sdk_version" => registration[:agent_definition_version].sdk_version,
           "protocol_methods" => registration[:agent_definition_version].protocol_methods,
           "tool_contract" => registration[:agent_definition_version].tool_contract,
-          "profile_policy" => ["invalid-profile"],
           "canonical_config_schema" => "invalid-schema",
           "conversation_override_schema" => "invalid-overrides",
           "workspace_agent_settings_schema" => "invalid-settings-schema",
@@ -157,7 +148,6 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
 
     error_message = JSON.parse(response.body).fetch("error")
-    assert_includes error_message, "Definition package profile_policy must be a Hash"
     assert_includes error_message, "Definition package canonical_config_schema must be a Hash"
     assert_includes error_message, "Definition package conversation_override_schema must be a Hash"
     assert_includes error_message, "Definition package workspace_agent_settings_schema must be a Hash"

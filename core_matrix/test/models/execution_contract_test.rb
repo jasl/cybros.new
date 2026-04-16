@@ -9,8 +9,8 @@ class ExecutionContractTest < ActiveSupport::TestCase
     assert_equal true, association&.options&.fetch(:optional, false)
   end
 
-  test "belongs to a frozen workspace agent profile settings document" do
-    association = ExecutionContract.reflect_on_association(:workspace_agent_profile_settings_document)
+  test "belongs to a frozen workspace agent settings document" do
+    association = ExecutionContract.reflect_on_association(:workspace_agent_settings_document)
 
     assert_equal :belongs_to, association&.macro
     assert_equal "JsonDocument", association&.class_name
@@ -46,28 +46,36 @@ class ExecutionContractTest < ActiveSupport::TestCase
     assert_includes execution_contract.errors[:workspace_agent_global_instructions_document], "must have document kind workspace_agent_global_instructions"
   end
 
-  test "reads frozen workspace agent profile settings from the document payload" do
+  test "reads frozen workspace agent settings from the document payload" do
     context = build_agent_control_context!
     document = create_json_document!(
       installation: context[:installation],
-      document_kind: "workspace_agent_profile_settings",
+      document_kind: "workspace_agent_settings",
       payload: {
-        "profile_settings" => {
-          "interactive_profile_key" => "pragmatic",
-          "default_subagent_profile_key" => "researcher",
+        "settings_payload" => {
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
+          "subagents" => {
+            "default_profile_key" => "researcher",
+          },
         },
-      }
+      },
     )
 
     execution_contract = context.fetch(:turn).execution_contract
-    execution_contract.update!(workspace_agent_profile_settings_document: document)
+    execution_contract.update!(workspace_agent_settings_document: document)
 
     assert_equal(
       {
-        "interactive_profile_key" => "pragmatic",
-        "default_subagent_profile_key" => "researcher",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+        },
       },
-      execution_contract.workspace_agent_profile_settings
+      execution_contract.workspace_agent_settings_payload
     )
   end
 end

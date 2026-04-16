@@ -264,7 +264,6 @@ module ActiveSupport
         feature_contract_document: feature_contract_document || create_json_document!(installation: installation, document_kind: "feature_contract", payload: feature_contract || []),
         request_preparation_contract_document: request_preparation_contract_document || create_json_document!(installation: installation, document_kind: "request_preparation_contract", payload: request_preparation_contract || {}),
         tool_contract_document: tool_contract_document || create_json_document!(installation: installation, document_kind: "tool_contract", payload: tool_contract || default_tool_catalog("exec_command")),
-        profile_policy_document: profile_policy_document || create_json_document!(installation: installation, document_kind: "profile_policy", payload: profile_policy || default_profile_policy),
         canonical_config_schema_document: canonical_config_schema_document || create_json_document!(installation: installation, document_kind: "config_schema", payload: canonical_config_schema || default_canonical_config_schema),
         conversation_override_schema_document: conversation_override_schema_document || create_json_document!(installation: installation, document_kind: "conversation_override_schema", payload: conversation_override_schema || { "type" => "object", "properties" => {} }),
         workspace_agent_settings_schema_document: workspace_agent_settings_schema_document || create_json_document!(installation: installation, document_kind: "workspace_agent_settings_schema", payload: workspace_agent_settings_schema || default_workspace_agent_settings_schema),
@@ -403,7 +402,6 @@ module ActiveSupport
         definition_fingerprint: "#{agent_definition_version.definition_fingerprint}-variant-v#{version}-#{next_test_sequence}",
         protocol_methods: protocol_methods || default_protocol_methods("agent_health"),
         tool_contract: tool_contract || default_tool_catalog("exec_command"),
-        profile_policy: profile_policy.nil? ? agent_definition_version.profile_policy : profile_policy,
         canonical_config_schema: canonical_config_schema.nil? ? agent_definition_version.canonical_config_schema : canonical_config_schema,
         conversation_override_schema: conversation_override_schema.nil? ? agent_definition_version.conversation_override_schema : conversation_override_schema,
         default_canonical_config: default_canonical_config.nil? ? agent_definition_version.default_canonical_config : default_canonical_config,
@@ -560,39 +558,57 @@ module ActiveSupport
         "type" => "object",
         "additionalProperties" => false,
         "properties" => {
-          "interactive" => {
+          "agent" => {
             "type" => "object",
             "additionalProperties" => false,
             "properties" => {
-              "profile_key" => { "type" => "string", "minLength" => 1 },
-              "model_selector" => { "type" => "string", "minLength" => 1 },
+              "interactive" => {
+                "type" => "object",
+                "additionalProperties" => false,
+                "properties" => {
+                  "profile_key" => { "type" => "string", "minLength" => 1 },
+                },
+              },
+              "subagents" => {
+                "type" => "object",
+                "additionalProperties" => false,
+                "properties" => {
+                  "default_profile_key" => { "type" => "string", "minLength" => 1 },
+                  "enabled_profile_keys" => {
+                    "type" => "array",
+                    "items" => { "type" => "string", "minLength" => 1 },
+                    "uniqueItems" => true,
+                  },
+                  "delegation_mode" => {
+                    "type" => "string",
+                    "enum" => %w[allow prefer],
+                  },
+                },
+              },
             },
           },
-          "subagents" => {
+          "core_matrix" => {
             "type" => "object",
             "additionalProperties" => false,
             "properties" => {
-              "default_profile_key" => { "type" => "string", "minLength" => 1 },
-              "enabled_profile_keys" => {
-                "type" => "array",
-                "items" => { "type" => "string", "minLength" => 1 },
-                "uniqueItems" => true,
-              },
-              "delegation_mode" => {
-                "type" => "string",
-                "enum" => %w[allow prefer],
-              },
-              "max_concurrent" => { "type" => "integer", "minimum" => 1 },
-              "max_depth" => { "type" => "integer", "minimum" => 1 },
-              "allow_nested" => { "type" => "boolean" },
-              "default_model_selector" => { "type" => "string", "minLength" => 1 },
-              "profile_overrides" => {
+              "interactive" => {
                 "type" => "object",
-                "additionalProperties" => {
-                  "type" => "object",
-                  "additionalProperties" => false,
-                  "properties" => {
-                    "model_selector" => { "type" => "string", "minLength" => 1 },
+                "additionalProperties" => false,
+                "properties" => {
+                  "model_selector" => { "type" => "string", "minLength" => 1 },
+                },
+              },
+              "subagents" => {
+                "type" => "object",
+                "additionalProperties" => false,
+                "properties" => {
+                  "max_concurrent" => { "type" => "integer", "minimum" => 1 },
+                  "max_depth" => { "type" => "integer", "minimum" => 1 },
+                  "allow_nested" => { "type" => "boolean" },
+                  "default_model_selector" => { "type" => "string", "minLength" => 1 },
+                  "label_model_selectors" => {
+                    "type" => "object",
+                    "additionalProperties" => { "type" => "string", "minLength" => 1 },
                   },
                 },
               },
@@ -604,21 +620,25 @@ module ActiveSupport
 
     def default_workspace_agent_settings_payload
       {
-        "interactive" => {
-          "profile_key" => "pragmatic",
-          "model_selector" => "role:main",
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "pragmatic",
+          },
+          "subagents" => {
+            "default_profile_key" => "researcher",
+            "enabled_profile_keys" => %w[researcher developer tester],
+            "delegation_mode" => "allow",
+          },
         },
-        "subagents" => {
-          "default_profile_key" => "researcher",
-          "enabled_profile_keys" => %w[researcher developer tester],
-          "delegation_mode" => "allow",
-          "max_concurrent" => 3,
-          "max_depth" => 3,
-          "allow_nested" => true,
-          "profile_overrides" => {
-            "researcher" => { "model_selector" => "role:researcher" },
-            "developer" => { "model_selector" => "role:developer" },
-            "tester" => { "model_selector" => "role:tester" },
+        "core_matrix" => {
+          "interactive" => {
+            "model_selector" => "role:main",
+          },
+          "subagents" => {
+            "max_concurrent" => 3,
+            "max_depth" => 3,
+            "allow_nested" => true,
+            "default_model_selector" => "role:main",
           },
         },
       }
@@ -709,12 +729,11 @@ module ActiveSupport
           "prompt_pack_fingerprint" => attrs.delete(:prompt_pack_fingerprint) || "prompt-pack-#{next_test_sequence}",
           "protocol_version" => attrs.delete(:protocol_version) || "2026-03-24",
           "sdk_version" => attrs.delete(:sdk_version) || "fenix-0.1.0",
-          "protocol_methods" => protocol_methods,
-          "tool_contract" => tool_contract,
-          "profile_policy" => profile_policy,
-          "canonical_config_schema" => canonical_config_schema,
-          "conversation_override_schema" => conversation_override_schema,
-          "workspace_agent_settings_schema" => workspace_agent_settings_schema,
+        "protocol_methods" => protocol_methods,
+        "tool_contract" => tool_contract,
+        "canonical_config_schema" => canonical_config_schema,
+        "conversation_override_schema" => conversation_override_schema,
+        "workspace_agent_settings_schema" => workspace_agent_settings_schema,
           "default_workspace_agent_settings" => default_workspace_agent_settings,
           "default_canonical_config" => default_canonical_config,
           "reflected_surface" => attrs.delete(:reflected_surface) || { "display_name" => agent.display_name },
@@ -956,7 +975,6 @@ module ActiveSupport
       context,
       protocol_methods: context[:agent_definition_version].protocol_methods,
       tool_contract: context[:agent_definition_version].tool_contract,
-      profile_policy: context[:agent_definition_version].profile_policy,
       canonical_config_schema: context[:agent_definition_version].canonical_config_schema,
       conversation_override_schema: context[:agent_definition_version].conversation_override_schema,
       default_canonical_config: context[:agent_definition_version].default_canonical_config,
@@ -967,7 +985,6 @@ module ActiveSupport
         agent: context[:agent],
         protocol_methods: protocol_methods,
         tool_contract: tool_contract,
-        profile_policy: profile_policy,
         canonical_config_schema: canonical_config_schema,
         conversation_override_schema: conversation_override_schema,
         default_canonical_config: default_canonical_config,
@@ -1505,7 +1522,6 @@ module ActiveSupport
           installation: installation,
           agent: agent,
           tool_contract: registration.fetch(:agent_definition_version).tool_contract,
-          profile_policy: default_profile_policy,
           canonical_config_schema: profile_aware_canonical_config_schema,
           conversation_override_schema: subagent_policy_conversation_override_schema,
           default_canonical_config: profile_aware_default_canonical_config

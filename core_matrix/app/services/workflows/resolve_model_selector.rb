@@ -54,33 +54,19 @@ module Workflows
       nil
     end
 
-    def mount_interactive_profile_selector
-      profile_key = profile_settings_view["interactive_profile_key"].presence
-      return if profile_key.blank?
-
-      "role:#{profile_key}"
-    end
-
-    def mount_interactive_model_selector
-      profile_settings_view["interactive_model_selector"].presence
-    end
-
     def mount_interactive_selector_candidates
-      [
-        mount_interactive_model_selector,
-        mount_interactive_profile_selector,
-      ].compact.uniq
+      [core_matrix_settings.interactive_model_selector].compact.uniq
     end
 
     def apply_mount_interactive_profile_selector?
       @selector_source == "conversation" && mount_interactive_selector_candidates.any?
     end
 
-    def profile_settings_view
-      @profile_settings_view ||= begin
-        source = @turn.conversation.workspace_agent&.profile_settings_view || {}
-        source.deep_stringify_keys
-      end
+    def core_matrix_settings
+      @core_matrix_settings ||= WorkspaceAgentSettings::CoreMatrixView.new(
+        settings_payload: @turn.conversation.workspace_agent&.settings_payload_view,
+        default_settings: @turn.conversation.workspace_agent&.default_settings_payload
+      )
     end
 
     def effective_catalog

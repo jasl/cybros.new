@@ -134,8 +134,8 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
 
   test "allow_nested false hides subagent_spawn for child conversations" do
     registration = register_profile_aware_runtime!(
-      default_canonical_config: profile_aware_default_canonical_config.deep_merge(
-        "subagents" => { "allow_nested" => false }
+      default_workspace_agent_settings: default_workspace_agent_settings_payload.deep_merge(
+        "core_matrix" => { "subagents" => { "allow_nested" => false } }
       )
     )
     root_conversation = create_root_conversation_for!(registration)
@@ -160,8 +160,8 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
 
   test "depth at max depth hides subagent_spawn while keeping other subagent tools visible" do
     registration = register_profile_aware_runtime!(
-      default_canonical_config: profile_aware_default_canonical_config.deep_merge(
-        "subagents" => { "max_depth" => 1 }
+      default_workspace_agent_settings: default_workspace_agent_settings_payload.deep_merge(
+        "core_matrix" => { "subagents" => { "max_depth" => 1 } }
       )
     )
     child = create_subagent_conversation_chain!(
@@ -180,12 +180,8 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     assert_includes child_tool_names, "subagent_close"
   end
 
-  test "visible child tools stay a subset of visible parent tools after profile masking" do
+  test "visible child tools stay a subset of visible parent tools after nested policy filtering" do
     registration = register_profile_aware_runtime!(
-      profile_policy: profile_policy_with_allowed_tool_names(
-        main_tool_names: %w[exec_command compact_context] + SUBAGENT_TOOL_NAMES,
-        researcher_tool_names: %w[exec_command subagent_send subagent_wait subagent_close subagent_list]
-      ),
       tool_contract: default_tool_catalog("exec_command", "compact_context")
     )
     root_conversation = create_root_conversation_for!(registration)
@@ -204,18 +200,11 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     ).fetch("tool_catalog").map { |entry| entry.fetch("tool_name") }
 
     assert_equal [], child_tool_names - parent_tool_names
-    refute_includes child_tool_names, "compact_context"
-    refute_includes child_tool_names, "subagent_spawn"
+    assert_includes child_tool_names, "compact_context"
   end
 
-  test "masked tools reject direct invocation even when the caller guesses the tool name" do
-    registration = register_profile_aware_runtime!(
-      profile_policy: profile_policy_with_allowed_tool_names(
-        main_tool_names: %w[exec_command compact_context] + SUBAGENT_TOOL_NAMES,
-        researcher_tool_names: %w[exec_command subagent_send subagent_wait subagent_close subagent_list]
-      ),
-      tool_contract: default_tool_catalog("exec_command", "compact_context")
-    )
+  test "preview still exposes subagent_spawn when nested policy allows it" do
+    registration = register_profile_aware_runtime!(tool_contract: default_tool_catalog("exec_command", "compact_context"))
     child = create_subagent_conversation_chain!(
       registration: registration,
       parent_conversation: create_root_conversation_for!(registration),
@@ -223,14 +212,12 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
       profile_key: "researcher"
     ).fetch(:conversation)
 
-    error = assert_raises(RuntimeCapabilities::PreviewForConversation::ToolNotVisibleError) do
-      RuntimeCapabilities::PreviewForConversation.visible_tool_entry!(
-        conversation: child,
-        tool_name: "subagent_spawn"
-      )
-    end
+    entry = RuntimeCapabilities::PreviewForConversation.visible_tool_entry!(
+      conversation: child,
+      tool_name: "subagent_spawn"
+    )
 
-    assert_includes error.message, "subagent_spawn"
+    assert_equal "subagent_spawn", entry.fetch("tool_name")
   end
 
   test "conversation preview does not instantiate a synthetic turn" do
@@ -249,14 +236,15 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     Turn.define_singleton_method(:new, original_new) if original_new
   end
 
-  test "subagent spawn schema advertises enabled specialist choices plus default alias and optional model selector hint" do
+  test "subagent spawn schema stays profile-agnostic while still advertising model selector hints" do
     registration = register_profile_aware_runtime!
     conversation = create_root_conversation_for!(registration)
     conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "default_subagent_profile_key" => "researcher",
+        "subagents" => {
+          "enabled_profile_keys" => ["researcher"],
+          "default_profile_key" => "researcher",
+        },
       }
     )
 
@@ -267,8 +255,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     properties = entry.fetch("input_schema").fetch("properties")
     profile_key_schema = properties.fetch("profile_key")
 
-    assert_equal %w[default researcher], profile_key_schema.fetch("enum")
-    assert_includes profile_key_schema.fetch("description"), "omit this field"
+    refute profile_key_schema.key?("enum")
     assert_equal "string", properties.dig("model_selector_hint", "type")
   end
 
@@ -290,7 +277,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
 
   private
 
-  def register_profile_aware_runtime!(execution_runtime_capability_payload: {}, execution_runtime_tool_catalog: [], tool_contract: default_tool_catalog("exec_command"), profile_policy: default_profile_policy, default_canonical_config: profile_aware_default_canonical_config)
+  def register_profile_aware_runtime!(execution_runtime_capability_payload: {}, execution_runtime_tool_catalog: [], tool_contract: default_tool_catalog("exec_command"), profile_policy: default_profile_policy, default_workspace_agent_settings: default_workspace_agent_settings_payload, default_canonical_config: profile_aware_default_canonical_config)
     register_agent_runtime!(
       execution_runtime_capability_payload: execution_runtime_capability_payload,
       execution_runtime_tool_catalog: execution_runtime_tool_catalog,
@@ -298,6 +285,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
       profile_policy: profile_policy,
       canonical_config_schema: profile_aware_canonical_config_schema,
       conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_workspace_agent_settings: default_workspace_agent_settings,
       default_canonical_config: default_canonical_config
     )
   end

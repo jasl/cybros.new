@@ -7,7 +7,7 @@ class Acceptance::CapstoneReviewArtifactsTest < ActiveSupport::TestCase
     truncate_all_tables!
   end
 
-  test "install! writes a workflow mermaid review with specialist labels" do
+  test "install! writes a workflow mermaid review with profile labels" do
     fixture = build_workflow_proof_fixture!(with_subagent_spawn: true)
     fixture.fetch(:workflow_run).update!(
       wait_state: "waiting",
@@ -78,7 +78,7 @@ class Acceptance::CapstoneReviewArtifactsTest < ActiveSupport::TestCase
       assert_includes review, " --> "
       assert_includes review, "yield batch: batch-1"
       assert_includes review, "barrier: wait_all"
-      assert_includes review, "specialist: researcher"
+      assert_includes review, "profile: researcher"
       assert_includes review, "wait: human_interaction"
       assert_includes index, "[Workflow Mermaid](workflow-mermaid.md)"
     end

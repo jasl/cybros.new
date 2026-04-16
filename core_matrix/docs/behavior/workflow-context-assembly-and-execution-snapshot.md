@@ -123,8 +123,8 @@ freezes a per-turn execution snapshot that preserves:
 
 ## Capability Projection
 
-- `capability_projection` freezes the runtime-owned execution metadata that
-  agents consume directly:
+- `capability_projection` freezes the runtime-owned execution metadata and the
+  turn-scoped agent-context facts that agents consume directly:
   - `tool_surface`
   - `profile_key`
   - `is_subagent`
@@ -133,8 +133,10 @@ freezes a per-turn execution snapshot that preserves:
   - `subagent_depth`
   - `owner_conversation_id`
   - `subagent_policy`
-- `profile_key` is resolved from the runtime-declared `profile_policy` before
-  the turn executes
+- `profile_key` is an optional opaque label copied from the subagent
+  connection into the turn-scoped execution contract; CoreMatrix persists and
+  replays it for the agent but does not treat it as part of capability
+  compatibility or agent business semantics
 - `tool_surface` is the conversation-visible tool catalog for that turn and
   must be treated as an execution-time constraint, not as advisory trace data
 - `Workflows::BuildExecutionSnapshot` composes that turn capability surface
@@ -183,7 +185,7 @@ freezes a per-turn execution snapshot that preserves:
   - `round_context.messages`
   - `round_context.context_imports`
   - `round_context.projection_fingerprint`
-  - `agent_context.profile`
+  - `agent_context.profile_key`
   - `agent_context.is_subagent`
   - `agent_context.subagent_connection_id`
   - `agent_context.parent_subagent_connection_id`

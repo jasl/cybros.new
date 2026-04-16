@@ -12,15 +12,5 @@
     "Summarize the latest changes in this workspace.",
     "Investigate why the test suite is failing.",
     "Implement the next task and explain the tradeoffs."
-  ],
-  "profiles": {
-    "main": {
-      "label": "Main",
-      "description": "Primary interactive cowork profile."
-    },
-    "researcher": {
-      "label": "Researcher",
-      "description": "Delegated research and subagent profile."
-    }
-  }
+  ]
 }

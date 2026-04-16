@@ -12,8 +12,7 @@
       "properties": {
         "default_profile_key": {
           "type": "string",
-          "enum": ["main", "researcher"],
-          "default": "main",
+          "default": "default",
           "title": "Default Profile",
           "description": "Default profile key for interactive turns."
         }
@@ -33,12 +32,7 @@
     "profile_runtime_overrides": {
       "type": "object",
       "title": "Profile Runtime Overrides",
-      "additionalProperties": false,
-      "properties": {
-        "main": { "$ref": "#/$defs/profile_runtime_override" },
-        "researcher": { "$ref": "#/$defs/profile_runtime_override" }
-      },
-      "required": ["main", "researcher"]
+      "additionalProperties": { "$ref": "#/$defs/profile_runtime_override" }
     },
     "features": {
       "type": "object",

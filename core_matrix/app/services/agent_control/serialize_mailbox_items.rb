@@ -44,7 +44,7 @@ module AgentControl
               :execution_capability_snapshot,
               :execution_runtime_version,
               :workspace_agent_global_instructions_document,
-              :workspace_agent_profile_settings_document,
+              :workspace_agent_settings_document,
               { selected_input_message: [:conversation, :turn] },
               {
                 turn: [
@@ -88,7 +88,7 @@ module AgentControl
               :execution_capability_snapshot,
               :execution_runtime_version,
               :workspace_agent_global_instructions_document,
-              :workspace_agent_profile_settings_document,
+              :workspace_agent_settings_document,
               { selected_input_message: [:conversation, :turn] },
             ],
           },

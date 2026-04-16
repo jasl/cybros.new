@@ -162,7 +162,7 @@ module Acceptance
         "Legend:",
         "",
         "- Node labels show `node_key`, `node_type`, `state`, and `presentation policy`.",
-        "- `specialist: <key>` marks workflow nodes that opened a subagent conversation.",
+        "- `profile: <key>` marks workflow nodes that opened a subagent conversation with an opaque agent-selected label.",
         "- Edge labels surface yield batches and barrier kinds when present.",
         "- `wait: <reason>` appears when the selected workflow run is blocked.",
         "",
@@ -373,8 +373,6 @@ module Acceptance
           metadata["spawned_subagent"] = {
             "subagent_connection_id" => connection_payload["subagent_connection_id"] || spawned_subagent_id,
             "profile_key" => connection_payload["profile_key"],
-            "specialist_key" => connection_payload["specialist_key"],
-            "profile_group" => connection_payload["profile_group"],
             "resolved_model_selector_hint" => connection_payload["resolved_model_selector_hint"],
           }.compact
         end

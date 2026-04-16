@@ -76,14 +76,14 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
     assert_equal context[:turn].recovery_selector, plan.recovery_target.resolved_model_selection_snapshot["normalized_selector"]
   end
 
-  test "returns manual recovery required when a rotated replacement drifts in profile policy" do
+  test "returns resume with rebind when a rotated replacement only changes agent-owned workspace settings metadata" do
     context = build_profile_aware_waiting_recovery_context!
     replacement = create_profile_aware_replacement_agent_definition_version!(
       installation: context[:installation],
       agent: context[:agent],
       execution_runtime: context[:execution_runtime],
-      profile_policy: default_profile_policy.deep_merge(
-        "pragmatic" => { "allowed_tool_names" => %w[exec_command] }
+      default_workspace_agent_settings: default_workspace_agent_settings_payload.deep_merge(
+        "interactive" => { "profile_key" => "friendly" }
       )
     )
     AgentConnections::RecordHeartbeat.call(
@@ -98,8 +98,8 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
       workflow_run: context[:workflow_run]
     )
 
-    assert_equal "manual_recovery_required", plan.action
-    assert_equal "capability_contract_drift", plan.drift_reason
+    assert_equal "resume_with_rebind", plan.action
+    assert_nil plan.drift_reason
   end
 
   private
@@ -111,7 +111,6 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
       tool_contract: default_tool_catalog("exec_command", "workspace_variables_get"),
-      profile_policy: default_profile_policy,
       canonical_config_schema: profile_aware_canonical_config_schema,
       conversation_override_schema: subagent_policy_conversation_override_schema,
       default_canonical_config: profile_aware_default_canonical_config
@@ -154,7 +153,7 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
     installation:,
     agent:,
     execution_runtime:,
-    profile_policy:
+    default_workspace_agent_settings:
   )
     agent_definition_version = create_compatible_replacement_agent_definition_version!(
       installation: installation,
@@ -166,9 +165,9 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
       version: 2,
       protocol_methods: default_protocol_methods("agent_health", "capabilities_handshake", "conversation_transcript_list"),
       tool_contract: default_tool_catalog("exec_command", "workspace_variables_get"),
-      profile_policy: profile_policy,
       canonical_config_schema: profile_aware_canonical_config_schema,
       conversation_override_schema: subagent_policy_conversation_override_schema,
+      default_workspace_agent_settings: default_workspace_agent_settings,
       default_canonical_config: profile_aware_default_canonical_config
     )
     agent = agent_definition_version.agent

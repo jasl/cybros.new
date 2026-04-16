@@ -50,22 +50,11 @@ module ToolBindings
     end
 
     def allowed_tool_names
-      @allowed_tool_names ||= RuntimeCapabilities::ProfileToolMask.tool_names(
-        tool_catalog: effective_tool_catalog,
-        profile: current_profile
-      )
+      @allowed_tool_names ||= effective_tool_catalog.map { |entry| entry.fetch("tool_name") }.uniq
     end
 
     def turn_record
       @turn_record ||= Turn.find(@agent_task_run.turn_id)
-    end
-
-    def current_profile_key
-      turn_record.execution_snapshot.capability_projection.fetch("profile_key", "main")
-    end
-
-    def current_profile
-      agent_definition_version.profile_policy.fetch(current_profile_key, {})
     end
 
     def effective_tool_catalog

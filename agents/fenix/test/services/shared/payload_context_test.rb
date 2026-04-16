@@ -17,7 +17,7 @@ class Shared::PayloadContextTest < ActiveSupport::TestCase
           "context_imports" => [],
         },
         "agent_context" => {
-          "profile" => "pragmatic",
+          "profile_key" => "pragmatic",
           "allowed_tool_names" => %w[compact_context],
         },
         "provider_context" => {},
@@ -60,7 +60,7 @@ class Shared::PayloadContextTest < ActiveSupport::TestCase
     refute context.key?("workspace_context")
   end
 
-  test "normalizes compact profile settings inside workspace agent context" do
+  test "preserves raw settings_payload inside workspace agent context" do
     context = Shared::PayloadContext.call(
       payload: {
         "task" => {
@@ -72,16 +72,31 @@ class Shared::PayloadContextTest < ActiveSupport::TestCase
         "workspace_agent_context" => {
           "workspace_agent_id" => "workspace-agent-2",
           "global_instructions" => "Stay concise.\n",
-          "profile_settings" => {
-            "interactive_profile_key" => "friendly",
-            "default_subagent_profile_key" => "researcher",
-            "enabled_subagent_profile_keys" => ["researcher", "", "tester", "researcher"],
-            "delegation_mode" => "prefer",
-            "max_concurrent_subagents" => "3",
-            "max_subagent_depth" => "2",
-            "allow_nested_subagents" => false,
-            "default_subagent_model_selector_hint" => "coding-fast",
-            "unsupported_key" => "ignored",
+          "settings_payload" => {
+            "agent" => {
+              "interactive" => {
+                "profile_key" => "friendly",
+              },
+              "subagents" => {
+                "default_profile_key" => "researcher",
+                "enabled_profile_keys" => ["researcher", "", "tester", "researcher"],
+                "delegation_mode" => "prefer",
+              },
+            },
+            "core_matrix" => {
+              "interactive" => {
+                "model_selector" => "role:main",
+              },
+              "subagents" => {
+                "max_concurrent" => "3",
+                "max_depth" => "2",
+                "allow_nested" => false,
+                "default_model_selector" => "coding-fast",
+                "label_model_selectors" => {
+                  "researcher" => "coding-fast",
+                },
+              },
+            },
           },
         },
       }
@@ -89,17 +104,32 @@ class Shared::PayloadContextTest < ActiveSupport::TestCase
 
     assert_equal(
       {
-        "interactive_profile_key" => "friendly",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => %w[researcher tester],
-        "delegation_mode" => "prefer",
-        "max_concurrent_subagents" => 3,
-        "max_subagent_depth" => 2,
-        "default_subagent_model_selector" => "coding-fast",
-        "default_subagent_model_selector_hint" => "coding-fast",
-        "allow_nested_subagents" => false,
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
+          "subagents" => {
+            "default_profile_key" => "researcher",
+            "enabled_profile_keys" => ["researcher", "", "tester", "researcher"],
+            "delegation_mode" => "prefer",
+          },
+        },
+        "core_matrix" => {
+          "interactive" => {
+            "model_selector" => "role:main",
+          },
+          "subagents" => {
+            "max_concurrent" => "3",
+            "max_depth" => "2",
+            "allow_nested" => false,
+            "default_model_selector" => "coding-fast",
+            "label_model_selectors" => {
+              "researcher" => "coding-fast",
+            },
+          },
+        },
       },
-      context.dig("workspace_agent_context", "profile_settings")
+      context.dig("workspace_agent_context", "settings_payload")
     )
   end
 end

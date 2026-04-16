@@ -124,9 +124,13 @@ class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
         }
       ),
       workspace_agent_settings_payload: {
-        "interactive_profile_key" => "pragmatic",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "default_subagent_profile_key" => "researcher",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "enabled_profile_keys" => ["researcher"],
+          "default_profile_key" => "researcher",
+        },
       }
     )
     prepare_workflow_execution_setup!(context)

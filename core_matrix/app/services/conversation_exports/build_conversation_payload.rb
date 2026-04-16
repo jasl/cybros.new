@@ -101,8 +101,6 @@ module ConversationExports
           "subagent_connection_id" => session.public_id,
           "origin_turn_id" => session.origin_turn&.public_id,
           "profile_key" => session.profile_key,
-          "specialist_key" => specialist_key_for(session.profile_key),
-          "profile_group" => profile_group_for(session.profile_key),
           "close_outcome_kind" => session.close_outcome_kind,
         }.compact
       end
@@ -114,16 +112,6 @@ module ConversationExports
         .or(SubagentConnection.where(conversation: @conversation))
         .preload(:origin_turn)
         .order(:created_at, :id)
-    end
-
-    def specialist_key_for(profile_key)
-      profile_key.to_s.strip.presence
-    end
-
-    def profile_group_for(profile_key)
-      return if specialist_key_for(profile_key).blank?
-
-      "specialist"
     end
 
     def sha256_for(attachment)

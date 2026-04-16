@@ -2,9 +2,15 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add a Fenix-owned prompt/profile catalog plus mount-scoped profile/delegation overrides on `WorkspaceAgent`, while keeping the CoreMatrix↔Fenix protocol limited to small resolved facts.
+**Goal:** Add a Fenix-owned prompt/profile catalog while keeping `WorkspaceAgent`
+settings agent-owned, and keep the CoreMatrix↔Fenix protocol limited to raw
+settings payload plus small resolved runtime facts.
 
-**Architecture:** Fenix loads profile bundles from `prompts/` and `prompts.d/`, assembles prompts and routing hints locally, and resolves a tiny `model_selector_hint` only when spawning a specialist. CoreMatrix adds `WorkspaceAgent.settings_payload`, freezes a compact `workspace_agent_context.profile_settings` view into execution contracts, validates delegation policy, and persists only resolved profile/model-selector facts.
+**Architecture:** Fenix loads profile bundles from `prompts/` and `prompts.d/`,
+assembles prompts and routing hints locally, and resolves profile/business
+behavior from raw mount settings. CoreMatrix stores agent-owned settings,
+freezes raw settings into execution contracts, resolves model selectors from the
+generic model-selector fields it owns, and persists only resolved runtime facts.
 
 **Tech Stack:** Ruby on Rails, Active Record JSON columns, existing execution snapshot/mailbox normalization paths, Fenix prompt assembly services, Minitest.
 
@@ -32,8 +38,8 @@ Cover:
 
 - interactive execution uses the selected interactive profile
 - delegated execution uses the selected specialist profile
-- routing summaries only include enabled specialist keys supplied by
-  `workspace_agent_context.profile_settings`
+- routing summaries only include specialist keys supplied by the raw
+  `workspace_agent_context.settings_payload`
 
 **Step 3: Run the focused Fenix tests**
 
@@ -104,8 +110,7 @@ Ship only the minimum useful set in the first round:
 - specialist `tester`
 
 Keep `researcher` as the existing specialist key. Interactive work should use
-the readable keys `pragmatic` and `friendly`; any legacy `main` payloads should
-normalize to `pragmatic`.
+the readable keys `pragmatic` and `friendly`.
 
 Author the initial prompt bundles using the reviewed mature projects as
 reference patterns:
@@ -153,7 +158,7 @@ git commit -m "feat: add fenix profile catalog"
 
 Cover:
 
-- `workspace_agent_context.profile_settings` is normalized as a small hash
+- `workspace_agent_context.settings_payload` preserves the frozen mount payload
 - only enabled specialist keys appear in the routing summary
 - routing summary renders `delegation_mode`, default specialist key, and
   specialist usage metadata
@@ -162,7 +167,7 @@ Cover:
 
 Build a service that:
 
-- reads enabled keys from `workspace_agent_context.profile_settings`
+- reads enabled keys from `workspace_agent_context.settings_payload`
 - looks up local specialist metadata by key
 - constructs a short deterministic summary for the prompt
 
@@ -201,7 +206,6 @@ git commit -m "feat: add fenix routing summary for specialist profiles"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/app_surface/presenters/workspace_agent_presenter.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/app_surface/presenters/workspace_presenter.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/app_api/base_controller.rb`
-- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/runtime_capabilities/compose_visible_tool_catalog.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workflows/resolve_model_selector.rb`
 - Modify one owning migration under `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/db/migrate/` that creates `workspace_agents`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/workspace_agent_test.rb`
@@ -219,14 +223,13 @@ Cover:
 - supported keys normalize into a stable hash
 - blank/absent values collapse cleanly
 - unsupported keys are rejected
-- `default_subagent_profile_key` cannot point outside the enabled specialist set
 - app create/update/read surfaces expose only public ids and compact JSON
 - workspace list fan-out remains preload-safe
-- mounted interactive turns use `interactive_profile_key` as a mount override
-  without mutating agent-owned canonical config state
+- mounted interactive turns use only explicit model-selector preferences from
+  settings, without CoreMatrix inferring selectors from profile keys
 - explicit selectors/candidates remain authoritative over the mount override
-- implicit mounted interactive turns fall back cleanly when the mounted profile
-  key has no provider-role selector mapping
+- implicit mounted interactive turns fall back cleanly when the mounted
+  model-selector preference is unavailable
 
 **Step 2: Implement `WorkspaceAgent.settings_payload`**
 
@@ -236,9 +239,8 @@ Add:
 - model normalization and validation
 - controller strong-parameter handling
 - presenter output
-- mount-aware overlay logic for interactive profile selection in runtime
-  capability composition and selector resolution, without overriding explicit
-  selector/candidate choices
+- mount-aware overlay logic only for generic model-selector preferences, without
+  overriding explicit selector/candidate choices
 
 Keep the supported schema narrow to the documented keys only.
 
@@ -291,7 +293,7 @@ git add /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/workspace_agen
 git commit -m "feat: add workspace agent profile settings"
 ```
 
-### Task 5: Freeze compact profile settings into execution snapshots and mailbox reconstruction
+### Task 5: Freeze raw agent settings into execution snapshots and mailbox reconstruction
 
 **Files:**
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/execution_contract.rb`
@@ -309,11 +311,11 @@ git commit -m "feat: add workspace agent profile settings"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/agent_control_mailbox_item_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/create_agent_request_test.rb`
 
-**Step 1: Write failing tests for `workspace_agent_context.profile_settings`**
+**Step 1: Write failing tests for `workspace_agent_context.settings_payload`**
 
 Cover:
 
-- snapshot projection includes the compact settings view
+- snapshot projection includes the raw nested settings payload
 - queued and reconstructed mailbox payloads reproduce the same shape
 - changing mount settings after snapshot creation does not mutate frozen prior
   turns
@@ -383,9 +385,7 @@ git commit -m "feat: freeze workspace agent profile settings"
 Cover:
 
 - `subagent_spawn` advertises optional `model_selector_hint`
-- `subagent_spawn` only advertises enabled specialist keys plus `default`
-- disallowed specialist keys are rejected by mount settings
-- default alias resolves through mount override state
+- `subagent_spawn` treats `profile_key` as an optional opaque agent-owned label
 - child `delegation_package` and frozen execution state preserve the resolved
   selector hint when present
 - persisted `SubagentConnection` rows keep the resolved selector hint as a
@@ -396,8 +396,6 @@ Cover:
 Add:
 
 - optional `model_selector_hint` argument plumbing
-- tool-schema filtering to enabled specialist keys only
-- validation against enabled specialist keys from frozen mount settings
 - persistence of resolved profile key plus selector hint in child task payload,
   `SubagentConnection`, and child execution-visible snapshot state
 
@@ -451,11 +449,11 @@ git commit -m "feat: carry specialist selector hints through subagent spawn"
 Cover:
 
 - ordinary `conversation export` includes a compact `delegation_summary`
-- `conversation debug export` includes `profile_group`, `specialist_key`, and
+- `conversation debug export` includes `profile_key` and
   `resolved_model_selector_hint` when present
 - acceptance review generation emits `review/workflow-mermaid.md`
 - Mermaid output labels subagent spawn nodes with the selected
-  specialist/profile key
+  profile key
 
 **Step 2: Implement export payload changes**
 

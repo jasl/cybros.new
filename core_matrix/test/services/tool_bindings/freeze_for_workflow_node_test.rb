@@ -12,7 +12,16 @@ class ToolBindings::FreezeForWorkflowNodeTest < ActiveSupport::TestCase
       workflow_node: context.fetch(:workflow_node)
     ).includes(:tool_definition, :tool_implementation).order(:id).to_a
 
-    assert_equal %w[compact_context conversation_metadata_update exec_command subagent_spawn],
+    assert_equal %w[
+      compact_context
+      conversation_metadata_update
+      exec_command
+      subagent_close
+      subagent_list
+      subagent_send
+      subagent_spawn
+      subagent_wait
+    ],
       bindings.map { |binding| binding.tool_definition.tool_name }.sort
     assert bindings.all? { |binding| binding.agent_task_run.nil? }
     assert bindings.all? { |binding| binding.workflow_node == context.fetch(:workflow_node) }

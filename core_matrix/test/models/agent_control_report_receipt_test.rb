@@ -202,7 +202,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
           },
         },
         "agent_context" => {
-          "profile" => "main",
+          "profile_key" => "main",
           "is_subagent" => false,
           "allowed_tool_names" => ["exec_command"],
         },
@@ -331,7 +331,7 @@ class AgentControlReportReceiptTest < ActiveSupport::TestCase
           },
         },
         "agent_context" => {
-          "profile" => "main",
+          "profile_key" => "main",
           "is_subagent" => false,
           "allowed_tool_names" => ["browser_open"],
         },

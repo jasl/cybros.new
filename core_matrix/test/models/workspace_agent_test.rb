@@ -74,28 +74,34 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
     assert_nil workspace_agent.global_instructions
   end
 
-  test "normalizes structured settings payload" do
+  test "stores structured settings payload without reinterpreting agent-owned fields" do
     context = workspace_agent_context
     workspace_agent = WorkspaceAgent.create!(
       installation: context[:installation],
       workspace: context[:workspace],
       agent: context[:agent],
       settings_payload: {
-        "interactive" => {
-          "profile_key" => "friendly",
-          "model_selector" => "role:main",
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
+          "subagents" => {
+            "default_profile_key" => "researcher",
+            "enabled_profile_keys" => ["researcher", "", "researcher"],
+            "delegation_mode" => "prefer",
+          },
         },
-        "subagents" => {
-          "default_profile_key" => "researcher",
-          "enabled_profile_keys" => ["researcher", "", "researcher"],
-          "delegation_mode" => "prefer",
-          "max_concurrent" => "3",
-          "max_depth" => "2",
-          "allow_nested" => false,
-          "default_model_selector" => "role:main",
-          "profile_overrides" => {
-            "researcher" => {
-              "model_selector" => "role:researcher",
+        "core_matrix" => {
+          "interactive" => {
+            "model_selector" => "role:main",
+          },
+          "subagents" => {
+            "max_concurrent" => "3",
+            "max_depth" => "2",
+            "allow_nested" => false,
+            "default_model_selector" => "role:main",
+            "label_model_selectors" => {
+              "researcher" => "role:researcher",
             },
           },
         },
@@ -104,21 +110,27 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
 
     assert_equal(
       {
-        "interactive" => {
-          "profile_key" => "friendly",
-          "model_selector" => "role:main",
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "friendly",
+          },
+          "subagents" => {
+            "default_profile_key" => "researcher",
+            "enabled_profile_keys" => ["researcher", "", "researcher"],
+            "delegation_mode" => "prefer",
+          },
         },
-        "subagents" => {
-          "default_profile_key" => "researcher",
-          "enabled_profile_keys" => ["researcher"],
-          "delegation_mode" => "prefer",
-          "max_concurrent" => 3,
-          "max_depth" => 2,
-          "allow_nested" => false,
-          "default_model_selector" => "role:main",
-          "profile_overrides" => {
-            "researcher" => {
-              "model_selector" => "role:researcher",
+        "core_matrix" => {
+          "interactive" => {
+            "model_selector" => "role:main",
+          },
+          "subagents" => {
+            "max_concurrent" => "3",
+            "max_depth" => "2",
+            "allow_nested" => false,
+            "default_model_selector" => "role:main",
+            "label_model_selectors" => {
+              "researcher" => "role:researcher",
             },
           },
         },
@@ -143,76 +155,82 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
     assert_includes workspace_agent.errors[:capability_policy_payload], "must only contain supported keys"
   end
 
-  test "rejects unsupported settings payload keys" do
+  test "accepts opaque settings payload keys for agent-owned compatibility handling" do
     context = workspace_agent_context
     workspace_agent = WorkspaceAgent.new(
       installation: context[:installation],
       workspace: context[:workspace],
       agent: context[:agent],
       settings_payload: {
-        "interactive" => {
-          "profile_key" => "pragmatic",
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "pragmatic",
+          },
         },
         "unexpected" => true,
       }
     )
 
-    assert_not workspace_agent.valid?
-    assert_includes workspace_agent.errors[:settings_payload], "must only contain supported keys"
+    assert workspace_agent.valid?, workspace_agent.errors.full_messages.to_sentence
   end
 
-  test "requires the default subagent profile to remain enabled when the enabled list is present" do
+  test "does not impose profile membership rules beyond the agent-provided schema" do
     context = workspace_agent_context
     workspace_agent = WorkspaceAgent.new(
       installation: context[:installation],
       workspace: context[:workspace],
       agent: context[:agent],
       settings_payload: {
-        "subagents" => {
-          "default_profile_key" => "researcher",
-          "enabled_profile_keys" => [],
+        "agent" => {
+          "subagents" => {
+            "default_profile_key" => "researcher",
+            "enabled_profile_keys" => [],
+          },
         },
       }
     )
 
-    assert_not workspace_agent.valid?
-    assert_includes workspace_agent.errors[:settings_payload], "default_subagent_profile_key must be included in enabled_subagent_profile_keys"
+    assert workspace_agent.valid?, workspace_agent.errors.full_messages.to_sentence
   end
 
-  test "normalizes interactive profiles out of the enabled specialist list" do
+  test "preserves specialist lists exactly as provided by the agent schema" do
     context = workspace_agent_context
     workspace_agent = WorkspaceAgent.create!(
       installation: context[:installation],
       workspace: context[:workspace],
       agent: context[:agent],
       settings_payload: {
-        "interactive" => {
-          "profile_key" => "pragmatic",
-        },
-        "subagents" => {
-          "enabled_profile_keys" => %w[pragmatic researcher],
+        "agent" => {
+          "interactive" => {
+            "profile_key" => "pragmatic",
+          },
+          "subagents" => {
+            "enabled_profile_keys" => %w[pragmatic researcher],
+          },
         },
       }
     )
 
-    assert_equal ["researcher"], workspace_agent.settings_payload.dig("subagents", "enabled_profile_keys")
+    assert_equal %w[pragmatic researcher], workspace_agent.settings_payload.dig("agent", "subagents", "enabled_profile_keys")
   end
 
-  test "rejects invalid numeric subagent limits instead of dropping them" do
+  test "accepts generic core matrix runtime hints without schema enforcement" do
     context = workspace_agent_context
     workspace_agent = WorkspaceAgent.new(
       installation: context[:installation],
       workspace: context[:workspace],
       agent: context[:agent],
       settings_payload: {
-        "subagents" => {
+        "core_matrix" => {
+          "subagents" => {
           "max_concurrent" => "abc",
+          },
         },
       }
     )
 
-    assert_not workspace_agent.valid?
-    assert_includes workspace_agent.errors[:settings_payload], "subagents.max_concurrent must be a positive integer"
+    assert workspace_agent.valid?, workspace_agent.errors.full_messages.to_sentence
+    assert_equal "abc", workspace_agent.settings_payload.dig("core_matrix", "subagents", "max_concurrent")
   end
 
   test "becomes immutable after revocation" do

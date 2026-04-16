@@ -16,7 +16,6 @@ module Runtime
         {
           "schema" => schema,
           "defaults" => defaults,
-          "profile_policy" => profile_policy,
         }
       end
 
@@ -28,59 +27,66 @@ module Runtime
           "type" => "object",
           "additionalProperties" => false,
           "properties" => {
-            "interactive" => {
+            "agent" => {
               "type" => "object",
               "additionalProperties" => false,
               "properties" => {
-                "profile_key" => {
-                  "type" => "string",
-                  "enum" => main_profile_keys,
-                  "minLength" => 1,
-                },
-                "model_selector" => { "type" => "string", "minLength" => 1 },
-              },
-            },
-            "subagents" => {
-              "type" => "object",
-              "additionalProperties" => false,
-              "properties" => {
-                "default_profile_key" => {
-                  "type" => "string",
-                  "enum" => specialist_profile_keys,
-                  "minLength" => 1,
-                },
-                "enabled_profile_keys" => {
-                  "type" => "array",
-                  "items" => {
-                    "type" => "string",
-                    "enum" => specialist_profile_keys,
-                    "minLength" => 1,
-                  },
-                  "uniqueItems" => true,
-                },
-                "delegation_mode" => {
-                  "type" => "string",
-                  "enum" => %w[allow prefer],
-                },
-                "max_concurrent" => { "type" => "integer", "minimum" => 1 },
-                "max_depth" => { "type" => "integer", "minimum" => 1 },
-                "allow_nested" => { "type" => "boolean" },
-                "default_model_selector" => { "type" => "string", "minLength" => 1 },
-                "profile_overrides" => {
+                "interactive" => {
                   "type" => "object",
                   "additionalProperties" => false,
-                  "properties" => specialist_profile_keys.to_h do |key|
-                    [
-                      key,
-                      {
-                        "type" => "object",
-                        "additionalProperties" => false,
-                        "properties" => {
-                          "model_selector" => { "type" => "string", "minLength" => 1 },
-                        },
+                  "properties" => {
+                    "profile_key" => profile_key_schema(main_profile_keys),
+                  },
+                },
+                "subagents" => {
+                  "type" => "object",
+                  "additionalProperties" => false,
+                  "properties" => {
+                    "default_profile_key" => nullable_profile_key_schema(specialist_profile_keys),
+                    "enabled_profile_keys" => {
+                      "type" => "array",
+                      "items" => {
+                        "type" => "string",
+                        "enum" => specialist_profile_keys,
+                        "minLength" => 1,
                       },
-                    ]
-                  end,
+                      "uniqueItems" => true,
+                    },
+                    "delegation_mode" => {
+                      "type" => "string",
+                      "enum" => %w[allow prefer],
+                    },
+                  },
+                },
+              },
+            },
+            "core_matrix" => {
+              "type" => "object",
+              "additionalProperties" => false,
+              "properties" => {
+                "interactive" => {
+                  "type" => "object",
+                  "additionalProperties" => false,
+                  "properties" => {
+                    "model_selector" => { "type" => "string", "minLength" => 1 },
+                  },
+                },
+                "subagents" => {
+                  "type" => "object",
+                  "additionalProperties" => false,
+                  "properties" => {
+                    "max_concurrent" => { "type" => "integer", "minimum" => 1 },
+                    "max_depth" => { "type" => "integer", "minimum" => 1 },
+                    "allow_nested" => { "type" => "boolean" },
+                    "default_model_selector" => { "type" => "string", "minLength" => 1 },
+                    "label_model_selectors" => {
+                      "type" => "object",
+                      "additionalProperties" => {
+                        "type" => "string",
+                        "minLength" => 1,
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -90,49 +96,28 @@ module Runtime
 
       def defaults
         {
-          "interactive" => {
-            "profile_key" => "pragmatic",
-            "model_selector" => "role:main",
+          "agent" => {
+            "interactive" => {
+              "profile_key" => default_main_profile_key,
+            },
+            "subagents" => {
+              "default_profile_key" => default_specialist_profile_key,
+              "enabled_profile_keys" => specialist_profile_keys,
+              "delegation_mode" => "allow",
+            },
           },
-          "subagents" => {
-            "default_profile_key" => default_specialist_profile_key,
-            "enabled_profile_keys" => specialist_profile_keys,
-            "delegation_mode" => "allow",
-            "max_concurrent" => DEFAULT_MAX_CONCURRENT,
-            "max_depth" => default_subagent_max_depth,
-            "allow_nested" => default_allow_nested,
-            "default_model_selector" => "role:main",
-            "profile_overrides" => specialist_profile_keys.to_h do |key|
-              [key, { "model_selector" => "role:#{key}" }]
-            end,
+          "core_matrix" => {
+            "interactive" => {
+              "model_selector" => "role:main",
+            },
+            "subagents" => {
+              "max_concurrent" => DEFAULT_MAX_CONCURRENT,
+              "max_depth" => default_subagent_max_depth,
+              "allow_nested" => default_allow_nested,
+              "default_model_selector" => "role:main",
+            },
           },
         }
-      end
-
-      def profile_policy
-        interactive_allowed_tool_names = agent_tool_names + Runtime::Manifest::DefinitionPackage::RESERVED_SUBAGENT_TOOL_NAMES
-        specialist_allowed_tool_names = agent_tool_names + (Runtime::Manifest::DefinitionPackage::RESERVED_SUBAGENT_TOOL_NAMES - ["subagent_spawn"])
-
-        main_profile_keys.each_with_object({}) do |key, out|
-          out[key] = {
-            "role_slot" => "main",
-            "allowed_tool_names" => interactive_allowed_tool_names,
-            "allow_execution_runtime_tools" => true,
-          }
-        end.merge(
-          specialist_profile_keys.each_with_object({}) do |key, out|
-            out[key] = {
-              "role_slot" => "main",
-              "allowed_tool_names" => specialist_allowed_tool_names,
-              "allow_execution_runtime_tools" => true,
-            }
-            out[key]["default_subagent_profile"] = true if key == default_specialist_profile_key
-          end
-        )
-      end
-
-      def agent_tool_names
-        Runtime::Manifest::DefinitionPackage::TOOL_CONTRACT.map { |entry| entry.fetch("tool_name") }
       end
 
       def main_profile_keys
@@ -144,7 +129,11 @@ module Runtime
       end
 
       def default_specialist_profile_key
-        "researcher"
+        specialist_profile_keys.first
+      end
+
+      def default_main_profile_key
+        main_profile_keys.first || @catalog.default_interactive_key
       end
 
       def default_subagent_max_depth
@@ -159,6 +148,24 @@ module Runtime
       def preferred_order(preferred_keys, discovered_keys)
         present_preferred = preferred_keys & discovered_keys
         present_preferred + (discovered_keys - present_preferred)
+      end
+
+      def profile_key_schema(keys)
+        {
+          "type" => "string",
+          "minLength" => 1,
+        }.tap do |schema|
+          schema["enum"] = keys if keys.any?
+        end
+      end
+
+      def nullable_profile_key_schema(keys)
+        {
+          "oneOf" => [
+            profile_key_schema(keys),
+            { "type" => "null" },
+          ],
+        }
       end
     end
   end

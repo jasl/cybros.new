@@ -48,17 +48,6 @@ bundled_configuration = {
       "idempotency_policy" => "best_effort",
     },
   ],
-  profile_policy: {
-    "main" => {
-      "label" => "Main",
-      "description" => "Primary interactive profile",
-    },
-    "researcher" => {
-      "label" => "Researcher",
-      "description" => "Delegated research profile",
-      "default_subagent_profile" => true,
-    },
-  },
   canonical_config_schema: {
     "type" => "object",
     "properties" => {
@@ -92,6 +81,11 @@ bundled_configuration = {
       },
     },
   },
+  workspace_agent_settings_schema: {
+    "type" => "object",
+    "properties" => {},
+  },
+  default_workspace_agent_settings: {},
   default_canonical_config: {
     "sandbox" => "workspace-write",
     "interactive" => {

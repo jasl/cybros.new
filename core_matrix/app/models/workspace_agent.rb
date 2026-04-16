@@ -21,7 +21,6 @@ class WorkspaceAgent < ApplicationRecord
   validate :capability_policy_payload_must_be_hash
   validate :capability_policy_payload_supported
   validate :settings_payload_must_be_hash
-  validate :settings_payload_supported
   validate :immutable_after_terminal_lifecycle_state, on: :update
   validate :terminal_transition_only_allows_terminal_metadata, on: :update
 
@@ -43,58 +42,6 @@ class WorkspaceAgent < ApplicationRecord
     )
   end
 
-  def interactive_profile_key_override
-    normalized_settings_payload.dig("interactive", "profile_key")
-  end
-
-  def interactive_model_selector_override
-    normalized_settings_payload.dig("interactive", "model_selector")
-  end
-
-  def default_subagent_profile_key_override
-    normalized_settings_payload.dig("subagents", "default_profile_key")
-  end
-
-  def enabled_subagent_profile_keys
-    Array(normalized_settings_payload.dig("subagents", "enabled_profile_keys"))
-  end
-
-  def delegation_mode_override
-    normalized_settings_payload.dig("subagents", "delegation_mode")
-  end
-
-  def max_concurrent_subagents_override
-    normalized_settings_payload.dig("subagents", "max_concurrent")
-  end
-
-  def max_subagent_depth_override
-    normalized_settings_payload.dig("subagents", "max_depth")
-  end
-
-  def allow_nested_subagents_override
-    normalized_settings_payload.dig("subagents", "allow_nested")
-  end
-
-  def default_subagent_model_selector_override
-    normalized_settings_payload.dig("subagents", "default_model_selector")
-  end
-
-  def default_subagent_model_selector_hint_override
-    default_subagent_model_selector_override
-  end
-
-  def subagent_model_selector_overrides
-    profile_overrides = normalized_settings_payload.dig("subagents", "profile_overrides")
-    return {} unless profile_overrides.is_a?(Hash)
-
-    profile_overrides.each_with_object({}) do |(profile_key, payload), out|
-      next unless payload.is_a?(Hash)
-      next if payload["model_selector"].blank?
-
-      out[profile_key] = payload["model_selector"]
-    end
-  end
-
   def settings_schema_payload
     WorkspaceAgentSettings::Schema.schema_for(agent_definition_version: current_definition_version)
   end
@@ -103,29 +50,8 @@ class WorkspaceAgent < ApplicationRecord
     WorkspaceAgentSettings::Schema.defaults_for(agent_definition_version: current_definition_version)
   end
 
-  def profile_settings_view
-    {}.tap do |view|
-      if normalized_settings_payload.dig("interactive").is_a?(Hash)
-        view["interactive_profile_key"] = interactive_profile_key_override if normalized_settings_payload["interactive"].key?("profile_key")
-        view["interactive_model_selector"] = interactive_model_selector_override if normalized_settings_payload["interactive"].key?("model_selector")
-      end
-
-      if normalized_settings_payload.dig("subagents").is_a?(Hash)
-        subagents = normalized_settings_payload.fetch("subagents")
-        view["default_subagent_profile_key"] = default_subagent_profile_key_override if subagents.key?("default_profile_key")
-        view["enabled_subagent_profile_keys"] = enabled_subagent_profile_keys if subagents.key?("enabled_profile_keys")
-        view["delegation_mode"] = delegation_mode_override if subagents.key?("delegation_mode")
-        view["max_concurrent_subagents"] = max_concurrent_subagents_override if subagents.key?("max_concurrent")
-        view["max_subagent_depth"] = max_subagent_depth_override if subagents.key?("max_depth")
-        view["allow_nested_subagents"] = allow_nested_subagents_override if subagents.key?("allow_nested")
-        if subagents.key?("default_model_selector")
-          view["default_subagent_model_selector"] = default_subagent_model_selector_override
-          view["default_subagent_model_selector_hint"] = default_subagent_model_selector_override
-        end
-        overrides = subagent_model_selector_overrides
-        view["subagent_model_selectors"] = overrides if overrides.any?
-      end
-    end
+  def settings_payload_view
+    normalized_settings_payload
   end
 
   private
@@ -147,19 +73,11 @@ class WorkspaceAgent < ApplicationRecord
   end
 
   def normalize_settings_payload
-    @settings_payload_validation = nil
+    return unless will_save_change_to_settings_payload?
     return self.settings_payload = {} if settings_payload.blank?
     return unless settings_payload.is_a?(Hash)
 
-    validation = WorkspaceAgentSettings::Validator.call(
-      settings_payload: settings_payload,
-      schema: settings_schema_payload,
-      default_settings: default_settings_payload,
-      profile_policy: current_profile_policy,
-      default_canonical_config: current_default_canonical_config
-    )
-    @settings_payload_validation = validation
-    self.settings_payload = validation.normalized_payload
+    self.settings_payload = settings_payload.deep_stringify_keys
   end
 
   def capability_policy_payload_must_be_hash
@@ -189,14 +107,6 @@ class WorkspaceAgent < ApplicationRecord
 
     if normalized.key?("disabled_capabilities") && !normalized["disabled_capabilities"].is_a?(Array)
       errors.add(:capability_policy_payload, "disabled_capabilities must be an array")
-    end
-  end
-
-  def settings_payload_supported
-    return unless settings_payload.is_a?(Hash)
-
-    validate_settings_payload.errors.each do |message|
-      errors.add(:settings_payload, message)
     end
   end
 
@@ -280,25 +190,7 @@ class WorkspaceAgent < ApplicationRecord
     settings_payload.is_a?(Hash) ? settings_payload.deep_stringify_keys : {}
   end
 
-  def current_default_canonical_config
-    current_definition_version&.default_canonical_config || {}
-  end
-
-  def current_profile_policy
-    current_definition_version&.profile_policy || {}
-  end
-
   def current_definition_version
     agent&.current_agent_definition_version || agent&.published_agent_definition_version
-  end
-
-  def validate_settings_payload
-    @settings_payload_validation ||= WorkspaceAgentSettings::Validator.call(
-      settings_payload: settings_payload,
-      schema: settings_schema_payload,
-      default_settings: default_settings_payload,
-      profile_policy: current_profile_policy,
-      default_canonical_config: current_default_canonical_config
-    )
   end
 end

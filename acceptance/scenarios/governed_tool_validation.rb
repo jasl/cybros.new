@@ -14,18 +14,6 @@ runtime_context = GovernedValidationSupport.bootstrap_runtime!(
   execution_runtime_fingerprint: "acceptance-governed-tool-environment",
   fingerprint: "acceptance-governed-tool-runtime",
   tool_contract: [],
-  profile_policy: {
-    "main" => {
-      "label" => "Main",
-      "description" => "Primary interactive profile",
-      "allowed_tool_names" => ["subagent_spawn"],
-    },
-    "researcher" => {
-      "label" => "Researcher",
-      "description" => "Delegated specialist profile for governed tool validation",
-      "default_subagent_profile" => true,
-    },
-  },
   default_canonical_config: {
     "sandbox" => "workspace-write",
     "interactive" => {
@@ -41,8 +29,10 @@ runtime_context = GovernedValidationSupport.bootstrap_runtime!(
 )
 runtime_context.fetch(:workspace).primary_workspace_agent.update!(
   settings_payload: {
-    "subagents" => {
-      "default_model_selector" => "role:researcher",
+    "core_matrix" => {
+      "subagents" => {
+        "default_model_selector" => "role:researcher",
+      },
     },
   }
 )
@@ -78,9 +68,7 @@ spawn_result = ProviderExecution::ExecuteCoreMatrixTool.call(
   tool_call: tool_call
 )
 
-unless spawn_result["profile_key"] == "researcher"
-  raise "expected default specialist profile researcher, got #{spawn_result["profile_key"].inspect}"
-end
+raise "expected no default profile label, got #{spawn_result["profile_key"].inspect}" if spawn_result.key?("profile_key")
 
 unless spawn_result["model_selector_hint"] == "candidate:dev/mock-model"
   raise "expected default subagent model selector hint to soft-fallback to candidate:dev/mock-model, got #{spawn_result["model_selector_hint"].inspect}"

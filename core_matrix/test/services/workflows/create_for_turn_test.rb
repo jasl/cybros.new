@@ -149,7 +149,7 @@ class Workflows::CreateForTurnTest < ActiveSupport::TestCase
     )
 
     assert_equal turn.execution_snapshot.capability_projection, mailbox_item.payload.fetch("capability_projection")
-    assert_equal "pragmatic", mailbox_item.payload.dig("capability_projection", "profile_key")
+    assert_nil mailbox_item.payload.dig("capability_projection", "profile_key")
   end
 
   test "creates queued subagent step work and assignment when initial task parameters are provided" do

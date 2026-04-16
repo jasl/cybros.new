@@ -31,6 +31,10 @@ module Prompts
       Array(metadata["when_to_use"])
     end
 
+    def hidden?
+      metadata["hidden"] == true
+    end
+
     def prompt_for(mode:)
       case mode.to_sym
       when :interactive

@@ -30,20 +30,11 @@ module ToolBindings
     private
 
     def projected_entries
-      @projected_entries ||= begin
-        entries = RuntimeCapabilityContract.build(
-          execution_runtime: @execution_runtime,
-          agent_definition_version: @agent_definition_version,
-          core_matrix_tool_catalog: @core_matrix_tool_catalog
-        ).effective_tool_catalog
-
-        allowed_names = @agent_definition_version.profile_policy.values.flat_map { |profile| Array(profile["allowed_tool_names"]) }.uniq
-        if allowed_names.blank?
-          entries
-        else
-          entries.select { |entry| allowed_names.include?(entry.fetch("tool_name")) }
-        end
-      end
+      @projected_entries ||= RuntimeCapabilityContract.build(
+        execution_runtime: @execution_runtime,
+        agent_definition_version: @agent_definition_version,
+        core_matrix_tool_catalog: @core_matrix_tool_catalog
+      ).effective_tool_catalog
     end
 
     def definitions_by_name

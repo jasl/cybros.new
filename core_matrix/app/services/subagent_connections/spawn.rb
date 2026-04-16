@@ -1,7 +1,6 @@
 module SubagentConnections
   class Spawn
     include Conversations::CreationSupport
-    DEFAULT_SUBAGENT_PROFILE_ALIAS = RuntimeCapabilityContract::DEFAULT_SUBAGENT_PROFILE_ALIAS
     ChildSelectorChoice = Struct.new(:selector_source, :selector, :resolved_hint, keyword_init: true)
 
     def self.call(...)
@@ -114,66 +113,7 @@ module SubagentConnections
     end
 
     def resolved_profile_key(conversation:)
-      @resolved_profile_key ||= begin
-        requested = normalized_profile_key_request
-        if requested.present?
-          if requested == DEFAULT_SUBAGENT_PROFILE_ALIAS
-            default_subagent_profile_key(conversation:)
-          else
-            raise_invalid!(conversation, :profile_key, "must be enabled for the current mount") unless enabled_subagent_profile_keys(conversation:).include?(requested)
-            requested
-          end
-        else
-          default_subagent_profile_key(conversation:)
-        end
-      end
-    end
-
-    def default_subagent_profile_key(conversation:)
-      enabled_keys = enabled_subagent_profile_keys(conversation:)
-      configured_default = profile_settings_view(conversation:)["default_subagent_profile_key"]
-      return configured_default if configured_default.present? && enabled_keys.include?(configured_default)
-
-      metadata_default = enabled_keys.find do |key|
-        value = profile_policy(conversation:)[key]
-        value.is_a?(Hash) && value["default_subagent_profile"] == true
-      end
-      return metadata_default if metadata_default.present?
-
-      enabled_keys.first ||
-        interactive_profile_key(conversation:)
-    end
-
-    def interactive_profile_key(conversation:)
-      normalized_interactive_profile_key(
-        profile_settings_view(conversation:)["interactive_profile_key"],
-        conversation:
-      ) ||
-        normalized_interactive_profile_key(
-          runtime_contract(conversation:).default_workspace_agent_settings.dig("interactive", "profile_key"),
-          conversation:
-        ) ||
-        normalized_interactive_profile_key(
-          runtime_contract(conversation:).default_canonical_config.dig("interactive", "profile"),
-          conversation:
-        ) ||
-        normalized_interactive_profile_key(
-          runtime_contract(conversation:).default_canonical_config.dig("interactive", "default_profile_key"),
-          conversation:
-        ) ||
-        "pragmatic"
-    end
-
-    def normalized_interactive_profile_key(key, conversation:)
-      candidate = key.to_s.presence
-      return if candidate.blank?
-      return "pragmatic" if candidate == "main" && profile_policy(conversation:).key?("pragmatic") && !profile_policy(conversation:).key?("main")
-
-      candidate
-    end
-
-    def profile_policy(conversation:)
-      runtime_contract(conversation:).profile_policy
+      @resolved_profile_key ||= normalized_profile_key_request.presence
     end
 
     def runtime_contract(conversation:)
@@ -190,13 +130,6 @@ module SubagentConnections
 
     def scope_turn?
       @scope.to_s == "turn"
-    end
-
-    def enabled_subagent_profile_keys(conversation:)
-      explicit_enabled = profile_settings_view(conversation:).key?("enabled_subagent_profile_keys")
-      return Array(profile_settings_view(conversation:)["enabled_subagent_profile_keys"]) - [interactive_profile_key(conversation:)] if explicit_enabled
-
-      profile_policy(conversation:).keys - [interactive_profile_key(conversation:)]
     end
 
     def next_depth(conversation:)
@@ -284,8 +217,8 @@ module SubagentConnections
     end
 
     def validate_max_concurrent_subagents!(conversation:)
-      max_concurrent = profile_settings_view(conversation:)["max_concurrent_subagents"]
-      return if max_concurrent.blank?
+      max_concurrent = core_matrix_settings(conversation:).subagent_max_concurrent
+      return if max_concurrent.nil?
 
       active_children = conversation.owned_subagent_connections.close_pending_or_open.count
       return if active_children < max_concurrent
@@ -293,11 +226,25 @@ module SubagentConnections
       raise_invalid!(conversation, :base, "has reached the configured subagent concurrency limit")
     end
 
-    def profile_settings_view(conversation:)
-      @profile_settings_view ||= begin
-        frozen_view = @origin_turn.execution_contract&.workspace_agent_profile_settings
-        source = frozen_view.presence || conversation.workspace_agent&.profile_settings_view || {}
-        source.deep_stringify_keys
+    def core_matrix_settings(conversation:)
+      @core_matrix_settings ||= begin
+        settings_payload, default_settings =
+          if @origin_turn.execution_contract.present?
+            [
+              @origin_turn.execution_contract.workspace_agent_settings_payload,
+              @origin_turn.execution_contract.agent_definition_version&.default_workspace_agent_settings || {},
+            ]
+          else
+            [
+              conversation.workspace_agent&.settings_payload_view,
+              conversation.workspace_agent&.default_settings_payload || {},
+            ]
+          end
+
+        WorkspaceAgentSettings::CoreMatrixView.new(
+          settings_payload: settings_payload,
+          default_settings: default_settings
+        )
       end
     end
 
@@ -339,15 +286,11 @@ module SubagentConnections
     end
 
     def profile_model_selector_override(conversation:)
-      selectors = profile_settings_view(conversation:)["subagent_model_selectors"]
-      return unless selectors.is_a?(Hash)
-
-      selectors[resolved_profile_key(conversation:).to_s].presence
+      core_matrix_settings(conversation:).subagent_model_selector_for(resolved_profile_key(conversation:))
     end
 
     def default_model_selector_override(conversation:)
-      profile_settings_view(conversation:)["default_subagent_model_selector"].presence ||
-        profile_settings_view(conversation:)["default_subagent_model_selector_hint"].presence
+      core_matrix_settings(conversation:).subagent_default_model_selector
     end
 
     def effective_catalog(conversation:)

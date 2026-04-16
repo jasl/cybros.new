@@ -1,6 +1,6 @@
 {
   "interactive": {
-    "default_profile_key": "main"
+    "default_profile_key": "default"
   },
   "role_slots": {
     "main": {
@@ -12,14 +12,7 @@
       "fallback_role_slot": "main"
     }
   },
-  "profile_runtime_overrides": {
-    "main": {
-      "role_slot": "main"
-    },
-    "researcher": {
-      "role_slot": "main"
-    }
-  },
+  "profile_runtime_overrides": {},
   "features": {
     "title_bootstrap": {
       "strategy": "embedded_only"
