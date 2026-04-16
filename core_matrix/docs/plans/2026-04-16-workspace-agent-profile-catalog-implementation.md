@@ -62,8 +62,8 @@ git commit -m "test: lock fenix profile catalog contract"
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/prompts/profile_bundle.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/prompts/profile_catalog.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/app/services/prompts/profile_catalog_loader.rb`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/prompts/main/main/meta.yml`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/prompts/main/main/USER.md`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/prompts/main/pragmatic/meta.yml`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/prompts/main/pragmatic/USER.md`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/prompts/main/friendly/meta.yml`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/prompts/main/friendly/USER.md`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/prompts/specialists/researcher/meta.yml`
@@ -97,14 +97,15 @@ Update `Prompts::Assembler` so it:
 
 Ship only the minimum useful set in the first round:
 
-- interactive `main`
+- interactive `pragmatic`
 - interactive `friendly`
 - specialist `researcher`
 - specialist `developer`
 - specialist `tester`
 
-Keep `main` and `researcher` as externally visible keys to avoid unnecessary
-protocol churn.
+Keep `researcher` as the existing specialist key. Interactive work should use
+the readable keys `pragmatic` and `friendly`; any legacy `main` payloads should
+normalize to `pragmatic`.
 
 Author the initial prompt bundles using the reviewed mature projects as
 reference patterns:

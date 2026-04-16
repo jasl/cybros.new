@@ -151,7 +151,7 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       agent: context[:agent],
       settings_payload: {
         "interactive" => {
-          "profile_key" => "main",
+          "profile_key" => "pragmatic",
         },
         "unexpected" => true,
       }
@@ -187,10 +187,10 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       agent: context[:agent],
       settings_payload: {
         "interactive" => {
-          "profile_key" => "main",
+          "profile_key" => "pragmatic",
         },
         "subagents" => {
-          "enabled_profile_keys" => %w[main researcher],
+          "enabled_profile_keys" => %w[pragmatic researcher],
         },
       }
     )

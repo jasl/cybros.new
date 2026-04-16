@@ -221,8 +221,8 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
 
   def fenix_profile_policy
     {
-      "main" => {
-        "label" => "Main",
+      "pragmatic" => {
+        "label" => "Pragmatic",
         "description" => "Primary interactive profile",
         "allowed_tool_names" => %w[compact_context estimate_messages estimate_tokens calculator subagent_spawn subagent_send subagent_wait subagent_close subagent_list],
       },

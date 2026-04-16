@@ -6,10 +6,10 @@ class Prompts::ProfileCatalogTest < ActiveSupport::TestCase
       write_profile(
         builtin_root,
         group: "main",
-        key: "main",
-        meta: default_meta(label: "Main", description: "Default interactive profile"),
+        key: "pragmatic",
+        meta: default_meta(label: "Pragmatic", description: "Default interactive profile"),
         files: {
-          "USER.md" => "Builtin main interactive overlay",
+          "USER.md" => "Builtin pragmatic interactive overlay",
         }
       )
       write_profile(
@@ -28,9 +28,9 @@ class Prompts::ProfileCatalogTest < ActiveSupport::TestCase
         shared_soul_path: shared_soul_path
       )
 
-      assert_equal %w[main], catalog.keys_for("main")
+      assert_equal %w[pragmatic], catalog.keys_for("main")
       assert_equal %w[researcher], catalog.keys_for("specialists")
-      assert_equal "Builtin main interactive overlay", catalog.fetch(group: "main", key: "main").prompt_for(mode: :interactive).strip
+      assert_equal "Builtin pragmatic interactive overlay", catalog.fetch(group: "main", key: "pragmatic").prompt_for(mode: :interactive).strip
       assert_equal "Builtin researcher specialist overlay", catalog.fetch(group: "specialists", key: "researcher").prompt_for(mode: :subagent).strip
     end
   end

@@ -32,7 +32,7 @@ class AppSurface::Presenters::WorkspaceAgentPresenterTest < ActiveSupport::TestC
     assert_equal "Use concise Chinese.\n", payload.fetch("global_instructions")
     assert_equal "prefer", payload.dig("settings_payload", "subagents", "delegation_mode")
     assert_equal "object", payload.dig("settings_schema", "type")
-    assert_equal "main", payload.dig("default_settings_payload", "interactive", "profile_key")
+    assert_equal "pragmatic", payload.dig("default_settings_payload", "interactive", "profile_key")
     refute_includes payload.to_json, %("#{context[:workspace_agent].id}")
   end
 end

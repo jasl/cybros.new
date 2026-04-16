@@ -31,7 +31,7 @@ class Requests::PrepareRoundTest < ActiveSupport::TestCase
           },
         },
         "agent_context" => {
-          "profile" => "main",
+          "profile" => "pragmatic",
           "allowed_tool_names" => %w[compact_context exec_command browser_open],
         },
         "provider_context" => {
@@ -163,7 +163,7 @@ class Requests::PrepareRoundTest < ActiveSupport::TestCase
 
     prompt = response.fetch("messages").first.fetch("content")
 
-    assert_includes prompt, "Friendly main profile"
+    assert_includes prompt, "Friendly interactive profile"
     assert_includes prompt, "## Specialist Routing"
     assert_includes prompt, "researcher"
     assert_includes prompt, "tester"
@@ -205,6 +205,6 @@ class Requests::PrepareRoundTest < ActiveSupport::TestCase
     prompt = response.fetch("messages").first.fetch("content")
 
     assert_includes prompt, "Developer specialist profile"
-    refute_includes prompt, "Friendly main profile"
+    refute_includes prompt, "Friendly interactive profile"
   end
 end

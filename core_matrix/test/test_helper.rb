@@ -479,9 +479,9 @@ module ActiveSupport
 
     def default_profile_policy
       {
-        "main" => {
-          "label" => "Main",
-          "description" => "Primary interactive profile",
+        "pragmatic" => {
+          "label" => "Pragmatic",
+          "description" => "Primary pragmatic interactive profile",
         },
         "friendly" => {
           "label" => "Friendly",
@@ -605,7 +605,7 @@ module ActiveSupport
     def default_workspace_agent_settings_payload
       {
         "interactive" => {
-          "profile_key" => "main",
+          "profile_key" => "pragmatic",
           "model_selector" => "role:main",
         },
         "subagents" => {

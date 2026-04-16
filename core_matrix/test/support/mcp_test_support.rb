@@ -21,9 +21,14 @@ module McpTestSupport
 
   def governed_mcp_profile_policy(tool_name: "remote_echo")
     {
-      "main" => {
-        "label" => "Main",
-        "description" => "Primary interactive profile",
+      "pragmatic" => {
+        "label" => "Pragmatic",
+        "description" => "Primary pragmatic interactive profile",
+        "allowed_tool_names" => [tool_name],
+      },
+      "friendly" => {
+        "label" => "Friendly",
+        "description" => "Friendly interactive profile",
         "allowed_tool_names" => [tool_name],
       },
     }

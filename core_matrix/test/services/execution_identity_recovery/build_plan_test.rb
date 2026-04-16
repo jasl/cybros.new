@@ -83,7 +83,7 @@ class ExecutionIdentityRecovery::BuildPlanTest < ActiveSupport::TestCase
       agent: context[:agent],
       execution_runtime: context[:execution_runtime],
       profile_policy: default_profile_policy.deep_merge(
-        "main" => { "allowed_tool_names" => %w[exec_command] }
+        "pragmatic" => { "allowed_tool_names" => %w[exec_command] }
       )
     )
     AgentConnections::RecordHeartbeat.call(

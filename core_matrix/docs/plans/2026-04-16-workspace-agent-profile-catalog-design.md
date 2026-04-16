@@ -17,7 +17,7 @@ without moving prompt ownership back into CoreMatrix.
 
 Today Fenix still has only a coarse profile distinction:
 
-- current interactive work defaults to profile key `main`
+- current interactive work defaults to profile key `pragmatic`
 - delegated work commonly uses profile key `researcher`
 - prompt assembly still effectively chooses between one interactive overlay and
   one delegated overlay
@@ -47,9 +47,9 @@ The design therefore needs a clean split:
    specialist key and any resolved model-selector hint used for that spawn.
 5. Capability authority stays in CoreMatrix. Fenix may bias or describe tool
    usage in prompt text, but it does not declare runtime-visible tools.
-6. Built-in external keys should not churn without product value. Existing
-   visible keys such as `main` and `researcher` should remain valid unless
-   there is a concrete reason to break them.
+6. Built-in external keys should be readable at the product surface. This round
+   should expose interactive profile keys that communicate working style
+   directly, such as `pragmatic` and `friendly`.
 
 ## Recommended Ownership Split
 
@@ -100,9 +100,9 @@ catalog group, not a different file format.
 Example layout:
 
 ```text
-agents/fenix/prompts/main/main/meta.yml
-agents/fenix/prompts/main/main/SOUL.md
-agents/fenix/prompts/main/main/USER.md
+agents/fenix/prompts/main/pragmatic/meta.yml
+agents/fenix/prompts/main/pragmatic/SOUL.md
+agents/fenix/prompts/main/pragmatic/USER.md
 agents/fenix/prompts/main/friendly/meta.yml
 agents/fenix/prompts/main/friendly/USER.md
 agents/fenix/prompts/specialists/researcher/meta.yml
@@ -111,23 +111,22 @@ agents/fenix/prompts/specialists/researcher/WORKER.md
 
 ### Initial Key Strategy
 
-The first round should preserve existing externally visible keys where
-possible:
+The first round should expose readable interactive keys directly:
 
-- keep `main` as the default interactive key
+- use `pragmatic` as the default interactive key
+- use `friendly` as the alternate interactive key
 - keep `researcher` as the existing delegated specialist key
 
-If product copy wants to describe `main` as "pragmatic", that should be done
-through metadata labels, not by renaming the external key in the first round.
-That keeps current `profile_key` semantics stable across runtime manifests,
-tooling, supervision, and existing tests.
+Legacy `main` should normalize to `pragmatic` where older payloads still appear,
+but new manifests, app surfaces, and tests should speak in terms of
+`pragmatic`.
 
 ### Initial Builtin Profile Set
 
 The first round should stay intentionally small:
 
 - interactive profiles:
-  - `main`
+  - `pragmatic`
   - `friendly`
 - specialist profiles:
   - `researcher`
@@ -224,7 +223,7 @@ Prompt-writing rules for this round:
 - `developer` should bias toward bounded implementation and refactoring work
 - `tester` should bias toward reproduction, validation, and acceptance proof
 - `friendly` may change tone and collaboration style, but should not weaken the
-  default engineering rigor expected from `main`
+  default engineering rigor expected from `pragmatic`
 
 These reference projects inform prompt quality only. They do not define the
 runtime contract and do not override Fenix's local catalog.
@@ -264,7 +263,7 @@ Suggested shape for this round:
 
 ```json
 {
-  "interactive_profile_key": "main",
+  "interactive_profile_key": "friendly",
   "default_subagent_profile_key": "researcher",
   "enabled_subagent_profile_keys": ["researcher"],
   "delegation_mode": "allow",
@@ -357,7 +356,7 @@ settings view:
     "workspace_agent_id": "wsa_...",
     "global_instructions": "...",
     "profile_settings": {
-      "interactive_profile_key": "main",
+      "interactive_profile_key": "friendly",
       "default_subagent_profile_key": "researcher",
       "enabled_subagent_profile_keys": ["researcher"],
       "delegation_mode": "allow",

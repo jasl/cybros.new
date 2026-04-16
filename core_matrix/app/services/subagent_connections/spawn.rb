@@ -145,10 +145,31 @@ module SubagentConnections
     end
 
     def interactive_profile_key(conversation:)
-      profile_settings_view(conversation:)["interactive_profile_key"] ||
-        runtime_contract(conversation:).default_canonical_config.dig("interactive", "profile") ||
-        runtime_contract(conversation:).default_canonical_config.dig("interactive", "default_profile_key") ||
-        "main"
+      normalized_interactive_profile_key(
+        profile_settings_view(conversation:)["interactive_profile_key"],
+        conversation:
+      ) ||
+        normalized_interactive_profile_key(
+          runtime_contract(conversation:).default_workspace_agent_settings.dig("interactive", "profile_key"),
+          conversation:
+        ) ||
+        normalized_interactive_profile_key(
+          runtime_contract(conversation:).default_canonical_config.dig("interactive", "profile"),
+          conversation:
+        ) ||
+        normalized_interactive_profile_key(
+          runtime_contract(conversation:).default_canonical_config.dig("interactive", "default_profile_key"),
+          conversation:
+        ) ||
+        "pragmatic"
+    end
+
+    def normalized_interactive_profile_key(key, conversation:)
+      candidate = key.to_s.presence
+      return if candidate.blank?
+      return "pragmatic" if candidate == "main" && profile_policy(conversation:).key?("pragmatic") && !profile_policy(conversation:).key?("main")
+
+      candidate
     end
 
     def profile_policy(conversation:)

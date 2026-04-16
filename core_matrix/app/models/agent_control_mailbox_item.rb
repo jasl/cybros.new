@@ -205,7 +205,7 @@ class AgentControlMailboxItem < ApplicationRecord
       end
 
     {
-      "profile" => capability_projection.fetch("profile_key", "main"),
+      "profile" => capability_projection.fetch("profile_key", "pragmatic"),
       "is_subagent" => capability_projection["is_subagent"] == true,
       "subagent_connection_id" => capability_projection["subagent_connection_id"],
       "parent_subagent_connection_id" => capability_projection["parent_subagent_connection_id"],

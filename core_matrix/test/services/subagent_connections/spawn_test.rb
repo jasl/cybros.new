@@ -264,7 +264,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "main",
+        "interactive_profile_key" => "pragmatic",
         "enabled_subagent_profile_keys" => %w[critic researcher],
         "default_subagent_profile_key" => "researcher",
       }
@@ -302,7 +302,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "main",
+        "interactive_profile_key" => "pragmatic",
         "enabled_subagent_profile_keys" => ["researcher"],
         "default_subagent_profile_key" => "researcher",
       }
@@ -488,7 +488,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
 
   test "spawn respects the current profile tool mask when subagent_spawn is hidden" do
     profile_policy = default_profile_policy.deep_merge(
-      "main" => {
+      "pragmatic" => {
         "allowed_tool_names" => %w[compact_context],
       },
       "researcher" => {
@@ -522,7 +522,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "main",
+        "interactive_profile_key" => "pragmatic",
         "enabled_subagent_profile_keys" => ["researcher"],
         "default_subagent_profile_key" => "researcher",
         "max_concurrent_subagents" => 1,
@@ -561,7 +561,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "main",
+        "interactive_profile_key" => "pragmatic",
         "enabled_subagent_profile_keys" => ["researcher"],
         "default_subagent_profile_key" => "researcher",
         "allow_nested_subagents" => false,
@@ -601,7 +601,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "main",
+        "interactive_profile_key" => "pragmatic",
         "enabled_subagent_profile_keys" => ["researcher"],
         "default_subagent_profile_key" => "researcher",
         "max_subagent_depth" => 1,
@@ -645,7 +645,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:base].join(", "), "subagent_spawn is not visible"
   end
 
-  test "treats interactive.default_profile_key as the mounted interactive profile when selecting enabled specialists" do
+  test "uses default workspace-agent interactive profile before canonical config when selecting enabled specialists" do
     profile_policy = default_profile_policy.deep_merge(
       "critic" => {
         "label" => "Critic",
@@ -689,18 +689,16 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       profile_key: "default"
     )
 
-    error = assert_raises(ActiveRecord::RecordInvalid) do
-      SubagentConnections::Spawn.call(
-        conversation: owner_conversation,
-        origin_turn: owner_turn,
-        content: "Interactive specialist",
-        scope: "conversation",
-        profile_key: "researcher"
-      )
-    end
+    explicit_result = SubagentConnections::Spawn.call(
+      conversation: owner_conversation,
+      origin_turn: owner_turn,
+      content: "Explicit specialist",
+      scope: "conversation",
+      profile_key: "researcher"
+    )
 
     assert_equal "critic", default_result.fetch("profile_key")
-    assert_includes error.record.errors[:profile_key], "must be enabled for the current mount"
+    assert_equal "researcher", explicit_result.fetch("profile_key")
   end
 
   test "nested spawn records parent session depth and list only returns sessions owned by the current conversation" do

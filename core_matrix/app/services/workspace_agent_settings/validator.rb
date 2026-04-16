@@ -238,6 +238,10 @@ module WorkspaceAgentSettings
     def normalize_domain_defaults!(normalized)
       return unless normalized.is_a?(Hash)
 
+      if normalized.dig("interactive", "profile_key").present?
+        normalized["interactive"]["profile_key"] = normalized_interactive_profile_key(normalized.dig("interactive", "profile_key"))
+      end
+
       enabled_keys = normalized.dig("subagents", "enabled_profile_keys")
       return unless enabled_keys.is_a?(Array)
 
@@ -253,11 +257,19 @@ module WorkspaceAgentSettings
     end
 
     def current_interactive_profile_key(normalized)
-      normalized.dig("interactive", "profile_key").presence ||
-        @default_settings.dig("interactive", "profile_key").presence ||
-        @default_canonical_config.dig("interactive", "profile").presence ||
-        @default_canonical_config.dig("interactive", "default_profile_key").presence ||
-        "main"
+      normalized_interactive_profile_key(normalized.dig("interactive", "profile_key")) ||
+        normalized_interactive_profile_key(@default_settings.dig("interactive", "profile_key")) ||
+        normalized_interactive_profile_key(@default_canonical_config.dig("interactive", "profile")) ||
+        normalized_interactive_profile_key(@default_canonical_config.dig("interactive", "default_profile_key")) ||
+        "pragmatic"
+    end
+
+    def normalized_interactive_profile_key(value)
+      candidate = value.to_s.presence
+      return if candidate.blank?
+      return "pragmatic" if candidate == "main" && @profile_policy.key?("pragmatic") && !@profile_policy.key?("main")
+
+      candidate
     end
   end
 end

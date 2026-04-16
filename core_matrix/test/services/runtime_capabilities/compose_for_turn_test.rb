@@ -16,7 +16,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
     assert_equal turn.execution_runtime.public_id, composer.call.fetch("execution_runtime_id")
     assert_equal turn.execution_runtime_version.public_id, composer.call.fetch("execution_runtime_version_id")
     assert_equal turn.agent_definition_version.public_id, composer.call.fetch("agent_definition_version_id")
-    assert_equal "main", composer.current_profile_key
+    assert_equal "pragmatic", composer.current_profile_key
   end
 
   test "exposes the capability contract and child profile key for subagent turns" do
@@ -114,7 +114,7 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
 
     composer = RuntimeCapabilities::ComposeForTurn.new(turn: turn)
 
-    assert_equal "main", composer.current_profile_key
+    assert_equal "pragmatic", composer.current_profile_key
   end
 
   test "subagent spawn schema stays pinned to frozen workspace agent settings for a turn" do
@@ -124,8 +124,8 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
         "description" => "Critique profile",
         "allowed_tool_names" => [],
       },
-      "main" => {
-        "label" => "Main",
+      "pragmatic" => {
+        "label" => "Pragmatic",
         "description" => "Primary interactive profile",
         "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
       },
@@ -138,14 +138,14 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
     context = build_governed_tool_context!(
       profile_policy: profile_policy,
       workspace_agent_settings_payload: {
-        "interactive_profile_key" => "main",
+        "interactive_profile_key" => "pragmatic",
         "enabled_subagent_profile_keys" => ["researcher"],
         "default_subagent_profile_key" => "researcher",
       }
     )
     context.fetch(:conversation).workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "main",
+        "interactive_profile_key" => "pragmatic",
         "enabled_subagent_profile_keys" => ["critic"],
         "default_subagent_profile_key" => "critic",
       }

@@ -17,7 +17,7 @@ class Shared::PayloadContextTest < ActiveSupport::TestCase
           "context_imports" => [],
         },
         "agent_context" => {
-          "profile" => "main",
+          "profile" => "pragmatic",
           "allowed_tool_names" => %w[compact_context],
         },
         "provider_context" => {},

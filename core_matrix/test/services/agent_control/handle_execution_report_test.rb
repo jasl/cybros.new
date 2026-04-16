@@ -261,8 +261,8 @@ class AgentControl::HandleExecutionReportTest < ActiveSupport::TestCase
     context = build_governed_tool_context!(
       execution_runtime_tool_catalog: [runtime_tool],
       profile_policy: {
-        "main" => {
-          "label" => "Main",
+        "pragmatic" => {
+          "label" => "Pragmatic",
           "description" => "Primary interactive profile",
           "allowed_tool_names" => %w[memory_search compact_context subagent_spawn],
         },

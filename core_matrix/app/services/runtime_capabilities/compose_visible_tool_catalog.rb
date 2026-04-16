@@ -26,14 +26,15 @@ module RuntimeCapabilities
 
     def current_profile_key
       @current_profile_key ||= begin
-        explicit_profile_key = explicit_turn_profile_key
+        explicit_profile_key = normalized_interactive_profile_key(explicit_turn_profile_key)
 
         @conversation.subagent_connection&.profile_key ||
           (explicit_profile_key if explicit_profile_key.present? && contract.profile_policy.key?(explicit_profile_key)) ||
-          profile_settings_view["interactive_profile_key"] ||
-          contract.default_canonical_config.dig("interactive", "profile") ||
-          contract.default_canonical_config.dig("interactive", "default_profile_key") ||
-          "main"
+          normalized_interactive_profile_key(profile_settings_view["interactive_profile_key"]) ||
+          normalized_interactive_profile_key(contract.default_workspace_agent_settings.dig("interactive", "profile_key")) ||
+          normalized_interactive_profile_key(contract.default_canonical_config.dig("interactive", "profile")) ||
+          normalized_interactive_profile_key(contract.default_canonical_config.dig("interactive", "default_profile_key")) ||
+          "pragmatic"
       end
     end
 
@@ -137,10 +138,19 @@ module RuntimeCapabilities
     end
 
     def mounted_interactive_profile_key
-      profile_settings_view["interactive_profile_key"] ||
-        contract.default_canonical_config.dig("interactive", "profile") ||
-        contract.default_canonical_config.dig("interactive", "default_profile_key") ||
-        "main"
+      normalized_interactive_profile_key(profile_settings_view["interactive_profile_key"]) ||
+        normalized_interactive_profile_key(contract.default_workspace_agent_settings.dig("interactive", "profile_key")) ||
+        normalized_interactive_profile_key(contract.default_canonical_config.dig("interactive", "profile")) ||
+        normalized_interactive_profile_key(contract.default_canonical_config.dig("interactive", "default_profile_key")) ||
+        "pragmatic"
+    end
+
+    def normalized_interactive_profile_key(key)
+      candidate = key.to_s.presence
+      return if candidate.blank?
+      return "pragmatic" if candidate == "main" && contract.profile_policy.key?("pragmatic") && !contract.profile_policy.key?("main")
+
+      candidate
     end
 
     def workspace_agent_subagent_policy_overrides

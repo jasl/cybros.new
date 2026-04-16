@@ -1,5 +1,5 @@
-label: Main
-description: Main interactive profile for direct engineering work.
+label: Pragmatic
+description: Pragmatic interactive profile for direct engineering work.
 when_to_use:
   - General interactive coding and debugging sessions
 avoid_when:

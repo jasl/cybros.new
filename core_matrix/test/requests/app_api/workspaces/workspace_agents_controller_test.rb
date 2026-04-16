@@ -58,7 +58,7 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
       response.parsed_body.dig("workspace_agent", "global_instructions")
     assert_equal "prefer", response.parsed_body.dig("workspace_agent", "settings_payload", "subagents", "delegation_mode")
     assert_equal "object", response.parsed_body.dig("workspace_agent", "settings_schema", "type")
-    assert_equal "main", response.parsed_body.dig("workspace_agent", "default_settings_payload", "interactive", "profile_key")
+    assert_equal "pragmatic", response.parsed_body.dig("workspace_agent", "default_settings_payload", "interactive", "profile_key")
   end
 
   test "updates and clears workspace agent global instructions and settings payload" do

@@ -5,7 +5,7 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
     context = build_governed_tool_context!(
       agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry, default_agent_observation_tool_entry("conversation_metadata_update")],
       profile_policy: governed_profile_policy.deep_merge(
-        "main" => {
+        "pragmatic" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn calculator conversation_metadata_update],
         }
       )
@@ -56,7 +56,7 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
     context = build_governed_tool_context!(
       agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry, default_agent_observation_tool_entry("conversation_metadata_update")],
       profile_policy: governed_profile_policy.deep_merge(
-        "main" => {
+        "pragmatic" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn calculator conversation_metadata_update],
         }
       )

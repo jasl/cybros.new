@@ -53,7 +53,7 @@ class ExecutionContractTest < ActiveSupport::TestCase
       document_kind: "workspace_agent_profile_settings",
       payload: {
         "profile_settings" => {
-          "interactive_profile_key" => "main",
+          "interactive_profile_key" => "pragmatic",
           "default_subagent_profile_key" => "researcher",
         },
       }
@@ -64,7 +64,7 @@ class ExecutionContractTest < ActiveSupport::TestCase
 
     assert_equal(
       {
-        "interactive_profile_key" => "main",
+        "interactive_profile_key" => "pragmatic",
         "default_subagent_profile_key" => "researcher",
       },
       execution_contract.workspace_agent_profile_settings

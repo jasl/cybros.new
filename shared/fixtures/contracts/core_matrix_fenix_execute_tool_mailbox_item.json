@@ -19,7 +19,7 @@
       "kind": "turn_step"
     },
     "agent_context": {
-      "profile": "main",
+      "profile": "pragmatic",
       "is_subagent": false,
       "allowed_tool_names": [
         "calculator"

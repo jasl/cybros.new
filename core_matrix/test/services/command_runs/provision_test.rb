@@ -17,9 +17,9 @@ class CommandRuns::ProvisionTest < ActiveSupport::TestCase
         },
       ],
       profile_policy: {
-        "main" => {
-          "label" => "Main",
-          "description" => "Runtime command profile",
+      "pragmatic" => {
+        "label" => "Pragmatic",
+        "description" => "Runtime command profile",
           "allowed_tool_names" => ["exec_command"],
         },
       }

@@ -46,7 +46,7 @@ module Shared
       projected = @payload.fetch("agent_context", {}).deep_stringify_keys
 
       {
-        "profile" => projected["profile"] || "main",
+        "profile" => projected["profile"] || "pragmatic",
         "is_subagent" => projected["is_subagent"] == true,
         "subagent_connection_id" => projected["subagent_connection_id"],
         "parent_subagent_connection_id" => projected["parent_subagent_connection_id"],

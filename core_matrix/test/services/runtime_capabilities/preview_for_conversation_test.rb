@@ -95,7 +95,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
         },
       ],
       profile_policy: {
-        "main" => {
+        "pragmatic" => {
           "allowed_tool_names" => %w[compact_context subagent_spawn],
           "allow_execution_runtime_tools" => true,
         },
@@ -254,7 +254,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
     conversation = create_root_conversation_for!(registration)
     conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "main",
+        "interactive_profile_key" => "pragmatic",
         "enabled_subagent_profile_keys" => ["researcher"],
         "default_subagent_profile_key" => "researcher",
       }
@@ -361,7 +361,7 @@ class RuntimeCapabilities::PreviewForConversationTest < ActiveSupport::TestCase
 
   def profile_policy_with_allowed_tool_names(main_tool_names:, researcher_tool_names:)
     default_profile_policy.deep_merge(
-      "main" => { "allowed_tool_names" => main_tool_names },
+      "pragmatic" => { "allowed_tool_names" => main_tool_names },
       "researcher" => { "allowed_tool_names" => researcher_tool_names }
     )
   end

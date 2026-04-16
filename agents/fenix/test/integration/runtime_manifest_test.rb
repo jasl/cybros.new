@@ -70,19 +70,19 @@ class RuntimeManifestTest < ActionDispatch::IntegrationTest
     assert_includes agent_tool_names, "compact_context"
     refute_includes agent_tool_names, "exec_command"
 
-    assert_includes definition_package.fetch("profile_policy").keys, "main"
+    assert_includes definition_package.fetch("profile_policy").keys, "pragmatic"
     assert_includes definition_package.fetch("profile_policy").keys, "friendly"
     assert_includes definition_package.fetch("profile_policy").keys, "researcher"
     assert_includes definition_package.fetch("profile_policy").keys, "developer"
     assert_includes definition_package.fetch("profile_policy").keys, "tester"
-    assert_equal true, definition_package.dig("profile_policy", "main", "allow_execution_runtime_tools")
+    assert_equal true, definition_package.dig("profile_policy", "pragmatic", "allow_execution_runtime_tools")
     assert_equal true, definition_package.dig("profile_policy", "friendly", "allow_execution_runtime_tools")
     assert_equal true, definition_package.dig("profile_policy", "researcher", "default_subagent_profile")
     assert_equal true, definition_package.dig("profile_policy", "researcher", "allow_execution_runtime_tools")
     assert_equal true, definition_package.dig("profile_policy", "developer", "allow_execution_runtime_tools")
     assert_equal true, definition_package.dig("profile_policy", "tester", "allow_execution_runtime_tools")
     assert_equal "object", definition_package.dig("workspace_agent_settings_schema", "type")
-    assert_equal "main", definition_package.dig("default_workspace_agent_settings", "interactive", "profile_key")
+    assert_equal "pragmatic", definition_package.dig("default_workspace_agent_settings", "interactive", "profile_key")
     assert_equal "role:main", definition_package.dig("default_workspace_agent_settings", "interactive", "model_selector")
     assert_equal "researcher", definition_package.dig("default_workspace_agent_settings", "subagents", "default_profile_key")
     assert_equal %w[researcher developer tester], definition_package.dig("default_workspace_agent_settings", "subagents", "enabled_profile_keys")

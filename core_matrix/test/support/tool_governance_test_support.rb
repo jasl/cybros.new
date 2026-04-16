@@ -53,9 +53,14 @@ module ToolGovernanceTestSupport
 
   def governed_profile_policy
     {
-      "main" => {
-        "label" => "Main",
-        "description" => "Primary interactive profile",
+      "pragmatic" => {
+        "label" => "Pragmatic",
+        "description" => "Primary pragmatic interactive profile",
+        "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
+      },
+      "friendly" => {
+        "label" => "Friendly",
+        "description" => "Friendly interactive profile",
         "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
       },
       "researcher" => {

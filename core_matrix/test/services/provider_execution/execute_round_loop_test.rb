@@ -135,8 +135,8 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     with_stubbed_provider_catalog(catalog) do
       context = build_governed_tool_context!(
         profile_policy: governed_profile_policy.deep_merge(
-          "main" => {
-            "label" => "Main",
+          "pragmatic" => {
+            "label" => "Pragmatic",
             "description" => "Primary interactive profile",
             "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
           }
@@ -197,8 +197,8 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     with_stubbed_provider_catalog(catalog) do
       context = build_governed_tool_context!(
         profile_policy: governed_profile_policy.deep_merge(
-          "main" => {
-            "label" => "Main",
+          "pragmatic" => {
+            "label" => "Pragmatic",
             "description" => "Primary interactive profile",
             "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
           }

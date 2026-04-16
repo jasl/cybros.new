@@ -9,7 +9,7 @@ class BuildRoundInstructions
 
   def call
     assembled_prompt = Prompts::Assembler.call(
-      profile: @context.dig("agent_context", "profile") || "main",
+      profile: @context.dig("agent_context", "profile") || "pragmatic",
       is_subagent: @context.dig("agent_context", "is_subagent") == true,
       global_instructions: global_instructions,
       skill_overlay: skill_overlay,

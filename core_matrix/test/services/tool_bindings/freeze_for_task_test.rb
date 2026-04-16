@@ -55,7 +55,7 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
         },
       ],
       profile_policy: {
-        "main" => {
+        "pragmatic" => {
           "allowed_tool_names" => %w[compact_context subagent_spawn],
           "allow_execution_runtime_tools" => true,
         },

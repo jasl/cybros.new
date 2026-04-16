@@ -3,7 +3,7 @@ require "test_helper"
 class Prompts::AssemblerTest < ActiveSupport::TestCase
   test "builds a system prompt with all expected sections" do
     assembled = Prompts::Assembler.call(
-      profile: "main",
+      profile: "pragmatic",
       is_subagent: false,
       global_instructions: "Stay in the active workspace.",
       skill_overlay: ["Use the deploy skill."],
@@ -27,7 +27,7 @@ class Prompts::AssemblerTest < ActiveSupport::TestCase
 
   test "emits a stable fallback when global instructions are absent" do
     assembled = Prompts::Assembler.call(
-      profile: "main",
+      profile: "pragmatic",
       is_subagent: false,
       global_instructions: nil,
       skill_overlay: [],

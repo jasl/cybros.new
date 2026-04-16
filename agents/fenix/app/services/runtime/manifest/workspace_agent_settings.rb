@@ -91,7 +91,7 @@ module Runtime
       def defaults
         {
           "interactive" => {
-            "profile_key" => "main",
+            "profile_key" => "pragmatic",
             "model_selector" => "role:main",
           },
           "subagents" => {
@@ -136,7 +136,7 @@ module Runtime
       end
 
       def main_profile_keys
-        @main_profile_keys ||= preferred_order(%w[main friendly], @catalog.keys_for("main"))
+        @main_profile_keys ||= preferred_order(%w[pragmatic friendly], @catalog.keys_for("main"))
       end
 
       def specialist_profile_keys

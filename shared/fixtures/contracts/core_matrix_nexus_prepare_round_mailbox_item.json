@@ -34,7 +34,7 @@
       "projection_fingerprint": "sha256:prepare-round-projection"
     },
     "agent_context": {
-      "profile": "main",
+      "profile": "pragmatic",
       "is_subagent": false,
       "allowed_tool_names": [
         "compact_context",

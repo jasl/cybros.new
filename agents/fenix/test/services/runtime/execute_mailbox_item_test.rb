@@ -308,7 +308,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
           "context_imports" => [],
         },
         "agent_context" => {
-          "profile" => "main",
+          "profile" => "pragmatic",
           "allowed_tool_names" => %w[compact_context exec_command],
         },
         "provider_context" => {
@@ -343,7 +343,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
           "kind" => "turn_step",
         },
         "agent_context" => {
-          "profile" => "main",
+          "profile" => "pragmatic",
           "allowed_tool_names" => allowed_tool_names,
         },
         "provider_context" => {

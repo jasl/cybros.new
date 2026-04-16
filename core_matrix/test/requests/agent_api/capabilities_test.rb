@@ -62,7 +62,7 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_equal default_profile_policy, response_body.fetch("profile_policy")
     assert_equal default_profile_policy, response_body.fetch("agent_plane").fetch("profile_policy")
     assert_equal "object", response_body.dig("workspace_agent_settings_schema", "type")
-    assert_equal "main", response_body.dig("default_workspace_agent_settings", "interactive", "profile_key")
+    assert_equal "pragmatic", response_body.dig("default_workspace_agent_settings", "interactive", "profile_key")
     assert_equal "object", response_body.dig("agent_plane", "workspace_agent_settings_schema", "type")
     assert_equal "main", response_body.dig("default_canonical_config", "interactive", "profile")
     assert_equal 3, response_body.dig("default_canonical_config", "subagents", "max_depth")

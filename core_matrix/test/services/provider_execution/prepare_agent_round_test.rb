@@ -38,7 +38,7 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
       context.fetch(:workflow_run).provider_context.dig("request_preparation", "prompt_compaction"),
       request_payload.dig("provider_context", "request_preparation", "prompt_compaction")
     )
-    assert_equal "main", request_payload.fetch("agent_context").fetch("profile")
+    assert_equal "pragmatic", request_payload.fetch("agent_context").fetch("profile")
     assert_includes request_payload.fetch("agent_context").fetch("allowed_tool_names"), "exec_command"
     assert_equal(
       {
@@ -87,7 +87,7 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
     context = build_governed_tool_context!(
       workspace_agent_global_instructions: "Use concise Chinese.\n",
       workspace_agent_settings_payload: {
-        "interactive_profile_key" => "main",
+        "interactive_profile_key" => "pragmatic",
         "delegation_mode" => "prefer",
       }
     )
@@ -122,7 +122,7 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
         "workspace_agent_id" => context.fetch(:conversation).workspace_agent.public_id,
         "global_instructions" => "Use concise Chinese.\n",
         "profile_settings" => {
-          "interactive_profile_key" => "main",
+          "interactive_profile_key" => "pragmatic",
           "delegation_mode" => "prefer",
         },
       },

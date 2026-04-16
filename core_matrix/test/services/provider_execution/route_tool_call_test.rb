@@ -17,7 +17,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     context = build_governed_tool_context!(
       agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry],
       profile_policy: governed_profile_policy.deep_merge(
-        "main" => {
+        "pragmatic" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn calculator],
         }
       )
@@ -99,8 +99,8 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     context = build_governed_tool_context!(
       execution_runtime_tool_catalog: [environment_tool],
       profile_policy: {
-        "main" => {
-          "label" => "Main",
+        "pragmatic" => {
+          "label" => "Pragmatic",
           "description" => "Primary interactive profile",
           "allowed_tool_names" => %w[memory_search compact_context subagent_spawn],
         },
@@ -240,7 +240,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     context = build_governed_tool_context!(
       execution_runtime_tool_catalog: governed_execution_runtime_tool_catalog + [command_run_wait_tool],
       profile_policy: governed_profile_policy.deep_merge(
-        "main" => {
+        "pragmatic" => {
           "allowed_tool_names" => %w[exec_command command_run_wait compact_context subagent_spawn],
         }
       )
@@ -334,7 +334,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     context = build_governed_tool_context!(
       execution_runtime_tool_catalog: governed_execution_runtime_tool_catalog + [process_exec_tool],
       profile_policy: governed_profile_policy.deep_merge(
-        "main" => {
+        "pragmatic" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn process_exec],
         }
       )
@@ -396,7 +396,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     context = build_governed_tool_context!(
       execution_runtime_tool_catalog: governed_execution_runtime_tool_catalog + [process_exec_tool],
       profile_policy: governed_profile_policy.deep_merge(
-        "main" => {
+        "pragmatic" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn process_exec],
         }
       )
@@ -454,7 +454,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     context = build_governed_tool_context!(
       execution_runtime_tool_catalog: governed_execution_runtime_tool_catalog + [process_exec_tool],
       profile_policy: governed_profile_policy.deep_merge(
-        "main" => {
+        "pragmatic" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn process_exec],
         }
       )
@@ -517,8 +517,8 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
   test "routes core matrix tools without delegating back to the agent mailbox exchange" do
     context = build_governed_tool_context!(
       profile_policy: governed_profile_policy.deep_merge(
-        "main" => {
-          "label" => "Main",
+        "pragmatic" => {
+          "label" => "Pragmatic",
           "description" => "Primary interactive profile",
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn subagent_list],
         }
@@ -554,7 +554,7 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
   test "routes conversation metadata updates without delegating back to the agent mailbox exchange" do
     context = build_governed_tool_context!(
       profile_policy: governed_profile_policy.deep_merge(
-        "main" => {
+        "pragmatic" => {
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
         }
       )

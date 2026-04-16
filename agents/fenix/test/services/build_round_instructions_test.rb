@@ -4,7 +4,7 @@ class BuildRoundInstructionsTest < ActiveSupport::TestCase
   test "builds a system prompt plus transcript without inferring durable state from transcript" do
     context = {
       "agent_context" => {
-        "profile" => "main",
+        "profile" => "pragmatic",
         "is_subagent" => false,
         "allowed_tool_names" => %w[exec_command browser_open],
       },
@@ -49,7 +49,7 @@ class BuildRoundInstructionsTest < ActiveSupport::TestCase
   test "uses the global-instructions fallback when no workspace agent context is provided" do
     context = {
       "agent_context" => {
-        "profile" => "main",
+        "profile" => "pragmatic",
         "is_subagent" => false,
         "allowed_tool_names" => %w[exec_command],
       },

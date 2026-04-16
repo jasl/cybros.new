@@ -165,8 +165,8 @@ class AgentApiToolInvocationsControllerTest < ActionDispatch::IntegrationTest
 
   def runtime_command_profile_policy
     {
-      "main" => {
-        "label" => "Main",
+      "pragmatic" => {
+        "label" => "Pragmatic",
         "description" => "Runtime command profile",
         "allowed_tool_names" => %w[exec_command write_stdin],
       },

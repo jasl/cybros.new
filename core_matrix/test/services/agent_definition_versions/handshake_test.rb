@@ -32,7 +32,7 @@ class AgentDefinitionVersions::HandshakeTest < ActiveSupport::TestCase
     assert_equal registration[:agent_definition_version], result.agent_definition_version
     assert_equal registration[:agent_definition_version], result.agent_definition_version
     assert_equal 1, result.agent_definition_version.version
-    assert_equal "main", result.agent_definition_version.default_workspace_agent_settings.dig("interactive", "profile_key")
+    assert_equal "pragmatic", result.agent_definition_version.default_workspace_agent_settings.dig("interactive", "profile_key")
     assert_equal "workspace-write", result.agent_definition_version.default_canonical_config["sandbox"]
     assert_equal "role:researcher", result.agent_definition_version.default_canonical_config.dig("model_slots", "research", "selector")
     assert_equal "role:summary", result.agent_definition_version.default_canonical_config.dig("model_slots", "summary", "selector")

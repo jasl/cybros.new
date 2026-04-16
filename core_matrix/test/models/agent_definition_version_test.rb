@@ -12,11 +12,11 @@ class AgentDefinitionVersionTest < ActiveSupport::TestCase
     definition_version = create_agent_definition_version!(
       protocol_methods_document: create_json_document!(document_kind: "protocol_methods", payload: [{ "method_id" => "conversation_variables_mget" }]),
       tool_contract_document: create_json_document!(document_kind: "tool_contract", payload: [{ "tool_name" => "agent_lookup", "tool_kind" => "agent_observation" }]),
-      profile_policy_document: create_json_document!(document_kind: "profile_policy", payload: { "main" => { "role_slot" => "main" } }),
+      profile_policy_document: create_json_document!(document_kind: "profile_policy", payload: { "pragmatic" => { "role_slot" => "main" } }),
       canonical_config_schema_document: create_json_document!(document_kind: "config_schema", payload: { "type" => "object" }),
       conversation_override_schema_document: create_json_document!(document_kind: "conversation_override_schema", payload: { "type" => "object" }),
       workspace_agent_settings_schema_document: create_json_document!(document_kind: "workspace_agent_settings_schema", payload: { "type" => "object" }),
-      default_workspace_agent_settings_document: create_json_document!(document_kind: "default_workspace_agent_settings", payload: { "interactive" => { "profile_key" => "main" } }),
+      default_workspace_agent_settings_document: create_json_document!(document_kind: "default_workspace_agent_settings", payload: { "interactive" => { "profile_key" => "pragmatic" } }),
       default_canonical_config_document: create_json_document!(document_kind: "default_config", payload: { "interactive" => { "default_profile_key" => "main" } }),
       reflected_surface_document: create_json_document!(document_kind: "reflected_surface", payload: { "display_name" => "Fenix" })
     )
@@ -24,7 +24,7 @@ class AgentDefinitionVersionTest < ActiveSupport::TestCase
     assert_equal ["conversation_variables_mget"], definition_version.protocol_methods_document.payload.map { |entry| entry.fetch("method_id") }
     assert_equal ["agent_lookup"], definition_version.tool_contract_document.payload.map { |entry| entry.fetch("tool_name") }
     assert_equal "object", definition_version.workspace_agent_settings_schema_document.payload.fetch("type")
-    assert_equal "main", definition_version.default_workspace_agent_settings_document.payload.dig("interactive", "profile_key")
+    assert_equal "pragmatic", definition_version.default_workspace_agent_settings_document.payload.dig("interactive", "profile_key")
     assert_equal "main", definition_version.default_canonical_config_document.payload.dig("interactive", "default_profile_key")
     assert_equal "Fenix", definition_version.reflected_surface_document.payload.fetch("display_name")
   end

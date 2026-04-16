@@ -106,7 +106,7 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
       "protocol_methods" => default_protocol_methods("agent_health", "capabilities_handshake"),
       "tool_contract" => default_tool_catalog("compact_context"),
       "profile_policy" => {
-        "main" => { "role_slot" => "main" },
+        "pragmatic" => { "role_slot" => "main" },
         "researcher" => { "role_slot" => "main", "default_subagent_profile" => true },
       },
       "canonical_config_schema" => profile_aware_canonical_config_schema,
@@ -125,16 +125,16 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
         },
       },
       "default_workspace_agent_settings" => {
-        "interactive" => { "profile_key" => "main" },
+        "interactive" => { "profile_key" => "pragmatic" },
       },
       "default_canonical_config" => {
         "interactive" => { "default_profile_key" => "main" },
         "role_slots" => {
-          "main" => { "selector" => "role:main", "fallback_role_slot" => nil },
+          "pragmatic" => { "selector" => "role:main", "fallback_role_slot" => nil },
           "summary" => { "selector" => "role:summary", "fallback_role_slot" => "main" },
         },
         "profile_runtime_overrides" => {
-          "main" => { "role_slot" => "main" },
+          "pragmatic" => { "role_slot" => "main" },
           "researcher" => { "role_slot" => "main" },
         },
         "subagents" => { "enabled" => true, "allow_nested" => true, "max_depth" => 3 },

@@ -473,8 +473,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
         },
       ],
       profile_policy: {
-        "main" => {
-          "label" => "Main",
+        "pragmatic" => {
+          "label" => "Pragmatic",
           "description" => "Primary interactive profile",
           "allowed_tool_names" => ["exec_command"],
         },
