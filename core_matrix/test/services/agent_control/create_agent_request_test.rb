@@ -384,7 +384,7 @@ class AgentControl::CreateAgentRequestTest < ActiveSupport::TestCase
     assert_equal "soft_threshold", stored_payload.dig("prompt_compaction", "consultation_reason")
     assert_equal "agent-runtime/2026-04-01", mailbox_item.payload.fetch("protocol_version")
     assert_equal execution_snapshot.provider_context, mailbox_item.payload.fetch("provider_context")
-    assert_equal "mock", mailbox_item.payload.dig("agent_context", "profile")
+    assert_equal "main", mailbox_item.payload.dig("agent_context", "profile")
     assert_equal(
       context.fetch(:workflow_node).public_id,
       mailbox_item.payload.dig("task", "workflow_node_id")

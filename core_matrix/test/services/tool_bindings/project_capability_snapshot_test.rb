@@ -13,7 +13,7 @@ class ToolBindings::ProjectCapabilitySnapshotTest < ActiveSupport::TestCase
       agent_definition_version: context.fetch(:agent_definition_version)
     ).order(:tool_name)
 
-    assert_equal %w[compact_context exec_command subagent_spawn], definitions.pluck(:tool_name)
+    assert_equal %w[compact_context conversation_metadata_update exec_command subagent_spawn], definitions.pluck(:tool_name)
     assert_equal "replaceable", definitions.find_by!(tool_name: "compact_context").governance_mode
     assert_equal "whitelist_only", definitions.find_by!(tool_name: "exec_command").governance_mode
     assert_equal "reserved", definitions.find_by!(tool_name: "subagent_spawn").governance_mode

@@ -3,6 +3,87 @@ require Rails.root.join("../acceptance/lib/capstone_review_artifacts")
 require "tmpdir"
 
 class Acceptance::CapstoneReviewArtifactsTest < ActiveSupport::TestCase
+  setup do
+    truncate_all_tables!
+  end
+
+  test "install! writes a workflow mermaid review with specialist labels" do
+    fixture = build_workflow_proof_fixture!(with_subagent_spawn: true)
+    fixture.fetch(:workflow_run).update!(
+      wait_state: "waiting",
+      wait_reason_kind: "human_interaction",
+      waiting_since_at: Time.current
+    )
+    later_turn = Turns::StartUserTurn.call(
+      conversation: fixture.fetch(:conversation),
+      content: "Later proof export input",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    later_workflow_run = create_workflow_run!(
+      turn: later_turn,
+      lifecycle_state: "completed"
+    )
+    debug_payload = ConversationDebugExports::BuildPayload.call(conversation: fixture.fetch(:conversation))
+
+    Dir.mktmpdir do |dir|
+      artifact_dir = Pathname.new(dir)
+      conversation_export_path = artifact_dir.join("exports", "conversation-export.zip")
+      conversation_debug_export_path = artifact_dir.join("exports", "conversation-debug-export.zip")
+      write_zip_fixture(
+        conversation_export_path,
+        "transcript.md" => "# Transcript\n",
+        "conversation.html" => "<html><body>Transcript</body></html>"
+      )
+      write_zip_fixture(
+        conversation_debug_export_path,
+        "conversation.json" => "{}"
+      )
+
+      workflow_run_singleton = WorkflowRun.singleton_class
+      proof_export_singleton = Workflows::ProofExportQuery.singleton_class
+      original_find_by = workflow_run_singleton.instance_method(:find_by)
+      original_call = proof_export_singleton.instance_method(:call)
+
+      begin
+        workflow_run_singleton.send(:define_method, :find_by) do |*|
+          raise "workflow review should use debug export payload, not live db lookups"
+        end
+        proof_export_singleton.send(:define_method, :call) do |*|
+          raise "workflow review should not re-run proof export queries"
+        end
+
+        Acceptance::CapstoneReviewArtifacts.install!(
+          artifact_dir: artifact_dir,
+          conversation_export_path: conversation_export_path,
+          conversation_debug_export_path: conversation_debug_export_path,
+          turn_feed: { "items" => [] },
+          turn_runtime_events: { "summary" => { "event_count" => 0, "lane_count" => 0 }, "segments" => [] },
+          debug_payload: debug_payload,
+          workflow_run_id: fixture.fetch(:workflow_run).public_id
+        )
+      ensure
+        workflow_run_singleton.send(:define_method, :find_by, original_find_by)
+        proof_export_singleton.send(:define_method, :call, original_call)
+      end
+
+      review = artifact_dir.join("review", "workflow-mermaid.md").read
+      index = artifact_dir.join("review", "index.md").read
+
+      assert_includes review, "# Workflow Mermaid"
+      assert_includes review, "```mermaid"
+      assert_includes review, "flowchart LR"
+      assert_includes review, "Selected workflow run: `#{fixture.fetch(:workflow_run).public_id}`"
+      refute_includes review, later_workflow_run.public_id
+      assert_includes review, " --> "
+      assert_includes review, "yield batch: batch-1"
+      assert_includes review, "barrier: wait_all"
+      assert_includes review, "specialist: researcher"
+      assert_includes review, "wait: human_interaction"
+      assert_includes index, "[Workflow Mermaid](workflow-mermaid.md)"
+    end
+  end
+
   test "install_live_supervision_sidechat! writes readable review artifacts" do
     Dir.mktmpdir do |dir|
       artifact_dir = Pathname.new(dir)
@@ -87,6 +168,18 @@ class Acceptance::CapstoneReviewArtifactsTest < ActiveSupport::TestCase
       assert_includes summary, "conversation id: `conversation_public_id`"
       assert_includes summary, "workflow wait state: `waiting`"
       assert_includes summary, "Waiting for operator confirmation."
+    end
+  end
+
+  private
+
+  def write_zip_fixture(path, entries)
+    FileUtils.mkdir_p(path.dirname)
+    Zip::OutputStream.open(path.to_s) do |zip|
+      entries.each do |entry_name, contents|
+        zip.put_next_entry(entry_name)
+        zip.write(contents)
+      end
     end
   end
 end

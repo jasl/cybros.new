@@ -134,13 +134,13 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
 
     with_stubbed_provider_catalog(catalog) do
       context = build_governed_tool_context!(
-        profile_policy: {
+        profile_policy: governed_profile_policy.deep_merge(
           "main" => {
             "label" => "Main",
             "description" => "Primary interactive profile",
             "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
-          },
-        }
+          }
+        )
       )
       workflow_node = context.fetch(:workflow_node)
       transcript = turn_step_messages_for(context.fetch(:workflow_run))
@@ -196,13 +196,13 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
 
     with_stubbed_provider_catalog(catalog) do
       context = build_governed_tool_context!(
-        profile_policy: {
+        profile_policy: governed_profile_policy.deep_merge(
           "main" => {
             "label" => "Main",
             "description" => "Primary interactive profile",
             "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
-          },
-        }
+          }
+        )
       )
       workflow_node = context.fetch(:workflow_node)
       transcript = turn_step_messages_for(context.fetch(:workflow_run))

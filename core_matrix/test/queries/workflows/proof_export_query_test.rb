@@ -4,6 +4,10 @@ module Workflows
 end
 
 class Workflows::ProofExportQueryTest < ActiveSupport::TestCase
+  setup do
+    truncate_all_tables!
+  end
+
   test "loads one immutable workflow proof bundle with bounded eager loading" do
     fixture = build_workflow_proof_fixture!
 
@@ -35,5 +39,23 @@ class Workflows::ProofExportQueryTest < ActiveSupport::TestCase
     assert_equal ["governed_tool"], successor.metadata["prior_tool_node_keys"]
     assert_equal true, successor.metadata["transcript_side_effect_committed"]
     assert_raises(FrozenError) { bundle.nodes << :extra }
+  end
+
+  test "includes spawned subagent specialist metadata when a workflow node opened a specialist conversation" do
+    fixture = build_workflow_proof_fixture!(with_subagent_spawn: true)
+
+    bundle = nil
+    queries = capture_sql_queries do
+      bundle = Workflows::ProofExportQuery.call(workflow_run: fixture.fetch(:workflow_run))
+    end
+
+    assert_operator queries.size, :<=, 6
+    governed_tool = bundle.nodes.find { |node| node.node_key == "governed_tool" }
+
+    assert_equal fixture.fetch(:subagent_connection).public_id, governed_tool.metadata.dig("spawned_subagent", "subagent_connection_id")
+    assert_equal "researcher", governed_tool.metadata.dig("spawned_subagent", "profile_key")
+    assert_equal "researcher", governed_tool.metadata.dig("spawned_subagent", "specialist_key")
+    assert_equal "specialist", governed_tool.metadata.dig("spawned_subagent", "profile_group")
+    assert_equal "role:researcher", governed_tool.metadata.dig("spawned_subagent", "resolved_model_selector_hint")
   end
 end

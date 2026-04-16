@@ -18,8 +18,9 @@ module Workflows
           lines << edge_line(edge)
         end
 
-        if @bundle.workflow_run.fetch("wait_reason_kind").present?
-          lines << %(  workflow_wait["#{escape_label("wait: #{@bundle.workflow_run.fetch("wait_reason_kind")}")}"])
+        wait_reason_kind = @bundle.workflow_run["wait_reason_kind"]
+        if wait_reason_kind.present?
+          lines << %(  workflow_wait["#{escape_label("wait: #{wait_reason_kind}")}"])
         end
 
         lines.join("\n")
@@ -43,12 +44,14 @@ module Workflows
       end
 
       def node_label(node)
+        spawned_subagent = node.metadata["spawned_subagent"] || {}
         lines = [
           node.node_key,
           node.node_type,
           "state: #{node.state}",
           "policy: #{node.presentation_policy}",
         ]
+        lines << "specialist: #{spawned_subagent["specialist_key"]}" if spawned_subagent["specialist_key"].present?
         lines << "yielding from: #{node.yielding_node_key}" if node.yielding_node_key.present?
         lines << "resume successor" if node.resume_successor
         lines.join("\n")

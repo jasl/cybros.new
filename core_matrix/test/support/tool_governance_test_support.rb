@@ -56,7 +56,13 @@ module ToolGovernanceTestSupport
       "main" => {
         "label" => "Main",
         "description" => "Primary interactive profile",
-        "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
+        "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
+      },
+      "researcher" => {
+        "label" => "Researcher",
+        "description" => "Delegated specialist profile",
+        "default_subagent_profile" => true,
+        "allowed_tool_names" => [],
       },
     }
   end

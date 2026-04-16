@@ -32,11 +32,15 @@ class ConversationDebugExportsWriteZipBundleTest < ActiveSupport::TestCase
     assert_includes entries, "conversation.json"
     assert_includes entries, "diagnostics.json"
     assert_includes entries, "workflow_runs.json"
+    assert_includes entries, "workflow_edges.json"
+    assert_includes entries, "workflow_artifacts.json"
     assert_includes entries, "conversation_supervision_sessions.json"
     assert_includes entries, "conversation_supervision_messages.json"
     assert_includes entries, "usage_events.json"
     assert entries.any? { |entry| entry.start_with?("files/") }
     assert_equal "conversation_debug_export", bundle.dig("manifest", "bundle_kind")
+    assert_includes bundle.dig("manifest", "section_files"), "workflow_edges.json"
+    assert_includes bundle.dig("manifest", "section_files"), "workflow_artifacts.json"
   ensure
     bundle&.fetch("io")&.close!
   end

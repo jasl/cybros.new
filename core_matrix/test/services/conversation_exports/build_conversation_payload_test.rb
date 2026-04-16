@@ -41,7 +41,7 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
     payload = ConversationExports::BuildConversationPayload.call(conversation: conversation)
 
     assert_equal "conversation_export", payload.fetch("bundle_kind")
-    assert_equal "2026-04-02", payload.fetch("bundle_version")
+    assert_equal "2026-04-16", payload.fetch("bundle_version")
     assert_equal conversation.public_id, payload.dig("conversation", "public_id")
     assert_equal I18n.t("conversations.defaults.untitled_title"), payload.dig("conversation", "title")
     assert_equal "Export summary", payload.dig("conversation", "summary")
@@ -49,6 +49,7 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
     assert_equal "agent", payload.dig("conversation", "summary_source")
     assert_equal "mutable", payload.dig("conversation", "interaction_lock_state")
     assert_equal default_interactive_entry_policy_payload, payload.dig("conversation", "entry_policy_payload")
+    assert_equal [], payload.fetch("delegation_summary")
     refute payload.fetch("conversation").key?("addressability")
     assert_equal 2, payload.fetch("messages").length
 
@@ -67,6 +68,66 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
     json = JSON.generate(payload)
     refute_includes json, %("#{conversation.id}")
     refute_includes json, %("#{turn.id}")
+  end
+
+  test "includes a compact delegation summary with specialist facts and public ids only" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateRoot.call(
+      workspace: context[:workspace],
+    )
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Use a specialist",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {}
+    )
+    child_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      parent_conversation: conversation,
+      execution_runtime: context[:execution_runtime],
+      agent_definition_version: context[:agent_definition_version],
+      kind: "fork",
+      entry_policy_payload: agent_internal_entry_policy_payload
+    )
+    session = SubagentConnection.create!(
+      installation: context[:installation],
+      owner_conversation: conversation,
+      conversation: child_conversation,
+      user: child_conversation.user,
+      workspace: child_conversation.workspace,
+      agent: child_conversation.agent,
+      origin_turn: turn,
+      scope: "turn",
+      profile_key: "researcher",
+      resolved_model_selector_hint: "role:researcher",
+      depth: 0,
+      close_state: "closed",
+      close_reason_kind: "turn_interrupt",
+      close_requested_at: Time.current,
+      close_grace_deadline_at: 30.seconds.from_now,
+      close_force_deadline_at: 60.seconds.from_now,
+      close_acknowledged_at: Time.current,
+      observed_status: "completed",
+      close_outcome_kind: "graceful"
+    )
+
+    payload = ConversationExports::BuildConversationPayload.call(conversation: conversation)
+
+    assert_equal [
+      {
+        "subagent_connection_id" => session.public_id,
+        "origin_turn_id" => turn.public_id,
+        "profile_key" => "researcher",
+        "specialist_key" => "researcher",
+        "profile_group" => "specialist",
+        "close_outcome_kind" => "graceful",
+      },
+    ], payload.fetch("delegation_summary")
+    refute payload.fetch("delegation_summary").first.key?("resolved_model_selector_hint")
+
+    json = JSON.generate(payload)
+    refute_includes json, %("#{session.id}")
+    refute_includes json, %("#{child_conversation.id}")
   end
 
   test "preloads transcript and attachments without query explosion" do

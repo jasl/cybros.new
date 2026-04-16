@@ -20,6 +20,11 @@ runtime_context = GovernedValidationSupport.bootstrap_runtime!(
       "description" => "Primary interactive profile",
       "allowed_tool_names" => ["subagent_spawn"],
     },
+    "researcher" => {
+      "label" => "Researcher",
+      "description" => "Delegated specialist profile for governed tool validation",
+      "default_subagent_profile" => true,
+    },
   },
   default_canonical_config: {
     "sandbox" => "workspace-write",
@@ -32,6 +37,11 @@ runtime_context = GovernedValidationSupport.bootstrap_runtime!(
       "allow_nested" => true,
       "max_depth" => 3,
     },
+  }
+)
+runtime_context.fetch(:workspace).primary_workspace_agent.update!(
+  settings_payload: {
+    "default_subagent_model_selector_hint" => "role:researcher",
   }
 )
 
@@ -56,13 +66,23 @@ invocation = ToolInvocations::Start.call(
   }
 )
 
-spawn_result = SubagentConnections::Spawn.call(
-  conversation: task_context.fetch(:conversation),
-  origin_turn: task_context.fetch(:turn),
-  content: "Investigate the delegated task.",
-  scope: "turn",
-  task_payload: { "source" => "acceptance_governed_tool_validation" }
+tool_call = {
+  "tool_name" => "subagent_spawn",
+  "arguments" => invocation.request_payload,
+}
+
+spawn_result = ProviderExecution::ExecuteCoreMatrixTool.call(
+  workflow_node: task_context.fetch(:workflow_node),
+  tool_call: tool_call
 )
+
+unless spawn_result["profile_key"] == "researcher"
+  raise "expected default specialist profile researcher, got #{spawn_result["profile_key"].inspect}"
+end
+
+unless spawn_result["model_selector_hint"] == "role:researcher"
+  raise "expected default subagent model selector hint role:researcher, got #{spawn_result["model_selector_hint"].inspect}"
+end
 
 completed = ToolInvocations::Complete.call(
   tool_invocation: invocation,

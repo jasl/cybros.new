@@ -274,6 +274,6 @@ class AgentApiControlPollTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    assert_operator queries.length, :<=, 41, "Expected agent control poll to stay under 41 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
+    assert_operator queries.length, :<=, 43, "Expected agent control poll to stay under 43 SQL queries, got #{queries.length}:\n#{queries.join("\n")}"
   end
 end

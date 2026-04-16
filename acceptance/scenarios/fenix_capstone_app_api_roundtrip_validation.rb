@@ -413,17 +413,24 @@ write_json(artifact_dir.join("evidence", "published-attachment-create.json"), pu
 write_json(artifact_dir.join("evidence", "published-attachment-show.json"), published_attachment_show)
 write_json(artifact_dir.join("evidence", "published-attachment-download.json"), published_attachment_download)
 
+workflow_run = debug_payload.fetch("workflow_runs")
+  .select { |candidate| candidate.fetch("turn_id") == turn_id }
+  .max_by { |candidate| [candidate.fetch("created_at").to_s, candidate.fetch("workflow_run_id")] } || {}
+
 Acceptance::CapstoneReviewArtifacts.install!(
   artifact_dir: artifact_dir,
   conversation_export_path: conversation_export_path,
   conversation_debug_export_path: conversation_debug_export_path,
   turn_feed: turn_feed,
   turn_runtime_events: turn_runtime_events,
-  debug_payload: debug_payload
+  debug_payload: debug_payload,
+  workflow_run_id: workflow_run.fetch("workflow_run_id")
 )
+workflow_mermaid_review_path = artifact_dir.join("review", "workflow-mermaid.md")
+workflow_mermaid_review = workflow_mermaid_review_path.exist? ? workflow_mermaid_review_path.read : ""
 
 observed_dag_shape = debug_payload.fetch("workflow_nodes")
-  .select { |node| node.fetch("turn_id") == turn_id }
+  .select { |node| node.fetch("workflow_run_id") == workflow_run.fetch("workflow_run_id") }
   .sort_by { |node| [node.fetch("ordinal"), node.fetch("created_at").to_s] }
   .map { |node| node.fetch("node_key") }
 expected_dag_shape = [
@@ -441,9 +448,6 @@ expected_conversation_state = {
   "workflow_wait_state" => "ready",
   "turn_lifecycle_state" => "completed",
 }
-workflow_run = debug_payload.fetch("workflow_runs")
-  .select { |candidate| candidate.fetch("turn_id") == turn_id }
-  .max_by { |candidate| [candidate.fetch("created_at").to_s, candidate.fetch("workflow_run_id")] } || {}
 selected_output_message = published_export_payload.fetch("messages")
   .reverse
   .find { |message| message.fetch("turn_public_id") == turn_id && message.fetch("role") == "agent" }
@@ -580,7 +584,15 @@ passed = dag_shape_passed &&
   exported_attachment.fetch("sha256") == published_attachment_download_sha256 &&
   published_attachment_export_bytes.bytesize == exported_attachment.fetch("byte_size") &&
   published_attachment_export_sha256 == exported_attachment.fetch("sha256") &&
-  published_export_entry_names.include?(exported_attachment.fetch("relative_path"))
+  published_export_entry_names.include?(exported_attachment.fetch("relative_path")) &&
+  published_export_payload.fetch("delegation_summary") == [] &&
+  workflow_mermaid_review_path.exist? &&
+  workflow_mermaid_review.include?("Selected workflow run: `#{workflow_run.fetch("workflow_run_id")}`") &&
+  workflow_mermaid_review.include?("```mermaid") &&
+  workflow_mermaid_review.include?("flowchart LR") &&
+  workflow_mermaid_review.include?(" --> ") &&
+  workflow_mermaid_review.include?("state: ") &&
+  workflow_mermaid_review.include?("policy: ")
 
 write_text(
   artifact_dir.join("review", "summary.md"),
@@ -607,6 +619,7 @@ write_text(
     - published attachment export sha256: `#{published_attachment_export_sha256}`
     - review index: `#{artifact_dir.join("review", "index.md")}`
     - conversation transcript review: `#{artifact_dir.join("review", "conversation-transcript.md")}`
+    - workflow mermaid review: `#{workflow_mermaid_review_path}`
     - diagnostics summary review: `#{artifact_dir.join("review", "diagnostics-summary.md")}`
     - runtime events review: `#{artifact_dir.join("review", "runtime-events.md")}`
     - supervision feed review: `#{artifact_dir.join("review", "supervision-feed.md")}`
@@ -648,6 +661,7 @@ result = Acceptance::ManualSupport.scenario_result(
     "playwright_validation" => playwright_validation,
     "conversation_export_path" => conversation_export_path.to_s,
     "conversation_debug_export_path" => conversation_debug_export_path.to_s,
+    "workflow_mermaid_review_path" => workflow_mermaid_review_path.to_s,
     "selected_output_message_id" => output_message.public_id,
     "selected_output_content" => output_message.content,
     "published_attachment_create" => published_attachment_create,

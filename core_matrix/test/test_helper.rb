@@ -394,17 +394,17 @@ module ActiveSupport
       )
     end
 
-    def create_compatible_agent_definition_version!(agent_definition_version: create_agent_definition_version!, version: 1, protocol_methods: nil, tool_contract: nil, profile_policy: {}, canonical_config_schema: {}, conversation_override_schema: {}, default_canonical_config: {}, **attrs)
+    def create_compatible_agent_definition_version!(agent_definition_version: create_agent_definition_version!, version: 1, protocol_methods: nil, tool_contract: nil, profile_policy: nil, canonical_config_schema: nil, conversation_override_schema: nil, default_canonical_config: nil, **attrs)
       create_agent_definition_version!(**{
         installation: agent_definition_version.installation,
         agent: agent_definition_version.agent,
         definition_fingerprint: "#{agent_definition_version.definition_fingerprint}-variant-v#{version}-#{next_test_sequence}",
         protocol_methods: protocol_methods || default_protocol_methods("agent_health"),
         tool_contract: tool_contract || default_tool_catalog("exec_command"),
-        profile_policy: profile_policy,
-        canonical_config_schema: canonical_config_schema,
-        conversation_override_schema: conversation_override_schema,
-        default_canonical_config: default_canonical_config,
+        profile_policy: profile_policy.nil? ? agent_definition_version.profile_policy : profile_policy,
+        canonical_config_schema: canonical_config_schema.nil? ? agent_definition_version.canonical_config_schema : canonical_config_schema,
+        conversation_override_schema: conversation_override_schema.nil? ? agent_definition_version.conversation_override_schema : conversation_override_schema,
+        default_canonical_config: default_canonical_config.nil? ? agent_definition_version.default_canonical_config : default_canonical_config,
       }.merge(attrs))
     end
 
@@ -439,6 +439,7 @@ module ActiveSupport
           "type" => "object",
           "properties" => {
             "selector" => { "type" => "string" },
+            "profile" => { "type" => "string" },
           },
         }
         properties["model_slots"] = {
@@ -463,7 +464,10 @@ module ActiveSupport
 
       {
         "sandbox" => "workspace-write",
-        "interactive" => { "selector" => "role:main" },
+        "interactive" => {
+          "selector" => "role:main",
+          "profile" => "main",
+        },
         "model_slots" => {
           "research" => { "selector" => "role:researcher" },
           "summary" => { "selector" => "role:summary" },

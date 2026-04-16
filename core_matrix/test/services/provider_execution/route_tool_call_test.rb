@@ -516,13 +516,13 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
 
   test "routes core matrix tools without delegating back to the agent mailbox exchange" do
     context = build_governed_tool_context!(
-      profile_policy: {
+      profile_policy: governed_profile_policy.deep_merge(
         "main" => {
           "label" => "Main",
           "description" => "Primary interactive profile",
           "allowed_tool_names" => %w[exec_command compact_context subagent_spawn subagent_list],
-        },
-      }
+        }
+      )
     )
     workflow_node = context.fetch(:workflow_node)
     round_bindings = ToolBindings::FreezeForWorkflowNode.call(

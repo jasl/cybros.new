@@ -55,7 +55,7 @@ class ExecutionContractTest < ActiveSupport::TestCase
         "profile_settings" => {
           "interactive_profile_key" => "main",
           "default_subagent_profile_key" => "researcher",
-        }
+        },
       }
     )
 

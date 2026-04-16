@@ -1,7 +1,7 @@
 module ConversationDebugExports
   class BuildPayload
     BUNDLE_KIND = "conversation_debug_export".freeze
-    BUNDLE_VERSION = "2026-04-02".freeze
+    BUNDLE_VERSION = "2026-04-16".freeze
 
     def self.call(...)
       new(...).call
@@ -29,7 +29,9 @@ module ConversationDebugExports
         },
         "workflow_runs" => workflow_runs.map { |workflow_run| serialize_workflow_run(workflow_run) },
         "workflow_nodes" => workflow_nodes.map { |workflow_node| serialize_workflow_node(workflow_node) },
+        "workflow_edges" => workflow_edges.map { |workflow_edge| serialize_workflow_edge(workflow_edge) },
         "workflow_node_events" => workflow_node_events.map { |event| serialize_workflow_node_event(event) },
+        "workflow_artifacts" => workflow_artifacts.map { |artifact| serialize_workflow_artifact(artifact) },
         "agent_task_runs" => agent_task_runs.map { |task_run| serialize_agent_task_run(task_run) },
         "tool_invocations" => tool_invocations.map { |tool_invocation| serialize_tool_invocation(tool_invocation) },
         "command_runs" => command_runs.map { |command_run| serialize_command_run(command_run) },
@@ -67,6 +69,20 @@ module ConversationDebugExports
       @workflow_node_events ||= WorkflowNodeEvent
         .where(workflow_run: workflow_runs)
         .preload(:workflow_node, :workflow_run, :conversation, :turn)
+        .order(:created_at, :id)
+    end
+
+    def workflow_edges
+      @workflow_edges ||= WorkflowEdge
+        .where(workflow_run: workflow_runs)
+        .preload(:workflow_run, :from_node, :to_node)
+        .order(:created_at, :id)
+    end
+
+    def workflow_artifacts
+      @workflow_artifacts ||= WorkflowArtifact
+        .where(workflow_run: workflow_runs)
+        .preload(:workflow_run, :workflow_node, :json_document)
         .order(:created_at, :id)
     end
 
@@ -342,6 +358,37 @@ module ConversationDebugExports
       }.compact
     end
 
+    def serialize_workflow_edge(workflow_edge)
+      {
+        "workflow_run_id" => workflow_edge.workflow_run.public_id,
+        "from_node_id" => workflow_edge.from_node.public_id,
+        "from_node_key" => workflow_edge.from_node.node_key,
+        "to_node_id" => workflow_edge.to_node.public_id,
+        "to_node_key" => workflow_edge.to_node.node_key,
+        "ordinal" => workflow_edge.ordinal,
+        "requirement" => workflow_edge.requirement,
+        "created_at" => workflow_edge.created_at&.iso8601(6),
+        "updated_at" => workflow_edge.updated_at&.iso8601(6),
+      }.compact
+    end
+
+    def serialize_workflow_artifact(artifact)
+      stage = artifact.json_document&.payload&.dig("stage") || {}
+
+      {
+        "workflow_run_id" => artifact.workflow_run.public_id,
+        "workflow_node_id" => artifact.workflow_node.public_id,
+        "workflow_node_key" => artifact.workflow_node.node_key,
+        "artifact_key" => artifact.artifact_key,
+        "artifact_kind" => artifact.artifact_kind,
+        "barrier_kind" => stage["completion_barrier"],
+        "stage_index" => stage["stage_index"],
+        "dispatch_mode" => stage["dispatch_mode"],
+        "created_at" => artifact.created_at&.iso8601(6),
+        "updated_at" => artifact.updated_at&.iso8601(6),
+      }.compact
+    end
+
     def serialize_agent_task_run(task_run)
       {
         "agent_task_run_id" => task_run.public_id,
@@ -437,6 +484,9 @@ module ConversationDebugExports
         "parent_subagent_connection_id" => session.parent_subagent_connection&.public_id,
         "scope" => session.scope,
         "profile_key" => session.profile_key,
+        "specialist_key" => specialist_key_for(session.profile_key),
+        "profile_group" => profile_group_for(session.profile_key),
+        "resolved_model_selector_hint" => session.resolved_model_selector_hint,
         "depth" => session.depth,
         "close_state" => session.close_state,
         "observed_status" => session.observed_status,
@@ -445,6 +495,16 @@ module ConversationDebugExports
         "created_at" => session.created_at&.iso8601(6),
         "updated_at" => session.updated_at&.iso8601(6),
       }.compact
+    end
+
+    def specialist_key_for(profile_key)
+      profile_key.to_s.strip.presence
+    end
+
+    def profile_group_for(profile_key)
+      return if specialist_key_for(profile_key).blank?
+
+      "specialist"
     end
 
     def serialize_conversation_supervision_session(session)

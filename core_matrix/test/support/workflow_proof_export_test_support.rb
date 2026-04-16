@@ -1,5 +1,5 @@
 module WorkflowProofExportTestSupport
-  def build_workflow_proof_fixture!
+  def build_workflow_proof_fixture!(with_subagent_spawn: false)
     context = prepare_workflow_execution_setup!(create_workspace_context!)
     conversation = Conversations::CreateRoot.call(
       workspace: context[:workspace],
@@ -160,7 +160,7 @@ module WorkflowProofExportTestSupport
       resume_successor_node_type: "turn_step"
     )
 
-    {
+    result = {
       conversation: conversation,
       turn: turn.reload,
       workflow_run: workflow_run.reload,
@@ -178,6 +178,38 @@ module WorkflowProofExportTestSupport
         "turn_lifecycle_state" => "active",
       },
     }.merge(context)
+
+    return result unless with_subagent_spawn
+
+    child_conversation = create_conversation_record!(
+      workspace: context[:workspace],
+      parent_conversation: conversation,
+      execution_runtime: context[:execution_runtime],
+      agent_definition_version: context[:agent_definition_version],
+      kind: "fork",
+      entry_policy_payload: agent_internal_entry_policy_payload
+    )
+    subagent_connection = SubagentConnection.create!(
+      installation: context[:installation],
+      owner_conversation: conversation,
+      conversation: child_conversation,
+      user: child_conversation.user,
+      workspace: child_conversation.workspace,
+      agent: child_conversation.agent,
+      origin_turn: turn,
+      scope: "turn",
+      profile_key: "researcher",
+      resolved_model_selector_hint: "role:researcher",
+      depth: 0
+    )
+    durable_node.update!(spawned_subagent_connection: subagent_connection)
+
+    result.merge(
+      child_conversation: child_conversation,
+      subagent_connection: subagent_connection,
+      durable_node: durable_node.reload,
+      workflow_run: workflow_run.reload
+    )
   end
 end
 

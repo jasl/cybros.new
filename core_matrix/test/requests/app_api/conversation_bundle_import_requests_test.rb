@@ -98,7 +98,7 @@ class AppApiConversationBundleImportRequestsTest < ActionDispatch::IntegrationTe
       lifecycle_state: "succeeded",
       result_payload: {
         "bundle_kind" => "conversation_export",
-        "bundle_version" => "2026-04-02",
+        "bundle_version" => "2026-04-16",
         "imported_conversation_id" => imported_conversation.public_id,
       },
       imported_conversation: imported_conversation

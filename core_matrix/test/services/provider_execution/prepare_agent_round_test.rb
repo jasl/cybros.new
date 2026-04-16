@@ -38,7 +38,7 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
       context.fetch(:workflow_run).provider_context.dig("request_preparation", "prompt_compaction"),
       request_payload.dig("provider_context", "request_preparation", "prompt_compaction")
     )
-    assert_equal "mock", request_payload.fetch("agent_context").fetch("profile")
+    assert_equal "main", request_payload.fetch("agent_context").fetch("profile")
     assert_includes request_payload.fetch("agent_context").fetch("allowed_tool_names"), "exec_command"
     assert_equal(
       {

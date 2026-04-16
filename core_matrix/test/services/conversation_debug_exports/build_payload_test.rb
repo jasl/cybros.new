@@ -15,22 +15,32 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
     payload = ConversationDebugExports::BuildPayload.call(conversation: conversation)
 
     assert_equal "conversation_debug_export", payload.fetch("bundle_kind")
-    assert_equal "2026-04-02", payload.fetch("bundle_version")
+    assert_equal "2026-04-16", payload.fetch("bundle_version")
     assert_equal conversation.public_id, payload.dig("conversation_payload", "conversation", "public_id")
     assert_equal conversation.public_id, payload.dig("diagnostics", "conversation", "conversation_id")
     assert_equal 1, payload.fetch("workflow_runs").length
     assert_equal %w[provider_round_1 debug_intent_1], payload.fetch("workflow_nodes").map { |node| node.fetch("node_key") }
+    assert_equal 1, payload.fetch("workflow_edges").length
+    assert_equal "provider_round_1", payload.fetch("workflow_edges").first.fetch("from_node_key")
+    assert_equal "debug_intent_1", payload.fetch("workflow_edges").first.fetch("to_node_key")
     intent_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "debug_intent_1" }
     assert_equal "batch-debug-1", intent_node_payload.fetch("intent_batch_id")
     assert_equal({ "summary" => "debug intent" }, intent_node_payload.fetch("intent_payload"))
     assert_equal subagent_connection.public_id, intent_node_payload.fetch("spawned_subagent_connection_id")
     assert_equal "provider_rate_limited", intent_node_payload.fetch("blocked_retry_failure_kind")
     assert_equal 2, intent_node_payload.fetch("blocked_retry_attempt_no")
+    barrier_artifact = payload.fetch("workflow_artifacts").find { |artifact| artifact.fetch("artifact_kind") == "intent_batch_barrier" }
+    assert_equal "provider_round_1", barrier_artifact.fetch("workflow_node_key")
+    assert_equal "wait_all", barrier_artifact.fetch("barrier_kind")
+    assert_equal "serial", barrier_artifact.fetch("dispatch_mode")
     round_node_payload = payload.fetch("workflow_nodes").find { |node| node.fetch("node_key") == "provider_round_1" }
     assert_equal 1, round_node_payload.fetch("provider_round_index")
     assert_equal true, round_node_payload.fetch("transcript_side_effect_committed")
     assert_equal 1, payload.fetch("workflow_node_events").length
     assert_equal subagent_connection.public_id, payload.fetch("subagent_connections").first.fetch("subagent_connection_id")
+    assert_equal "specialist", payload.fetch("subagent_connections").first.fetch("profile_group")
+    assert_equal "researcher", payload.fetch("subagent_connections").first.fetch("specialist_key")
+    assert_equal "role:researcher", payload.fetch("subagent_connections").first.fetch("resolved_model_selector_hint")
     assert_not payload.fetch("subagent_connections").first.key?("summary")
     assert_equal(
       fixture.fetch(:context).fetch(:agent_definition_version).public_id,
@@ -171,7 +181,8 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       agent: child_conversation.agent,
       origin_turn: turn,
       scope: "turn",
-      profile_key: "worker",
+      profile_key: "researcher",
+      resolved_model_selector_hint: "role:researcher",
       depth: 0
     )
     yielding_node = create_workflow_node!(
@@ -185,7 +196,7 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       finished_at: 90.seconds.ago,
       presentation_policy: "ops_trackable"
     )
-    create_workflow_node!(
+    intent_node = create_workflow_node!(
       workflow_run: workflow_run,
       node_key: "debug_intent_1",
       node_type: "ops_annotation",
@@ -203,6 +214,12 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
       started_at: 80.seconds.ago,
       finished_at: 70.seconds.ago,
       presentation_policy: "ops_trackable"
+    )
+    create_workflow_edge!(
+      workflow_run: workflow_run,
+      from_node: yielding_node,
+      to_node: intent_node,
+      ordinal: 0
     )
     WorkflowArtifact.create!(
       installation: context[:installation],
@@ -227,6 +244,21 @@ class ConversationDebugExportsBuildPayloadTest < ActiveSupport::TestCase
             ],
           },
         ],
+      }
+    )
+    WorkflowArtifact.create!(
+      installation: context[:installation],
+      workflow_run: workflow_run,
+      workflow_node: yielding_node,
+      artifact_key: "batch-debug-1:stage:0",
+      artifact_kind: "intent_batch_barrier",
+      storage_mode: "json_document",
+      payload: {
+        "stage" => {
+          "stage_index" => 0,
+          "dispatch_mode" => "serial",
+          "completion_barrier" => "wait_all",
+        },
       }
     )
     WorkflowNodeEvent.create!(

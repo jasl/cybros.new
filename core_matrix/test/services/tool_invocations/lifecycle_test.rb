@@ -9,8 +9,8 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
-    compact_binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definition: { tool_name: "compact_context" })
-    subagent_binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definition: { tool_name: "subagent_spawn" })
+    compact_binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definitions: { tool_name: "compact_context" })
+    subagent_binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definitions: { tool_name: "subagent_spawn" })
 
     compact_invocation = ToolInvocations::Start.call(
       tool_binding: compact_binding,
@@ -44,7 +44,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
-    binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definition: { tool_name: "compact_context" })
+    binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definitions: { tool_name: "compact_context" })
 
     first = ToolInvocations::Start.call(tool_binding: binding, request_payload: {})
     first.update!(status: "failed", error_payload: { "message" => "boom" }, finished_at: Time.current)
@@ -94,7 +94,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
-    binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definition: { tool_name: "compact_context" })
+    binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definitions: { tool_name: "compact_context" })
 
     invocation = ToolInvocations::Start.call(
       tool_binding: binding,
@@ -140,7 +140,7 @@ class ToolInvocations::LifecycleTest < ActiveSupport::TestCase
     )
 
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
-    binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definition: { tool_name: "compact_context" })
+    binding = task_run.reload.tool_bindings.joins(:tool_definition).find_by!(tool_definitions: { tool_name: "compact_context" })
 
     invocation = ToolInvocations::Start.call(tool_binding: binding, request_payload: {})
     stale_copy = ToolInvocation.find(invocation.id)

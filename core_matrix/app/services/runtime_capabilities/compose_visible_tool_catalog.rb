@@ -26,8 +26,10 @@ module RuntimeCapabilities
 
     def current_profile_key
       @current_profile_key ||= begin
+        explicit_profile_key = explicit_turn_profile_key
+
         @conversation.subagent_connection&.profile_key ||
-          explicit_turn_profile_key ||
+          (explicit_profile_key if explicit_profile_key.present? && contract.profile_policy.key?(explicit_profile_key)) ||
           profile_settings_view["interactive_profile_key"] ||
           contract.default_canonical_config.dig("interactive", "profile") ||
           contract.default_canonical_config.dig("interactive", "default_profile_key") ||

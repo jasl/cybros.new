@@ -38,7 +38,7 @@ class ConversationBundleImportsParseUploadTest < ActiveSupport::TestCase
     parsed_bundle = ConversationBundleImports::ParseUpload.call(request: request)
 
     assert_equal "conversation_export", parsed_bundle.dig("manifest", "bundle_kind")
-    assert_equal "2026-04-02", parsed_bundle.dig("manifest", "bundle_version")
+    assert_equal "2026-04-16", parsed_bundle.dig("manifest", "bundle_version")
     assert_equal 2, parsed_bundle.dig("conversation_payload", "messages").length
     assert_equal 1, parsed_bundle.fetch("file_bytes").length
   ensure

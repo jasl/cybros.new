@@ -39,7 +39,7 @@ class ConversationExportsBuildManifestTest < ActiveSupport::TestCase
     )
 
     assert_equal "conversation_export", manifest.fetch("bundle_kind")
-    assert_equal "2026-04-02", manifest.fetch("bundle_version")
+    assert_equal "2026-04-16", manifest.fetch("bundle_version")
     assert_equal conversation.public_id, manifest.fetch("conversation_public_id")
     assert_equal I18n.t("conversations.defaults.untitled_title"), manifest.fetch("title")
     assert_equal "Manifest summary", manifest.fetch("summary")

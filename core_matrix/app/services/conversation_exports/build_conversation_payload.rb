@@ -3,7 +3,7 @@ require "digest"
 module ConversationExports
   class BuildConversationPayload
     BUNDLE_KIND = "conversation_export".freeze
-    BUNDLE_VERSION = "2026-04-02".freeze
+    BUNDLE_VERSION = "2026-04-16".freeze
 
     def self.call(...)
       new(...).call
@@ -19,6 +19,7 @@ module ConversationExports
         "bundle_version" => BUNDLE_VERSION,
         "conversation" => conversation_payload,
         "messages" => transcript_messages.map { |message| message_payload(message) },
+        "delegation_summary" => delegation_summary,
       }
     end
 
@@ -92,6 +93,37 @@ module ConversationExports
         ).call
         messages
       end
+    end
+
+    def delegation_summary
+      related_subagent_connections.map do |session|
+        {
+          "subagent_connection_id" => session.public_id,
+          "origin_turn_id" => session.origin_turn&.public_id,
+          "profile_key" => session.profile_key,
+          "specialist_key" => specialist_key_for(session.profile_key),
+          "profile_group" => profile_group_for(session.profile_key),
+          "close_outcome_kind" => session.close_outcome_kind,
+        }.compact
+      end
+    end
+
+    def related_subagent_connections
+      @related_subagent_connections ||= SubagentConnection
+        .where(owner_conversation: @conversation)
+        .or(SubagentConnection.where(conversation: @conversation))
+        .preload(:origin_turn)
+        .order(:created_at, :id)
+    end
+
+    def specialist_key_for(profile_key)
+      profile_key.to_s.strip.presence
+    end
+
+    def profile_group_for(profile_key)
+      return if specialist_key_for(profile_key).blank?
+
+      "specialist"
     end
 
     def sha256_for(attachment)

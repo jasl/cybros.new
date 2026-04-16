@@ -99,6 +99,24 @@ class RuntimeCapabilities::ComposeForTurnTest < ActiveSupport::TestCase
     assert_equal "planner", composer.current_profile_key
   end
 
+  test "unknown explicit role selectors fall back to the mounted interactive profile" do
+    registration = register_profile_aware_runtime!
+    conversation = create_root_conversation_for!(registration)
+    turn = Turns::StartUserTurn.call(
+      conversation: conversation,
+      content: "Unknown role selector fallback test",
+      resolved_config_snapshot: {},
+      resolved_model_selection_snapshot: {
+        "selector_source" => "slot",
+        "normalized_selector" => "role:mock",
+      }
+    )
+
+    composer = RuntimeCapabilities::ComposeForTurn.new(turn: turn)
+
+    assert_equal "main", composer.current_profile_key
+  end
+
   test "subagent spawn schema stays pinned to frozen workspace agent settings for a turn" do
     profile_policy = governed_profile_policy.deep_merge(
       "critic" => {

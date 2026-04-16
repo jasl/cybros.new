@@ -12,7 +12,8 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
 
     bindings = task_run.reload.tool_bindings.includes(:tool_definition, :tool_implementation).order(:id).to_a
 
-    assert_equal %w[compact_context exec_command subagent_spawn], bindings.map { |binding| binding.tool_definition.tool_name }.sort
+    assert_equal %w[compact_context conversation_metadata_update exec_command subagent_spawn],
+      bindings.map { |binding| binding.tool_definition.tool_name }.sort
     assert_equal "env/exec_command",
       bindings.find { |binding| binding.tool_definition.tool_name == "exec_command" }.tool_implementation.implementation_ref
     assert_equal "agent/compact_context",
@@ -31,9 +32,9 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
     first_attempt = create_agent_task_run!(workflow_node: context.fetch(:workflow_node), logical_work_id: "tool-task", attempt_no: 1)
     second_attempt = create_agent_task_run!(workflow_node: context.fetch(:workflow_node), logical_work_id: "tool-task", attempt_no: 2)
 
-    assert_equal %w[compact_context exec_command subagent_spawn],
+    assert_equal %w[compact_context conversation_metadata_update exec_command subagent_spawn],
       first_attempt.reload.tool_bindings.includes(:tool_definition).map { |binding| binding.tool_definition.tool_name }.sort
-    assert_equal %w[compact_context exec_command subagent_spawn],
+    assert_equal %w[compact_context conversation_metadata_update exec_command subagent_spawn],
       second_attempt.reload.tool_bindings.includes(:tool_definition).map { |binding| binding.tool_definition.tool_name }.sort
     refute_equal first_attempt.tool_bindings.order(:id).pluck(:public_id),
       second_attempt.tool_bindings.order(:id).pluck(:public_id)
@@ -68,6 +69,6 @@ class ToolBindings::FreezeForTaskTest < ActiveSupport::TestCase
     task_run = create_agent_task_run!(workflow_node: context.fetch(:workflow_node))
     tool_names = task_run.reload.tool_bindings.includes(:tool_definition).map { |binding| binding.tool_definition.tool_name }.sort
 
-    assert_equal %w[compact_context exec_command subagent_spawn], tool_names
+    assert_equal %w[compact_context exec_command], tool_names
   end
 end

@@ -185,9 +185,10 @@ module Workflows
           :blocked_retry_attempt_no,
           :transcript_side_effect_committed,
           :tool_call_document_id,
-          :metadata
+          :metadata,
+          :spawned_subagent_connection_id
         )
-        .map do |id, public_id, node_key, node_type, ordinal, decision_source, presentation_policy, yielding_workflow_node_id, stage_index, stage_position, intent_id, intent_batch_id, intent_requirement, intent_conflict_scope, intent_idempotency_key, provider_round_index, prior_tool_node_keys, blocked_retry_failure_kind, blocked_retry_attempt_no, transcript_side_effect_committed, tool_call_document_id, metadata|
+        .map do |id, public_id, node_key, node_type, ordinal, decision_source, presentation_policy, yielding_workflow_node_id, stage_index, stage_position, intent_id, intent_batch_id, intent_requirement, intent_conflict_scope, intent_idempotency_key, provider_round_index, prior_tool_node_keys, blocked_retry_failure_kind, blocked_retry_attempt_no, transcript_side_effect_committed, tool_call_document_id, metadata, spawned_subagent_connection_id|
           {
             id: id,
             public_id: public_id,
@@ -211,6 +212,7 @@ module Workflows
             transcript_side_effect_committed: transcript_side_effect_committed,
             tool_call_document_id: tool_call_document_id,
             metadata: metadata || {},
+            spawned_subagent_connection_id: spawned_subagent_connection_id,
           }
         end
     end
@@ -222,8 +224,27 @@ module Workflows
       JsonDocument.where(id: document_ids).pluck(:id, :payload).to_h
     end
 
+    def load_spawned_subagent_payloads(node_rows)
+      session_ids = node_rows.map { |row| row[:spawned_subagent_connection_id] }.compact
+      return {} if session_ids.empty?
+
+      SubagentConnection
+        .where(id: session_ids)
+        .pluck(:id, :public_id, :profile_key, :resolved_model_selector_hint)
+        .each_with_object({}) do |(id, public_id, profile_key, resolved_model_selector_hint), out|
+          out[id] = {
+            "subagent_connection_id" => public_id,
+            "profile_key" => profile_key,
+            "specialist_key" => specialist_key_for(profile_key),
+            "profile_group" => profile_group_for(profile_key),
+            "resolved_model_selector_hint" => resolved_model_selector_hint.presence,
+          }.compact.freeze
+        end
+    end
+
     def build_node_summaries(node_rows:, node_key_by_id:, workflow_run_summary:, event_summaries_by_node_key:, tool_call_payloads_by_document_id:, manifest_payloads_by_yield_node_and_batch_id:)
       successor_node_key = workflow_run_summary.dig("resume_metadata", "successor", "node_key")
+      spawned_subagent_payloads = load_spawned_subagent_payloads(node_rows)
 
       node_rows.map do |row|
         node_key = row.fetch(:node_key)
@@ -231,6 +252,7 @@ module Workflows
         metadata = row.fetch(:metadata).dup
         tool_call_payload = tool_call_payloads_by_document_id[row[:tool_call_document_id]]
         metadata["tool_call"] = tool_call_payload if tool_call_payload.present?
+        metadata["spawned_subagent"] = spawned_subagent_payloads[row[:spawned_subagent_connection_id]] if row[:spawned_subagent_connection_id].present?
         intent = build_intent_metadata(row, manifest_payloads_by_yield_node_and_batch_id)
         metadata["intent"] = intent if intent.present?
         metadata["provider_round_index"] = row[:provider_round_index] if row[:provider_round_index].present?
@@ -415,6 +437,16 @@ module Workflows
       else
         value.frozen? ? value : value.freeze
       end
+    end
+
+    def specialist_key_for(profile_key)
+      profile_key.to_s.strip.presence
+    end
+
+    def profile_group_for(profile_key)
+      return if specialist_key_for(profile_key).blank?
+
+      "specialist"
     end
 
     EMPTY_ARRAY = [].freeze
