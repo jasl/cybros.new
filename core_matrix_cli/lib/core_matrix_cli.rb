@@ -10,7 +10,16 @@ require_relative "core_matrix_cli/credential_store"
 require_relative "core_matrix_cli/credential_stores/file_store"
 require_relative "core_matrix_cli/credential_stores/macos_keychain_store"
 require_relative "core_matrix_cli/http_client"
+require_relative "core_matrix_cli/runtime"
+require_relative "core_matrix_cli/setup_orchestrator"
 require_relative "core_matrix_cli/cli"
 
 module CoreMatrixCLI
+  class << self
+    attr_writer :runtime_factory
+
+    def runtime_factory
+      @runtime_factory ||= -> { Runtime.new }
+    end
+  end
 end

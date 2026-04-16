@@ -1,0 +1,179 @@
+module CoreMatrixCLI
+  class Runtime
+    def initialize(config_store: ConfigStore.new, credential_store: CredentialStore.new, client_class: HTTPClient)
+      @config_store = config_store
+      @credential_store = credential_store
+      @client_class = client_class
+    end
+
+    attr_reader :config_store, :credential_store
+
+    def stored_base_url
+      config_store.read["base_url"]
+    end
+
+    def session_token
+      credential_store.read["session_token"]
+    end
+
+    def persist_base_url(base_url)
+      config_store.merge("base_url" => normalize_base_url(base_url))
+    end
+
+    def persist_session_token(session_token)
+      credential_store.write("session_token" => session_token)
+    end
+
+    def clear_session_token
+      credential_store.clear
+    end
+
+    def persist_operator_email(email)
+      config_store.merge("operator_email" => email)
+    end
+
+    def persist_workspace_context(workspace_id: nil, workspace_agent_id: nil)
+      payload = {}
+      payload["workspace_id"] = workspace_id if workspace_id
+      payload["workspace_agent_id"] = workspace_agent_id if workspace_agent_id
+      config_store.merge(payload) if payload.any?
+    end
+
+    def bootstrap_status
+      public_client.get("/app_api/bootstrap/status")
+    end
+
+    def bootstrap(attributes)
+      public_client.post("/app_api/bootstrap", body: attributes)
+    end
+
+    def login(email:, password:)
+      public_client.post(
+        "/app_api/session",
+        body: {
+          email: email,
+          password: password,
+        }
+      )
+    end
+
+    def current_session
+      authenticated_client.get("/app_api/session")
+    end
+
+    def logout
+      authenticated_client.delete("/app_api/session")
+    ensure
+      clear_session_token
+    end
+
+    def installation_status
+      authenticated_client.get("/app_api/admin/installation")
+    end
+
+    def list_workspaces
+      authenticated_client.get("/app_api/workspaces")
+    end
+
+    def list_agents
+      authenticated_client.get("/app_api/agents")
+    end
+
+    def attach_workspace_agent(workspace_id:, agent_id:)
+      authenticated_client.post(
+        "/app_api/workspaces/#{workspace_id}/workspace_agents",
+        body: { agent_id: agent_id }
+      )
+    end
+
+    def provider_status(provider_handle)
+      authenticated_client.get("/app_api/admin/llm_providers/#{provider_handle}")
+    end
+
+    def readiness_snapshot
+      snapshot = {
+        "authenticated" => false,
+        "bootstrap_state" => "unknown",
+        "default_workspace" => "missing",
+        "workspace_agent" => "missing",
+        "codex_subscription" => "unknown",
+        "telegram" => "unknown",
+        "weixin" => "unknown",
+      }
+
+      return snapshot unless stored_base_url
+
+      bootstrap = bootstrap_status
+      snapshot["bootstrap_state"] = bootstrap.fetch("bootstrap_state", "unknown")
+      snapshot["installation_name"] = bootstrap.dig("installation", "name")
+
+      return snapshot if session_token.to_s.strip.empty?
+
+      current_session_payload = current_session
+      snapshot["authenticated"] = current_session_payload.dig("user", "email").to_s.strip != ""
+      persist_operator_email(current_session_payload.dig("user", "email")) if snapshot["authenticated"]
+
+      workspaces_payload = list_workspaces.fetch("workspaces", [])
+      snapshot["default_workspace"] = workspaces_payload.any? { |workspace| workspace["is_default"] } ? "present" : "missing"
+
+      selected_workspace = select_workspace(workspaces_payload)
+      selected_workspace_agent = select_workspace_agent(selected_workspace)
+      if selected_workspace_agent
+        snapshot["workspace_agent"] = "present"
+      end
+
+      llm_provider = provider_status("codex_subscription").fetch("llm_provider", {})
+      snapshot["codex_subscription"] =
+        if llm_provider["reauthorization_required"]
+          "reauthorization_required"
+        elsif llm_provider["usable"]
+          "authorized"
+        elsif llm_provider["configured"]
+          "configured"
+        else
+          "missing"
+        end
+
+      snapshot
+    rescue HTTPClient::UnauthorizedError
+      clear_session_token
+      snapshot
+    end
+
+    private
+
+    def public_client
+      @client_class.new(base_url: required_base_url)
+    end
+
+    def authenticated_client
+      @client_class.new(base_url: required_base_url, session_token: session_token)
+    end
+
+    def required_base_url
+      stored_base_url || raise(ArgumentError, "base_url is not configured")
+    end
+
+    def normalize_base_url(base_url)
+      base_url.to_s.strip.sub(%r{/+\z}, "")
+    end
+
+    def select_workspace(workspaces_payload)
+      workspace_id = config_store.read["workspace_id"]
+
+      workspaces_payload.find { |workspace| workspace["workspace_id"] == workspace_id } ||
+        workspaces_payload.find { |workspace| workspace["is_default"] } ||
+        workspaces_payload.first
+    end
+
+    def select_workspace_agent(workspace_payload)
+      return nil if workspace_payload.nil?
+
+      workspace_agent_id = config_store.read["workspace_agent_id"]
+      workspace_agents = Array(workspace_payload["workspace_agents"])
+
+      workspace_agents.find { |workspace_agent| workspace_agent["workspace_agent_id"] == workspace_agent_id } ||
+        workspace_agents.first
+    end
+  end
+end
