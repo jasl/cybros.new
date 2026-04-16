@@ -62,7 +62,7 @@ module CoreMatrixCLI
       request_class = request_class_for(method)
       request = request_class.new(uri)
       request["Accept"] = "application/json"
-      request["Authorization"] = ActionController::HttpAuthentication::Token.encode_credentials(@session_token) if @session_token.to_s.strip != ""
+      request["Authorization"] = encoded_token_credentials(@session_token) if @session_token.to_s.strip != ""
       headers.each { |key, value| request[key] = value }
 
       if body
@@ -103,6 +103,11 @@ module CoreMatrixCLI
       else
         raise ArgumentError, "unsupported http method: #{method}"
       end
+    end
+
+    def encoded_token_credentials(token)
+      escaped_token = token.to_s.gsub("\\", "\\\\").gsub('"', '\"')
+      %(Token token="#{escaped_token}")
     end
 
     def perform_request(uri, request, open_timeout:, read_timeout:)

@@ -8,6 +8,7 @@ require "stringio"
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 
 require "core_matrix_cli"
+require_relative "support/fake_core_matrix_server"
 
 class TestInput < StringIO
   def noecho
@@ -36,7 +37,7 @@ class CoreMatrixCLITestCase < Minitest::Test
 
   def with_runtime_factory(runtime)
     previous_runtime_factory = CoreMatrixCLI.runtime_factory
-    CoreMatrixCLI.runtime_factory = -> { runtime }
+    CoreMatrixCLI.runtime_factory = runtime.respond_to?(:call) ? runtime : -> { runtime }
     yield
   ensure
     CoreMatrixCLI.runtime_factory = previous_runtime_factory
