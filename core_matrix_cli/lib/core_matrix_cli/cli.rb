@@ -46,6 +46,17 @@ module CoreMatrixCLI
             say("telegram: #{snapshot.fetch("telegram", "unknown")}")
             say("weixin: #{snapshot.fetch("weixin", "unknown")}")
           end
+
+          def selected_workspace_agent_id!
+            workspace_agent_id = runtime.config_store.read["workspace_agent_id"]
+            raise ArgumentError, "workspace_agent_id is required" if workspace_agent_id.to_s.strip.empty?
+
+            workspace_agent_id
+          end
+
+          def normalize_base_url(base_url)
+            base_url.to_s.strip.sub(%r{/+\z}, "")
+          end
         end
       end
     end
@@ -202,15 +213,142 @@ module CoreMatrixCLI
   class TelegramCLI < Thor
     include CommandHelpers
 
+    long_desc <<~HELP
+      Preparation:
+        - Create a bot in BotFather
+        - Copy the bot token
+        - Prepare a public HTTPS base URL for CoreMatrix
+
+      This command will ask for:
+        - bot token
+        - webhook base URL
+
+      This command will print:
+        - webhook URL
+        - webhook secret header name
+        - webhook secret token
+
+      v1 verification boundary:
+        - API-contract only, not real webhook delivery
+    HELP
     desc "setup", "Configure Telegram ingress"
-    def setup; end
+    def setup
+      return unless require_base_url!
+
+      workspace_agent_id = selected_workspace_agent_id!
+      ingress_binding_id = runtime.stored_ingress_binding_id("telegram")
+
+      if ingress_binding_id.to_s.strip.empty?
+        created_binding = runtime.create_ingress_binding(
+          workspace_agent_id: workspace_agent_id,
+          platform: "telegram"
+        ).fetch("ingress_binding")
+        ingress_binding_id = created_binding.fetch("ingress_binding_id")
+        runtime.persist_ingress_binding_id("telegram", ingress_binding_id)
+      end
+
+      bot_token = ask("Telegram Bot Token:")
+      webhook_base_url = normalize_base_url(ask("Webhook Base URL:"))
+
+      updated_binding = runtime.update_ingress_binding(
+        workspace_agent_id: workspace_agent_id,
+        ingress_binding_id: ingress_binding_id,
+        channel_connector: {
+          credential_ref_payload: {
+            bot_token: bot_token,
+          },
+          config_payload: {
+            webhook_base_url: webhook_base_url,
+          },
+        }
+      ).fetch("ingress_binding")
+
+      setup = updated_binding.fetch("setup")
+      webhook_url = "#{webhook_base_url}#{setup.fetch("webhook_path")}"
+
+      say("Webhook URL: #{webhook_url}")
+      say("Webhook Secret Header: X-Telegram-Bot-Api-Secret-Token")
+      say("Webhook Secret Token: #{setup.fetch("webhook_secret_token")}")
+    end
   end
 
   class WeixinCLI < Thor
     include CommandHelpers
 
+    long_desc <<~HELP
+      Preparation:
+        - Ensure you are logged in
+        - Ensure a workspace and workspace agent are selected
+        - Use a terminal that can render ANSI QR output if possible
+
+      This command will:
+        - create or reuse the binding
+        - start login when needed
+        - poll status
+        - render ANSI QR from qr_text when available
+        - print qr_code_url only as a fallback
+
+      v1 verification boundary:
+        - API-contract only, not real account scanning or live message delivery
+    HELP
     desc "setup", "Configure Weixin ingress"
-    def setup; end
+    def setup
+      return unless require_base_url!
+
+      workspace_agent_id = selected_workspace_agent_id!
+      ingress_binding_id = runtime.stored_ingress_binding_id("weixin")
+
+      if ingress_binding_id.to_s.strip.empty?
+        created_binding = runtime.create_ingress_binding(
+          workspace_agent_id: workspace_agent_id,
+          platform: "weixin"
+        ).fetch("ingress_binding")
+        ingress_binding_id = created_binding.fetch("ingress_binding_id")
+        runtime.persist_ingress_binding_id("weixin", ingress_binding_id)
+      end
+
+      runtime.start_weixin_login(
+        workspace_agent_id: workspace_agent_id,
+        ingress_binding_id: ingress_binding_id
+      )
+
+      final_payload = poll_weixin_status(workspace_agent_id: workspace_agent_id, ingress_binding_id: ingress_binding_id)
+      say("weixin status: #{final_payload.dig("weixin", "login_state")}")
+    end
+
+    no_commands do
+      def ansi_qr_renderer
+        @ansi_qr_renderer ||= AnsiQRRenderer.new
+      end
+
+      def poll_weixin_status(workspace_agent_id:, ingress_binding_id:)
+        last_qr_text = nil
+        last_qr_code_url = nil
+
+        Polling.until(
+          timeout: CodexCLI::POLL_TIMEOUT,
+          interval: CodexCLI::POLL_INTERVAL,
+          stop_on: ->(payload) { payload.dig("weixin", "login_state") != "pending" }
+        ) do
+          payload = runtime.weixin_login_status(
+            workspace_agent_id: workspace_agent_id,
+            ingress_binding_id: ingress_binding_id
+          )
+          qr_text = payload.dig("weixin", "qr_text")
+          qr_code_url = payload.dig("weixin", "qr_code_url")
+
+          if qr_text && qr_text != last_qr_text
+            say(ansi_qr_renderer.render(qr_text))
+            last_qr_text = qr_text
+          elsif qr_code_url && qr_code_url != last_qr_code_url
+            say("QR Code URL: #{qr_code_url}")
+            last_qr_code_url = qr_code_url
+          end
+
+          payload
+        end
+      end
+    end
   end
 
   class IngressCLI < Thor

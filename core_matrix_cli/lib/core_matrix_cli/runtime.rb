@@ -39,6 +39,14 @@ module CoreMatrixCLI
       config_store.merge(payload) if payload.any?
     end
 
+    def stored_ingress_binding_id(platform)
+      config_store.read["#{platform}_ingress_binding_id"]
+    end
+
+    def persist_ingress_binding_id(platform, ingress_binding_id)
+      config_store.merge("#{platform}_ingress_binding_id" => ingress_binding_id)
+    end
+
     def bootstrap_status
       public_client.get("/app_api/bootstrap/status")
     end
@@ -111,6 +119,35 @@ module CoreMatrixCLI
 
     def revoke_codex_authorization
       authenticated_client.delete("/app_api/admin/llm_providers/codex_subscription/authorization")
+    end
+
+    def create_ingress_binding(workspace_agent_id:, platform:)
+      authenticated_client.post(
+        "/app_api/workspace_agents/#{workspace_agent_id}/ingress_bindings",
+        body: { platform: platform }
+      )
+    end
+
+    def update_ingress_binding(workspace_agent_id:, ingress_binding_id:, channel_connector:, reissue_setup_secret: false)
+      authenticated_client.patch(
+        "/app_api/workspace_agents/#{workspace_agent_id}/ingress_bindings/#{ingress_binding_id}",
+        body: {
+          channel_connector: channel_connector,
+          reissue_setup_secret: reissue_setup_secret,
+        }
+      )
+    end
+
+    def start_weixin_login(workspace_agent_id:, ingress_binding_id:)
+      authenticated_client.post(
+        "/app_api/workspace_agents/#{workspace_agent_id}/ingress_bindings/#{ingress_binding_id}/weixin/start_login"
+      )
+    end
+
+    def weixin_login_status(workspace_agent_id:, ingress_binding_id:)
+      authenticated_client.get(
+        "/app_api/workspace_agents/#{workspace_agent_id}/ingress_bindings/#{ingress_binding_id}/weixin/login_status"
+      )
     end
 
     def readiness_snapshot

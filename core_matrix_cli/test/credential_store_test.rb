@@ -21,9 +21,9 @@ class CoreMatrixCLICredentialStoreTest < CoreMatrixCLITestCase
 
   def test_macos_keychain_store_round_trips_json_through_security_cli
     runner = FakeShellRunner.new(
-      [["security", "add-generic-password", "-U", "-a", "operator", "-s", "core-matrix-cli", "-w", "{\"session_token\":\"secret\"}"]] =>
+      ["security", "add-generic-password", "-U", "-a", "operator", "-s", "core-matrix-cli", "-w", "{\"session_token\":\"secret\"}"] =>
         FakeShellResult.new(success?: true, stdout: "", stderr: ""),
-      [["security", "find-generic-password", "-a", "operator", "-s", "core-matrix-cli", "-w"]] =>
+      ["security", "find-generic-password", "-a", "operator", "-s", "core-matrix-cli", "-w"] =>
         FakeShellResult.new(success?: true, stdout: "{\"session_token\":\"secret\"}\n", stderr: "")
     )
 

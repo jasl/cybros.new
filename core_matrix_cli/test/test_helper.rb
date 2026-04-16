@@ -76,7 +76,9 @@ class FakeRuntime
     :session_response, :logout_response, :readiness_payload, :workspaces_response,
     :create_workspace_response, :agents_response, :attach_workspace_agent_response,
     :start_codex_authorization_response, :codex_authorization_status_sequence,
-    :revoke_codex_authorization_response
+    :revoke_codex_authorization_response, :create_ingress_binding_responses,
+    :update_ingress_binding_responses, :weixin_start_login_response,
+    :weixin_login_status_sequence
 
   def initialize(config_store:, credential_store:)
     @config_store = config_store
@@ -95,6 +97,10 @@ class FakeRuntime
     @start_codex_authorization_response = nil
     @codex_authorization_status_sequence = []
     @revoke_codex_authorization_response = { "authorization" => { "status" => "missing" } }
+    @create_ingress_binding_responses = {}
+    @update_ingress_binding_responses = {}
+    @weixin_start_login_response = nil
+    @weixin_login_status_sequence = []
   end
 
   def stored_base_url
@@ -131,6 +137,15 @@ class FakeRuntime
     payload["workspace_id"] = workspace_id if workspace_id
     payload["workspace_agent_id"] = workspace_agent_id if workspace_agent_id
     config_store.merge(payload) if payload.any?
+  end
+
+  def stored_ingress_binding_id(platform)
+    config_store.read["#{platform}_ingress_binding_id"]
+  end
+
+  def persist_ingress_binding_id(platform, ingress_binding_id)
+    calls << [:persist_ingress_binding_id, platform, ingress_binding_id]
+    config_store.merge("#{platform}_ingress_binding_id" => ingress_binding_id)
   end
 
   def bootstrap_status
@@ -197,6 +212,30 @@ class FakeRuntime
   def revoke_codex_authorization
     calls << [:revoke_codex_authorization]
     @revoke_codex_authorization_response
+  end
+
+  def create_ingress_binding(workspace_agent_id:, platform:)
+    calls << [:create_ingress_binding, workspace_agent_id, platform]
+    @create_ingress_binding_responses.fetch(platform) do
+      raise("missing create_ingress_binding_response for #{platform}")
+    end
+  end
+
+  def update_ingress_binding(workspace_agent_id:, ingress_binding_id:, channel_connector:, reissue_setup_secret: false)
+    calls << [:update_ingress_binding, workspace_agent_id, ingress_binding_id, channel_connector, reissue_setup_secret]
+    @update_ingress_binding_responses.fetch(ingress_binding_id) do
+      raise("missing update_ingress_binding_response for #{ingress_binding_id}")
+    end
+  end
+
+  def start_weixin_login(workspace_agent_id:, ingress_binding_id:)
+    calls << [:start_weixin_login, workspace_agent_id, ingress_binding_id]
+    @weixin_start_login_response || raise("missing weixin_start_login_response")
+  end
+
+  def weixin_login_status(workspace_agent_id:, ingress_binding_id:)
+    calls << [:weixin_login_status, workspace_agent_id, ingress_binding_id]
+    @weixin_login_status_sequence.shift || raise("missing weixin_login_status_sequence")
   end
 end
 

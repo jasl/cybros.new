@@ -14,6 +14,7 @@ require_relative "core_matrix_cli/browser_launcher"
 require_relative "core_matrix_cli/polling"
 require_relative "core_matrix_cli/runtime"
 require_relative "core_matrix_cli/setup_orchestrator"
+require_relative "core_matrix_cli/ansi_qr_renderer"
 require_relative "core_matrix_cli/cli"
 
 module CoreMatrixCLI
