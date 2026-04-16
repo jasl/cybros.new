@@ -14,6 +14,8 @@ class Acceptance::CoreMatrixCliOperatorSmokeContractTest < ActiveSupport::TestCa
 
     assert_includes scenario, "ACCEPTANCE_MODE: operator_cli_surface"
     assert_includes scenario, "\"init\""
+    assert_includes scenario, "\"auth\", \"login\""
+    assert_includes scenario, "\"providers\", \"codex\", \"login\""
     assert_includes scenario, "\"status\""
     assert_includes scenario, "\"workspace\", \"create\""
     assert_includes scenario, "\"workspace\", \"use\""

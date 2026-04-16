@@ -30,6 +30,22 @@ init_bootstrap = Acceptance::CliSupport.run!(
 )
 
 installation = Installation.order(:id).last || raise("expected CLI bootstrap to create an installation")
+
+auth_logout = Acceptance::CliSupport.run!(
+  artifact_dir: artifact_dir,
+  label: "auth-logout",
+  args: ["auth", "logout"]
+)
+auth_login = Acceptance::CliSupport.run!(
+  artifact_dir: artifact_dir,
+  label: "auth-login",
+  args: ["auth", "login"],
+  input: [
+    "admin@example.com",
+    "Password123!",
+  ].join("\n") + "\n"
+)
+
 registration = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
   installation: installation,
   runtime_base_url: agent_base_url,
@@ -42,6 +58,20 @@ init_refresh = Acceptance::CliSupport.run!(
   label: "init-refresh",
   args: ["init"]
 )
+
+codex_login_thread = Thread.new do
+  Acceptance::CliSupport.run!(
+    artifact_dir: artifact_dir,
+    label: "providers-codex-login",
+    args: ["providers", "codex", "login"]
+  )
+end
+Acceptance::ManualSupport.wait_for_pending_codex_authorization_session!(
+  installation: installation,
+  timeout_seconds: 45
+)
+Acceptance::ManualSupport.complete_pending_codex_authorization!(installation: installation)
+codex_login = codex_login_thread.value
 
 workspace_create = Acceptance::CliSupport.run!(
   artifact_dir: artifact_dir,
@@ -86,7 +116,10 @@ Acceptance::ManualSupport.write_json(
     "workspace_agent_id" => cli_config.fetch("workspace_agent_id"),
     "status_stdout_path" => status.fetch("stdout_path"),
     "init_bootstrap_stdout_path" => init_bootstrap.fetch("stdout_path"),
+    "auth_logout_stdout_path" => auth_logout.fetch("stdout_path"),
+    "auth_login_stdout_path" => auth_login.fetch("stdout_path"),
     "init_refresh_stdout_path" => init_refresh.fetch("stdout_path"),
+    "providers_codex_login_stdout_path" => codex_login.fetch("stdout_path"),
     "workspace_use_stdout_path" => workspace_use.fetch("stdout_path"),
     "agent_attach_stdout_path" => agent_attach.fetch("stdout_path"),
   }

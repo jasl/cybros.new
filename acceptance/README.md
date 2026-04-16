@@ -55,7 +55,7 @@ Current acceptance matrix, organized by purpose:
 
 - Operator setup
   - `acceptance/scenarios/core_matrix_cli_operator_smoke_validation.rb`
-    - validates the black-box `cmctl` bootstrap/session/workspace/mount flow
+    - validates the black-box `cmctl` bootstrap/auth/provider/workspace/mount flow
       against the real local stack
 - Deployment flows
   - `acceptance/scenarios/bring_your_own_agent_validation.rb`
@@ -65,6 +65,13 @@ Current acceptance matrix, organized by purpose:
 - Conversation/workflow control
   - `acceptance/scenarios/provider_backed_turn_validation.rb`
     - proves a real provider-backed turn can complete end-to-end
+  - `acceptance/scenarios/specialist_subagent_export_validation.rb`
+    - proves `tester` specialist delegation is visible in ordinary export,
+      debug export, and `review/workflow-mermaid.md`
+  - `acceptance/scenarios/workspace_agent_model_override_validation.rb`
+    - proves mounted `WorkspaceAgent.settings_payload` can override the
+      interactive model selector for an app-api conversation without an explicit
+      selector on create
   - `acceptance/scenarios/during_generation_steering_validation.rb`
     - validates reject / restart / queue behavior while active work exists
   - `acceptance/scenarios/human_interaction_wait_resume_validation.rb`

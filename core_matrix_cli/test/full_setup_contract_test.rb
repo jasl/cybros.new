@@ -38,6 +38,8 @@ class CoreMatrixCLIFullSetupContractTest < CoreMatrixCLITestCase
 
         assert_includes combined_output, "authorized"
         assert_includes combined_output, "connected"
+        assert_includes combined_output, "selected workspace: ws_contract_123 (Primary Workspace)"
+        assert_includes combined_output, "selected workspace agent: wa_contract_123 (active)"
         assert_includes combined_output, "telegram: configured"
         assert_includes combined_output, "weixin: connected"
         assert_equal "sess_contract_123", credential_store.read.fetch("session_token")

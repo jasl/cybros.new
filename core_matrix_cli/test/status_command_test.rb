@@ -11,8 +11,15 @@ class CoreMatrixCLIStatusCommandTest < CoreMatrixCLITestCase
       "authenticated" => true,
       "bootstrap_state" => "bootstrapped",
       "installation_name" => "Primary Installation",
-      "default_workspace" => "present",
-      "workspace_agent" => "present",
+      "installation_default_workspace" => "present",
+      "selected_workspace" => {
+        "workspace_id" => "ws_123",
+        "name" => "CLI Workspace",
+      },
+      "selected_workspace_agent" => {
+        "workspace_agent_id" => "wa_123",
+        "lifecycle_state" => "active",
+      },
       "codex_subscription" => "authorized",
     }
 
@@ -20,6 +27,9 @@ class CoreMatrixCLIStatusCommandTest < CoreMatrixCLITestCase
 
     assert_includes output, "Base URL: https://core.example.com"
     assert_includes output, "Installation: Primary Installation"
+    assert_includes output, "installation default workspace: present"
+    assert_includes output, "selected workspace: ws_123 (CLI Workspace)"
+    assert_includes output, "selected workspace agent: wa_123 (active)"
     assert_includes output, "codex subscription: authorized"
     assert_includes runtime.calls, [:readiness_snapshot]
   end

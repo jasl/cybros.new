@@ -99,6 +99,15 @@ module Acceptance
       execute_http(uri, request)
     end
 
+    def http_patch_json(url, payload, headers: {})
+      uri = URI(url)
+      request = Net::HTTP::Patch.new(uri)
+      request['Content-Type'] = 'application/json'
+      headers.each { |key, value| request[key] = value }
+      request.body = JSON.generate(payload)
+      execute_http(uri, request)
+    end
+
     def http_post_multipart_json(url, params:, file_param:, file_path:, content_type: 'application/zip', headers: {})
       uri = URI(url)
       request = Net::HTTP::Post.new(uri)
@@ -200,6 +209,10 @@ module Acceptance
 
     def app_api_post_json(path, payload, session_token:)
       http_post_json(control_url(path), payload, headers: token_headers(session_token))
+    end
+
+    def app_api_patch_json(path, payload, session_token:)
+      http_patch_json(control_url(path), payload, headers: token_headers(session_token))
     end
 
     def app_api_admin_create_onboarding_session!(target_kind:, session_token:, agent_key: nil, display_name: nil)
@@ -539,6 +552,59 @@ module Acceptance
 
         sleep(poll_interval_seconds)
       end
+    end
+
+    def wait_for_pending_codex_authorization_session!(installation:, timeout_seconds: 10, poll_interval_seconds: 0.05)
+      deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+
+      loop do
+        session = ApplicationRecord.uncached do
+          ProviderAuthorizationSession.where(
+            installation: installation,
+            provider_handle: "codex_subscription",
+            status: "pending"
+          ).order(issued_at: :desc, id: :desc).first
+        end
+        return session if session.present?
+
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+          raise "timed out waiting for pending codex authorization session"
+        end
+
+        sleep(poll_interval_seconds)
+      end
+    end
+
+    def complete_pending_codex_authorization!(installation:, access_token: "acceptance-codex-access-token",
+                                              refresh_token: "acceptance-codex-refresh-token",
+                                              expires_at: 2.hours.from_now)
+      authorization_session = ProviderAuthorizationSession.where(
+        installation: installation,
+        provider_handle: "codex_subscription",
+        status: "pending"
+      ).order(issued_at: :desc, id: :desc).first || raise("missing pending codex authorization session")
+
+      ProviderCredential.find_or_initialize_by(
+        installation: installation,
+        provider_handle: "codex_subscription",
+        credential_kind: "oauth_codex"
+      ).tap do |credential|
+        credential.assign_attributes(
+          secret: nil,
+          access_token: access_token,
+          refresh_token: refresh_token,
+          expires_at: expires_at,
+          last_rotated_at: Time.current,
+          last_refreshed_at: nil,
+          refresh_failed_at: nil,
+          refresh_failure_reason: nil,
+          metadata: credential.metadata || {}
+        )
+        credential.save!
+      end
+
+      authorization_session.complete!
+      authorization_session
     end
 
     def turn_live_activity_metrics(turn:, runtime_events:, feed:)

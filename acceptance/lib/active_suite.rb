@@ -17,6 +17,8 @@ module Acceptance
       "acceptance/scenarios/human_interaction_wait_resume_validation.rb",
       "acceptance/scenarios/live_supervision_sidechat_validation.rb",
       "acceptance/scenarios/provider_backed_turn_validation.rb",
+      "acceptance/scenarios/specialist_subagent_export_validation.rb",
+      "acceptance/scenarios/workspace_agent_model_override_validation.rb",
       "acceptance/scenarios/subagent_wait_all_validation.rb",
     ].freeze
 
@@ -60,6 +62,14 @@ module Acceptance
       "acceptance/scenarios/provider_backed_turn_validation.rb" => {
         mode: :app_api_surface,
         reason: "validates the end-user conversation creation, execution, diagnostics, and export flow entirely through app_api"
+      },
+      "acceptance/scenarios/specialist_subagent_export_validation.rb" => {
+        mode: :hybrid_app_api,
+        reason: "uses app_api export surfaces while deterministic specialist spawning still has no equivalent app_api forcing surface"
+      },
+      "acceptance/scenarios/workspace_agent_model_override_validation.rb" => {
+        mode: :app_api_surface,
+        reason: "validates mounted model-selector override behavior through app_api without relying on an explicit conversation selector"
       },
       "acceptance/scenarios/subagent_wait_all_validation.rb" => {
         mode: :internal_workflow,

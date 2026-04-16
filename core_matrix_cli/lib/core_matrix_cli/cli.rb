@@ -61,8 +61,26 @@ module CoreMatrixCLI
             say("Installation: #{snapshot.fetch("installation_name")}") if snapshot["installation_name"]
             say("authenticated: #{snapshot.fetch("authenticated", false) ? "yes" : "no"}")
             say("bootstrap state: #{snapshot.fetch("bootstrap_state", "unknown")}")
-            say("default workspace: #{snapshot.fetch("default_workspace", "unknown")}")
-            say("workspace agent: #{snapshot.fetch("workspace_agent", "unknown")}")
+            say("installation default workspace: #{snapshot.fetch("installation_default_workspace", "unknown")}")
+
+            selected_workspace = snapshot["selected_workspace"]
+            if selected_workspace
+              say("selected workspace: #{selected_workspace.fetch("workspace_id")} (#{selected_workspace.fetch("name")})")
+            else
+              say("selected workspace: missing")
+            end
+
+            selected_workspace_agent = snapshot["selected_workspace_agent"]
+            if selected_workspace_agent
+              say(
+                "selected workspace agent: " \
+                "#{selected_workspace_agent.fetch("workspace_agent_id")} " \
+                "(#{selected_workspace_agent.fetch("lifecycle_state")})"
+              )
+            else
+              say("selected workspace agent: missing")
+            end
+
             say("codex subscription: #{snapshot.fetch("codex_subscription", "unknown")}")
             say("telegram: #{snapshot.fetch("telegram", "unknown")}")
             say("weixin: #{snapshot.fetch("weixin", "unknown")}")

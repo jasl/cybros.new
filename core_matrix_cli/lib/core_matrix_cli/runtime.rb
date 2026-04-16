@@ -180,8 +180,9 @@ module CoreMatrixCLI
       snapshot = {
         "authenticated" => false,
         "bootstrap_state" => "unknown",
-        "default_workspace" => "missing",
-        "workspace_agent" => "missing",
+        "installation_default_workspace" => "missing",
+        "selected_workspace" => nil,
+        "selected_workspace_agent" => nil,
         "codex_subscription" => "unknown",
         "telegram" => "unknown",
         "weixin" => "unknown",
@@ -200,13 +201,12 @@ module CoreMatrixCLI
       persist_operator_email(current_session_payload.dig("user", "email")) if snapshot["authenticated"]
 
       workspaces_payload = list_workspaces.fetch("workspaces", [])
-      snapshot["default_workspace"] = workspaces_payload.any? { |workspace| workspace["is_default"] } ? "present" : "missing"
+      snapshot["installation_default_workspace"] = workspaces_payload.any? { |workspace| workspace["is_default"] } ? "present" : "missing"
 
       selected_workspace = select_workspace(workspaces_payload)
       selected_workspace_agent = select_workspace_agent(selected_workspace)
-      if selected_workspace_agent
-        snapshot["workspace_agent"] = "present"
-      end
+      snapshot["selected_workspace"] = selected_workspace.slice("workspace_id", "name", "is_default") if selected_workspace
+      snapshot["selected_workspace_agent"] = selected_workspace_agent.slice("workspace_agent_id", "lifecycle_state") if selected_workspace_agent
 
       llm_provider = provider_status("codex_subscription").fetch("llm_provider", {})
       snapshot["codex_subscription"] =
@@ -220,7 +220,7 @@ module CoreMatrixCLI
           "missing"
         end
 
-      workspace_agent_id = config_store.read["workspace_agent_id"]
+      workspace_agent_id = selected_workspace_agent&.dig("workspace_agent_id") || config_store.read["workspace_agent_id"]
       telegram_binding_id = stored_ingress_binding_id("telegram")
       if workspace_agent_id.to_s.strip != "" && telegram_binding_id.to_s.strip != ""
         telegram_binding = show_ingress_binding(

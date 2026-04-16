@@ -380,6 +380,7 @@ class FakeCoreMatrixServer
       workspace_agent_id: state.workspace_agent_id,
       workspace_id: state.workspace_id,
       agent_id: "agt_contract_123",
+      lifecycle_state: "active",
     }
   end
 
