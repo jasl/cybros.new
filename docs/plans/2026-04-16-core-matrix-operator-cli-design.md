@@ -112,6 +112,24 @@ CoreMatrix already supports:
 The missing piece is a CLI-safe operator path for Telegram connector
 credential/config writes.
 
+Telegram also needs one more operator-facing capability for the flow to be
+actually usable: CoreMatrix persists only `ingress_secret_digest`, so a CLI
+cannot complete Telegram-side webhook registration unless the app API can return
+or rotate a plaintext webhook secret token for the binding.
+
+The current Weixin implementation is also still too thin for a terminal-first
+operator flow: `ClawBotSDK::Weixin::QrLogin.start` currently returns only
+`login_state: pending`, and `status` currently exposes only persisted runtime
+state such as `login_state`, `login_started_at`, `account_id`, and `base_url`.
+For a usable CLI setup experience, CoreMatrix needs to expose either:
+
+- `qr_text`: the raw string to encode into a QR code locally
+- `qr_code_url`: a remotely hosted image URL
+
+The preferred contract is `qr_text`, because the CLI can render it directly in
+the terminal with `rqrcode` and avoid depending on an external browser or image
+host.
+
 ## Proposed Architecture
 
 ### 1. New top-level project: `core_matrix_cli/`
@@ -145,6 +163,8 @@ Add the minimum missing API surface:
 - `POST /app_api/workspaces`
 - extend ingress binding update flow to support connector credential/config
   writes for the binding's single active connector
+- expose a Telegram webhook secret token on binding create or explicit rotate,
+  because the stored digest alone is not enough for operator setup
 
 The CLI then composes those endpoints with existing admin/workspace/provider
 APIs.
@@ -242,7 +262,24 @@ Flow:
 3. write connector credential/config through CoreMatrix
 4. print final webhook URL as:
    `webhook_base_url + setup.webhook_path`
-5. optionally run a connection test if the API exposes one in this round
+5. print the current Telegram webhook secret token needed by
+   `X-Telegram-Bot-Api-Secret-Token`
+6. optionally run a connection test if the API exposes one in this round
+
+The command help itself must carry the operator preparation instructions.
+`cmctl ingress telegram setup --help` should explicitly show:
+
+- prerequisites:
+  - a Telegram bot already created in BotFather
+  - the bot token
+  - a public HTTPS base URL for the CoreMatrix deployment
+- the exact values the command will prompt for
+- the values the command will print back:
+  - webhook URL
+  - webhook secret header name
+  - plaintext webhook secret token
+- the v1 verification boundary:
+  - API-contract only, not real webhook delivery
 
 ### `cmctl ingress weixin setup`
 
@@ -251,12 +288,30 @@ Flow:
 1. create binding if absent
 2. if binding already exists, check login status first
 3. if not connected, call `weixin/start_login`
-4. show returned QR code URL
-5. poll `weixin/login_status`
-6. stop when connected, timed out, or explicitly cancelled
+4. poll `weixin/login_status`
+5. if `qr_text` is returned, render an ANSI QR in the terminal via `rqrcode`
+6. if only `qr_code_url` is returned, print the URL clearly
+7. stop when connected, timed out, or explicitly cancelled
 
 Weixin setup is naturally resumable because the server owns the current login
 state.
+
+The command help itself must carry the operator preparation instructions.
+`cmctl ingress weixin setup --help` should explicitly show:
+
+- prerequisites:
+  - an authenticated operator session
+  - a selected workspace and workspace agent
+  - a terminal capable of displaying ANSI output if inline QR rendering is
+    desired
+- what the command will do:
+  - create or reuse the binding
+  - start login when needed
+  - poll status
+  - render ANSI QR from `qr_text` when available
+  - fall back to `qr_code_url` when necessary
+- the v1 verification boundary:
+  - API-contract only, not real account scanning or live message delivery
 
 ## Credentials and Local Storage
 
@@ -286,6 +341,29 @@ Storage strategy:
 
 When the server returns `401`, expired-session, or revoked-session semantics,
 the CLI should clear the saved token and require re-login.
+
+## Terminal QR Rendering
+
+If Weixin status includes `qr_text`, the CLI should render an ANSI QR directly
+in the terminal using `rqrcode`'s `as_ansi` support. This keeps the operator
+flow terminal-native and works well for SSH or headless environments.
+
+If the server only has `qr_code_url`, the CLI should print the URL and continue
+polling for status changes, but that is a weaker fallback.
+
+## Help As Primary Operator Surface
+
+For IM setup, the CLI help text is part of the product surface, not just
+developer documentation.
+
+That means the primary operator instructions should live in:
+
+- `cmctl ingress telegram setup --help`
+- `cmctl ingress weixin setup --help`
+
+External documentation can still exist as a longer reference, but the operator
+must be able to discover the required preparation work directly from the CLI
+without leaving the terminal.
 
 ## API Design
 
@@ -400,6 +478,20 @@ Allowed update fields in V1:
 For Telegram, the service layer should validate the minimal required fields and
 return operator-friendly errors.
 
+Telegram setup payload should also include a plaintext webhook secret token when
+the binding is created or rotated explicitly. Without that, the CLI can compute
+the final webhook URL, but the operator still cannot finish Telegram webhook
+registration because the app persists only the secret digest.
+
+For Weixin, the service and presenter contract should expose any available QR
+material through `login_status`, preferably as:
+
+- `qr_text`
+- optional `qr_code_url`
+- `login_state`
+- `account_id`
+- `base_url`
+
 ## CLI Behavior After Bootstrap
 
 Because bundled bootstrap can already create a default workspace and active
@@ -454,6 +546,16 @@ Add command/client coverage for:
 - `ingress telegram setup`
 - `ingress weixin setup`
 
+Add one contract-style end-to-end test suite that runs the CLI against a fake
+HTTP server so the full happy path can be verified unattended:
+
+- bootstrap
+- login persistence
+- bundled workspace reuse
+- Codex authorization polling
+- Telegram config write
+- Weixin QR/status polling
+
 ### Minimum end-to-end acceptance target
 
 The v1 definition of done is a reproducible path that can:
@@ -462,8 +564,17 @@ The v1 definition of done is a reproducible path that can:
 2. automatically persist operator login credentials
 3. reuse bundled workspace/agent state when present
 4. authorize Codex Subscription
-5. configure Telegram or connect Weixin
+5. configure Telegram or drive the Weixin QR/status API contract
 6. report readiness through `cmctl status`
 
 At that point, the CLI has done its job: the system is ready for the next round
 of real integration testing without depending on the website UI.
+
+IM-specific self-verification in this round is **API-contract only**:
+
+- Telegram: verify binding creation, credential/config write, and final webhook
+  URL composition, plus webhook secret token exposure or rotation
+- Weixin: verify start/status/disconnect contract plus QR material exposure
+
+Human scanning of a real Weixin QR code and real remote webhook delivery remain
+manual integration work for the later joint validation phase.
