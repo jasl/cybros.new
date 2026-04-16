@@ -106,20 +106,63 @@ module CoreMatrixCLI
     include CommandHelpers
 
     desc "list", "List available workspaces"
-    def list; end
+    def list
+      return unless require_base_url!
 
+      runtime.list_workspaces.fetch("workspaces", []).each do |workspace|
+        marker = workspace["is_default"] ? "*" : "-"
+        say("#{marker} #{workspace.fetch("workspace_id")} #{workspace.fetch("name")}")
+      end
+    end
+
+    option :name, type: :string, desc: "Workspace name"
+    option :privacy, type: :string, default: "private", desc: "Workspace privacy"
+    option :default, type: :boolean, default: false, desc: "Mark the workspace as default"
     desc "create", "Create a workspace"
-    def create; end
+    def create
+      return unless require_base_url!
+
+      payload = runtime.create_workspace(
+        name: options[:name] || ask("Workspace Name:"),
+        privacy: options[:privacy],
+        is_default: options[:default]
+      )
+      workspace = payload.fetch("workspace")
+      runtime.persist_workspace_context(workspace_id: workspace.fetch("workspace_id"))
+      say("selected workspace: #{workspace.fetch("workspace_id")}")
+      say("workspace name: #{workspace.fetch("name")}")
+    end
 
     desc "use WORKSPACE_ID", "Select a workspace"
-    def use(_workspace_id); end
+    def use(workspace_id)
+      runtime.persist_workspace_context(workspace_id: workspace_id)
+      say("selected workspace: #{workspace_id}")
+    end
   end
 
   class AgentCLI < Thor
     include CommandHelpers
 
+    option :workspace_id, type: :string, desc: "Workspace public id"
+    option :agent_id, type: :string, required: true, desc: "Agent public id"
     desc "attach", "Attach an agent to the selected workspace"
-    def attach; end
+    def attach
+      return unless require_base_url!
+
+      workspace_id = options[:workspace_id] || runtime.config_store.read["workspace_id"]
+      raise ArgumentError, "workspace_id is required" if workspace_id.to_s.strip.empty?
+
+      payload = runtime.attach_workspace_agent(
+        workspace_id: workspace_id,
+        agent_id: options.fetch(:agent_id)
+      )
+      workspace_agent = payload.fetch("workspace_agent")
+      runtime.persist_workspace_context(
+        workspace_id: workspace_agent.fetch("workspace_id"),
+        workspace_agent_id: workspace_agent.fetch("workspace_agent_id")
+      )
+      say("selected workspace agent: #{workspace_agent.fetch("workspace_agent_id")}")
+    end
   end
 
   class TelegramCLI < Thor

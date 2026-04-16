@@ -63,7 +63,8 @@ end
 class FakeRuntime
   attr_reader :calls, :config_store, :credential_store
   attr_accessor :bootstrap_status_payload, :bootstrap_response, :login_response,
-    :session_response, :logout_response, :readiness_payload
+    :session_response, :logout_response, :readiness_payload, :workspaces_response,
+    :create_workspace_response, :agents_response, :attach_workspace_agent_response
 
   def initialize(config_store:, credential_store:)
     @config_store = config_store
@@ -75,6 +76,10 @@ class FakeRuntime
     @session_response = nil
     @logout_response = { "ok" => true }
     @readiness_payload = {}
+    @workspaces_response = { "workspaces" => [] }
+    @create_workspace_response = nil
+    @agents_response = { "agents" => [] }
+    @attach_workspace_agent_response = nil
   end
 
   def stored_base_url
@@ -142,6 +147,26 @@ class FakeRuntime
   def readiness_snapshot
     calls << [:readiness_snapshot]
     @readiness_payload
+  end
+
+  def list_workspaces
+    calls << [:list_workspaces]
+    @workspaces_response
+  end
+
+  def create_workspace(name:, privacy:, is_default:)
+    calls << [:create_workspace, name, privacy, is_default]
+    @create_workspace_response || raise("missing create_workspace_response")
+  end
+
+  def list_agents
+    calls << [:list_agents]
+    @agents_response
+  end
+
+  def attach_workspace_agent(workspace_id:, agent_id:)
+    calls << [:attach_workspace_agent, workspace_id, agent_id]
+    @attach_workspace_agent_response || raise("missing attach_workspace_agent_response")
   end
 end
 

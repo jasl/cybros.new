@@ -75,6 +75,17 @@ module CoreMatrixCLI
       authenticated_client.get("/app_api/workspaces")
     end
 
+    def create_workspace(name:, privacy: "private", is_default: false)
+      authenticated_client.post(
+        "/app_api/workspaces",
+        body: {
+          name: name,
+          privacy: privacy,
+          is_default: is_default,
+        }
+      )
+    end
+
     def list_agents
       authenticated_client.get("/app_api/agents")
     end
