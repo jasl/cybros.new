@@ -245,7 +245,7 @@ module ActiveSupport
       end
     end
 
-    def build_agent_definition_version(installation: Installation.first || create_installation!, agent: nil, version: nil, definition_fingerprint: nil, fingerprint: nil, protocol_version: "2026-04-03", sdk_version: "fenix-0.2.0", prompt_pack_ref: "fenix/default", prompt_pack_fingerprint: "prompt-pack-#{next_test_sequence}", program_manifest_fingerprint: "program-manifest-#{next_test_sequence}", protocol_methods_document: nil, protocol_methods: nil, feature_contract_document: nil, feature_contract: nil, request_preparation_contract_document: nil, request_preparation_contract: nil, tool_contract_document: nil, tool_contract: nil, profile_policy_document: nil, profile_policy: nil, canonical_config_schema_document: nil, canonical_config_schema: nil, conversation_override_schema_document: nil, conversation_override_schema: nil, default_canonical_config_document: nil, default_canonical_config: nil, reflected_surface_document: nil, reflected_surface: nil, **attrs)
+    def build_agent_definition_version(installation: Installation.first || create_installation!, agent: nil, version: nil, definition_fingerprint: nil, fingerprint: nil, protocol_version: "2026-04-03", sdk_version: "fenix-0.2.0", prompt_pack_ref: "fenix/default", prompt_pack_fingerprint: "prompt-pack-#{next_test_sequence}", program_manifest_fingerprint: "program-manifest-#{next_test_sequence}", protocol_methods_document: nil, protocol_methods: nil, feature_contract_document: nil, feature_contract: nil, request_preparation_contract_document: nil, request_preparation_contract: nil, tool_contract_document: nil, tool_contract: nil, profile_policy_document: nil, profile_policy: nil, canonical_config_schema_document: nil, canonical_config_schema: nil, conversation_override_schema_document: nil, conversation_override_schema: nil, workspace_agent_settings_schema_document: nil, workspace_agent_settings_schema: nil, default_workspace_agent_settings_document: nil, default_workspace_agent_settings: nil, default_canonical_config_document: nil, default_canonical_config: nil, reflected_surface_document: nil, reflected_surface: nil, **attrs)
       agent ||= create_agent!(installation: installation)
       version ||= agent.agent_definition_versions.maximum(:version).to_i + 1
       definition_fingerprint ||= fingerprint || "definition-#{next_test_sequence}"
@@ -267,6 +267,8 @@ module ActiveSupport
         profile_policy_document: profile_policy_document || create_json_document!(installation: installation, document_kind: "profile_policy", payload: profile_policy || default_profile_policy),
         canonical_config_schema_document: canonical_config_schema_document || create_json_document!(installation: installation, document_kind: "config_schema", payload: canonical_config_schema || default_canonical_config_schema),
         conversation_override_schema_document: conversation_override_schema_document || create_json_document!(installation: installation, document_kind: "conversation_override_schema", payload: conversation_override_schema || { "type" => "object", "properties" => {} }),
+        workspace_agent_settings_schema_document: workspace_agent_settings_schema_document || create_json_document!(installation: installation, document_kind: "workspace_agent_settings_schema", payload: workspace_agent_settings_schema || default_workspace_agent_settings_schema),
+        default_workspace_agent_settings_document: default_workspace_agent_settings_document || create_json_document!(installation: installation, document_kind: "default_workspace_agent_settings", payload: default_workspace_agent_settings || default_workspace_agent_settings_payload),
         default_canonical_config_document: default_canonical_config_document || create_json_document!(installation: installation, document_kind: "default_config", payload: default_canonical_config || default_default_canonical_config),
         reflected_surface_document: reflected_surface_document || create_json_document!(installation: installation, document_kind: "reflected_surface", payload: reflected_surface || { "display_name" => agent.display_name }),
       }.merge(attrs))
@@ -481,9 +483,21 @@ module ActiveSupport
           "label" => "Main",
           "description" => "Primary interactive profile",
         },
+        "friendly" => {
+          "label" => "Friendly",
+          "description" => "Friendly interactive profile",
+        },
         "researcher" => {
           "label" => "Researcher",
           "description" => "Delegated research profile",
+        },
+        "developer" => {
+          "label" => "Developer",
+          "description" => "Delegated implementation profile",
+        },
+        "tester" => {
+          "label" => "Tester",
+          "description" => "Delegated verification profile",
         },
       }
     end
@@ -540,6 +554,76 @@ module ActiveSupport
       }
     end
 
+    def default_workspace_agent_settings_schema
+      {
+        "$schema" => "https://json-schema.org/draft/2020-12/schema",
+        "type" => "object",
+        "additionalProperties" => false,
+        "properties" => {
+          "interactive" => {
+            "type" => "object",
+            "additionalProperties" => false,
+            "properties" => {
+              "profile_key" => { "type" => "string", "minLength" => 1 },
+              "model_selector" => { "type" => "string", "minLength" => 1 },
+            },
+          },
+          "subagents" => {
+            "type" => "object",
+            "additionalProperties" => false,
+            "properties" => {
+              "default_profile_key" => { "type" => "string", "minLength" => 1 },
+              "enabled_profile_keys" => {
+                "type" => "array",
+                "items" => { "type" => "string", "minLength" => 1 },
+                "uniqueItems" => true,
+              },
+              "delegation_mode" => {
+                "type" => "string",
+                "enum" => %w[allow prefer],
+              },
+              "max_concurrent" => { "type" => "integer", "minimum" => 1 },
+              "max_depth" => { "type" => "integer", "minimum" => 1 },
+              "allow_nested" => { "type" => "boolean" },
+              "default_model_selector" => { "type" => "string", "minLength" => 1 },
+              "profile_overrides" => {
+                "type" => "object",
+                "additionalProperties" => {
+                  "type" => "object",
+                  "additionalProperties" => false,
+                  "properties" => {
+                    "model_selector" => { "type" => "string", "minLength" => 1 },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }
+    end
+
+    def default_workspace_agent_settings_payload
+      {
+        "interactive" => {
+          "profile_key" => "main",
+          "model_selector" => "role:main",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => %w[researcher developer tester],
+          "delegation_mode" => "allow",
+          "max_concurrent" => 3,
+          "max_depth" => 3,
+          "allow_nested" => true,
+          "profile_overrides" => {
+            "researcher" => { "model_selector" => "role:researcher" },
+            "developer" => { "model_selector" => "role:developer" },
+            "tester" => { "model_selector" => "role:tester" },
+          },
+        },
+      }
+    end
+
     def connection_api_headers(bearer_token)
       {
         "Authorization" => ActionController::HttpAuthentication::Token.encode_credentials(bearer_token),
@@ -576,6 +660,8 @@ module ActiveSupport
       profile_policy: default_profile_policy,
       canonical_config_schema: default_canonical_config_schema,
       conversation_override_schema: { "type" => "object", "properties" => {} },
+      workspace_agent_settings_schema: default_workspace_agent_settings_schema,
+      default_workspace_agent_settings: default_workspace_agent_settings_payload,
       default_canonical_config: default_default_canonical_config,
       **attrs
     )
@@ -628,6 +714,8 @@ module ActiveSupport
           "profile_policy" => profile_policy,
           "canonical_config_schema" => canonical_config_schema,
           "conversation_override_schema" => conversation_override_schema,
+          "workspace_agent_settings_schema" => workspace_agent_settings_schema,
+          "default_workspace_agent_settings" => default_workspace_agent_settings,
           "default_canonical_config" => default_canonical_config,
           "reflected_surface" => attrs.delete(:reflected_surface) || { "display_name" => agent.display_name },
         }
@@ -755,6 +843,10 @@ module ActiveSupport
         installation: installation,
         agent: agent,
         tool_contract: default_tool_catalog
+      )
+      agent.update!(
+        current_agent_definition_version: agent_definition_version,
+        published_agent_definition_version: agent_definition_version
       )
       agent_connection = create_agent_connection!(
         installation: installation,
@@ -1011,6 +1103,8 @@ module ActiveSupport
           "type" => "object",
           "properties" => {},
         },
+        workspace_agent_settings_schema: {},
+        default_workspace_agent_settings: {},
         default_canonical_config: {
           "sandbox" => "workspace-write",
           "features" => {

@@ -41,7 +41,9 @@ runtime_context = GovernedValidationSupport.bootstrap_runtime!(
 )
 runtime_context.fetch(:workspace).primary_workspace_agent.update!(
   settings_payload: {
-    "default_subagent_model_selector_hint" => "role:researcher",
+    "subagents" => {
+      "default_model_selector" => "role:researcher",
+    },
   }
 )
 
@@ -80,8 +82,8 @@ unless spawn_result["profile_key"] == "researcher"
   raise "expected default specialist profile researcher, got #{spawn_result["profile_key"].inspect}"
 end
 
-unless spawn_result["model_selector_hint"] == "role:researcher"
-  raise "expected default subagent model selector hint role:researcher, got #{spawn_result["model_selector_hint"].inspect}"
+unless spawn_result["model_selector_hint"] == "candidate:dev/mock-model"
+  raise "expected default subagent model selector hint to soft-fallback to candidate:dev/mock-model, got #{spawn_result["model_selector_hint"].inspect}"
 end
 
 completed = ToolInvocations::Complete.call(

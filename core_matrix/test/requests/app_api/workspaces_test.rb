@@ -63,15 +63,19 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
     assert_equal "agent_visibility_revoked", workspace_payload.fetch("workspace_agents").first.fetch("revoked_reason_kind")
   end
 
-  test "lists owned workspaces within seven SQL queries" do
+  test "lists owned workspaces within nine SQL queries" do
     context = create_workspace_context!
     context[:workspace].update!(is_default: true)
     context[:workspace_agent].update!(
       settings_payload: {
-        "interactive_profile_key" => "main",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "delegation_mode" => "prefer",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+        },
       }
     )
     workspace = create_workspace!(
@@ -87,13 +91,14 @@ class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
     )
     session = create_session!(user: context[:user])
 
-    assert_sql_query_count_at_most(7) do
+    assert_sql_query_count_at_most(9) do
       get "/app_api/workspaces",
         headers: app_api_headers(session.plaintext_token)
     end
 
     assert_response :success
     payload = response.parsed_body.fetch("workspaces").find { |item| item.fetch("workspace_id") == context[:workspace].public_id }
-    assert_equal "prefer", payload.fetch("workspace_agents").first.dig("settings_payload", "delegation_mode")
+    assert_equal "prefer", payload.fetch("workspace_agents").first.dig("settings_payload", "subagents", "delegation_mode")
+    assert_equal "object", payload.fetch("workspace_agents").first.dig("settings_schema", "type")
   end
 end

@@ -95,8 +95,9 @@ class Shared::PayloadContextTest < ActiveSupport::TestCase
         "delegation_mode" => "prefer",
         "max_concurrent_subagents" => 3,
         "max_subagent_depth" => 2,
-        "allow_nested_subagents" => false,
+        "default_subagent_model_selector" => "coding-fast",
         "default_subagent_model_selector_hint" => "coding-fast",
+        "allow_nested_subagents" => false,
       },
       context.dig("workspace_agent_context", "profile_settings")
     )

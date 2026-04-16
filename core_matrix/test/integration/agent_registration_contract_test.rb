@@ -76,6 +76,8 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
           tool_contract: default_tool_catalog("exec_command", "subagent_spawn"),
           canonical_config_schema: profile_aware_canonical_config_schema,
           conversation_override_schema: subagent_policy_conversation_override_schema,
+          workspace_agent_settings_schema: default_workspace_agent_settings_schema,
+          default_workspace_agent_settings: default_workspace_agent_settings_payload,
           default_canonical_config: profile_aware_default_canonical_config,
           reflected_surface: {
             display_name: "Fenix",

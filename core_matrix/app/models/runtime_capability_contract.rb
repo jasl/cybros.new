@@ -23,6 +23,8 @@ class RuntimeCapabilityContract
     profile_policy: nil,
     canonical_config_schema: nil,
     conversation_override_schema: nil,
+    workspace_agent_settings_schema: nil,
+    default_workspace_agent_settings: nil,
     default_canonical_config: nil,
     core_matrix_tool_catalog: []
   )
@@ -49,6 +51,12 @@ class RuntimeCapabilityContract
     )
     @conversation_override_schema = normalize_hash(
       conversation_override_schema.nil? ? @agent_definition_version&.conversation_override_schema : conversation_override_schema
+    )
+    @workspace_agent_settings_schema = normalize_hash(
+      workspace_agent_settings_schema.nil? ? @agent_definition_version&.workspace_agent_settings_schema : workspace_agent_settings_schema
+    )
+    @default_workspace_agent_settings = normalize_hash(
+      default_workspace_agent_settings.nil? ? @agent_definition_version&.default_workspace_agent_settings : default_workspace_agent_settings
     )
     @default_canonical_config = normalize_hash(
       default_canonical_config.nil? ? @agent_definition_version&.default_canonical_config : default_canonical_config
@@ -84,6 +92,14 @@ class RuntimeCapabilityContract
     @conversation_override_schema.deep_dup
   end
 
+  def workspace_agent_settings_schema
+    @workspace_agent_settings_schema.deep_dup
+  end
+
+  def default_workspace_agent_settings
+    @default_workspace_agent_settings.deep_dup
+  end
+
   def default_canonical_config
     @default_canonical_config.deep_dup
   end
@@ -109,6 +125,8 @@ class RuntimeCapabilityContract
       "profile_policy" => profile_policy,
       "canonical_config_schema" => canonical_config_schema,
       "conversation_override_schema" => conversation_override_schema,
+      "workspace_agent_settings_schema" => workspace_agent_settings_schema,
+      "default_workspace_agent_settings" => default_workspace_agent_settings,
       "default_canonical_config" => default_canonical_config,
     }.compact
   end
@@ -162,6 +180,8 @@ class RuntimeCapabilityContract
       "profile_policy" => profile_policy,
       "canonical_config_schema" => canonical_config_schema,
       "conversation_override_schema" => conversation_override_schema,
+      "workspace_agent_settings_schema" => workspace_agent_settings_schema,
+      "default_workspace_agent_settings" => default_workspace_agent_settings,
       "default_canonical_config" => default_canonical_config,
       "reconciliation_report" => reconciliation_report,
     }.compact

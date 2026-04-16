@@ -158,6 +158,31 @@ class EmbeddedAgents::ConversationSupervision::Responders::BuiltinTest < ActiveS
     refute_match(/working through the current turn/i, content)
   end
 
+  test "uses runtime facts when the frozen focus falls back to the generic waiting workflow-step wording" do
+    fixture = fresh_provider_backed_fixture!
+    session = create_conversation_supervision_session!(fixture)
+    snapshot = EmbeddedAgents::ConversationSupervision::BuildSnapshot.call(
+      actor: fixture.fetch(:user),
+      conversation_supervision_session: session
+    )
+    machine_status = snapshot.machine_status_payload.deep_dup
+    machine_status["current_focus_summary"] = "Waiting on the current workflow step"
+    machine_status["recent_progress_summary"] = nil
+    snapshot.update!(machine_status_payload: machine_status)
+
+    response = EmbeddedAgents::ConversationSupervision::Responders::Builtin.call(
+      conversation_supervision_session: session,
+      conversation_supervision_snapshot: snapshot,
+      question: "Please tell me what the 2048 work is doing right now and what part is currently in progress."
+    )
+
+    content = response.dig("human_sidechat", "content")
+
+    assert_match(/waiting for the test-and-build check/i, content)
+    assert_match(%r{/workspace/game-2048}, content)
+    refute_match(/waiting on the current workflow step/i, content)
+  end
+
   test "falls back to the request summary when the frozen focus is generic and runtime facts are absent" do
     fixture = fresh_provider_backed_fixture!
     session = create_conversation_supervision_session!(fixture)

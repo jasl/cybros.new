@@ -50,6 +50,8 @@ class AgentApiCapabilitiesControllerTest < ActionDispatch::IntegrationTest
           "profile_policy" => default_profile_policy,
           "canonical_config_schema" => default_canonical_config_schema,
           "conversation_override_schema" => { "type" => "object", "properties" => {} },
+          "workspace_agent_settings_schema" => default_workspace_agent_settings_schema,
+          "default_workspace_agent_settings" => default_workspace_agent_settings_payload,
           "default_canonical_config" => default_default_canonical_config,
           "reflected_surface" => { "display_name" => "Fenix" },
         },

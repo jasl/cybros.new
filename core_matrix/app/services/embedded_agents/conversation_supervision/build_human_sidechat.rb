@@ -358,7 +358,7 @@ module EmbeddedAgents
       end
 
       def generic_current_turn_focus?(text)
-        text.to_s.match?(/\AWorking through the current turn\z/i)
+        text.to_s.match?(/\A(?:Working through the current turn|Waiting on the current workflow step|Resolving the blocked workflow step)\z/i)
       end
 
       def lowercase_initial(text)

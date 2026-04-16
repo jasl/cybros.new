@@ -129,6 +129,7 @@ class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
         "default_subagent_profile_key" => "researcher",
       }
     )
+    prepare_workflow_execution_setup!(context)
     workflow_node = context.fetch(:workflow_node)
 
     result = ProviderExecution::ExecuteCoreMatrixTool.call(
@@ -139,14 +140,14 @@ class ProviderExecution::ExecuteCoreMatrixToolTest < ActiveSupport::TestCase
           "content" => "Investigate the failure",
           "scope" => "conversation",
           "profile_key" => "researcher",
-          "model_selector_hint" => "role:researcher",
+          "model_selector_hint" => "role:planner",
         },
       }
     )
 
     session = SubagentConnection.find_by!(public_id: result.fetch("subagent_connection_id"))
 
-    assert_equal "role:researcher", result.fetch("model_selector_hint")
-    assert_equal "role:researcher", session.resolved_model_selector_hint
+    assert_equal "role:planner", result.fetch("model_selector_hint")
+    assert_equal "role:planner", session.resolved_model_selector_hint
   end
 end

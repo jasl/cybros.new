@@ -45,6 +45,8 @@ module Installations
       profile_policy: {},
       canonical_config_schema: {},
       conversation_override_schema: {},
+      workspace_agent_settings_schema: {},
+      default_workspace_agent_settings: {},
       default_canonical_config: {
         "features" => {
           "title_bootstrap" => {
@@ -327,6 +329,8 @@ module Installations
         "profile_policy" => @configuration[:profile_policy],
         "canonical_config_schema" => @configuration[:canonical_config_schema],
         "conversation_override_schema" => @configuration[:conversation_override_schema],
+        "workspace_agent_settings_schema" => @configuration[:workspace_agent_settings_schema],
+        "default_workspace_agent_settings" => @configuration[:default_workspace_agent_settings],
         "default_canonical_config" => @configuration[:default_canonical_config],
         "reflected_surface" => {
           "display_name" => @configuration[:display_name],

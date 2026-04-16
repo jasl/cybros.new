@@ -70,6 +70,8 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
           "profile_policy" => {},
           "canonical_config_schema" => {},
           "conversation_override_schema" => {},
+          "workspace_agent_settings_schema" => {},
+          "default_workspace_agent_settings" => {},
           "default_canonical_config" => {},
           "reflected_surface" => {},
         }
@@ -113,6 +115,8 @@ class Shared::ControlPlane::ClientTest < ActiveSupport::TestCase
           "profile_policy" => {},
           "canonical_config_schema" => {},
           "conversation_override_schema" => {},
+          "workspace_agent_settings_schema" => {},
+          "default_workspace_agent_settings" => {},
           "default_canonical_config" => {},
           "reflected_surface" => {},
         }

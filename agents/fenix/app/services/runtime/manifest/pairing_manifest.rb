@@ -28,6 +28,8 @@ module Runtime
           "agent_plane" => agent_plane(definition_package),
           "canonical_config_schema" => definition_package.fetch("canonical_config_schema"),
           "conversation_override_schema" => definition_package.fetch("conversation_override_schema"),
+          "workspace_agent_settings_schema" => definition_package.fetch("workspace_agent_settings_schema"),
+          "default_workspace_agent_settings" => definition_package.fetch("default_workspace_agent_settings"),
           "default_canonical_config" => definition_package.fetch("default_canonical_config"),
           "definition_package" => definition_package,
         }
@@ -74,6 +76,8 @@ module Runtime
           "profile_policy" => definition_package.fetch("profile_policy"),
           "canonical_config_schema" => definition_package.fetch("canonical_config_schema"),
           "conversation_override_schema" => definition_package.fetch("conversation_override_schema"),
+          "workspace_agent_settings_schema" => definition_package.fetch("workspace_agent_settings_schema"),
+          "default_workspace_agent_settings" => definition_package.fetch("default_workspace_agent_settings"),
           "default_canonical_config" => definition_package.fetch("default_canonical_config"),
         }
       end

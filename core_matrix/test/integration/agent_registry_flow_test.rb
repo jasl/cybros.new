@@ -88,6 +88,8 @@ class AgentRegistryFlowTest < ActionDispatch::IntegrationTest
           "type" => "object",
           "properties" => {},
         },
+        "workspace_agent_settings_schema" => default_workspace_agent_settings_schema,
+        "default_workspace_agent_settings" => default_workspace_agent_settings_payload,
         "default_canonical_config" => {
           "sandbox" => "workspace-write",
         },

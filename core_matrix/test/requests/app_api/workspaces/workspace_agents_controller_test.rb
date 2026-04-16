@@ -12,6 +12,15 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
       default_execution_runtime: runtime,
       display_name: "Mounted Agent"
     )
+    agent_definition_version = create_agent_definition_version!(
+      installation: context[:installation],
+      agent: agent,
+      tool_contract: default_tool_catalog
+    )
+    agent.update!(
+      current_agent_definition_version: agent_definition_version,
+      published_agent_definition_version: agent_definition_version
+    )
 
     assert_difference("WorkspaceAgent.count", +1) do
       post "/app_api/workspaces/#{context[:workspace].public_id}/workspace_agents",
@@ -20,13 +29,18 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
           default_execution_runtime_id: runtime.public_id,
           global_instructions: "Always prefer concise Chinese responses.\n",
           settings_payload: {
-            interactive_profile_key: "main",
-            default_subagent_profile_key: "researcher",
-            enabled_subagent_profile_keys: ["researcher"],
-            delegation_mode: "prefer",
-            max_concurrent_subagents: 2,
-            max_subagent_depth: 1,
-            allow_nested_subagents: false,
+            interactive: {
+              profile_key: "friendly",
+              model_selector: "role:main",
+            },
+            subagents: {
+              default_profile_key: "researcher",
+              enabled_profile_keys: ["researcher"],
+              delegation_mode: "prefer",
+              max_concurrent: 2,
+              max_depth: 1,
+              allow_nested: false,
+            },
           },
         },
         headers: app_api_headers(session.plaintext_token),
@@ -42,7 +56,9 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal runtime.public_id, response.parsed_body.dig("workspace_agent", "default_execution_runtime_id")
     assert_equal "Always prefer concise Chinese responses.\n",
       response.parsed_body.dig("workspace_agent", "global_instructions")
-    assert_equal "prefer", response.parsed_body.dig("workspace_agent", "settings_payload", "delegation_mode")
+    assert_equal "prefer", response.parsed_body.dig("workspace_agent", "settings_payload", "subagents", "delegation_mode")
+    assert_equal "object", response.parsed_body.dig("workspace_agent", "settings_schema", "type")
+    assert_equal "main", response.parsed_body.dig("workspace_agent", "default_settings_payload", "interactive", "profile_key")
   end
 
   test "updates and clears workspace agent global instructions and settings payload" do
@@ -53,10 +69,14 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
       params: {
         global_instructions: "Prefer concise Chinese responses.\n",
         settings_payload: {
-          interactive_profile_key: "main",
-          default_subagent_profile_key: "researcher",
-          enabled_subagent_profile_keys: ["researcher"],
-          delegation_mode: "allow",
+          interactive: {
+            profile_key: "main",
+          },
+          subagents: {
+            default_profile_key: "researcher",
+            enabled_profile_keys: ["researcher"],
+            delegation_mode: "allow",
+          },
         },
       },
       headers: app_api_headers(session.plaintext_token),
@@ -65,7 +85,7 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "Prefer concise Chinese responses.\n",
       response.parsed_body.dig("workspace_agent", "global_instructions")
-    assert_equal "allow", response.parsed_body.dig("workspace_agent", "settings_payload", "delegation_mode")
+    assert_equal "allow", response.parsed_body.dig("workspace_agent", "settings_payload", "subagents", "delegation_mode")
 
     patch "/app_api/workspaces/#{context[:workspace].public_id}/workspace_agents/#{context[:workspace_agent].public_id}",
       params: {
@@ -154,6 +174,15 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     session = create_session!(user: context[:user])
     agent = create_agent!(installation: context[:installation], visibility: "public")
+    agent_definition_version = create_agent_definition_version!(
+      installation: context[:installation],
+      agent: agent,
+      tool_contract: default_tool_catalog
+    )
+    agent.update!(
+      current_agent_definition_version: agent_definition_version,
+      published_agent_definition_version: agent_definition_version
+    )
 
     post "/app_api/workspaces/#{context[:workspace].public_id}/workspace_agents",
       params: {
@@ -173,12 +202,23 @@ class AppApiWorkspaceAgentsControllerTest < ActionDispatch::IntegrationTest
     context = create_workspace_context!
     session = create_session!(user: context[:user])
     agent = create_agent!(installation: context[:installation], visibility: "public")
+    agent_definition_version = create_agent_definition_version!(
+      installation: context[:installation],
+      agent: agent,
+      tool_contract: default_tool_catalog
+    )
+    agent.update!(
+      current_agent_definition_version: agent_definition_version,
+      published_agent_definition_version: agent_definition_version
+    )
 
     post "/app_api/workspaces/#{context[:workspace].public_id}/workspace_agents",
       params: {
         agent_id: agent.public_id,
         settings_payload: {
-          interactive_profile_key: "main",
+          interactive: {
+            profile_key: "main",
+          },
           unexpected: true,
         },
       },

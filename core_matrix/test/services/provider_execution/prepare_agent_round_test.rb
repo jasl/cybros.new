@@ -253,7 +253,7 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
 
     assert_equal "researcher", request_payload.dig("agent_context", "profile")
     assert_equal true, request_payload.dig("agent_context", "is_subagent")
-    assert_equal "role:researcher", request_payload.dig("agent_context", "model_selector_hint")
+    assert_equal "role:planner", request_payload.dig("agent_context", "model_selector_hint")
   end
 
   private
@@ -270,6 +270,7 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
       agent_tool_catalog: governed_agent_tool_catalog + [default_agent_observation_tool_entry("calculator")],
       profile_policy: profile_policy
     )
+    prepare_workflow_execution_setup!(context)
     owner_conversation = Conversations::CreateRoot.call(workspace: context.fetch(:workspace))
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
@@ -286,7 +287,7 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
       content: "Investigate this",
       scope: "conversation",
       profile_key: "researcher",
-      model_selector_hint: "role:researcher"
+      model_selector_hint: "role:planner"
     )
     workflow_run = WorkflowRun.find_by!(public_id: spawn_result.fetch("workflow_run_id"))
 

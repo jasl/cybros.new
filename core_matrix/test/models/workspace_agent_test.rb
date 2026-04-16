@@ -74,34 +74,54 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
     assert_nil workspace_agent.global_instructions
   end
 
-  test "normalizes compact settings payload" do
+  test "normalizes structured settings payload" do
     context = workspace_agent_context
     workspace_agent = WorkspaceAgent.create!(
       installation: context[:installation],
       workspace: context[:workspace],
       agent: context[:agent],
       settings_payload: {
-        "interactive_profile_key" => "main",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher", "", "researcher"],
-        "delegation_mode" => "prefer",
-        "max_concurrent_subagents" => "3",
-        "max_subagent_depth" => "2",
-        "allow_nested_subagents" => false,
-        "default_subagent_model_selector_hint" => "coding-fast",
+        "interactive" => {
+          "profile_key" => "friendly",
+          "model_selector" => "role:main",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => ["researcher", "", "researcher"],
+          "delegation_mode" => "prefer",
+          "max_concurrent" => "3",
+          "max_depth" => "2",
+          "allow_nested" => false,
+          "default_model_selector" => "role:main",
+          "profile_overrides" => {
+            "researcher" => {
+              "model_selector" => "role:researcher",
+            },
+          },
+        },
       }
     )
 
     assert_equal(
       {
-        "interactive_profile_key" => "main",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "delegation_mode" => "prefer",
-        "max_concurrent_subagents" => 3,
-        "max_subagent_depth" => 2,
-        "allow_nested_subagents" => false,
-        "default_subagent_model_selector_hint" => "coding-fast",
+        "interactive" => {
+          "profile_key" => "friendly",
+          "model_selector" => "role:main",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+          "max_concurrent" => 3,
+          "max_depth" => 2,
+          "allow_nested" => false,
+          "default_model_selector" => "role:main",
+          "profile_overrides" => {
+            "researcher" => {
+              "model_selector" => "role:researcher",
+            },
+          },
+        },
       },
       workspace_agent.settings_payload
     )
@@ -130,7 +150,9 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       agent: context[:agent],
       settings_payload: {
-        "interactive_profile_key" => "main",
+        "interactive" => {
+          "profile_key" => "main",
+        },
         "unexpected" => true,
       }
     )
@@ -146,8 +168,10 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       agent: context[:agent],
       settings_payload: {
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => [],
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => [],
+        },
       }
     )
 
@@ -162,11 +186,16 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       agent: context[:agent],
       settings_payload: {
-        "enabled_subagent_profile_keys" => %w[main researcher],
+        "interactive" => {
+          "profile_key" => "main",
+        },
+        "subagents" => {
+          "enabled_profile_keys" => %w[main researcher],
+        },
       }
     )
 
-    assert_equal ["researcher"], workspace_agent.settings_payload.fetch("enabled_subagent_profile_keys")
+    assert_equal ["researcher"], workspace_agent.settings_payload.dig("subagents", "enabled_profile_keys")
   end
 
   test "rejects invalid numeric subagent limits instead of dropping them" do
@@ -176,12 +205,14 @@ class WorkspaceAgentTest < ActiveSupport::TestCase
       workspace: context[:workspace],
       agent: context[:agent],
       settings_payload: {
-        "max_concurrent_subagents" => "abc",
+        "subagents" => {
+          "max_concurrent" => "abc",
+        },
       }
     )
 
     assert_not workspace_agent.valid?
-    assert_includes workspace_agent.errors[:settings_payload], "max_concurrent_subagents must be a positive integer"
+    assert_includes workspace_agent.errors[:settings_payload], "subagents.max_concurrent must be a positive integer"
   end
 
   test "becomes immutable after revocation" do

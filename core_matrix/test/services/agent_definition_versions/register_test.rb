@@ -111,6 +111,22 @@ class AgentDefinitionVersions::RegisterTest < ActiveSupport::TestCase
       },
       "canonical_config_schema" => profile_aware_canonical_config_schema,
       "conversation_override_schema" => subagent_policy_conversation_override_schema,
+      "workspace_agent_settings_schema" => {
+        "type" => "object",
+        "additionalProperties" => false,
+        "properties" => {
+          "interactive" => {
+            "type" => "object",
+            "additionalProperties" => false,
+            "properties" => {
+              "profile_key" => { "type" => "string" },
+            },
+          },
+        },
+      },
+      "default_workspace_agent_settings" => {
+        "interactive" => { "profile_key" => "main" },
+      },
       "default_canonical_config" => {
         "interactive" => { "default_profile_key" => "main" },
         "role_slots" => {

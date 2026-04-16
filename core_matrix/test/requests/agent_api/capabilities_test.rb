@@ -61,6 +61,9 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_equal registration[:agent_definition_version].public_id, response_body["agent_definition_version_id"]
     assert_equal default_profile_policy, response_body.fetch("profile_policy")
     assert_equal default_profile_policy, response_body.fetch("agent_plane").fetch("profile_policy")
+    assert_equal "object", response_body.dig("workspace_agent_settings_schema", "type")
+    assert_equal "main", response_body.dig("default_workspace_agent_settings", "interactive", "profile_key")
+    assert_equal "object", response_body.dig("agent_plane", "workspace_agent_settings_schema", "type")
     assert_equal "main", response_body.dig("default_canonical_config", "interactive", "profile")
     assert_equal 3, response_body.dig("default_canonical_config", "subagents", "max_depth")
     assert_nil response_body.dig("conversation_override_schema", "properties", "interactive")
@@ -95,6 +98,8 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
           "profile_policy" => registration[:agent_definition_version].profile_policy,
           "canonical_config_schema" => registration[:agent_definition_version].canonical_config_schema,
           "conversation_override_schema" => registration[:agent_definition_version].conversation_override_schema,
+          "workspace_agent_settings_schema" => registration[:agent_definition_version].workspace_agent_settings_schema,
+          "default_workspace_agent_settings" => registration[:agent_definition_version].default_workspace_agent_settings,
           "default_canonical_config" => registration[:agent_definition_version].default_canonical_config,
           "reflected_surface" => registration[:agent_definition_version].reflected_surface,
         },
@@ -140,6 +145,8 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
           "profile_policy" => ["invalid-profile"],
           "canonical_config_schema" => "invalid-schema",
           "conversation_override_schema" => "invalid-overrides",
+          "workspace_agent_settings_schema" => "invalid-settings-schema",
+          "default_workspace_agent_settings" => ["invalid-default-settings"],
           "default_canonical_config" => ["invalid-defaults"],
           "reflected_surface" => {},
         },
@@ -153,6 +160,8 @@ class AgentApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_includes error_message, "Definition package profile_policy must be a Hash"
     assert_includes error_message, "Definition package canonical_config_schema must be a Hash"
     assert_includes error_message, "Definition package conversation_override_schema must be a Hash"
+    assert_includes error_message, "Definition package workspace_agent_settings_schema must be a Hash"
+    assert_includes error_message, "Definition package default_workspace_agent_settings must be a Hash"
     assert_includes error_message, "Definition package default_canonical_config must be a Hash"
     assert_equal previous_runtime_payload, registration[:execution_runtime].reload.capability_payload
   end

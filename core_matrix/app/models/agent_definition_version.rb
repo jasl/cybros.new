@@ -14,6 +14,8 @@ class AgentDefinitionVersion < ApplicationRecord
   belongs_to :profile_policy_document, class_name: "JsonDocument"
   belongs_to :canonical_config_schema_document, class_name: "JsonDocument"
   belongs_to :conversation_override_schema_document, class_name: "JsonDocument"
+  belongs_to :workspace_agent_settings_schema_document, class_name: "JsonDocument"
+  belongs_to :default_workspace_agent_settings_document, class_name: "JsonDocument"
   belongs_to :default_canonical_config_document, class_name: "JsonDocument"
   belongs_to :reflected_surface_document, class_name: "JsonDocument"
 
@@ -72,6 +74,14 @@ class AgentDefinitionVersion < ApplicationRecord
 
   def conversation_override_schema
     payload_hash(conversation_override_schema_document)
+  end
+
+  def workspace_agent_settings_schema
+    payload_hash(workspace_agent_settings_schema_document)
+  end
+
+  def default_workspace_agent_settings
+    payload_hash(default_workspace_agent_settings_document)
   end
 
   def default_canonical_config
@@ -368,6 +378,8 @@ class AgentDefinitionVersion < ApplicationRecord
       profile_policy_document
       canonical_config_schema_document
       conversation_override_schema_document
+      workspace_agent_settings_schema_document
+      default_workspace_agent_settings_document
       default_canonical_config_document
       reflected_surface_document
     ]

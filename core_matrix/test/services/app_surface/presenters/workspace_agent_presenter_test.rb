@@ -11,10 +11,14 @@ class AppSurface::Presenters::WorkspaceAgentPresenterTest < ActiveSupport::TestC
     context[:workspace_agent].update!(
       global_instructions: "Use concise Chinese.\n",
       settings_payload: {
-        "interactive_profile_key" => "main",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "delegation_mode" => "prefer",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+        },
       }
     )
 
@@ -26,7 +30,9 @@ class AppSurface::Presenters::WorkspaceAgentPresenterTest < ActiveSupport::TestC
     assert_equal context[:workspace].public_id, payload.fetch("workspace_id")
     assert_equal context[:agent].public_id, payload.fetch("agent_id")
     assert_equal "Use concise Chinese.\n", payload.fetch("global_instructions")
-    assert_equal "prefer", payload.dig("settings_payload", "delegation_mode")
+    assert_equal "prefer", payload.dig("settings_payload", "subagents", "delegation_mode")
+    assert_equal "object", payload.dig("settings_schema", "type")
+    assert_equal "main", payload.dig("default_settings_payload", "interactive", "profile_key")
     refute_includes payload.to_json, %("#{context[:workspace_agent].id}")
   end
 end

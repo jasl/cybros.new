@@ -51,6 +51,8 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
     assert_equal "execution_runtime", contract.execution_runtime_plane.fetch("control_plane")
     assert_equal "agent", contract.agent_plane.fetch("control_plane")
     assert_equal default_profile_policy, contract.agent_plane.fetch("profile_policy")
+    assert_equal "object", contract.agent_plane.dig("workspace_agent_settings_schema", "type")
+    assert_equal "main", contract.agent_plane.dig("default_workspace_agent_settings", "interactive", "profile_key")
     assert_equal default_profile_policy, contract.contract_payload.fetch("profile_policy")
     assert_equal "main", contract.default_canonical_config.dig("interactive", "profile")
     assert_equal 3, contract.default_canonical_config.dig("subagents", "max_depth")
@@ -68,5 +70,6 @@ class RuntimeCapabilityContractTest < ActiveSupport::TestCase
     )
     assert_equal registration[:execution_runtime].public_id, response.fetch("execution_runtime_id")
     assert_equal registration[:execution_runtime].execution_runtime_fingerprint, response.fetch("execution_runtime_fingerprint")
+    assert_equal "object", response.dig("agent_plane", "workspace_agent_settings_schema", "type")
   end
 end

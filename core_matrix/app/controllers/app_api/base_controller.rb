@@ -65,7 +65,16 @@ module AppAPI
             privacy: "private",
           }
         )
-        .includes(:agent, :default_execution_runtime, :workspace)
+        .includes(
+          :default_execution_runtime,
+          :workspace,
+          agent: {
+            current_agent_definition_version: [
+              :workspace_agent_settings_schema_document,
+              :default_workspace_agent_settings_document,
+            ],
+          }
+        )
       scope = scope.where(workspace: workspace) if workspace.present?
       scope = scope.where(lifecycle_state: "active") if launchable_only
 
@@ -87,7 +96,19 @@ module AppAPI
     def workspace_lookup_scope
       Workspace
         .accessible_to_user(current_user)
-        .includes(workspace_agents: [:agent, :default_execution_runtime])
+        .includes(
+          workspace_agents: [
+            :default_execution_runtime,
+            {
+              agent: {
+                current_agent_definition_version: [
+                  :workspace_agent_settings_schema_document,
+                  :default_workspace_agent_settings_document,
+                ],
+              },
+            },
+          ]
+        )
     end
 
     def agent_lookup_scope

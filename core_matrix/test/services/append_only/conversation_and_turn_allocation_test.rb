@@ -88,6 +88,8 @@ class AppendOnly::ConversationAndTurnAllocationTest < NonTransactionalConcurrenc
       "profile_policy" => registration[:agent_definition_version].profile_policy,
       "canonical_config_schema" => registration[:agent_definition_version].canonical_config_schema,
       "conversation_override_schema" => registration[:agent_definition_version].conversation_override_schema,
+      "workspace_agent_settings_schema" => registration[:agent_definition_version].workspace_agent_settings_schema,
+      "default_workspace_agent_settings" => registration[:agent_definition_version].default_workspace_agent_settings,
       "default_canonical_config" => registration[:agent_definition_version].default_canonical_config,
       "reflected_surface" => registration[:agent_definition_version].reflected_surface,
     }

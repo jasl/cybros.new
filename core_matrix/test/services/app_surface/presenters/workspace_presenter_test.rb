@@ -11,10 +11,14 @@ class AppSurface::Presenters::WorkspacePresenterTest < ActiveSupport::TestCase
     context[:workspace_agent].update!(
       global_instructions: "Use concise Chinese.\n",
       settings_payload: {
-        "interactive_profile_key" => "main",
-        "default_subagent_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["researcher"],
-        "delegation_mode" => "prefer",
+        "interactive" => {
+          "profile_key" => "friendly",
+        },
+        "subagents" => {
+          "default_profile_key" => "researcher",
+          "enabled_profile_keys" => ["researcher"],
+          "delegation_mode" => "prefer",
+        },
       }
     )
     payload = AppSurface::Presenters::WorkspacePresenter.call(
@@ -28,7 +32,8 @@ class AppSurface::Presenters::WorkspacePresenterTest < ActiveSupport::TestCase
     assert_equal context[:agent].public_id, workspace_agent_payload.fetch("agent_id")
     assert_equal context[:execution_runtime].public_id, workspace_agent_payload.fetch("default_execution_runtime_id")
     assert_equal "Use concise Chinese.\n", workspace_agent_payload.fetch("global_instructions")
-    assert_equal "prefer", workspace_agent_payload.dig("settings_payload", "delegation_mode")
+    assert_equal "prefer", workspace_agent_payload.dig("settings_payload", "subagents", "delegation_mode")
+    assert_equal "object", workspace_agent_payload.dig("settings_schema", "type")
     assert_equal context[:workspace].name, payload.fetch("name")
     assert_equal context[:workspace].privacy, payload.fetch("privacy")
     assert_equal context[:workspace].is_default, payload.fetch("is_default")

@@ -53,7 +53,7 @@ module EmbeddedAgents
         end
 
         def generic_current_turn_response?(content)
-          content.match?(/\bworking through the current turn\b/i)
+          content.match?(/\b(?:working through the current turn|waiting on the current workflow step|resolving the blocked workflow step)\b/i)
         end
 
         def concrete_progress_signal?(content)

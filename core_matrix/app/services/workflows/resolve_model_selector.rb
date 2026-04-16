@@ -39,10 +39,10 @@ module Workflows
     def resolve_selector_result
       return effective_catalog.resolve_selector(selector: raw_selector) if raw_selector.present?
 
-      if apply_mount_interactive_profile_selector?
-        result = effective_catalog.resolve_selector(selector: mount_interactive_profile_selector)
+      mount_interactive_selector_candidates.each do |selector|
+        result = effective_catalog.resolve_selector(selector: selector)
         return result if result.usable?
-      end
+      end if apply_mount_interactive_profile_selector?
 
       effective_catalog.resolve_selector(selector: nil)
     end
@@ -55,14 +55,32 @@ module Workflows
     end
 
     def mount_interactive_profile_selector
-      profile_key = @turn.conversation.workspace_agent&.interactive_profile_key_override
+      profile_key = profile_settings_view["interactive_profile_key"].presence
       return if profile_key.blank?
 
       "role:#{profile_key}"
     end
 
+    def mount_interactive_model_selector
+      profile_settings_view["interactive_model_selector"].presence
+    end
+
+    def mount_interactive_selector_candidates
+      [
+        mount_interactive_model_selector,
+        mount_interactive_profile_selector,
+      ].compact.uniq
+    end
+
     def apply_mount_interactive_profile_selector?
-      @selector_source == "conversation" && mount_interactive_profile_selector.present?
+      @selector_source == "conversation" && mount_interactive_selector_candidates.any?
+    end
+
+    def profile_settings_view
+      @profile_settings_view ||= begin
+        source = @turn.conversation.workspace_agent&.profile_settings_view || {}
+        source.deep_stringify_keys
+      end
     end
 
     def effective_catalog

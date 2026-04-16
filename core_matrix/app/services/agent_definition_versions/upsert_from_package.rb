@@ -17,6 +17,8 @@ module AgentDefinitionVersions
       profile_policy
       canonical_config_schema
       conversation_override_schema
+      workspace_agent_settings_schema
+      default_workspace_agent_settings
       default_canonical_config
       reflected_surface
     ].freeze
@@ -40,7 +42,7 @@ module AgentDefinitionVersions
 
     def initialize(agent:, definition_package:)
       @agent = agent
-      @definition_package = normalize_hash(definition_package)
+      @definition_package = canonicalize(normalize_hash(definition_package))
     end
 
     def call
@@ -79,6 +81,8 @@ module AgentDefinitionVersions
           profile_policy_document: find_or_create_document("agent_profile_policy", @definition_package.fetch("profile_policy", {})),
           canonical_config_schema_document: find_or_create_document("canonical_config_schema", @definition_package.fetch("canonical_config_schema", {})),
           conversation_override_schema_document: find_or_create_document("conversation_override_schema", @definition_package.fetch("conversation_override_schema", {})),
+          workspace_agent_settings_schema_document: find_or_create_document("workspace_agent_settings_schema", @definition_package.fetch("workspace_agent_settings_schema", {})),
+          default_workspace_agent_settings_document: find_or_create_document("default_workspace_agent_settings", @definition_package.fetch("default_workspace_agent_settings", {})),
           default_canonical_config_document: find_or_create_document("default_canonical_config", @definition_package.fetch("default_canonical_config", {})),
           reflected_surface_document: find_or_create_document("reflected_surface", @definition_package.fetch("reflected_surface", {}))
         )
@@ -115,7 +119,8 @@ module AgentDefinitionVersions
     end
 
     def find_or_create_document(document_kind, payload)
-      serialized_payload = JSON.generate(payload)
+      normalized_payload = canonicalize(payload)
+      serialized_payload = JSON.generate(normalized_payload)
       content_sha256 = Digest::SHA256.hexdigest(serialized_payload)
 
       JsonDocument.find_or_create_by!(
@@ -123,7 +128,7 @@ module AgentDefinitionVersions
         document_kind: document_kind,
         content_sha256: content_sha256
       ) do |document|
-        document.payload = payload
+        document.payload = normalized_payload
         document.content_bytesize = serialized_payload.bytesize
       end
     end
@@ -133,6 +138,19 @@ module AgentDefinitionVersions
       return value.deep_stringify_keys if value.is_a?(Hash)
 
       value
+    end
+
+    def canonicalize(value)
+      case value
+      when Hash
+        value.keys.sort.each_with_object({}) do |key, normalized|
+          normalized[key.to_s] = canonicalize(value.fetch(key))
+        end
+      when Array
+        value.map { |entry| canonicalize(entry) }
+      else
+        value
+      end
     end
   end
 end

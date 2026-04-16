@@ -127,6 +127,7 @@ module Shared
 
       normalized = {}
       normalized["interactive_profile_key"] = explicit["interactive_profile_key"].to_s if explicit["interactive_profile_key"].present?
+      normalized["interactive_model_selector"] = explicit["interactive_model_selector"].to_s if explicit["interactive_model_selector"].present?
       normalized["default_subagent_profile_key"] = explicit["default_subagent_profile_key"].to_s if explicit["default_subagent_profile_key"].present?
 
       enabled_keys = Array(explicit["enabled_subagent_profile_keys"]).map(&:to_s).filter_map(&:presence).uniq
@@ -135,7 +136,24 @@ module Shared
       normalized["delegation_mode"] = explicit["delegation_mode"].to_s if explicit["delegation_mode"].present?
       normalized["max_concurrent_subagents"] = explicit["max_concurrent_subagents"].to_i if explicit["max_concurrent_subagents"].present?
       normalized["max_subagent_depth"] = explicit["max_subagent_depth"].to_i if explicit["max_subagent_depth"].present?
-      normalized["default_subagent_model_selector_hint"] = explicit["default_subagent_model_selector_hint"].to_s if explicit["default_subagent_model_selector_hint"].present?
+      default_subagent_model_selector =
+        explicit["default_subagent_model_selector"].presence ||
+          explicit["default_subagent_model_selector_hint"].presence
+      if default_subagent_model_selector.present?
+        normalized["default_subagent_model_selector"] = default_subagent_model_selector.to_s
+        normalized["default_subagent_model_selector_hint"] = default_subagent_model_selector.to_s
+      end
+
+      subagent_model_selectors = normalize_context_payload(explicit["subagent_model_selectors"])
+      if subagent_model_selectors.is_a?(Hash)
+        normalized_selectors = subagent_model_selectors.each_with_object({}) do |(profile_key, selector), out|
+          normalized_selector = selector.to_s.strip
+          next if normalized_selector.blank?
+
+          out[profile_key.to_s] = normalized_selector
+        end
+        normalized["subagent_model_selectors"] = normalized_selectors if normalized_selectors.any?
+      end
 
       if explicit.key?("allow_nested_subagents")
         normalized["allow_nested_subagents"] = explicit["allow_nested_subagents"] == true

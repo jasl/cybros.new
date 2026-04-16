@@ -2,6 +2,7 @@ module SubagentConnections
   class Spawn
     include Conversations::CreationSupport
     DEFAULT_SUBAGENT_PROFILE_ALIAS = RuntimeCapabilityContract::DEFAULT_SUBAGENT_PROFILE_ALIAS
+    ChildSelectorChoice = Struct.new(:selector_source, :selector, :resolved_hint, keyword_init: true)
 
     def self.call(...)
       new(...).call
@@ -68,8 +69,8 @@ module SubagentConnections
             root_node_type: "agent_task_run",
             decision_source: "system",
             metadata: {},
-            selector_source: @origin_turn.resolved_model_selection_snapshot["selector_source"] || "conversation",
-            selector: @origin_turn.normalized_selector,
+            selector_source: child_selector_choice(conversation:).selector_source,
+            selector: child_selector_choice(conversation:).selector,
             initial_kind: "subagent_step",
             initial_payload: initial_payload(conversation: conversation),
             origin_turn: @origin_turn,
@@ -258,10 +259,7 @@ module SubagentConnections
     end
 
     def resolved_model_selector_hint(conversation:)
-      @resolved_model_selector_hint ||= begin
-        @model_selector_hint.to_s.strip.presence ||
-          profile_settings_view(conversation:)["default_subagent_model_selector_hint"].presence
-      end
+      @resolved_model_selector_hint ||= child_selector_choice(conversation:).resolved_hint
     end
 
     def validate_max_concurrent_subagents!(conversation:)
@@ -280,6 +278,62 @@ module SubagentConnections
         source = frozen_view.presence || conversation.workspace_agent&.profile_settings_view || {}
         source.deep_stringify_keys
       end
+    end
+
+    def child_selector_choice(conversation:)
+      @child_selector_choice ||= begin
+        chosen = soft_selector_candidates(conversation:).filter_map do |candidate|
+          result = effective_catalog(conversation:).resolve_selector(selector: candidate)
+          next unless result.usable?
+
+          ChildSelectorChoice.new(
+            selector_source: "subagent_spawn",
+            selector: result.normalized_selector,
+            resolved_hint: result.normalized_selector
+          )
+        end.first
+        if chosen.present?
+          chosen
+        else
+          fallback_selector = @origin_turn.normalized_selector
+          ChildSelectorChoice.new(
+            selector_source: @origin_turn.resolved_model_selection_snapshot["selector_source"] || "conversation",
+            selector: fallback_selector,
+            resolved_hint: fallback_selector.presence
+          )
+        end
+      end
+    end
+
+    def soft_selector_candidates(conversation:)
+      [
+        normalized_model_selector_request,
+        profile_model_selector_override(conversation:),
+        default_model_selector_override(conversation:),
+      ].compact.uniq
+    end
+
+    def normalized_model_selector_request
+      @model_selector_hint.to_s.strip.presence
+    end
+
+    def profile_model_selector_override(conversation:)
+      selectors = profile_settings_view(conversation:)["subagent_model_selectors"]
+      return unless selectors.is_a?(Hash)
+
+      selectors[resolved_profile_key(conversation:).to_s].presence
+    end
+
+    def default_model_selector_override(conversation:)
+      profile_settings_view(conversation:)["default_subagent_model_selector"].presence ||
+        profile_settings_view(conversation:)["default_subagent_model_selector_hint"].presence
+    end
+
+    def effective_catalog(conversation:)
+      @effective_catalog ||= ProviderCatalog::EffectiveCatalog.new(
+        installation: conversation.installation,
+        env: Rails.env
+      )
     end
   end
 end

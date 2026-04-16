@@ -18,6 +18,8 @@ class CreateAgentVersioningCore < ActiveRecord::Migration[8.2]
       t.references :profile_policy_document, null: false, foreign_key: { to_table: :json_documents }
       t.references :canonical_config_schema_document, null: false, foreign_key: { to_table: :json_documents }
       t.references :conversation_override_schema_document, null: false, foreign_key: { to_table: :json_documents }
+      t.references :workspace_agent_settings_schema_document, null: false, foreign_key: { to_table: :json_documents }
+      t.references :default_workspace_agent_settings_document, null: false, foreign_key: { to_table: :json_documents }
       t.references :default_canonical_config_document, null: false, foreign_key: { to_table: :json_documents }
       t.references :reflected_surface_document, null: false, foreign_key: { to_table: :json_documents }
       t.timestamps

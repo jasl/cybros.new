@@ -111,6 +111,7 @@ module Runtime
       end
 
       def call
+        settings_contract = workspace_agent_settings_contract
         package_body = {
           "prompt_pack_ref" => PROMPT_PACK_REF,
           "prompt_pack_fingerprint" => prompt_pack_fingerprint,
@@ -120,9 +121,11 @@ module Runtime
           "feature_contract" => feature_contract,
           "request_preparation_contract" => request_preparation_contract,
           "tool_contract" => tool_contract,
-          "profile_policy" => profile_policy,
+          "profile_policy" => settings_contract.fetch("profile_policy"),
           "canonical_config_schema" => canonical_config_schema,
           "conversation_override_schema" => conversation_override_schema,
+          "workspace_agent_settings_schema" => settings_contract.fetch("schema"),
+          "default_workspace_agent_settings" => settings_contract.fetch("defaults"),
           "default_canonical_config" => default_canonical_config,
           "reflected_surface" => reflected_surface,
         }
@@ -148,24 +151,6 @@ module Runtime
 
       def request_preparation_contract
         REQUEST_PREPARATION_CONTRACT.deep_dup
-      end
-
-      def profile_policy
-        allowed_tool_names = tool_contract.map { |entry| entry.fetch("tool_name") }
-
-        {
-          "main" => {
-            "role_slot" => "main",
-            "allowed_tool_names" => allowed_tool_names + RESERVED_SUBAGENT_TOOL_NAMES,
-            "allow_execution_runtime_tools" => true,
-          },
-          "researcher" => {
-            "role_slot" => "main",
-            "default_subagent_profile" => true,
-            "allowed_tool_names" => allowed_tool_names + (RESERVED_SUBAGENT_TOOL_NAMES - ["subagent_spawn"]),
-            "allow_execution_runtime_tools" => true,
-          },
-        }
       end
 
       def canonical_config_schema
@@ -194,7 +179,10 @@ module Runtime
       end
 
       def prompt_pack_files
-        @prompt_pack_files ||= Dir[Rails.root.join("prompts/*.md")].sort.map { |path| Pathname.new(path) }
+        @prompt_pack_files ||= Dir[Rails.root.join("prompts/**/*")].sort.filter_map do |path|
+          pathname = Pathname.new(path)
+          pathname.file? ? pathname : nil
+        end
       end
 
       def read_json_config(filename)
@@ -203,6 +191,12 @@ module Runtime
 
       def digest_for(payload)
         Digest::SHA256.hexdigest(JSON.generate(payload))
+      end
+
+      def workspace_agent_settings_contract
+        @workspace_agent_settings_contract ||= Runtime::Manifest::WorkspaceAgentSettings.call(
+          default_canonical_config: default_canonical_config
+        )
       end
     end
   end

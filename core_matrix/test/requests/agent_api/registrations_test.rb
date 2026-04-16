@@ -124,6 +124,8 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
             "profile_policy" => ["invalid-profiles"],
             "canonical_config_schema" => "invalid-schema",
             "conversation_override_schema" => ["invalid-overrides"],
+            "workspace_agent_settings_schema" => "invalid-settings-schema",
+            "default_workspace_agent_settings" => ["invalid-default-settings"],
             "default_canonical_config" => "invalid-defaults",
             "reflected_surface" => ["invalid-surface"],
           ),
@@ -138,6 +140,8 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
     assert_includes error_message, "Definition package profile_policy must be a Hash"
     assert_includes error_message, "Definition package canonical_config_schema must be a Hash"
     assert_includes error_message, "Definition package conversation_override_schema must be a Hash"
+    assert_includes error_message, "Definition package workspace_agent_settings_schema must be a Hash"
+    assert_includes error_message, "Definition package default_workspace_agent_settings must be a Hash"
     assert_includes error_message, "Definition package default_canonical_config must be a Hash"
     assert_includes error_message, "Definition package reflected_surface must be a Hash"
   end
@@ -175,6 +179,22 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
       },
       "canonical_config_schema" => profile_aware_canonical_config_schema,
       "conversation_override_schema" => subagent_policy_conversation_override_schema,
+      "workspace_agent_settings_schema" => {
+        "type" => "object",
+        "additionalProperties" => false,
+        "properties" => {
+          "interactive" => {
+            "type" => "object",
+            "additionalProperties" => false,
+            "properties" => {
+              "profile_key" => { "type" => "string" },
+            },
+          },
+        },
+      },
+      "default_workspace_agent_settings" => {
+        "interactive" => { "profile_key" => "main" },
+      },
       "default_canonical_config" => {
         "interactive" => { "default_profile_key" => "main" },
         "role_slots" => {

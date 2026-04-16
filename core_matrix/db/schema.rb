@@ -170,6 +170,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.bigint "conversation_override_schema_document_id", null: false
     t.datetime "created_at", null: false
     t.bigint "default_canonical_config_document_id", null: false
+    t.bigint "default_workspace_agent_settings_document_id", null: false
     t.string "definition_fingerprint", null: false
     t.bigint "feature_contract_document_id", null: false
     t.bigint "installation_id", null: false
@@ -186,12 +187,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.bigint "tool_contract_document_id", null: false
     t.datetime "updated_at", null: false
     t.integer "version", null: false
+    t.bigint "workspace_agent_settings_schema_document_id", null: false
     t.index ["agent_id", "definition_fingerprint"], name: "idx_agent_definition_versions_agent_fingerprint", unique: true
     t.index ["agent_id", "version"], name: "idx_agent_definition_versions_agent_version", unique: true
     t.index ["agent_id"], name: "index_agent_definition_versions_on_agent_id"
     t.index ["canonical_config_schema_document_id"], name: "idx_on_canonical_config_schema_document_id_be02eea8de"
     t.index ["conversation_override_schema_document_id"], name: "idx_on_conversation_override_schema_document_id_2b5847b4eb"
     t.index ["default_canonical_config_document_id"], name: "idx_on_default_canonical_config_document_id_81a3b00796"
+    t.index ["default_workspace_agent_settings_document_id"], name: "idx_on_default_workspace_agent_settings_document_id_ab9d916353"
     t.index ["feature_contract_document_id"], name: "idx_on_feature_contract_document_id_265ef940ad"
     t.index ["installation_id"], name: "index_agent_definition_versions_on_installation_id"
     t.index ["profile_policy_document_id"], name: "index_agent_definition_versions_on_profile_policy_document_id"
@@ -200,6 +203,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
     t.index ["reflected_surface_document_id"], name: "idx_on_reflected_surface_document_id_86042215e8"
     t.index ["request_preparation_contract_document_id"], name: "idx_on_request_preparation_contract_document_id_ce7cd3ddb4"
     t.index ["tool_contract_document_id"], name: "index_agent_definition_versions_on_tool_contract_document_id"
+    t.index ["workspace_agent_settings_schema_document_id"], name: "idx_on_workspace_agent_settings_schema_document_id_259526c7a2"
   end
 
   create_table "agent_task_progress_entries", force: :cascade do |t|
@@ -2370,12 +2374,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
   add_foreign_key "agent_definition_versions", "json_documents", column: "canonical_config_schema_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "conversation_override_schema_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "default_canonical_config_document_id"
+  add_foreign_key "agent_definition_versions", "json_documents", column: "default_workspace_agent_settings_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "feature_contract_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "profile_policy_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "protocol_methods_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "reflected_surface_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "request_preparation_contract_document_id"
   add_foreign_key "agent_definition_versions", "json_documents", column: "tool_contract_document_id"
+  add_foreign_key "agent_definition_versions", "json_documents", column: "workspace_agent_settings_schema_document_id"
   add_foreign_key "agent_task_progress_entries", "agent_task_runs", on_delete: :cascade
   add_foreign_key "agent_task_progress_entries", "installations"
   add_foreign_key "agent_task_progress_entries", "subagent_connections"

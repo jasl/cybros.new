@@ -172,6 +172,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
         }
       )
     )
+    prepare_workflow_execution_setup!(context)
     owner_conversation = Conversations::CreateRoot.call(workspace: context.fetch(:workspace))
     owner_turn = Turns::StartUserTurn.call(
       conversation: owner_conversation,
@@ -188,7 +189,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
       content: "Investigate this",
       scope: "conversation",
       profile_key: "researcher",
-      model_selector_hint: "role:researcher"
+      model_selector_hint: "role:planner"
     )
 
     mailbox_item = AgentControlMailboxItem.find_by!(
@@ -197,7 +198,7 @@ class AgentControlMailboxItemTest < ActiveSupport::TestCase
     )
     payload = AgentControl::SerializeMailboxItem.call(mailbox_item)
 
-    assert_equal "role:researcher", payload.dig("payload", "capability_projection", "model_selector_hint")
+    assert_equal "role:planner", payload.dig("payload", "capability_projection", "model_selector_hint")
   end
 
   test "requires agent definition targeting to remain inside the targeted agent" do

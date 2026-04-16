@@ -3,6 +3,7 @@ require "test_helper"
 class SubagentConnections::SpawnTest < ActiveSupport::TestCase
   test "execution complete wait_all transition spawns subagents and enters the parent workflow barrier" do
     context = build_agent_control_context!
+    prepare_workflow_execution_setup!(context)
     promote_subagent_runtime_context!(context)
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
@@ -30,14 +31,14 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
               content: "Investigate alpha",
               scope: "conversation",
               profile_key: "researcher",
-              model_selector_hint: "role:researcher",
+              model_selector_hint: "role:planner",
             },
             {
               node_key: "subagent_beta",
               content: "Investigate beta",
               scope: "conversation",
               profile_key: "researcher",
-              model_selector_hint: "role:researcher",
+              model_selector_hint: "role:planner",
             },
           ]
         )
@@ -58,7 +59,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       spawned_nodes.map { |node| node.spawned_subagent_connection&.public_id }.sort
     assert spawned_nodes.none? { |node| node.metadata.key?("subagent_connection_id") }
     assert_equal %w[completed completed], spawned_nodes.map(&:lifecycle_state)
-    assert_equal ["role:researcher", "role:researcher"], sessions.map(&:resolved_model_selector_hint)
+    assert_equal ["role:planner", "role:planner"], sessions.map(&:resolved_model_selector_hint)
     status_sequences = spawned_nodes.map do |node|
       workflow_run.workflow_node_events.where(workflow_node: node, event_kind: "status").order(:ordinal).map { |event| event.payload.fetch("state") }
     end
@@ -342,15 +343,17 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       content: "Investigate this",
       scope: "turn",
       profile_key: "researcher",
-      model_selector_hint: "role:researcher"
+      model_selector_hint: "role:planner"
     )
 
     session = SubagentConnection.find_by!(public_id: result.fetch("subagent_connection_id"))
     child_task_run = AgentTaskRun.find_by!(public_id: result.fetch("agent_task_run_id"))
+    workflow_run = WorkflowRun.find_by!(public_id: result.fetch("workflow_run_id"))
     package = child_task_run.task_payload.fetch("delegation_package")
 
-    assert_equal "role:researcher", session.resolved_model_selector_hint
-    assert_equal "role:researcher", package.fetch("model_selector_hint")
+    assert_equal "role:planner", session.resolved_model_selector_hint
+    assert_equal "role:planner", workflow_run.normalized_selector
+    assert_equal "role:planner", package.fetch("model_selector_hint")
   end
 
   test "uses frozen workspace agent defaults for profile resolution and model selector hints" do
@@ -365,10 +368,19 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "main",
-        "enabled_subagent_profile_keys" => %w[critic researcher],
-        "default_subagent_profile_key" => "researcher",
-        "default_subagent_model_selector_hint" => "role:researcher",
+        "interactive" => {
+          "profile_key" => "main",
+        },
+        "subagents" => {
+          "enabled_profile_keys" => %w[critic researcher],
+          "default_profile_key" => "researcher",
+          "default_model_selector" => "role:critic",
+          "profile_overrides" => {
+            "researcher" => {
+              "model_selector" => "role:planner",
+            },
+          },
+        },
       }
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -384,10 +396,19 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     )
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "main",
-        "enabled_subagent_profile_keys" => %w[critic researcher],
-        "default_subagent_profile_key" => "critic",
-        "default_subagent_model_selector_hint" => "role:critic",
+        "interactive" => {
+          "profile_key" => "main",
+        },
+        "subagents" => {
+          "enabled_profile_keys" => %w[critic researcher],
+          "default_profile_key" => "critic",
+          "default_model_selector" => "role:critic",
+          "profile_overrides" => {
+            "critic" => {
+              "model_selector" => "role:planner",
+            },
+          },
+        },
       }
     )
 
@@ -400,13 +421,15 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     )
 
     session = SubagentConnection.find_by!(public_id: result.fetch("subagent_connection_id"))
+    workflow_run = WorkflowRun.find_by!(public_id: result.fetch("workflow_run_id"))
     package = AgentTaskRun.find_by!(public_id: result.fetch("agent_task_run_id")).task_payload.fetch("delegation_package")
 
     assert_equal "researcher", result.fetch("profile_key")
-    assert_equal "role:researcher", result.fetch("model_selector_hint")
+    assert_equal "role:planner", result.fetch("model_selector_hint")
     assert_equal "researcher", session.profile_key
-    assert_equal "role:researcher", session.resolved_model_selector_hint
-    assert_equal "role:researcher", package.fetch("model_selector_hint")
+    assert_equal "role:planner", session.resolved_model_selector_hint
+    assert_equal "role:planner", workflow_run.normalized_selector
+    assert_equal "role:planner", package.fetch("model_selector_hint")
   end
 
   test "frozen sparse workspace agent settings do not inherit later live overrides" do
@@ -421,8 +444,10 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     owner_conversation = Conversations::CreateRoot.call(workspace: context[:workspace])
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "enabled_subagent_profile_keys" => %w[critic researcher],
-        "default_subagent_profile_key" => "researcher",
+        "subagents" => {
+          "enabled_profile_keys" => %w[critic researcher],
+          "default_profile_key" => "researcher",
+        },
       }
     )
     owner_turn = Turns::StartUserTurn.call(
@@ -438,10 +463,14 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     )
     owner_conversation.workspace_agent.update!(
       settings_payload: {
-        "interactive_profile_key" => "researcher",
-        "enabled_subagent_profile_keys" => ["critic"],
-        "default_subagent_profile_key" => "critic",
-        "default_subagent_model_selector_hint" => "role:critic",
+        "interactive" => {
+          "profile_key" => "researcher",
+        },
+        "subagents" => {
+          "enabled_profile_keys" => ["critic"],
+          "default_profile_key" => "critic",
+          "default_model_selector" => "role:critic",
+        },
       }
     )
 
@@ -454,7 +483,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
     )
 
     assert_equal "researcher", result.fetch("profile_key")
-    refute result.key?("model_selector_hint")
+    assert_equal "role:main", result.fetch("model_selector_hint")
   end
 
   test "spawn respects the current profile tool mask when subagent_spawn is hidden" do
