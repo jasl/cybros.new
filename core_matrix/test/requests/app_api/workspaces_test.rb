@@ -1,6 +1,32 @@
 require "test_helper"
 
 class AppApiWorkspacesTest < ActionDispatch::IntegrationTest
+  test "creates a private workspace for the current user" do
+    installation = create_installation!
+    user = create_user!(installation: installation, role: "admin")
+    session = create_session!(user: user)
+
+    assert_difference("Workspace.count", +1) do
+      post "/app_api/workspaces",
+        params: {
+          name: "Integration Lab",
+          privacy: "private",
+        },
+        headers: app_api_headers(session.plaintext_token),
+        as: :json
+    end
+
+    assert_response :created
+
+    response_body = response.parsed_body
+    assert_equal "workspace_create", response_body.fetch("method_id")
+    assert_equal "Integration Lab", response_body.dig("workspace", "name")
+    assert_equal "private", response_body.dig("workspace", "privacy")
+    assert_equal false, response_body.dig("workspace", "is_default")
+    assert_equal [], response_body.dig("workspace", "workspace_agents")
+    refute_includes response.body, %("#{Workspace.order(:id).last.id}")
+  end
+
   test "lists owned workspaces with nested workspace agents using public ids only" do
     context = create_workspace_context!
     context[:workspace].update!(is_default: true)
