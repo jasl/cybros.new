@@ -20,4 +20,8 @@ module APIErrorRendering
   def render_unprocessable_entity(error)
     render json: { error: error.message }, status: :unprocessable_entity
   end
+
+  def render_unauthorized(error)
+    render json: { error: error.message }, status: :unauthorized
+  end
 end

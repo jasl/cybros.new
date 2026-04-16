@@ -42,4 +42,10 @@ class CoreMatrixCLIConfigStoreTest < CoreMatrixCLITestCase
       store.read
     )
   end
+
+  def test_default_path_uses_env_override_when_present
+    with_env("CORE_MATRIX_CLI_CONFIG_PATH" => tmp_path("env-config.json")) do
+      assert_equal tmp_path("env-config.json"), CoreMatrixCLI::ConfigStore.default_path
+    end
+  end
 end

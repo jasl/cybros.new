@@ -151,6 +151,16 @@ module Acceptance
           ""
         ]
       )
+      if Pathname.new(conversation_export_path).dirname.dirname.join("evidence", "cli").directory?
+        lines.concat(
+          [
+            "CLI setup evidence:",
+            "",
+            "- `evidence/cli/`",
+            ""
+          ]
+        )
+      end
       lines.join("\n")
     end
 

@@ -9,6 +9,7 @@ module Acceptance
     ACTIVE_SCENARIOS = [
       "acceptance/scenarios/bring_your_own_agent_validation.rb",
       "acceptance/scenarios/bring_your_own_execution_runtime_validation.rb",
+      "acceptance/scenarios/core_matrix_cli_operator_smoke_validation.rb",
       "acceptance/scenarios/during_generation_steering_validation.rb",
       "acceptance/scenarios/fenix_skills_validation.rb",
       "acceptance/scenarios/governed_mcp_validation.rb",
@@ -27,6 +28,10 @@ module Acceptance
       "acceptance/scenarios/bring_your_own_execution_runtime_validation.rb" => {
         mode: :hybrid_app_api,
         reason: "uses admin app_api onboarding and app_api diagnostics/debug export, while deterministic mailbox execution still has no product entrypoint"
+      },
+      "acceptance/scenarios/core_matrix_cli_operator_smoke_validation.rb" => {
+        mode: :operator_cli_surface,
+        reason: "validates the operator bootstrap/session/workspace/mount flow through cmctl while acceptance-owned helpers still discover the bundled agent id"
       },
       "acceptance/scenarios/during_generation_steering_validation.rb" => {
         mode: :internal_workflow,

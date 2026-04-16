@@ -10,6 +10,9 @@ module CoreMatrixCLI
       attr_reader :path
 
       def self.default_path
+        overridden_path = ENV["CORE_MATRIX_CLI_CREDENTIAL_PATH"].to_s.strip
+        return overridden_path unless overridden_path.empty?
+
         File.join(Dir.home, ".config", "core_matrix_cli", DEFAULT_FILENAME)
       end
 

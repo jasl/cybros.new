@@ -41,6 +41,7 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert_includes scenario, 'ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")'
     assert_includes scenario, 'ENV.fetch("NEXUS_RUNTIME_BASE_URL", "http://127.0.0.1:3301")'
+    assert_includes scenario, "Acceptance::CliSupport.run!"
     assert_includes scenario, "register_bring_your_own_execution_runtime!"
     assert_includes scenario, "with_fenix_control_worker!"
     assert_includes scenario, "with_nexus_control_worker!"
@@ -51,7 +52,12 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
 
     assert_includes scenario, 'ENV.fetch("CAPSTONE_SELECTOR", "role:main")'
     assert_includes scenario, 'ENV.fetch("CAPSTONE_HOST_PREVIEW_PORT", "4274")'
-    assert_includes scenario, "issue_app_api_session_token!"
+    assert_includes scenario, 'label: "init-bootstrap"'
+    assert_includes scenario, 'label: "init-refresh"'
+    assert_includes scenario, 'label: "workspace-create"'
+    assert_includes scenario, 'label: "workspace-use"'
+    assert_includes scenario, 'label: "agent-attach"'
+    assert_includes scenario, 'label: "status"'
     assert_includes scenario, "app_api_admin_create_onboarding_session!"
     assert_includes scenario, "app_api_create_conversation!"
     assert_includes scenario, "wait_for_app_api_turn_terminal!"
@@ -63,6 +69,9 @@ class FenixCapstoneAcceptanceContractTest < ActiveSupport::TestCase
     assert_includes scenario, "Acceptance::HostValidation.run!"
     assert_includes scenario, "app_api_export_conversation!"
     assert_includes scenario, "execution_runtime_id: bring_your_own_runtime_registration.fetch(:execution_runtime).public_id"
+    refute_includes scenario, "bootstrap_and_seed!"
+    refute_includes scenario, "issue_app_api_session_token!"
+    refute_includes scenario, "enable_default_workspace!"
     refute_includes scenario, "wait_for_turn_workflow_terminal!"
     refute_includes scenario, "ConversationDebugExports::BuildPayload.call"
     refute_includes scenario, "OnboardingSessions::Issue.call"

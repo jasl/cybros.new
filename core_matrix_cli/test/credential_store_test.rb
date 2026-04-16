@@ -37,4 +37,16 @@ class CoreMatrixCLICredentialStoreTest < CoreMatrixCLITestCase
 
     assert_equal({ "session_token" => "secret" }, store.read)
   end
+
+  def test_default_store_uses_file_store_when_env_requests_it
+    with_env(
+      "CORE_MATRIX_CLI_CREDENTIAL_STORE" => "file",
+      "CORE_MATRIX_CLI_CREDENTIAL_PATH" => tmp_path("credentials-from-env.json")
+    ) do
+      store = CoreMatrixCLI::CredentialStore.default_store
+
+      assert_instance_of CoreMatrixCLI::CredentialStores::FileStore, store
+      assert_equal tmp_path("credentials-from-env.json"), store.path
+    end
+  end
 end

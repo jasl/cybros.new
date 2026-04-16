@@ -16,6 +16,12 @@ class TestInput < StringIO
   end
 end
 
+class NonTtyInput < StringIO
+  def noecho
+    raise Errno::ENOTTY, "not a tty"
+  end
+end
+
 class CoreMatrixCLITestCase < Minitest::Test
   def setup
     super
@@ -51,10 +57,27 @@ class CoreMatrixCLITestCase < Minitest::Test
     CoreMatrixCLI.browser_launcher_factory = previous_browser_launcher_factory
   end
 
-  def run_cli(*args, input: "", runtime:, browser_launcher: FakeBrowserLauncher.new)
+  def with_env(overrides)
+    previous = overrides.transform_values { |_,| nil }
+    overrides.each_key do |key|
+      previous[key] = ENV.key?(key) ? ENV[key] : :__missing__
+    end
+
+    overrides.each do |key, value|
+      value.nil? ? ENV.delete(key) : ENV[key] = value
+    end
+
+    yield
+  ensure
+    previous&.each do |key, value|
+      value == :__missing__ ? ENV.delete(key) : ENV[key] = value
+    end
+  end
+
+  def run_cli(*args, input: "", runtime:, browser_launcher: FakeBrowserLauncher.new, input_io: nil)
     output = nil
     stdin = $stdin
-    $stdin = TestInput.new(input)
+    $stdin = input_io || TestInput.new(input)
 
     with_runtime_factory(runtime) do
       with_browser_launcher_factory(browser_launcher) do

@@ -93,6 +93,18 @@ class Acceptance::ActiveSuiteContractTest < ActiveSupport::TestCase
     end
   end
 
+  test "operator cli scenarios explicitly declare their cli boundary" do
+    Acceptance::ActiveSuite.scenario_metadata.each do |entrypoint, metadata|
+      next unless metadata.fetch(:mode) == :operator_cli_surface
+
+      scenario = Rails.root.join("..", entrypoint).read
+
+      assert_includes scenario, "ACCEPTANCE_MODE: operator_cli_surface", "#{entrypoint} must declare operator cli mode"
+      assert_includes scenario, "cmctl", "#{entrypoint} must exercise the operator cli"
+      assert_includes scenario, "Acceptance::CliSupport.run!", "#{entrypoint} must use the shared cli helper"
+    end
+  end
+
   test "governed acceptance support uses agent definition version vocabulary" do
     support = Rails.root.join("../acceptance/lib/governed_validation_support.rb").read
     mcp_scenario = Rails.root.join("../acceptance/scenarios/governed_mcp_validation.rb").read

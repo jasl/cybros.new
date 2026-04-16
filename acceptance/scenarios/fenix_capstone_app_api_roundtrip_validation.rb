@@ -133,17 +133,62 @@ FileUtils.rm_rf(artifact_dir)
 FileUtils.mkdir_p(artifact_dir)
 FileUtils.rm_rf(generated_app_dir)
 
-bootstrap = Acceptance::ManualSupport.bootstrap_and_seed!
-app_api_session_token = Acceptance::ManualSupport.issue_app_api_session_token!(user: bootstrap.user)
+cli_init_bootstrap = Acceptance::CliSupport.run!(
+  artifact_dir: artifact_dir,
+  label: "init-bootstrap",
+  args: ["init"],
+  input: [
+    Acceptance::ManualSupport::CONTROL_BASE_URL,
+    "Primary Installation",
+    "admin@example.com",
+    "Password123!",
+    "Password123!",
+    "Primary Admin",
+  ].join("\n") + "\n"
+)
+app_api_session_token = cli_init_bootstrap.fetch("credentials").fetch("session_token")
+
+Acceptance::ManualSupport.silence_stdout do
+  load Rails.root.join("db/seeds.rb")
+end
+
+installation = Installation.order(:id).last || raise("expected CLI bootstrap to create an installation")
 bundled_registration = Acceptance::ManualSupport.register_bundled_runtime_from_manifest!(
-  installation: bootstrap.installation,
+  installation: installation,
   runtime_base_url: agent_base_url,
   execution_runtime_fingerprint: "acceptance-capstone-bundled-fenix-environment",
   fingerprint: "acceptance-capstone-bundled-fenix-runtime"
 )
-workspace_context = Acceptance::ManualSupport.enable_default_workspace!(
-  agent_definition_version: bundled_registration.agent_definition_version
+cli_init_refresh = Acceptance::CliSupport.run!(
+  artifact_dir: artifact_dir,
+  label: "init-refresh",
+  args: ["init"]
 )
+cli_workspace_create = Acceptance::CliSupport.run!(
+  artifact_dir: artifact_dir,
+  label: "workspace-create",
+  args: ["workspace", "create", "--name", "Capstone Workspace", "--default"]
+)
+selected_workspace_id = cli_workspace_create.fetch("config").fetch("workspace_id")
+cli_workspace_use = Acceptance::CliSupport.run!(
+  artifact_dir: artifact_dir,
+  label: "workspace-use",
+  args: ["workspace", "use", selected_workspace_id]
+)
+cli_agent_attach = Acceptance::CliSupport.run!(
+  artifact_dir: artifact_dir,
+  label: "agent-attach",
+  args: ["agent", "attach", "--workspace-id", selected_workspace_id, "--agent-id", bundled_registration.agent.public_id]
+)
+cli_status = Acceptance::CliSupport.run!(
+  artifact_dir: artifact_dir,
+  label: "status",
+  args: ["status"]
+)
+workspace_context = {
+  workspace: Workspace.find_by_public_id!(cli_status.fetch("config").fetch("workspace_id")),
+  workspace_agent: WorkspaceAgent.find_by_public_id!(cli_status.fetch("config").fetch("workspace_agent_id")),
+}
 onboarding = Acceptance::ManualSupport.app_api_admin_create_onboarding_session!(
   target_kind: "execution_runtime",
   session_token: app_api_session_token
@@ -175,6 +220,17 @@ write_json(
     generated_app_dir: generated_app_dir,
     prompt: prompt
   )
+)
+write_json(
+  artifact_dir.join("evidence", "cli-setup.json"),
+  {
+    "init_bootstrap" => cli_init_bootstrap,
+    "init_refresh" => cli_init_refresh,
+    "workspace_create" => cli_workspace_create,
+    "workspace_use" => cli_workspace_use,
+    "agent_attach" => cli_agent_attach,
+    "status" => cli_status,
+  }
 )
 
 created = nil

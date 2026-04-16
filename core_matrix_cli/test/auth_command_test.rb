@@ -36,6 +36,29 @@ class CoreMatrixCLIAuthCommandTest < CoreMatrixCLITestCase
     assert_includes output, "admin@example.com"
   end
 
+  def test_login_accepts_password_prompt_input_from_non_tty_stdin
+    runtime = FakeRuntime.new(
+      config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),
+      credential_store: CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
+    )
+    runtime.login_response = {
+      "session_token" => "sess_123",
+      "user" => {
+        "email" => "admin@example.com",
+        "display_name" => "Primary Admin",
+      },
+    }
+
+    output = run_cli(
+      "auth", "login",
+      runtime: runtime,
+      input_io: NonTtyInput.new("https://core.example.com\nadmin@example.com\nPassword123!\n")
+    )
+
+    assert_equal "sess_123", runtime.credential_store.read.fetch("session_token")
+    assert_includes output, "admin@example.com"
+  end
+
   def test_logout_revokes_server_session_and_clears_local_token
     runtime = FakeRuntime.new(
       config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),

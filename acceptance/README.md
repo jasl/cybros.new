@@ -53,6 +53,10 @@ Current deployment-flow coverage includes:
 
 Current acceptance matrix, organized by purpose:
 
+- Operator setup
+  - `acceptance/scenarios/core_matrix_cli_operator_smoke_validation.rb`
+    - validates the black-box `cmctl` bootstrap/session/workspace/mount flow
+      against the real local stack
 - Deployment flows
   - `acceptance/scenarios/bring_your_own_agent_validation.rb`
     - validates the `BYO agent + BYO runtime` onboarding path

@@ -3,7 +3,7 @@ module AppAPI
     skip_before_action :authenticate_session!
 
     rescue_from Installations::BootstrapFirstAdmin::AlreadyBootstrapped do |error|
-      render json: { error: error.message }, status: :unprocessable_entity
+      render_unprocessable_entity(error)
     end
 
     def status

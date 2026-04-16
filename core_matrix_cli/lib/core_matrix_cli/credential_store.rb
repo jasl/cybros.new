@@ -8,7 +8,9 @@ module CoreMatrixCLI
     end
 
     def self.default_store
-      if CredentialStores::MacOSKeychainStore.available?
+      if forced_file_store?
+        CredentialStores::FileStore.new
+      elsif CredentialStores::MacOSKeychainStore.available?
         CredentialStores::MacOSKeychainStore.new(
           service: DEFAULT_SERVICE,
           account: DEFAULT_ACCOUNT
@@ -28,6 +30,10 @@ module CoreMatrixCLI
 
     def clear
       @store.clear
+    end
+
+    def self.forced_file_store?
+      ENV["CORE_MATRIX_CLI_CREDENTIAL_STORE"].to_s.strip.downcase == "file"
     end
   end
 end

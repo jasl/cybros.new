@@ -3,7 +3,7 @@ module AppAPI
     skip_before_action :authenticate_session!, only: :create
 
     rescue_from AppSurface::Actions::Sessions::Create::InvalidCredentials do |error|
-      render json: { error: error.message }, status: :unauthorized
+      render_unauthorized(error)
     end
 
     def show

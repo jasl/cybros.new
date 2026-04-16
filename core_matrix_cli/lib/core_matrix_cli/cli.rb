@@ -47,7 +47,7 @@ module CoreMatrixCLI
           def login_via_prompt
             runtime.login(
               email: ask("Operator Email:"),
-              password: ask("Password:", echo: false)
+              password: prompt_secret("Password:")
             )
           end
 
@@ -96,6 +96,12 @@ module CoreMatrixCLI
 
           def error_message_from(error)
             error.payload.is_a?(Hash) ? error.payload["error"] || error.message : error.message
+          end
+
+          def prompt_secret(prompt)
+            ask(prompt, echo: false)
+          rescue Errno::ENOTTY
+            ask(prompt)
           end
         end
       end
@@ -485,8 +491,8 @@ module CoreMatrixCLI
             runtime.bootstrap(
               name: ask("Installation Name:"),
               email: ask("Operator Email:"),
-              password: ask("Password:", echo: false),
-              password_confirmation: ask("Confirm Password:", echo: false),
+              password: prompt_secret("Password:"),
+              password_confirmation: prompt_secret("Confirm Password:"),
               display_name: ask("Display Name:")
             )
           else
