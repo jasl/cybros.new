@@ -1,0 +1,8 @@
+require_relative "lib/core_matrix_cli"
+
+task default: :test
+
+desc "Run the CLI smoke test"
+task :test do
+  ruby "-Itest test/cli_smoke_test.rb"
+end

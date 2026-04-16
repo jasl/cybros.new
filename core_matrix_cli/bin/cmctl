@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+require "bundler/setup"
+require_relative "../lib/core_matrix_cli"
+
+CoreMatrixCLI::CLI.start(ARGV)
