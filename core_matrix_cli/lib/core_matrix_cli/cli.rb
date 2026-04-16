@@ -3,6 +3,24 @@ module CoreMatrixCLI
     def self.included(base)
       base.class_eval do
         no_commands do
+          def with_cli_errors
+            yield
+          rescue HTTPClient::UnauthorizedError
+            runtime.clear_session_token
+            say("Session expired or revoked.")
+            say("Run `cmctl auth login` to authenticate again.")
+          rescue HTTPClient::TransportError => error
+            say("Could not reach CoreMatrix: #{error.message}")
+          rescue HTTPClient::UnprocessableEntityError => error
+            say("Request rejected: #{error_message_from(error)}")
+          rescue HTTPClient::NotFoundError => error
+            say("Requested resource was not found: #{error_message_from(error)}")
+          rescue HTTPClient::ServerError => error
+            say("CoreMatrix returned an error: #{error_message_from(error)}")
+          rescue ArgumentError => error
+            say(error.message)
+          end
+
           def runtime
             @runtime ||= CoreMatrixCLI.runtime_factory.call
           end
@@ -21,7 +39,8 @@ module CoreMatrixCLI
           def require_base_url!
             return runtime.stored_base_url unless runtime.stored_base_url.to_s.strip.empty?
 
-            say("base url: missing")
+            say("No CoreMatrix base URL is configured.")
+            say("Run `cmctl init` or `cmctl auth login` first.")
             nil
           end
 
@@ -33,11 +52,13 @@ module CoreMatrixCLI
           end
 
           def print_session(payload)
-            say("operator email: #{payload.dig("user", "email")}")
-            say("installation: #{payload.dig("installation", "name")}") if payload.dig("installation", "name")
+            say("Authenticated as: #{payload.dig("user", "email")}")
+            say("Installation: #{payload.dig("installation", "name")}") if payload.dig("installation", "name")
           end
 
           def print_snapshot(snapshot)
+            say("Base URL: #{runtime.stored_base_url}") if runtime.stored_base_url.to_s.strip != ""
+            say("Installation: #{snapshot.fetch("installation_name")}") if snapshot["installation_name"]
             say("authenticated: #{snapshot.fetch("authenticated", false) ? "yes" : "no"}")
             say("bootstrap state: #{snapshot.fetch("bootstrap_state", "unknown")}")
             say("default workspace: #{snapshot.fetch("default_workspace", "unknown")}")
@@ -49,13 +70,32 @@ module CoreMatrixCLI
 
           def selected_workspace_agent_id!
             workspace_agent_id = runtime.config_store.read["workspace_agent_id"]
-            raise ArgumentError, "workspace_agent_id is required" if workspace_agent_id.to_s.strip.empty?
+            if workspace_agent_id.to_s.strip.empty?
+              say("No workspace agent is selected.")
+              say("Run `cmctl agent attach` after choosing or creating a workspace.")
+              return nil
+            end
 
             workspace_agent_id
           end
 
+          def selected_workspace_id
+            workspace_id = runtime.config_store.read["workspace_id"]
+            if workspace_id.to_s.strip.empty?
+              say("No workspace is selected.")
+              say("Run `cmctl workspace create` or `cmctl workspace use <workspace_id>` first.")
+              return nil
+            end
+
+            workspace_id
+          end
+
           def normalize_base_url(base_url)
             base_url.to_s.strip.sub(%r{/+\z}, "")
+          end
+
+          def error_message_from(error)
+            error.payload.is_a?(Hash) ? error.payload["error"] || error.message : error.message
           end
         end
       end
@@ -67,31 +107,34 @@ module CoreMatrixCLI
 
     desc "login", "Log in as an operator"
     def login
-      ensure_base_url!
-      payload = login_via_prompt
-      orchestrator.persist_auth_payload(payload)
-      print_session(payload)
+      with_cli_errors do
+        ensure_base_url!
+        payload = login_via_prompt
+        orchestrator.persist_auth_payload(payload)
+        print_session(payload)
+      end
     end
 
     desc "whoami", "Show the current operator session"
     def whoami
-      return unless require_base_url!
+      with_cli_errors do
+        return unless require_base_url!
 
-      print_session(runtime.current_session)
-    rescue HTTPClient::UnauthorizedError
-      runtime.clear_session_token
-      say("authenticated: no")
+        print_session(runtime.current_session)
+      end
     end
 
     desc "logout", "Log out the current operator session"
     def logout
-      if runtime.session_token.to_s.strip.empty?
-        runtime.clear_session_token
-      else
-        runtime.logout
-      end
+      with_cli_errors do
+        if runtime.session_token.to_s.strip.empty?
+          runtime.clear_session_token
+        else
+          runtime.logout
+        end
 
-      say("authenticated: no")
+        say("Authenticated: no")
+      end
     end
   end
 
@@ -102,37 +145,46 @@ module CoreMatrixCLI
 
     desc "login", "Authorize the Codex subscription"
     def login
-      return unless require_base_url!
+      with_cli_errors do
+        return unless require_base_url!
 
-      authorization = runtime.start_codex_authorization.fetch("authorization")
-      authorization_url = authorization["authorization_url"]
-      say("authorization url: #{authorization_url}") if authorization_url
-      browser_launcher.open(authorization_url) if authorization_url
+        authorization = runtime.start_codex_authorization.fetch("authorization")
+        authorization_url = authorization["authorization_url"]
+        if authorization_url
+          browser_launcher.open(authorization_url)
+          say("Open this URL if the browser does not launch:")
+          say(authorization_url)
+        end
 
-      final_payload = Polling.until(
-        timeout: POLL_TIMEOUT,
-        interval: POLL_INTERVAL,
-        stop_on: ->(payload) { payload.dig("authorization", "status") != "pending" }
-      ) do
-        runtime.codex_authorization_status
+        final_payload = Polling.until(
+          timeout: POLL_TIMEOUT,
+          interval: POLL_INTERVAL,
+          stop_on: ->(payload) { payload.dig("authorization", "status") != "pending" }
+        ) do
+          runtime.codex_authorization_status
+        end
+
+        say("codex subscription: #{final_payload.dig("authorization", "status")}")
       end
-
-      say("codex subscription: #{final_payload.dig("authorization", "status")}")
     end
 
     desc "status", "Show the Codex authorization status"
     def status
-      return unless require_base_url!
+      with_cli_errors do
+        return unless require_base_url!
 
-      say("codex subscription: #{runtime.codex_authorization_status.dig("authorization", "status")}")
+        say("codex subscription: #{runtime.codex_authorization_status.dig("authorization", "status")}")
+      end
     end
 
     desc "logout", "Revoke the Codex authorization"
     def logout
-      return unless require_base_url!
+      with_cli_errors do
+        return unless require_base_url!
 
-      payload = runtime.revoke_codex_authorization
-      say("codex subscription: #{payload.dig("authorization", "status")}")
+        payload = runtime.revoke_codex_authorization
+        say("codex subscription: #{payload.dig("authorization", "status")}")
+      end
     end
 
     no_commands do
@@ -152,11 +204,13 @@ module CoreMatrixCLI
 
     desc "list", "List available workspaces"
     def list
-      return unless require_base_url!
+      with_cli_errors do
+        return unless require_base_url!
 
-      runtime.list_workspaces.fetch("workspaces", []).each do |workspace|
-        marker = workspace["is_default"] ? "*" : "-"
-        say("#{marker} #{workspace.fetch("workspace_id")} #{workspace.fetch("name")}")
+        runtime.list_workspaces.fetch("workspaces", []).each do |workspace|
+          marker = workspace["is_default"] ? "*" : "-"
+          say("#{marker} #{workspace.fetch("workspace_id")} #{workspace.fetch("name")}")
+        end
       end
     end
 
@@ -165,23 +219,27 @@ module CoreMatrixCLI
     option :default, type: :boolean, default: false, desc: "Mark the workspace as default"
     desc "create", "Create a workspace"
     def create
-      return unless require_base_url!
+      with_cli_errors do
+        return unless require_base_url!
 
-      payload = runtime.create_workspace(
-        name: options[:name] || ask("Workspace Name:"),
-        privacy: options[:privacy],
-        is_default: options[:default]
-      )
-      workspace = payload.fetch("workspace")
-      runtime.persist_workspace_context(workspace_id: workspace.fetch("workspace_id"))
-      say("selected workspace: #{workspace.fetch("workspace_id")}")
-      say("workspace name: #{workspace.fetch("name")}")
+        payload = runtime.create_workspace(
+          name: options[:name] || ask("Workspace Name:"),
+          privacy: options[:privacy],
+          is_default: options[:default]
+        )
+        workspace = payload.fetch("workspace")
+        runtime.persist_workspace_context(workspace_id: workspace.fetch("workspace_id"))
+        say("Selected workspace: #{workspace.fetch("workspace_id")}")
+        say("Workspace name: #{workspace.fetch("name")}")
+      end
     end
 
     desc "use WORKSPACE_ID", "Select a workspace"
     def use(workspace_id)
-      runtime.persist_workspace_context(workspace_id: workspace_id)
-      say("selected workspace: #{workspace_id}")
+      with_cli_errors do
+        runtime.persist_workspace_context(workspace_id: workspace_id)
+        say("Selected workspace: #{workspace_id}")
+      end
     end
   end
 
@@ -192,21 +250,23 @@ module CoreMatrixCLI
     option :agent_id, type: :string, required: true, desc: "Agent public id"
     desc "attach", "Attach an agent to the selected workspace"
     def attach
-      return unless require_base_url!
+      with_cli_errors do
+        return unless require_base_url!
 
-      workspace_id = options[:workspace_id] || runtime.config_store.read["workspace_id"]
-      raise ArgumentError, "workspace_id is required" if workspace_id.to_s.strip.empty?
+        workspace_id = options[:workspace_id] || selected_workspace_id
+        return if workspace_id.nil?
 
-      payload = runtime.attach_workspace_agent(
-        workspace_id: workspace_id,
-        agent_id: options.fetch(:agent_id)
-      )
-      workspace_agent = payload.fetch("workspace_agent")
-      runtime.persist_workspace_context(
-        workspace_id: workspace_agent.fetch("workspace_id"),
-        workspace_agent_id: workspace_agent.fetch("workspace_agent_id")
-      )
-      say("selected workspace agent: #{workspace_agent.fetch("workspace_agent_id")}")
+        payload = runtime.attach_workspace_agent(
+          workspace_id: workspace_id,
+          agent_id: options.fetch(:agent_id)
+        )
+        workspace_agent = payload.fetch("workspace_agent")
+        runtime.persist_workspace_context(
+          workspace_id: workspace_agent.fetch("workspace_id"),
+          workspace_agent_id: workspace_agent.fetch("workspace_agent_id")
+        )
+        say("Selected workspace agent: #{workspace_agent.fetch("workspace_agent_id")}")
+      end
     end
   end
 
@@ -233,42 +293,47 @@ module CoreMatrixCLI
     HELP
     desc "setup", "Configure Telegram ingress"
     def setup
-      return unless require_base_url!
+      with_cli_errors do
+        return unless require_base_url!
 
-      workspace_agent_id = selected_workspace_agent_id!
-      ingress_binding_id = runtime.stored_ingress_binding_id("telegram")
+        workspace_agent_id = selected_workspace_agent_id!
+        return if workspace_agent_id.nil?
 
-      if ingress_binding_id.to_s.strip.empty?
-        created_binding = runtime.create_ingress_binding(
+        ingress_binding_id = runtime.stored_ingress_binding_id("telegram")
+
+        if ingress_binding_id.to_s.strip.empty?
+          created_binding = runtime.create_ingress_binding(
+            workspace_agent_id: workspace_agent_id,
+            platform: "telegram"
+          ).fetch("ingress_binding")
+          ingress_binding_id = created_binding.fetch("ingress_binding_id")
+          runtime.persist_ingress_binding_id("telegram", ingress_binding_id)
+        end
+
+        bot_token = ask("Telegram Bot Token:")
+        webhook_base_url = normalize_base_url(ask("Webhook Base URL:"))
+
+        updated_binding = runtime.update_ingress_binding(
           workspace_agent_id: workspace_agent_id,
-          platform: "telegram"
+          ingress_binding_id: ingress_binding_id,
+          channel_connector: {
+            credential_ref_payload: {
+              bot_token: bot_token,
+            },
+            config_payload: {
+              webhook_base_url: webhook_base_url,
+            },
+          }
         ).fetch("ingress_binding")
-        ingress_binding_id = created_binding.fetch("ingress_binding_id")
-        runtime.persist_ingress_binding_id("telegram", ingress_binding_id)
+
+        setup = updated_binding.fetch("setup")
+        webhook_url = "#{webhook_base_url}#{setup.fetch("webhook_path")}"
+
+        say("Webhook URL: #{webhook_url}")
+        say("Webhook Secret Header: X-Telegram-Bot-Api-Secret-Token")
+        say("Webhook Secret Token: #{setup.fetch("webhook_secret_token")}")
+        say("Next: register the webhook URL and secret token with Telegram.")
       end
-
-      bot_token = ask("Telegram Bot Token:")
-      webhook_base_url = normalize_base_url(ask("Webhook Base URL:"))
-
-      updated_binding = runtime.update_ingress_binding(
-        workspace_agent_id: workspace_agent_id,
-        ingress_binding_id: ingress_binding_id,
-        channel_connector: {
-          credential_ref_payload: {
-            bot_token: bot_token,
-          },
-          config_payload: {
-            webhook_base_url: webhook_base_url,
-          },
-        }
-      ).fetch("ingress_binding")
-
-      setup = updated_binding.fetch("setup")
-      webhook_url = "#{webhook_base_url}#{setup.fetch("webhook_path")}"
-
-      say("Webhook URL: #{webhook_url}")
-      say("Webhook Secret Header: X-Telegram-Bot-Api-Secret-Token")
-      say("Webhook Secret Token: #{setup.fetch("webhook_secret_token")}")
     end
   end
 
@@ -293,27 +358,31 @@ module CoreMatrixCLI
     HELP
     desc "setup", "Configure Weixin ingress"
     def setup
-      return unless require_base_url!
+      with_cli_errors do
+        return unless require_base_url!
 
-      workspace_agent_id = selected_workspace_agent_id!
-      ingress_binding_id = runtime.stored_ingress_binding_id("weixin")
+        workspace_agent_id = selected_workspace_agent_id!
+        return if workspace_agent_id.nil?
 
-      if ingress_binding_id.to_s.strip.empty?
-        created_binding = runtime.create_ingress_binding(
+        ingress_binding_id = runtime.stored_ingress_binding_id("weixin")
+
+        if ingress_binding_id.to_s.strip.empty?
+          created_binding = runtime.create_ingress_binding(
+            workspace_agent_id: workspace_agent_id,
+            platform: "weixin"
+          ).fetch("ingress_binding")
+          ingress_binding_id = created_binding.fetch("ingress_binding_id")
+          runtime.persist_ingress_binding_id("weixin", ingress_binding_id)
+        end
+
+        runtime.start_weixin_login(
           workspace_agent_id: workspace_agent_id,
-          platform: "weixin"
-        ).fetch("ingress_binding")
-        ingress_binding_id = created_binding.fetch("ingress_binding_id")
-        runtime.persist_ingress_binding_id("weixin", ingress_binding_id)
+          ingress_binding_id: ingress_binding_id
+        )
+
+        final_payload = poll_weixin_status(workspace_agent_id: workspace_agent_id, ingress_binding_id: ingress_binding_id)
+        say("weixin status: #{final_payload.dig("weixin", "login_state")}")
       end
-
-      runtime.start_weixin_login(
-        workspace_agent_id: workspace_agent_id,
-        ingress_binding_id: ingress_binding_id
-      )
-
-      final_payload = poll_weixin_status(workspace_agent_id: workspace_agent_id, ingress_binding_id: ingress_binding_id)
-      say("weixin status: #{final_payload.dig("weixin", "login_state")}")
     end
 
     no_commands do
@@ -364,35 +433,39 @@ module CoreMatrixCLI
 
     desc "init", "Bootstrap or continue operator setup"
     def init
-      ensure_base_url!
-      bootstrap_status = runtime.bootstrap_status
+      with_cli_errors do
+        ensure_base_url!
+        bootstrap_status = runtime.bootstrap_status
 
-      payload =
-        if bootstrap_status.fetch("bootstrap_state") == "unbootstrapped"
-          runtime.bootstrap(
-            name: ask("Installation Name:"),
-            email: ask("Operator Email:"),
-            password: ask("Password:", echo: false),
-            password_confirmation: ask("Confirm Password:", echo: false),
-            display_name: ask("Display Name:")
-          )
-        else
-          current_session_or_login
-        end
+        payload =
+          if bootstrap_status.fetch("bootstrap_state") == "unbootstrapped"
+            runtime.bootstrap(
+              name: ask("Installation Name:"),
+              email: ask("Operator Email:"),
+              password: ask("Password:", echo: false),
+              password_confirmation: ask("Confirm Password:", echo: false),
+              display_name: ask("Display Name:")
+            )
+          else
+            current_session_or_login
+          end
 
-      orchestrator.persist_auth_payload(payload)
-      orchestrator.prime_workspace_context! if payload["workspace"].nil? || payload["workspace_agent"].nil?
+        orchestrator.persist_auth_payload(payload)
+        orchestrator.prime_workspace_context! if payload["workspace"].nil? || payload["workspace_agent"].nil?
 
-      installation_name = payload.dig("installation", "name")
-      say("installation: #{installation_name}") if installation_name
-      print_snapshot(orchestrator.readiness_snapshot)
+        installation_name = payload.dig("installation", "name")
+        say("Installation: #{installation_name}") if installation_name
+        print_snapshot(orchestrator.readiness_snapshot)
+      end
     end
 
     desc "status", "Show installation readiness"
     def status
-      return unless require_base_url!
+      with_cli_errors do
+        return unless require_base_url!
 
-      print_snapshot(orchestrator.readiness_snapshot)
+        print_snapshot(orchestrator.readiness_snapshot)
+      end
     end
 
     register AuthCLI, "auth", "auth SUBCOMMAND", "Manage operator authentication"

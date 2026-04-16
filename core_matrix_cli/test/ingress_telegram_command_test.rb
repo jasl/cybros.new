@@ -48,4 +48,17 @@ class CoreMatrixCLITelegramCommandTest < CoreMatrixCLITestCase
     assert_includes output, "BotFather"
     assert_includes output, "secret token"
   end
+
+  def test_telegram_setup_explains_how_to_select_a_workspace_agent_when_missing
+    runtime = FakeRuntime.new(
+      config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),
+      credential_store: CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
+    )
+    runtime.persist_base_url("https://core.example.com")
+
+    output = run_cli("ingress", "telegram", "setup", runtime: runtime)
+
+    assert_includes output, "No workspace agent is selected."
+    assert_includes output, "cmctl agent attach"
+  end
 end

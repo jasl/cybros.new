@@ -38,4 +38,27 @@ class CoreMatrixCLIAuthCommandTest < CoreMatrixCLITestCase
     assert_equal({}, runtime.credential_store.read)
     assert_includes runtime.calls, [:logout]
   end
+
+  def test_whoami_explains_when_session_is_expired
+    runtime = FakeRuntime.new(
+      config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),
+      credential_store: CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
+    )
+    runtime.persist_base_url("https://core.example.com")
+    runtime.persist_session_token("sess_123")
+
+    def runtime.current_session
+      raise CoreMatrixCLI::HTTPClient::UnauthorizedError.new(
+        "unauthorized",
+        status: 401,
+        payload: { "error" => "unauthorized" }
+      )
+    end
+
+    output = run_cli("auth", "whoami", runtime: runtime)
+
+    assert_equal({}, runtime.credential_store.read)
+    assert_includes output, "Session expired or revoked."
+    assert_includes output, "cmctl auth login"
+  end
 end

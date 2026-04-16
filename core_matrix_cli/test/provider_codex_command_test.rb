@@ -26,6 +26,7 @@ class CoreMatrixCLICodexCommandTest < CoreMatrixCLITestCase
     )
 
     assert_equal ["https://auth.example.test/device"], browser_launcher.opened_urls
+    assert_includes output, "Open this URL if the browser does not launch:"
     assert_includes output, "authorized"
   end
 
