@@ -8,6 +8,10 @@ product, plus its bundled and companion runtimes such as Fenix and Nexus.
 - `CoreMatrix` is the kernel product. It owns agent-loop execution,
   conversation state, workflow scheduling, human-interaction primitives,
   runtime supervision, and platform-level governance.
+- `core_matrix_cli` is the operator-facing setup CLI for turning a CoreMatrix
+  installation into a usable environment without relying on the unfinished Web
+  UI. It handles first-run setup, Codex subscription authorization, workspace
+  selection, and Telegram/Weixin ingress preparation.
 - `Fenix` is the default bundled agent. It is both a usable assistant product,
   the first technical validation agent for the CoreMatrix loop, and an
   optional agent-side tool provider.
@@ -35,9 +39,24 @@ that is intentionally not active yet.
 
 - The current substrate batch continues to harden `core_matrix` foundations.
 - The current agent-loop validation batch proves the real loop end to end.
-- The next product batch makes the system usable through Web UI.
+- The current operator batch makes the system usable through `core_matrix_cli`
+  while the Web UI is still incomplete.
 - Later batches widen the product boundary through additional validation
   agents, runtimes, triggers, channels, and eventually extensions.
+
+## Operator Setup
+
+The fastest way to make a new installation usable today is through
+[`core_matrix_cli`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli):
+
+1. `cd core_matrix_cli`
+2. `bundle exec ./bin/cmctl init`
+3. `bundle exec ./bin/cmctl providers codex login`
+4. `bundle exec ./bin/cmctl ingress telegram setup` or `bundle exec ./bin/cmctl ingress weixin setup`
+5. `bundle exec ./bin/cmctl status`
+
+For IM prerequisites and the exact values the CLI will ask for, see
+[docs/operations/core-matrix-im-preparation-guide.md](/Users/jasl/Workspaces/Ruby/cybros/docs/operations/core-matrix-im-preparation-guide.md).
 
 ## Validation Rule
 

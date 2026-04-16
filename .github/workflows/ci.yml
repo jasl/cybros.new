@@ -19,6 +19,7 @@ jobs:
     outputs:
       agent_fenix: ${{ steps.detect.outputs.agent_fenix }}
       core_matrix: ${{ steps.detect.outputs.core_matrix }}
+      core_matrix_cli: ${{ steps.detect.outputs.core_matrix_cli }}
       images_nexus: ${{ steps.detect.outputs.images_nexus }}
       simple_inference: ${{ steps.detect.outputs.simple_inference }}
     steps:
@@ -48,6 +49,7 @@ jobs:
 
           agent_fenix=false
           core_matrix=false
+          core_matrix_cli=false
           images_nexus=false
           simple_inference=false
 
@@ -66,8 +68,12 @@ jobs:
               AGENTS.md|.editorconfig|.gitattributes|.gitignore|.github/workflows/*)
                 agent_fenix=true
                 core_matrix=true
+                core_matrix_cli=true
                 images_nexus=true
                 simple_inference=true
+                ;;
+              core_matrix_cli/*)
+                core_matrix_cli=true
                 ;;
               agents/fenix/*)
                 agent_fenix=true
@@ -88,6 +94,7 @@ jobs:
           {
             echo "agent_fenix=$agent_fenix"
             echo "core_matrix=$core_matrix"
+            echo "core_matrix_cli=$core_matrix_cli"
             echo "images_nexus=$images_nexus"
             echo "simple_inference=$simple_inference"
           } >> "$GITHUB_OUTPUT"
@@ -371,6 +378,44 @@ jobs:
           name: core-matrix-screenshots
           path: ${{ github.workspace }}/core_matrix/tmp/screenshots
           if-no-files-found: ignore
+
+  core_matrix_cli_test:
+    name: core_matrix_cli / test
+    needs: changes
+    if: needs.changes.outputs.core_matrix_cli == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: core_matrix_cli
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/core_matrix_cli/Gemfile
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 4.0.2
+          bundler-cache: true
+
+      - name: Run CLI test suite
+        run: |
+          bundle exec ruby -Itest test/cli_smoke_test.rb
+          bundle exec ruby -Itest test/config_store_test.rb
+          bundle exec ruby -Itest test/credential_store_test.rb
+          bundle exec ruby -Itest test/http_client_test.rb
+          bundle exec ruby -Itest test/auth_command_test.rb
+          bundle exec ruby -Itest test/init_command_test.rb
+          bundle exec ruby -Itest test/status_command_test.rb
+          bundle exec ruby -Itest test/workspace_command_test.rb
+          bundle exec ruby -Itest test/agent_command_test.rb
+          bundle exec ruby -Itest test/provider_codex_command_test.rb
+          bundle exec ruby -Itest test/ingress_telegram_command_test.rb
+          bundle exec ruby -Itest test/ingress_weixin_command_test.rb
+          bundle exec ruby -Itest test/ansi_qr_renderer_test.rb
+          bundle exec ruby -Itest test/full_setup_contract_test.rb
 
   simple_inference:
     name: core_matrix/vendor/simple_inference

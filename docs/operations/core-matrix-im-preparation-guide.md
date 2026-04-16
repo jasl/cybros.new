@@ -9,7 +9,8 @@ Primary operator entrypoint:
 - `cmctl ingress weixin setup --help`
 
 This document is a longer companion reference. It should not be the only place
-where the preparation steps live.
+where the preparation steps live. The command help output is the canonical
+short-form checklist that operators should reach for first.
 
 Scope:
 
