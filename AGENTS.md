@@ -10,6 +10,7 @@ This repository is a monorepo. Treat each top-level product directory as an inde
 
 - `agents/fenix`: active cowork Ruby on Rails application
 - `core_matrix`: main Ruby on Rails application
+- `core_matrix_cli`: Thor-based operator CLI for CoreMatrix
 - `core_matrix/vendor/simple_inference`: vendored Ruby gem maintained in-tree
 - `images/nexus`: Docker runtime base project for cowork agents
 
@@ -75,6 +76,13 @@ bun run lint:js
 bin/rails db:test:prepare
 bin/rails test
 bin/rails test:system
+```
+
+### `core_matrix_cli`
+
+```bash
+cd core_matrix_cli
+bundle exec rake test
 ```
 
 For `core_matrix` changes that modify acceptance-critical loop behavior, finish

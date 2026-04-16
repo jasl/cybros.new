@@ -33,10 +33,30 @@ module CoreMatrixCLI
     end
 
     def persist_workspace_context(workspace_id: nil, workspace_agent_id: nil)
-      payload = {}
-      payload["workspace_id"] = workspace_id if workspace_id
-      payload["workspace_agent_id"] = workspace_agent_id if workspace_agent_id
-      config_store.merge(payload) if payload.any?
+      current_payload = config_store.read
+      next_payload = current_payload.dup
+
+      workspace_changed =
+        workspace_id && workspace_id != current_payload["workspace_id"]
+      workspace_agent_changed =
+        workspace_agent_id && workspace_agent_id != current_payload["workspace_agent_id"]
+
+      if workspace_changed
+        next_payload["workspace_id"] = workspace_id
+        next_payload.delete("workspace_agent_id")
+        clear_ingress_binding_selection!(next_payload)
+      elsif workspace_id
+        next_payload["workspace_id"] = workspace_id
+      end
+
+      if workspace_agent_changed
+        next_payload["workspace_agent_id"] = workspace_agent_id
+        clear_ingress_binding_selection!(next_payload)
+      elsif workspace_agent_id
+        next_payload["workspace_agent_id"] = workspace_agent_id
+      end
+
+      config_store.write(next_payload) if next_payload != current_payload
     end
 
     def stored_ingress_binding_id(platform)
@@ -258,8 +278,21 @@ module CoreMatrixCLI
       workspace_agent_id = config_store.read["workspace_agent_id"]
       workspace_agents = Array(workspace_payload["workspace_agents"])
 
-      workspace_agents.find { |workspace_agent| workspace_agent["workspace_agent_id"] == workspace_agent_id } ||
-        workspace_agents.first
+      selected_workspace_agent = workspace_agents.find do |workspace_agent|
+        workspace_agent["workspace_agent_id"] == workspace_agent_id
+      end
+      return selected_workspace_agent if active_workspace_agent?(selected_workspace_agent)
+
+      workspace_agents.find { |workspace_agent| active_workspace_agent?(workspace_agent) }
+    end
+
+    def active_workspace_agent?(workspace_agent_payload)
+      workspace_agent_payload && workspace_agent_payload["lifecycle_state"] == "active"
+    end
+
+    def clear_ingress_binding_selection!(payload)
+      payload.delete("telegram_ingress_binding_id")
+      payload.delete("weixin_ingress_binding_id")
     end
   end
 end

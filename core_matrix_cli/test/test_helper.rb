@@ -134,10 +134,32 @@ class FakeRuntime
 
   def persist_workspace_context(workspace_id: nil, workspace_agent_id: nil)
     calls << [:persist_workspace_context, workspace_id, workspace_agent_id]
-    payload = {}
-    payload["workspace_id"] = workspace_id if workspace_id
-    payload["workspace_agent_id"] = workspace_agent_id if workspace_agent_id
-    config_store.merge(payload) if payload.any?
+    current_payload = config_store.read
+    next_payload = current_payload.dup
+
+    workspace_changed =
+      workspace_id && workspace_id != current_payload["workspace_id"]
+    workspace_agent_changed =
+      workspace_agent_id && workspace_agent_id != current_payload["workspace_agent_id"]
+
+    if workspace_changed
+      next_payload["workspace_id"] = workspace_id
+      next_payload.delete("workspace_agent_id")
+      next_payload.delete("telegram_ingress_binding_id")
+      next_payload.delete("weixin_ingress_binding_id")
+    elsif workspace_id
+      next_payload["workspace_id"] = workspace_id
+    end
+
+    if workspace_agent_changed
+      next_payload["workspace_agent_id"] = workspace_agent_id
+      next_payload.delete("telegram_ingress_binding_id")
+      next_payload.delete("weixin_ingress_binding_id")
+    elsif workspace_agent_id
+      next_payload["workspace_agent_id"] = workspace_agent_id
+    end
+
+    config_store.write(next_payload) if next_payload != current_payload
   end
 
   def stored_ingress_binding_id(platform)

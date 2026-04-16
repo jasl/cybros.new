@@ -33,4 +33,21 @@ class CoreMatrixCLIWorkspaceCommandTest < CoreMatrixCLITestCase
 
     assert_equal "ws_456", runtime.config_store.read.fetch("workspace_id")
   end
+
+  def test_workspace_use_clears_stale_workspace_agent_and_binding_selection
+    runtime = FakeRuntime.new(
+      config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),
+      credential_store: CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
+    )
+    runtime.config_store.write(
+      "workspace_id" => "ws_old",
+      "workspace_agent_id" => "wa_old",
+      "telegram_ingress_binding_id" => "ib_tg_old",
+      "weixin_ingress_binding_id" => "ib_wx_old"
+    )
+
+    run_cli("workspace", "use", "ws_456", runtime: runtime)
+
+    assert_equal({ "workspace_id" => "ws_456" }, runtime.config_store.read)
+  end
 end

@@ -44,7 +44,8 @@ module CoreMatrixCLI
     def select_workspace_agent(workspace)
       return nil if workspace.nil?
 
-      Array(workspace["workspace_agents"]).first
+      workspace_agents = Array(workspace["workspace_agents"])
+      workspace_agents.find { |workspace_agent| workspace_agent["lifecycle_state"] == "active" }
     end
   end
 end
