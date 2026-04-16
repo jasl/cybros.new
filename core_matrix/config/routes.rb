@@ -72,6 +72,12 @@ Rails.application.routes.draw do
   end
 
   namespace :app_api do
+    resource :bootstrap, only: :create, controller: :bootstrap do
+      get :status
+    end
+
+    resource :session, only: [:show, :create, :destroy], controller: :sessions
+
     namespace :admin do
       resource :installation, only: :show
       resources :agents, only: :index
