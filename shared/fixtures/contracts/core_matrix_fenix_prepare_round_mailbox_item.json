@@ -27,7 +27,7 @@
         },
         {
           "role": "user",
-          "content": "Please calculate 2 + 2."
+          "content": "Please compact the earlier context."
         }
       ],
       "context_imports": [],
@@ -37,10 +37,7 @@
       "profile": "pragmatic",
       "is_subagent": false,
       "allowed_tool_names": [
-        "compact_context",
-        "estimate_messages",
-        "estimate_tokens",
-        "calculator"
+        "compact_context"
       ]
     },
     "provider_context": {

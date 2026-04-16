@@ -3,10 +3,10 @@ require "test_helper"
 class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::TestCase
   test "sends public agent and user scope ids in execute_tool payloads" do
     context = build_governed_tool_context!(
-      agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry, default_agent_observation_tool_entry("conversation_metadata_update")],
+      agent_tool_catalog: governed_agent_tool_catalog + [default_agent_observation_tool_entry("conversation_metadata_update")],
       profile_policy: governed_profile_policy.deep_merge(
         "pragmatic" => {
-          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn calculator conversation_metadata_update],
+          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
         }
       )
     )
@@ -14,13 +14,13 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
     binding = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).find do |candidate|
-      candidate.tool_definition.tool_name == "calculator"
+      candidate.tool_definition.tool_name == "compact_context"
     end
     agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       tool_results: {
-        "call-calculator-1" => {
+        "call-compact-context-1" => {
           "status" => "ok",
-          "result" => { "value" => 4 },
+          "result" => compact_context_tool_result,
           "output_chunks" => [],
           "summary_artifacts" => [],
         },
@@ -30,9 +30,9 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
     result = ProviderExecution::ToolCallRunners::AgentMediated.call(
       workflow_node: workflow_node,
       tool_call: {
-        "call_id" => "call-calculator-1",
-        "tool_name" => "calculator",
-        "arguments" => { "expression" => "2 + 2" },
+        "call_id" => "call-compact-context-1",
+        "tool_name" => "compact_context",
+        "arguments" => compact_context_tool_arguments,
         "provider_format" => "chat_completions",
       },
       binding: binding,
@@ -41,7 +41,7 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
 
     request_payload = agent_request_exchange.execute_tool_requests.last
 
-    assert_equal({ "value" => 4 }, result.result)
+    assert_equal(compact_context_tool_result, result.result)
     assert_equal(
       {
         "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id,
@@ -54,10 +54,10 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
 
   test "preserves a running invocation across a deferred mailbox exchange and completes it on rerun" do
     context = build_governed_tool_context!(
-      agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry, default_agent_observation_tool_entry("conversation_metadata_update")],
+      agent_tool_catalog: governed_agent_tool_catalog + [default_agent_observation_tool_entry("conversation_metadata_update")],
       profile_policy: governed_profile_policy.deep_merge(
         "pragmatic" => {
-          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn calculator conversation_metadata_update],
+          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn conversation_metadata_update],
         }
       )
     )
@@ -65,7 +65,7 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
     binding = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).find do |candidate|
-      candidate.tool_definition.tool_name == "calculator"
+      candidate.tool_definition.tool_name == "compact_context"
     end
 
     pending_exchange = Class.new do
@@ -82,9 +82,9 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
       ProviderExecution::ToolCallRunners::AgentMediated.call(
         workflow_node: workflow_node,
         tool_call: {
-          "call_id" => "call-calculator-pending-1",
-          "tool_name" => "calculator",
-          "arguments" => { "expression" => "2 + 2" },
+          "call_id" => "call-compact-context-pending-1",
+          "tool_name" => "compact_context",
+          "arguments" => compact_context_tool_arguments,
           "provider_format" => "chat_completions",
         },
         binding: binding,
@@ -92,14 +92,14 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
       )
     end
 
-    invocation = binding.tool_invocations.find_by!(idempotency_key: "call-calculator-pending-1")
+    invocation = binding.tool_invocations.find_by!(idempotency_key: "call-compact-context-pending-1")
     assert_equal "running", invocation.reload.status
 
     completed_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       tool_results: {
-        "call-calculator-pending-1" => {
+        "call-compact-context-pending-1" => {
           "status" => "ok",
-          "result" => { "value" => 4 },
+          "result" => compact_context_tool_result,
           "output_chunks" => [],
           "summary_artifacts" => [],
         },
@@ -109,9 +109,9 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
     result = ProviderExecution::ToolCallRunners::AgentMediated.call(
       workflow_node: workflow_node,
       tool_call: {
-        "call_id" => "call-calculator-pending-1",
-        "tool_name" => "calculator",
-        "arguments" => { "expression" => "2 + 2" },
+        "call_id" => "call-compact-context-pending-1",
+        "tool_name" => "compact_context",
+        "arguments" => compact_context_tool_arguments,
         "provider_format" => "chat_completions",
       },
       binding: binding,
@@ -119,7 +119,7 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
     )
 
     assert_equal invocation.public_id, result.tool_invocation.public_id
-    assert_equal({ "value" => 4 }, result.result)
+    assert_equal(compact_context_tool_result, result.result)
     assert_equal "succeeded", invocation.reload.status
   end
 
@@ -129,13 +129,13 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
     binding = ToolBindings::FreezeForWorkflowNode.call(
       workflow_node: workflow_node
     ).includes(:tool_definition, tool_implementation: :implementation_source).find do |candidate|
-      candidate.tool_definition.tool_name == "calculator"
+      candidate.tool_definition.tool_name == "compact_context"
     end
     agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       tool_results: {
-        "call-calculator-specialist-1" => {
+        "call-compact-context-specialist-1" => {
           "status" => "ok",
-          "result" => { "value" => 4 },
+          "result" => compact_context_tool_result,
           "output_chunks" => [],
           "summary_artifacts" => [],
         },
@@ -145,9 +145,9 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
     ProviderExecution::ToolCallRunners::AgentMediated.call(
       workflow_node: workflow_node,
       tool_call: {
-        "call_id" => "call-calculator-specialist-1",
-        "tool_name" => "calculator",
-        "arguments" => { "expression" => "2 + 2" },
+        "call_id" => "call-compact-context-specialist-1",
+        "tool_name" => "compact_context",
+        "arguments" => compact_context_tool_arguments,
         "provider_format" => "chat_completions",
       },
       binding: binding,
@@ -163,40 +163,16 @@ class ProviderExecution::ToolCallRunners::AgentMediatedTest < ActiveSupport::Tes
 
   private
 
-  def calculator_tool_entry
-    {
-      "tool_name" => "calculator",
-      "tool_kind" => "agent_observation",
-      "implementation_source" => "agent",
-      "implementation_ref" => "agent/calculator",
-      "input_schema" => {
-        "type" => "object",
-        "properties" => {
-          "expression" => { "type" => "string" },
-        },
-        "required" => ["expression"],
-      },
-      "result_schema" => {
-        "type" => "object",
-        "properties" => {
-          "value" => {},
-        },
-      },
-      "streaming_support" => false,
-      "idempotency_policy" => "best_effort",
-    }
-  end
-
   def build_governed_specialist_subagent_tool_context!
     profile_policy = governed_profile_policy.deep_merge(
       "researcher" => {
         "label" => "Researcher",
         "description" => "Delegated specialist profile",
-        "allowed_tool_names" => %w[calculator compact_context conversation_metadata_update],
+        "allowed_tool_names" => %w[compact_context conversation_metadata_update],
       }
     )
     context = build_governed_tool_context!(
-      agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry, default_agent_observation_tool_entry("conversation_metadata_update")],
+      agent_tool_catalog: governed_agent_tool_catalog + [default_agent_observation_tool_entry("conversation_metadata_update")],
       profile_policy: profile_policy
     )
     prepare_workflow_execution_setup!(context)

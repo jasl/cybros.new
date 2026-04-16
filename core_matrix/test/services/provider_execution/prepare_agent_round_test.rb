@@ -244,7 +244,7 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
           "messages" => [
             { "role" => "assistant", "content" => "Round prepared" },
           ],
-          "visible_tool_names" => ["calculator"],
+          "visible_tool_names" => ["compact_context"],
           "summary_artifacts" => [],
           "trace" => [],
         },
@@ -271,11 +271,11 @@ class ProviderExecution::PrepareAgentRoundTest < ActiveSupport::TestCase
       "researcher" => {
         "label" => "Researcher",
         "description" => "Delegated specialist profile",
-        "allowed_tool_names" => %w[calculator compact_context],
+        "allowed_tool_names" => %w[compact_context],
       }
     )
     context = build_governed_tool_context!(
-      agent_tool_catalog: governed_agent_tool_catalog + [default_agent_observation_tool_entry("calculator")],
+      agent_tool_catalog: governed_agent_tool_catalog,
       profile_policy: profile_policy
     )
     prepare_workflow_execution_setup!(context)

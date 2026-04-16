@@ -6,7 +6,7 @@ class ProviderExecution::LoadPriorToolResultsTest < ActiveSupport::TestCase
     root_node = context.fetch(:workflow_node)
     tool_bindings = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: root_node,
-      tool_catalog: [calculator_tool_entry]
+      tool_catalog: [compact_context_tool_entry]
     ).includes(:tool_definition, :tool_implementation).to_a
     source_binding = tool_bindings.sole
 
@@ -23,9 +23,9 @@ class ProviderExecution::LoadPriorToolResultsTest < ActiveSupport::TestCase
           yielding_node_key: root_node.node_key,
           metadata: {},
           tool_call_payload: {
-            "call_id" => "call-calculator-1",
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "call_id" => "call-compact-context-1",
+            "tool_name" => "compact_context",
+            "arguments" => compact_context_tool_arguments,
             "provider_format" => "chat_completions",
             "provider_payload" => { "thoughtSignature" => "sig_123" },
           },
@@ -67,35 +67,20 @@ class ProviderExecution::LoadPriorToolResultsTest < ActiveSupport::TestCase
     invocation = ToolInvocations::Provision.call(
       tool_binding: binding,
       request_payload: {
-        "arguments" => { "expression" => "2 + 2" },
+        "arguments" => compact_context_tool_arguments,
       },
-      idempotency_key: "call-calculator-1"
+      idempotency_key: "call-compact-context-1"
     ).tool_invocation
     ToolInvocations::Complete.call(
       tool_invocation: invocation,
-      response_payload: { "value" => 4 }
+      response_payload: compact_context_tool_result
     )
 
     prior_tool_results = ProviderExecution::LoadPriorToolResults.call(workflow_node: successor)
 
     assert_equal 1, prior_tool_results.length
-    assert_equal "call-calculator-1", prior_tool_results.first.fetch("tool_call_id")
+    assert_equal "call-compact-context-1", prior_tool_results.first.fetch("tool_call_id")
     assert_equal({ "thoughtSignature" => "sig_123" }, prior_tool_results.first.fetch("provider_payload"))
-    assert_equal({ "value" => 4 }, prior_tool_results.first.fetch("result"))
-  end
-
-  private
-
-  def calculator_tool_entry
-    {
-      "tool_name" => "calculator",
-      "tool_kind" => "agent_observation",
-      "implementation_source" => "agent",
-      "implementation_ref" => "fenix/calculator",
-      "input_schema" => { "type" => "object", "properties" => {} },
-      "result_schema" => { "type" => "object", "properties" => {} },
-      "streaming_support" => false,
-      "idempotency_policy" => "best_effort",
-    }
+    assert_equal(compact_context_tool_result, prior_tool_results.first.fetch("result"))
   end
 end

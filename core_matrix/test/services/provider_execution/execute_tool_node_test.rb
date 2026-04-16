@@ -6,7 +6,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: root_node,
-      tool_catalog: [calculator_tool_entry]
+      tool_catalog: [compact_context_tool_entry]
     ).includes(:tool_definition, :tool_implementation).sole
 
     Workflows::Mutate.call(
@@ -19,9 +19,9 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
           yielding_node_key: root_node.node_key,
           metadata: {},
           tool_call_payload: {
-            "call_id" => "call-calculator-1",
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "call_id" => "call-compact-context-1",
+            "tool_name" => "compact_context",
+            "arguments" => compact_context_tool_arguments,
             "provider_format" => "chat_completions",
           },
         },
@@ -62,9 +62,9 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
       workflow_node: tool_node,
       agent_request_exchange: ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
         tool_results: {
-          "call-calculator-1" => {
+          "call-compact-context-1" => {
             "status" => "ok",
-            "result" => { "value" => 4 },
+            "result" => compact_context_tool_result,
             "output_chunks" => [],
             "summary_artifacts" => [],
           },
@@ -72,10 +72,10 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
       )
     )
 
-    assert_equal({ "value" => 4 }, result.result)
+    assert_equal(compact_context_tool_result, result.result)
     assert_equal "completed", tool_node.reload.lifecycle_state
     assert_equal "queued", join_node.reload.lifecycle_state
-    assert_equal({ "value" => 4 }, tool_node.tool_invocations.sole.response_payload)
+    assert_equal(compact_context_tool_result, tool_node.tool_invocations.sole.response_payload)
   end
 
   test "blocks the step for retry when the tool call references an unknown binding" do
@@ -123,7 +123,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: root_node,
-      tool_catalog: [calculator_tool_entry]
+      tool_catalog: [compact_context_tool_entry]
     ).includes(:tool_definition, :tool_implementation).sole
 
     Workflows::Mutate.call(
@@ -137,8 +137,8 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
           metadata: {},
           tool_call_payload: {
             "call_id" => "call-timeout-1",
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "tool_name" => "compact_context",
+            "arguments" => compact_context_tool_arguments,
             "provider_format" => "chat_completions",
           },
         },
@@ -280,7 +280,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: root_node,
-      tool_catalog: [calculator_tool_entry]
+      tool_catalog: [compact_context_tool_entry]
     ).includes(:tool_definition, :tool_implementation).sole
 
     Workflows::Mutate.call(
@@ -294,8 +294,8 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
           metadata: {},
           tool_call_payload: {
             "call_id" => "call-invalid-contract-1",
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "tool_name" => "compact_context",
+            "arguments" => compact_context_tool_arguments,
             "provider_format" => "chat_completions",
           },
         },
@@ -345,7 +345,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: root_node,
-      tool_catalog: [calculator_tool_entry]
+      tool_catalog: [compact_context_tool_entry]
     ).includes(:tool_definition, :tool_implementation).sole
 
     Workflows::Mutate.call(
@@ -359,8 +359,8 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
           metadata: {},
           tool_call_payload: {
             "call_id" => "call-pending-1",
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "tool_name" => "compact_context",
+            "arguments" => compact_context_tool_arguments,
             "provider_format" => "chat_completions",
           },
         },
@@ -410,7 +410,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: root_node,
-      tool_catalog: [calculator_tool_entry]
+      tool_catalog: [compact_context_tool_entry]
     ).includes(:tool_definition, :tool_implementation).sole
 
     Workflows::Mutate.call(
@@ -424,8 +424,8 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
           metadata: {},
           tool_call_payload: {
             "call_id" => "call-pending-1",
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "tool_name" => "compact_context",
+            "arguments" => compact_context_tool_arguments,
             "provider_format" => "chat_completions",
           },
         },
@@ -482,7 +482,7 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: root_node,
-      tool_catalog: [calculator_tool_entry]
+      tool_catalog: [compact_context_tool_entry]
     ).includes(:tool_definition, :tool_implementation).sole
 
     Workflows::Mutate.call(
@@ -496,8 +496,8 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
           metadata: {},
           tool_call_payload: {
             "call_id" => "call-pending-1",
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "tool_name" => "compact_context",
+            "arguments" => compact_context_tool_arguments,
             "provider_format" => "chat_completions",
           },
         },
@@ -542,20 +542,5 @@ class ProviderExecution::ExecuteToolNodeTest < ActiveSupport::TestCase
     assert_equal "waiting", result.reload.lifecycle_state
     assert_equal "waiting", root_node.workflow_run.reload.wait_state
     assert_equal "agent_request", root_node.workflow_run.wait_reason_kind
-  end
-
-  private
-
-  def calculator_tool_entry
-    {
-      "tool_name" => "calculator",
-      "tool_kind" => "agent_observation",
-      "implementation_source" => "agent",
-      "implementation_ref" => "fenix/calculator",
-      "input_schema" => { "type" => "object", "properties" => {} },
-      "result_schema" => { "type" => "object", "properties" => {} },
-      "streaming_support" => false,
-      "idempotency_policy" => "best_effort",
-    }
   end
 end

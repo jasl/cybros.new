@@ -22,10 +22,7 @@
       }
     ],
     "visible_tool_names": [
-      "compact_context",
-      "estimate_messages",
-      "estimate_tokens",
-      "calculator"
+      "compact_context"
     ],
     "summary_artifacts": [],
     "trace": []

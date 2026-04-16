@@ -7,7 +7,7 @@ class ProviderExecution::BuildToolExecutionBatchTest < ActiveSupport::TestCase
     bindings = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: workflow_node,
       tool_catalog: [
-        calculator_tool_entry(parallel_safe: true),
+        compact_context_tool_entry(parallel_safe: true),
         search_tool_entry(parallel_safe: true),
       ]
     ).includes(:tool_definition, :tool_implementation).to_a
@@ -15,7 +15,7 @@ class ProviderExecution::BuildToolExecutionBatchTest < ActiveSupport::TestCase
     batch = ProviderExecution::BuildToolExecutionBatch.call(
       workflow_node: workflow_node,
       tool_calls: [
-        tool_call("call-1", "calculator", expression: "2 + 2"),
+        tool_call("call-1", "compact_context", compact_context_tool_arguments),
         tool_call("call-2", "search_docs", query: "parallel"),
       ],
       round_bindings: bindings
@@ -34,7 +34,7 @@ class ProviderExecution::BuildToolExecutionBatchTest < ActiveSupport::TestCase
     bindings = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: workflow_node,
       tool_catalog: [
-        calculator_tool_entry(parallel_safe: true),
+        compact_context_tool_entry(parallel_safe: true),
         file_write_tool_entry,
         search_tool_entry(parallel_safe: true),
       ]
@@ -43,7 +43,7 @@ class ProviderExecution::BuildToolExecutionBatchTest < ActiveSupport::TestCase
     batch = ProviderExecution::BuildToolExecutionBatch.call(
       workflow_node: workflow_node,
       tool_calls: [
-        tool_call("call-1", "calculator", expression: "2 + 2"),
+        tool_call("call-1", "compact_context", compact_context_tool_arguments),
         tool_call("call-2", "workspace_write_file", path: "notes.txt"),
         tool_call("call-3", "search_docs", query: "graph"),
       ],
@@ -62,20 +62,6 @@ class ProviderExecution::BuildToolExecutionBatchTest < ActiveSupport::TestCase
       "tool_name" => tool_name,
       "arguments" => arguments.deep_stringify_keys,
       "provider_format" => "chat_completions",
-    }
-  end
-
-  def calculator_tool_entry(parallel_safe:)
-    {
-      "tool_name" => "calculator",
-      "tool_kind" => "agent_observation",
-      "implementation_source" => "agent",
-      "implementation_ref" => "fenix/calculator",
-      "input_schema" => { "type" => "object", "properties" => {} },
-      "result_schema" => { "type" => "object", "properties" => {} },
-      "streaming_support" => false,
-      "idempotency_policy" => "best_effort",
-      "execution_policy" => { "parallel_safe" => parallel_safe },
     }
   end
 

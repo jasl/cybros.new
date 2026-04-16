@@ -87,7 +87,6 @@ Fenix handles these mailbox request kinds:
 Agent-owned tools are intentionally small:
 
 - `compact_context`
-- `calculator`
 
 Runtime-backed tool names can still appear in `agent_context.allowed_tool_names`
 because Core Matrix freezes the conversation-visible tool set for the turn.

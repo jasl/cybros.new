@@ -686,7 +686,7 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       create_compatible_agent_definition_version!(
         agent_definition_version: context.fetch(:agent_definition_version),
         version: 3,
-        tool_contract: default_tool_catalog("exec_command", "compact_context", "calculator", "subagent_send", "subagent_wait", "subagent_close", "subagent_list"),
+        tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_send", "subagent_wait", "subagent_close", "subagent_list"),
         canonical_config_schema: profile_aware_canonical_config_schema,
         conversation_override_schema: subagent_policy_conversation_override_schema,
         default_canonical_config: profile_aware_default_canonical_config.deep_merge(
@@ -823,9 +823,6 @@ class SubagentConnections::SpawnTest < ActiveSupport::TestCase
       tool_contract: default_tool_catalog(
         "exec_command",
         "compact_context",
-        "estimate_messages",
-        "estimate_tokens",
-        "calculator",
         "subagent_send",
         "subagent_wait",
         "subagent_close",

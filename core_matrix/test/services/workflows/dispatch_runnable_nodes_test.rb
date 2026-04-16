@@ -61,8 +61,14 @@ class Workflows::DispatchRunnableNodesTest < ActiveSupport::TestCase
           metadata: {},
           tool_call_payload: {
             "call_id" => "call-1",
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "tool_name" => "compact_context",
+            "arguments" => {
+              "messages" => [
+                { "role" => "user", "content" => "a" },
+                { "role" => "assistant", "content" => "b" },
+              ],
+              "budget_hints" => {},
+            },
           },
         },
       ],

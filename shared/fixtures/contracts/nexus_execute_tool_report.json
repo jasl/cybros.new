@@ -12,13 +12,34 @@
     "status": "ok",
     "tool_call": {
       "call_id": "tool-call-public-id",
-      "tool_name": "calculator",
+      "tool_name": "compact_context",
       "arguments": {
-        "expression": "2 + 2"
+        "messages": [
+          {
+            "role": "user",
+            "content": "a"
+          },
+          {
+            "role": "assistant",
+            "content": "b"
+          }
+        ],
+        "budget_hints": {}
       }
     },
     "result": {
-      "value": 4
+      "messages": [
+        {
+          "role": "user",
+          "content": "a"
+        },
+        {
+          "role": "assistant",
+          "content": "b"
+        }
+      ],
+      "compacted": false,
+      "estimated_tokens": 2
     },
     "output_chunks": [],
     "summary_artifacts": []

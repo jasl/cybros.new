@@ -91,7 +91,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
           "error_payload" => {
             "classification" => "authorization",
             "code" => "tool_not_allowed",
-            "message" => "calculator is not visible",
+            "message" => "compact_context is not visible",
             "retryable" => false,
           },
         }
@@ -112,7 +112,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
         },
         "tool_call" => {
           "call_id" => "tool-call-1",
-          "tool_name" => "calculator",
+          "tool_name" => "compact_context",
           "arguments" => {},
         },
       }
@@ -293,7 +293,7 @@ class ProviderExecution::AgentRequestExchangeTest < ActiveSupport::TestCase
           },
           "tool_call" => {
             "call_id" => "tool-call-1",
-            "tool_name" => "calculator",
+            "tool_name" => "compact_context",
             "arguments" => {
               "timeout_seconds" => 120,
             },

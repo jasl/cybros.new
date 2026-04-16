@@ -54,9 +54,6 @@
         { "tool_name": "subagent_close" },
         { "tool_name": "subagent_list" },
         { "tool_name": "compact_context" },
-        { "tool_name": "estimate_messages" },
-        { "tool_name": "estimate_tokens" },
-        { "tool_name": "calculator" },
         { "tool_name": "conversation_metadata_update" }
       ],
       "profile_key": "researcher",

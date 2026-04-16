@@ -270,7 +270,7 @@ module ProviderExecutionTestSupport
       context[:workspace].update!(config: workspace_config) if workspace_config.present?
       capability_snapshot = create_compatible_agent_definition_version!(
         agent_definition_version: context[:agent_definition_version],
-        tool_contract: tool_contract || default_tool_catalog("exec_command") + [default_agent_observation_tool_entry("calculator")],
+        tool_contract: tool_contract || default_tool_catalog("exec_command") + [compact_context_tool_entry],
         profile_policy: profile_policy || {},
         request_preparation_contract: request_preparation_contract || {}
       )

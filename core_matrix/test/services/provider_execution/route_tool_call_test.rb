@@ -15,25 +15,25 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
 
   test "routes agent-owned round tools back through the agent mailbox exchange with workflow-node durable proof" do
     context = build_governed_tool_context!(
-      agent_tool_catalog: governed_agent_tool_catalog + [calculator_tool_entry],
+      agent_tool_catalog: governed_agent_tool_catalog,
       profile_policy: governed_profile_policy.deep_merge(
         "pragmatic" => {
-          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn calculator],
+          "allowed_tool_names" => %w[exec_command compact_context subagent_spawn],
         }
       )
     )
     workflow_node = context.fetch(:workflow_node)
     round_bindings = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: workflow_node,
-      tool_catalog: [calculator_tool_entry]
+      tool_catalog: [compact_context_tool_entry]
     ).includes(:tool_definition, tool_implementation: :implementation_source).to_a
     agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       tool_results: {
-        "call-calculator-1" => {
+        "call-compact-context-1" => {
           "status" => "ok",
-          "result" => { "value" => 4 },
+          "result" => compact_context_tool_result,
           "output_chunks" => [],
-          "summary_artifacts" => [{ "kind" => "tool_batch", "label" => "Calculator", "text" => "4", "metadata" => {} }],
+          "summary_artifacts" => [{ "kind" => "tool_batch", "label" => "Compact context", "text" => "2 messages", "metadata" => {} }],
         },
       }
     )
@@ -41,9 +41,9 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     result = ProviderExecution::RouteToolCall.call(
       workflow_node: workflow_node,
       tool_call: {
-        "call_id" => "call-calculator-1",
-        "tool_name" => "calculator",
-        "arguments" => { "expression" => "2 + 2" },
+        "call_id" => "call-compact-context-1",
+        "tool_name" => "compact_context",
+        "arguments" => compact_context_tool_arguments,
         "provider_format" => "chat_completions",
       },
       round_bindings: round_bindings,
@@ -52,21 +52,21 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
 
     invocation = result.tool_invocation.reload
 
-    assert_equal({ "value" => 4 }, result.result)
+    assert_equal(compact_context_tool_result, result.result)
     assert_equal "succeeded", invocation.status
     assert_equal workflow_node, invocation.workflow_node
     assert_nil invocation.agent_task_run
     assert_equal "chat_completions", invocation.provider_format
-    assert_equal({ "expression" => "2 + 2" }, invocation.request_payload.fetch("arguments"))
-    assert_equal({ "value" => 4 }, invocation.response_payload)
+    assert_equal(compact_context_tool_arguments, invocation.request_payload.fetch("arguments"))
+    assert_equal(compact_context_tool_result, invocation.response_payload)
     assert_equal(
       {
-        "summary_artifacts" => [{ "kind" => "tool_batch", "label" => "Calculator", "text" => "4", "metadata" => {} }],
+        "summary_artifacts" => [{ "kind" => "tool_batch", "label" => "Compact context", "text" => "2 messages", "metadata" => {} }],
         "output_chunks" => [],
       },
       invocation.trace_payload
     )
-    assert_equal "call-calculator-1", agent_request_exchange.execute_tool_requests.first.fetch("tool_call").fetch("call_id")
+    assert_equal "call-compact-context-1", agent_request_exchange.execute_tool_requests.first.fetch("tool_call").fetch("call_id")
     assert_equal workflow_node.public_id, agent_request_exchange.execute_tool_requests.first.fetch("task").fetch("workflow_node_id")
     assert_equal(
       { "agent_definition_version_id" => context.fetch(:agent_definition_version).public_id },
@@ -596,30 +596,5 @@ class ProviderExecution::RouteToolCallTest < ActiveSupport::TestCase
     assert_equal workflow_node, invocation.workflow_node
     assert_equal "conversation_metadata_update", invocation.tool_definition.tool_name
     assert_equal [], agent_request_exchange.execute_tool_requests
-  end
-
-  private
-
-  def calculator_tool_entry
-    {
-      "tool_name" => "calculator",
-      "tool_kind" => "agent_observation",
-      "implementation_source" => "agent",
-      "implementation_ref" => "fenix/calculator",
-      "input_schema" => {
-        "type" => "object",
-        "properties" => {
-          "expression" => { "type" => "string" },
-        },
-      },
-      "result_schema" => {
-        "type" => "object",
-        "properties" => {
-          "value" => { "type" => "integer" },
-        },
-      },
-      "streaming_support" => false,
-      "idempotency_policy" => "best_effort",
-    }
   end
 end

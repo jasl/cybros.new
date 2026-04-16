@@ -155,8 +155,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal({ "state" => "running" }, payload.fetch("progress_payload"))
   end
 
-  test "execution reports materialize a succeeded agent-owned tool invocation from progress and terminal payloads" do
-    context = build_calculator_agent_control_context!
+  test "execution reports materialize a succeeded compact_context invocation from progress and terminal payloads" do
+    context = build_compact_context_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
@@ -188,10 +188,10 @@ class AgentControlReportTest < ActiveSupport::TestCase
         "tool_invocation" => {
           "event" => "started",
           "call_id" => call_id,
-          "tool_name" => "calculator",
+          "tool_name" => "compact_context",
           "request_payload" => {
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "tool_name" => "compact_context",
+            "arguments" => compact_context_tool_arguments,
           },
         },
       }
@@ -206,13 +206,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
       logical_work_id: agent_task_run.logical_work_id,
       attempt_no: agent_task_run.attempt_no,
       terminal_payload: {
-        "output" => "The calculator returned 4.",
+        "output" => "Compaction completed.",
         "tool_invocations" => [
           {
             "event" => "completed",
             "call_id" => call_id,
-            "tool_name" => "calculator",
-            "response_payload" => { "content" => "The calculator returned 4." },
+            "tool_name" => "compact_context",
+            "response_payload" => { "content" => "Compaction completed." },
           },
         ],
       }
@@ -221,10 +221,10 @@ class AgentControlReportTest < ActiveSupport::TestCase
     invocation = agent_task_run.reload.tool_invocations.sole
 
     assert_equal "succeeded", invocation.status
-    assert_equal "calculator", invocation.tool_definition.tool_name
+    assert_equal "compact_context", invocation.tool_definition.tool_name
     assert_equal call_id, invocation.idempotency_key
-    assert_equal "2 + 2", invocation.request_payload.dig("arguments", "expression")
-    assert_equal "The calculator returned 4.", invocation.response_payload.fetch("content")
+    assert_equal compact_context_tool_arguments, invocation.request_payload.fetch("arguments")
+    assert_equal "Compaction completed.", invocation.response_payload.fetch("content")
   end
 
   test "agent terminal reports store only the response body and reconstruct workflow refs on read" do
@@ -342,8 +342,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_equal "agent_request_failed", payload.dig("error_payload", "code")
   end
 
-  test "execution reports project runtime progress and tool invocation state for the conversation" do
-    context = build_calculator_agent_control_context!
+  test "execution reports project compact_context invocation state for the conversation" do
+    context = build_compact_context_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
@@ -374,10 +374,10 @@ class AgentControlReportTest < ActiveSupport::TestCase
         "tool_invocation" => {
           "event" => "started",
           "call_id" => call_id,
-          "tool_name" => "calculator",
+          "tool_name" => "compact_context",
           "request_payload" => {
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "tool_name" => "compact_context",
+            "arguments" => compact_context_tool_arguments,
           },
         },
       }
@@ -392,13 +392,13 @@ class AgentControlReportTest < ActiveSupport::TestCase
       logical_work_id: agent_task_run.logical_work_id,
       attempt_no: agent_task_run.attempt_no,
       terminal_payload: {
-        "output" => "The calculator returned 4.",
+        "output" => "Compaction completed.",
         "tool_invocations" => [
           {
             "event" => "completed",
             "call_id" => call_id,
-            "tool_name" => "calculator",
-            "response_payload" => { "content" => "The calculator returned 4." },
+            "tool_name" => "compact_context",
+            "response_payload" => { "content" => "Compaction completed." },
           },
         ],
       }
@@ -406,9 +406,9 @@ class AgentControlReportTest < ActiveSupport::TestCase
 
     invocation = agent_task_run.reload.tool_invocations.sole
 
-    assert_equal "calculator", invocation.tool_definition.tool_name
+    assert_equal "compact_context", invocation.tool_definition.tool_name
     assert_equal call_id, invocation.idempotency_key
-    assert_equal "The calculator returned 4.", invocation.response_payload.fetch("content")
+    assert_equal "Compaction completed.", invocation.response_payload.fetch("content")
 
     runtime_projection = ConversationEvent.live_projection(conversation: agent_task_run.conversation)
       .select { |event| event.event_kind.start_with?("runtime.agent_task.") }
@@ -745,8 +745,8 @@ class AgentControlReportTest < ActiveSupport::TestCase
     assert_empty broadcasts
   end
 
-  test "execution_fail materializes denied agent-owned tool invocations with explicit rejection details" do
-    context = build_calculator_agent_control_context!
+  test "execution_fail materializes denied compact_context invocations with explicit rejection details" do
+    context = build_compact_context_agent_control_context!
     scenario = MailboxScenarioBuilder.new(self).execution_assignment!(context: context)
     mailbox_item = scenario.fetch(:mailbox_item)
     agent_task_run = scenario.fetch(:agent_task_run)
@@ -775,17 +775,17 @@ class AgentControlReportTest < ActiveSupport::TestCase
       attempt_no: agent_task_run.attempt_no,
       terminal_payload: {
         "failure_kind" => "runtime_error",
-        "last_error_summary" => "tool calculator is not allowed",
+        "last_error_summary" => "tool compact_context is not allowed",
         "retryable" => false,
         "tool_invocations" => [
           {
             "event" => "failed",
             "call_id" => call_id,
-            "tool_name" => "calculator",
+            "tool_name" => "compact_context",
             "error_payload" => {
               "classification" => "authorization",
               "code" => "tool_not_allowed",
-              "message" => "tool calculator is not allowed",
+              "message" => "tool compact_context is not allowed",
               "retryable" => false,
             },
           },
@@ -796,7 +796,7 @@ class AgentControlReportTest < ActiveSupport::TestCase
     invocation = agent_task_run.reload.tool_invocations.sole
 
     assert_equal "failed", invocation.status
-    assert_equal "calculator", invocation.tool_definition.tool_name
+    assert_equal "compact_context", invocation.tool_definition.tool_name
     assert_equal call_id, invocation.idempotency_key
     assert_equal "authorization", invocation.error_payload.fetch("classification")
     assert_equal "tool_not_allowed", invocation.error_payload.fetch("code")
@@ -1289,27 +1289,16 @@ class AgentControlReportTest < ActiveSupport::TestCase
     singleton.send(:define_method, :call, original_call) if singleton && original_call
   end
 
-  def build_calculator_agent_control_context!
+  def build_compact_context_agent_control_context!
     context = build_agent_control_context!
     activate_agent_definition_version!(
       context,
-      tool_contract: [
-        {
-          "tool_name" => "calculator",
-          "tool_kind" => "agent_observation",
-          "implementation_source" => "agent",
-          "implementation_ref" => "agent/calculator",
-          "input_schema" => { "type" => "object", "properties" => {} },
-          "result_schema" => { "type" => "object", "properties" => {} },
-          "streaming_support" => false,
-          "idempotency_policy" => "best_effort",
-        },
-      ],
+      tool_contract: [compact_context_tool_entry(implementation_ref: "agent/compact_context")],
       profile_policy: {
         "pragmatic" => {
           "label" => "Pragmatic",
           "description" => "Primary interactive profile",
-          "allowed_tool_names" => ["calculator"],
+          "allowed_tool_names" => ["compact_context"],
         },
       },
       canonical_config_schema: default_canonical_config_schema(include_selector_slots: true),

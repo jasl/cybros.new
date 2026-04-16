@@ -38,11 +38,11 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
                 role: "assistant",
                 tool_calls: [
                   {
-                    id: "call-calculator-1",
+                    id: "call-compact-context-1",
                     type: "function",
                     function: {
-                      name: "calculator",
-                      arguments: JSON.generate(expression: "2 + 2"),
+                      name: "compact_context",
+                      arguments: JSON.generate(compact_context_tool_arguments),
                     },
                   },
                 ],
@@ -68,7 +68,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
           },
         },
         catalog: catalog,
-        tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+        tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn")
       )
     end
 
@@ -77,15 +77,15 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => transcript,
-          "visible_tool_names" => ["calculator"],
+          "visible_tool_names" => ["compact_context"],
           "summary_artifacts" => [],
           "trace" => [],
         },
       ],
       tool_results: {
-        "call-calculator-1" => {
+        "call-compact-context-1" => {
           "status" => "ok",
-          "result" => { "value" => 4 },
+          "result" => compact_context_tool_result,
           "output_chunks" => [],
           "summary_artifacts" => [],
         },
@@ -245,11 +245,11 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
                 role: "assistant",
                 tool_calls: [
                   {
-                    id: "call-calculator-1",
+                    id: "call-compact-context-1",
                     type: "function",
                     function: {
-                      name: "calculator",
-                      arguments: JSON.generate(expression: "2 + 2"),
+                      name: "compact_context",
+                      arguments: JSON.generate(compact_context_tool_arguments),
                     },
                   },
                 ],
@@ -271,7 +271,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       workflow_run = create_mock_turn_step_workflow_run!(
         resolved_config_snapshot: {},
         catalog: catalog,
-        tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+        tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn")
       )
     end
 
@@ -280,7 +280,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => transcript,
-          "visible_tool_names" => ["calculator"],
+          "visible_tool_names" => ["compact_context"],
           "summary_artifacts" => [],
           "trace" => [],
         },
@@ -308,6 +308,8 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
 
   test "loads cumulative prior tool results from predecessor tool nodes" do
     catalog = build_mock_chat_catalog
+    tool_arguments = { "messages" => [] }
+    tool_result = { "messages" => [] }
     adapter = ProviderExecutionTestSupport::FakeChatCompletionsAdapter.new(
       response_body: {
         id: "chatcmpl-round-2",
@@ -333,7 +335,7 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     root_node = context.fetch(:workflow_node)
     source_binding = ProviderExecution::MaterializeRoundTools.call(
       workflow_node: root_node,
-      tool_catalog: [calculator_tool_entry]
+      tool_catalog: [compact_context_tool_entry]
     ).includes(:tool_definition, :tool_implementation).sole
 
     Workflows::Mutate.call(
@@ -346,9 +348,9 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
           yielding_node_key: root_node.node_key,
           metadata: {},
           tool_call_payload: {
-            "call_id" => "call-calculator-1",
-            "tool_name" => "calculator",
-            "arguments" => { "expression" => "2 + 2" },
+            "call_id" => "call-compact-context-1",
+            "tool_name" => "compact_context",
+            "arguments" => tool_arguments,
             "provider_format" => "chat_completions",
           },
         },
@@ -383,13 +385,13 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     invocation = ToolInvocations::Provision.call(
       tool_binding: binding,
       request_payload: {
-        "arguments" => { "expression" => "2 + 2" },
+        "arguments" => tool_arguments,
       },
-      idempotency_key: "call-calculator-1"
+      idempotency_key: "call-compact-context-1"
     ).tool_invocation
     ToolInvocations::Complete.call(
       tool_invocation: invocation,
-      response_payload: { "value" => 4 }
+      response_payload: tool_result
     )
 
     transcript = turn_step_messages_for(root_node.workflow_run)
@@ -421,8 +423,8 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
 
     assert_equal "assistant", tool_messages.first.fetch("role")
     assert_equal "tool", tool_messages.second.fetch("role")
-    assert_equal "calculator", tool_messages.second.fetch("name")
-    assert_equal JSON.generate("value" => 4), tool_messages.second.fetch("content")
+    assert_equal "compact_context", tool_messages.second.fetch("name")
+    assert_equal JSON.generate(tool_result), tool_messages.second.fetch("content")
   end
 
   test "returns a prompt compaction yield instead of dispatching when the guard requires compaction" do
@@ -712,30 +714,5 @@ class ProviderExecution::ExecuteRoundLoopTest < ActiveSupport::TestCase
     assert_equal 3, error.messages_count
     assert_equal workflow_run.turn.selected_input_message.public_id, error.selected_input_message_id
     assert_equal 1, agent_request_exchange.consult_prompt_compaction_requests.length
-  end
-
-  private
-
-  def calculator_tool_entry
-    {
-      "tool_name" => "calculator",
-      "tool_kind" => "agent_observation",
-      "implementation_source" => "agent",
-      "implementation_ref" => "fenix/calculator",
-      "input_schema" => {
-        "type" => "object",
-        "properties" => {
-          "expression" => { "type" => "string" },
-        },
-      },
-      "result_schema" => {
-        "type" => "object",
-        "properties" => {
-          "value" => { "type" => "integer" },
-        },
-      },
-      "streaming_support" => false,
-      "idempotency_policy" => "best_effort",
-    }
   end
 end

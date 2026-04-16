@@ -204,18 +204,7 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
   end
 
   def fenix_tool_catalog
-    %w[compact_context estimate_messages estimate_tokens calculator].map do |tool_name|
-      {
-        "tool_name" => tool_name,
-        "tool_kind" => "agent_observation",
-        "implementation_source" => "agent",
-        "implementation_ref" => "fenix/#{tool_name}",
-        "input_schema" => { "type" => "object", "properties" => {} },
-        "result_schema" => { "type" => "object", "properties" => {} },
-        "streaming_support" => false,
-        "idempotency_policy" => "best_effort",
-      }
-    end
+    [compact_context_tool_entry]
   end
 
   def normalize_for_contract(serialized)

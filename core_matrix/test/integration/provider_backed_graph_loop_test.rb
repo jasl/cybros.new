@@ -12,11 +12,11 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
               role: "assistant",
               tool_calls: [
                 {
-                  id: "call-calculator-1",
+                  id: "call-compact-context-1",
                   type: "function",
                   function: {
-                    name: "calculator",
-                    arguments: JSON.generate(expression: "2 + 2"),
+                    name: "compact_context",
+                    arguments: JSON.generate(compact_context_tool_arguments),
                   },
                 },
               ],
@@ -68,7 +68,7 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
       prepared_rounds: [
         {
           "messages" => transcript,
-          "visible_tool_names" => ["calculator"],
+          "visible_tool_names" => ["compact_context"],
           "summary_artifacts" => [],
           "trace" => [],
         },
@@ -80,9 +80,9 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
         },
       ],
       tool_results: {
-        "call-calculator-1" => {
+        "call-compact-context-1" => {
           "status" => "ok",
-          "result" => { "value" => 4 },
+          "result" => compact_context_tool_result,
           "output_chunks" => [],
           "summary_artifacts" => [],
         },
@@ -136,33 +136,8 @@ class ProviderBackedGraphLoopTest < ActionDispatch::IntegrationTest
 
     assert_equal "assistant", tool_messages.first.fetch("role")
     assert_equal "tool", tool_messages.second.fetch("role")
-    assert_equal "calculator", tool_messages.second.fetch("name")
-    assert_equal JSON.generate("value" => 4), tool_messages.second.fetch("content")
+    assert_equal "compact_context", tool_messages.second.fetch("name")
+    assert_equal JSON.generate(compact_context_tool_result), tool_messages.second.fetch("content")
     assert_equal 1, agent_request_exchange.execute_tool_requests.length
-  end
-
-  private
-
-  def calculator_tool_entry
-    {
-      "tool_name" => "calculator",
-      "tool_kind" => "agent_observation",
-      "implementation_source" => "agent",
-      "implementation_ref" => "fenix/calculator",
-      "input_schema" => {
-        "type" => "object",
-        "properties" => {
-          "expression" => { "type" => "string" },
-        },
-      },
-      "result_schema" => {
-        "type" => "object",
-        "properties" => {
-          "value" => { "type" => "integer" },
-        },
-      },
-      "streaming_support" => false,
-      "idempotency_policy" => "best_effort",
-    }
   end
 end

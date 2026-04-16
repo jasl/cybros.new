@@ -76,7 +76,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
   class StreamingToolCallingAdapter < SimpleInference::HTTPAdapter
     attr_reader :last_request
 
-    def initialize(chunks:, tool_arguments: "{\"expression\":\"2 + 2\"}", request_id: "execute-turn-step-tool-stream-request-1", response_id: "chatcmpl-tool-stream-1")
+    def initialize(chunks:, tool_arguments: "{\"messages\":[{\"role\":\"user\",\"content\":\"a\"},{\"role\":\"assistant\",\"content\":\"b\"}],\"budget_hints\":{}}", request_id: "execute-turn-step-tool-stream-request-1", response_id: "chatcmpl-tool-stream-1")
       @chunks = chunks
       @tool_arguments = tool_arguments
       @request_id = request_id
@@ -90,7 +90,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       @chunks.each do |chunk|
         sse << %(data: {"id":"#{@response_id}","choices":[{"delta":{"content":"#{chunk}"},"finish_reason":null}]}\n\n)
       end
-      sse << %(data: {"id":"#{@response_id}","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call-calculator-1","type":"function","function":{"name":"calculator","arguments":#{JSON.generate(@tool_arguments)}}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":12,"completion_tokens":6,"total_tokens":18}}\n\n)
+      sse << %(data: {"id":"#{@response_id}","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call-compact-context-1","type":"function","function":{"name":"compact_context","arguments":#{JSON.generate(@tool_arguments)}}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":12,"completion_tokens":6,"total_tokens":18}}\n\n)
       sse << "data: [DONE]\n\n"
 
       yield sse
@@ -254,14 +254,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
   test "broadcasts runtime process events and incremental assistant output deltas for provider execution" do
     catalog = build_mock_chat_catalog
     adapter = ProviderExecutionTestSupport::FakeStreamingChatCompletionsAdapter.new(
-      chunks: ["The calculator ", "returned 4."]
+      chunks: ["Compaction ", "ready."]
     )
     workflow_run = create_mock_turn_step_workflow_run!(
       resolved_config_snapshot: {
         "temperature" => 0.4,
       },
       catalog: catalog,
-      tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+      tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn")
     )
     agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
@@ -297,9 +297,9 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal workflow_run.conversation.public_id, broadcasts.first.fetch("conversation_id")
     assert_equal workflow_run.turn.public_id, broadcasts.first.fetch("turn_id")
     assert_equal workflow_run.workflow_nodes.find_by!(node_key: "turn_step").public_id, started_payload.fetch("workflow_node_id")
-    assert_equal "The calculator ", first_delta_payload.fetch("delta")
-    assert_equal "returned 4.", second_delta_payload.fetch("delta")
-    assert_equal "The calculator returned 4.", completed_payload.fetch("content")
+    assert_equal "Compaction ", first_delta_payload.fetch("delta")
+    assert_equal "ready.", second_delta_payload.fetch("delta")
+    assert_equal "Compaction ready.", completed_payload.fetch("content")
     assert_equal workflow_run.turn.reload.selected_output_message.public_id, completed_payload.fetch("message_id")
 
     runtime_projection = ConversationEvent.live_projection(conversation: workflow_run.conversation)
@@ -393,14 +393,14 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
   test "fails speculative assistant output stream when the provider response yields tool continuation" do
     catalog = build_mock_chat_catalog
     adapter = StreamingToolCallingAdapter.new(
-      chunks: ["Need the ", "calculator."]
+      chunks: ["Need ", "compaction."]
     )
     workflow_run = create_mock_turn_step_workflow_run!(
       resolved_config_snapshot: {
         "temperature" => 0.4,
       },
       catalog: catalog,
-      tool_contract: default_tool_catalog("calculator")
+      tool_contract: default_tool_catalog("compact_context")
     )
     agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
@@ -489,15 +489,15 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
   test "fails a live assistant output stream when malformed streamed tool arguments raise after deltas begin" do
     catalog = build_mock_chat_catalog
     adapter = StreamingToolCallingAdapter.new(
-      chunks: ["Need the ", "calculator."],
-      tool_arguments: "{\"expression\":"
+      chunks: ["Need ", "compaction."],
+      tool_arguments: "{\"messages\":"
     )
     workflow_run = create_mock_turn_step_workflow_run!(
       resolved_config_snapshot: {
         "temperature" => 0.4,
       },
       catalog: catalog,
-      tool_contract: default_tool_catalog("calculator")
+      tool_contract: default_tool_catalog("compact_context")
     )
     agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new
     stream_name = ConversationRuntime::StreamName.for_conversation(workflow_run.conversation)
@@ -588,11 +588,11 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
               role: "assistant",
               tool_calls: [
                 {
-                  id: "call-calculator-1",
+                  id: "call-compact-context-1",
                   type: "function",
                   function: {
-                    name: "calculator",
-                    arguments: JSON.generate(expression: "2 + 2"),
+                    name: "compact_context",
+                    arguments: JSON.generate(compact_context_tool_arguments),
                   },
                 },
               ],
@@ -618,7 +618,7 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
       prepared_rounds: [
         {
           "messages" => turn_step_messages_for(workflow_run),
-          "visible_tool_names" => ["calculator"],
+          "visible_tool_names" => ["compact_context"],
           "summary_artifacts" => [],
           "trace" => [],
         },
@@ -654,8 +654,8 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
 
     refute tool_entry.key?("tool_call")
     assert_equal "provider_round_1_tool_1", tool_entry.fetch("tool_node_key")
-    assert_equal "call-calculator-1", tool_entry.fetch("call_id")
-    assert_equal "calculator", tool_entry.fetch("tool_name")
+    assert_equal "call-compact-context-1", tool_entry.fetch("call_id")
+    assert_equal "compact_context", tool_entry.fetch("tool_name")
     assert_equal "chat_completions", tool_entry.fetch("provider_format")
   end
 
@@ -1122,11 +1122,11 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
                 role: "assistant",
                 tool_calls: [
                   {
-                    id: "call-calculator-1",
+                    id: "call-compact-context-1",
                     type: "function",
                     function: {
-                      name: "calculator",
-                      arguments: JSON.generate(expression: "2 + 2"),
+                      name: "compact_context",
+                      arguments: JSON.generate(compact_context_tool_arguments),
                     },
                   },
                 ],
@@ -1150,22 +1150,22 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
         },
       },
       catalog: catalog,
-      tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn", "calculator")
+      tool_contract: default_tool_catalog("exec_command", "compact_context", "subagent_spawn")
     )
     workflow_node = workflow_run.workflow_nodes.find_by!(node_key: "turn_step")
     agent_request_exchange = ProviderExecutionTestSupport::FakeAgentRequestExchange.new(
       prepared_rounds: [
         {
           "messages" => turn_step_messages_for(workflow_run),
-          "visible_tool_names" => ["calculator"],
+          "visible_tool_names" => ["compact_context"],
           "summary_artifacts" => [],
           "trace" => [],
         },
       ],
       tool_results: {
-        "call-calculator-1" => {
+        "call-compact-context-1" => {
           "status" => "ok",
-          "result" => { "value" => 4 },
+          "result" => compact_context_tool_result,
           "output_chunks" => [],
           "summary_artifacts" => [],
         },
@@ -1261,30 +1261,5 @@ class ProviderExecution::ExecuteTurnStepTest < ActiveSupport::TestCase
     assert_equal "waiting", workflow_run.reload.wait_state
     assert_equal "agent_request", workflow_run.wait_reason_kind
     assert_equal mailbox_item.public_id, workflow_run.wait_reason_payload.fetch("mailbox_item_id")
-  end
-
-  private
-
-  def round_budget_calculator_tool_entry
-    {
-      "tool_name" => "calculator",
-      "tool_kind" => "agent_observation",
-      "implementation_source" => "agent",
-      "implementation_ref" => "fenix/calculator",
-      "input_schema" => {
-        "type" => "object",
-        "properties" => {
-          "expression" => { "type" => "string" },
-        },
-      },
-      "result_schema" => {
-        "type" => "object",
-        "properties" => {
-          "value" => { "type" => "integer" },
-        },
-      },
-      "streaming_support" => false,
-      "idempotency_policy" => "best_effort",
-    }
   end
 end

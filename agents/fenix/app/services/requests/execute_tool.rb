@@ -36,16 +36,6 @@ module Requests
 
     def execute_tool
       case tool_call.fetch("tool_name")
-      when "calculator"
-        {
-          "result" => {
-            "value" => Hooks::Calculator.call(
-              expression: tool_call.dig("arguments", "expression")
-            ),
-          },
-          "output_chunks" => [],
-          "summary_artifacts" => [],
-        }
       when "compact_context"
         {
           "result" => Hooks::CompactContext.call(

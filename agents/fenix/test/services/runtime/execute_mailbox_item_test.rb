@@ -52,7 +52,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
 
     result = Runtime::ExecuteMailboxItem.call(
       mailbox_item: execute_tool_mailbox_item(
-        allowed_tool_names: %w[calculator]
+        allowed_tool_names: %w[compact_context]
       ),
       deliver_reports: true,
       control_client: client
@@ -62,8 +62,16 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     assert_equal ["agent_completed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
     assert_equal "execute_tool", client.reported_payloads.last.fetch("request_kind")
     assert_equal "ok", client.reported_payloads.last.dig("response_payload", "status")
-    assert_equal "calculator", client.reported_payloads.last.dig("response_payload", "tool_call", "tool_name")
-    assert_equal 4, client.reported_payloads.last.dig("response_payload", "result", "value")
+    assert_equal "compact_context", client.reported_payloads.last.dig("response_payload", "tool_call", "tool_name")
+    assert_equal false, client.reported_payloads.last.dig("response_payload", "result", "compacted")
+    assert_equal 2, client.reported_payloads.last.dig("response_payload", "result", "estimated_tokens")
+    assert_equal(
+      [
+        { "role" => "user", "content" => "a" },
+        { "role" => "assistant", "content" => "b" },
+      ],
+      client.reported_payloads.last.dig("response_payload", "result", "messages")
+    )
   end
 
   test "execute_tool terminal report matches the shared contract fixture" do
@@ -110,6 +118,26 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
         tool_name: "process_exec",
         arguments: {
           "command_line" => "sleep 1",
+        }
+      ),
+      deliver_reports: true,
+      control_client: client
+    )
+
+    assert_equal "failed", result.fetch("status")
+    assert_equal ["agent_failed"], client.reported_payloads.map { |payload| payload.fetch("method_id") }
+    assert_equal "unsupported_tool", client.reported_payloads.last.dig("error_payload", "code")
+  end
+
+  test "execute_tool rejects stale calculator agent tools" do
+    client = RuntimeControlClientDouble.new(reported_payloads: [])
+
+    result = Runtime::ExecuteMailboxItem.call(
+      mailbox_item: execute_tool_mailbox_item(
+        allowed_tool_names: %w[calculator],
+        tool_name: "calculator",
+        arguments: {
+          "expression" => "2 + 2",
         }
       ),
       deliver_reports: true,
@@ -326,7 +354,7 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
     }
   end
 
-  def execute_tool_mailbox_item(allowed_tool_names:, tool_name: "calculator", arguments: nil)
+  def execute_tool_mailbox_item(allowed_tool_names:, tool_name: "compact_context", arguments: nil)
     {
       "item_type" => "agent_request",
       "item_id" => "mailbox-item-agent-tool-1",
@@ -357,7 +385,11 @@ class Runtime::ExecuteMailboxItemTest < ActiveSupport::TestCase
           "call_id" => "tool-call-1",
           "tool_name" => tool_name,
           "arguments" => arguments || {
-            "expression" => "2 + 2",
+            "messages" => [
+              { "role" => "user", "content" => "a" },
+              { "role" => "assistant", "content" => "b" },
+            ],
+            "budget_hints" => {},
           },
         },
       },

@@ -38,8 +38,9 @@ class MailboxExecutionJobTest < ActiveSupport::TestCase
 
     assert_equal "ok", result.fetch("status")
     assert_equal "ok", result.dig("response", "status")
-    assert_equal "calculator", result.dig("response", "tool_call", "tool_name")
-    assert_equal 4, result.dig("response", "result", "value")
+    assert_equal "compact_context", result.dig("response", "tool_call", "tool_name")
+    assert_equal false, result.dig("response", "result", "compacted")
+    assert_equal 2, result.dig("response", "result", "estimated_tokens")
   end
 
   test "publishes queue delay perf event when mailbox execution job starts" do
@@ -112,7 +113,7 @@ class MailboxExecutionJobTest < ActiveSupport::TestCase
           "kind" => "turn_step",
         },
         "agent_context" => {
-          "allowed_tool_names" => ["calculator"],
+          "allowed_tool_names" => ["compact_context"],
         },
         "runtime_context" => {
           "agent_id" => "agent-1",
@@ -120,9 +121,13 @@ class MailboxExecutionJobTest < ActiveSupport::TestCase
         },
         "tool_call" => {
           "call_id" => "tool-call-1",
-          "tool_name" => "calculator",
+          "tool_name" => "compact_context",
           "arguments" => {
-            "expression" => "2 + 2",
+            "messages" => [
+              { "role" => "user", "content" => "a" },
+              { "role" => "assistant", "content" => "b" },
+            ],
+            "budget_hints" => {},
           },
         },
       },

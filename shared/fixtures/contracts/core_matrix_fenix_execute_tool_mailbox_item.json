@@ -22,7 +22,7 @@
       "profile": "pragmatic",
       "is_subagent": false,
       "allowed_tool_names": [
-        "calculator"
+        "compact_context"
       ]
     },
     "provider_context": {
@@ -51,9 +51,19 @@
     },
     "tool_call": {
       "call_id": "tool-call-public-id",
-      "tool_name": "calculator",
+      "tool_name": "compact_context",
       "arguments": {
-        "expression": "2 + 2"
+        "messages": [
+          {
+            "role": "user",
+            "content": "a"
+          },
+          {
+            "role": "assistant",
+            "content": "b"
+          }
+        ],
+        "budget_hints": {}
       }
     },
     "runtime_resource_refs": {

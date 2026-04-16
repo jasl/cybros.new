@@ -431,6 +431,61 @@ module ActiveSupport
       end
     end
 
+    def default_compact_context_messages
+      [
+        { "role" => "user", "content" => "a" },
+        { "role" => "assistant", "content" => "b" },
+      ]
+    end
+
+    def compact_context_tool_arguments(messages: default_compact_context_messages, budget_hints: {})
+      {
+        "messages" => messages.deep_dup,
+        "budget_hints" => budget_hints.deep_stringify_keys,
+      }
+    end
+
+    def compact_context_tool_result(messages: default_compact_context_messages, compacted: false, estimated_tokens: 2)
+      {
+        "messages" => messages.deep_dup,
+        "compacted" => compacted,
+        "estimated_tokens" => estimated_tokens,
+      }
+    end
+
+    def compact_context_tool_entry(implementation_ref: "fenix/compact_context", implementation_source: "agent", tool_kind: "agent_observation", parallel_safe: nil)
+      entry = {
+        "tool_name" => "compact_context",
+        "tool_kind" => tool_kind,
+        "implementation_source" => implementation_source,
+        "implementation_ref" => implementation_ref,
+        "input_schema" => {
+          "type" => "object",
+          "properties" => {
+            "messages" => { "type" => "array" },
+            "budget_hints" => { "type" => "object" },
+          },
+        },
+        "result_schema" => {
+          "type" => "object",
+          "properties" => {
+            "messages" => { "type" => "array" },
+            "compacted" => { "type" => "boolean" },
+            "estimated_tokens" => { "type" => "integer" },
+          },
+        },
+        "streaming_support" => false,
+        "idempotency_policy" => "best_effort",
+      }
+      return entry if parallel_safe.nil?
+
+      entry.merge(
+        "execution_policy" => {
+          "parallel_safe" => parallel_safe,
+        }
+      )
+    end
+
     def default_canonical_config_schema(include_selector_slots: false)
       properties = {}
 
