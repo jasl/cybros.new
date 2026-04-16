@@ -13,7 +13,9 @@ WORKDIR /rails
 
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y curl libjemalloc2 sqlite3 && \
-    ln -sf /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
+    jemalloc_lib="$(find /usr/lib -name libjemalloc.so.2 -print -quit)" && \
+    test -n "${jemalloc_lib}" && \
+    ln -sf "${jemalloc_lib}" /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 ENV RAILS_ENV="production" \

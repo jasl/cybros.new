@@ -67,6 +67,22 @@ Plan/acceptance build: build from the monorepo root.
 docker build -f images/nexus/Dockerfile -t nexus-local .
 ```
 
+## Multi-Arch Release
+
+`images/nexus` is the canonical architecture-aware base image for the bundled
+runtime stack. Release builds are intended to run through Buildx and currently
+support `linux/amd64` and `linux/arm64`.
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg NEXUS_CONTEXT_PREFIX= \
+  -f images/nexus/Dockerfile \
+  -t ghcr.io/your-org/nexus-base:latest \
+  --push \
+  images/nexus
+```
+
 ## Verify
 
 The acceptance check mounts this repository and runs the repo-owned verifier

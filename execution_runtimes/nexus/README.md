@@ -176,3 +176,22 @@ The canonical host baseline comes from
 [images/nexus](/Users/jasl/Workspaces/Ruby/cybros/images/nexus). Bare-metal
 operators can validate the host toolchain with
 [bin/check-runtime-host](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/bin/check-runtime-host).
+
+## Multi-Arch Publishing
+
+`execution_runtimes/nexus` inherits its multi-arch publishing behavior from
+`NEXUS_BASE_IMAGE`. To publish `execution_runtimes/nexus` for both
+`linux/amd64` and `linux/arm64`, the referenced base image must already be a
+multi-arch manifest for those targets.
+
+Example:
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg NEXUS_BASE_IMAGE=ghcr.io/your-org/nexus-base:latest \
+  -f execution_runtimes/nexus/Dockerfile \
+  -t ghcr.io/your-org/nexus-runtime:latest \
+  --push \
+  execution_runtimes/nexus
+```

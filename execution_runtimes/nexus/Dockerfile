@@ -1,9 +1,14 @@
 # syntax=docker/dockerfile:1
 # check=error=true
 
-# This Dockerfile expects a prebuilt cowork runtime base image. Build the base first:
+# This Dockerfile expects a prebuilt cowork runtime base image. Build the base first.
+# For multi-arch publishing, NEXUS_BASE_IMAGE must already resolve to a
+# multi-arch manifest that includes linux/amd64 and linux/arm64.
 # docker build -f images/nexus/Dockerfile -t nexus-local .
 # docker build --build-arg NEXUS_BASE_IMAGE=nexus-local:latest -f execution_runtimes/nexus/Dockerfile -t nexus-local execution_runtimes/nexus
+# docker buildx build --platform linux/amd64,linux/arm64 --push \
+#   --build-arg NEXUS_BASE_IMAGE=ghcr.io/your-org/nexus-base:latest \
+#   -f execution_runtimes/nexus/Dockerfile -t ghcr.io/your-org/nexus-runtime:latest execution_runtimes/nexus
 # docker run -d -p 3101:80 --env-file execution_runtimes/nexus/.env --name nexus nexus-local
 
 # For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
@@ -14,8 +19,11 @@ FROM ${NEXUS_BASE_IMAGE} AS base
 # Rails app lives here
 WORKDIR /rails
 
-# The nexus base owns the broad toolchain baseline; the app image keeps only app-local wiring.
-RUN ln -sf /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so
+# The nexus base owns the broad toolchain baseline; the app image keeps only
+# app-local wiring and inherits multi-arch support from NEXUS_BASE_IMAGE.
+RUN jemalloc_lib="$(find /usr/lib -name libjemalloc.so.2 -print -quit)" && \
+    test -n "${jemalloc_lib}" && \
+    ln -sf "${jemalloc_lib}" /usr/local/lib/libjemalloc.so
 
 # Set production environment variables and enable jemalloc for reduced memory usage and latency.
 ENV RAILS_ENV="production" \

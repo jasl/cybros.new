@@ -3,16 +3,22 @@
 
 FROM ubuntu:24.04
 
+ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG NEXUS_CONTEXT_PREFIX=images/nexus/
 
 ENV LANG="C.UTF-8" \
     COREPACK_HOME="/usr/local/share/corepack" \
     DEBIAN_FRONTEND="noninteractive" \
+    DOWNLOAD_CURL_FLAGS="--fail --show-error --silent --location --retry 5 --retry-all-errors -C -" \
     PLAYWRIGHT_BROWSERS_PATH="/opt/playwright" \
-    PATH="/root/.cargo/bin:/usr/local/go/bin:${PATH}"
+    PATH="/root/.cargo/bin:/usr/local/go/bin:${PATH}" \
+    SCRIPT_CURL_FLAGS="--fail --show-error --silent --location --retry 5 --retry-all-errors"
 
 SHELL ["/bin/bash", "-lc"]
+
+# Buildx injects TARGETPLATFORM/TARGETARCH for multi-arch releases. This base
+# image intentionally supports linux/amd64 and linux/arm64 only.
 
 COPY ${NEXUS_CONTEXT_PREFIX}versions.env /usr/local/share/nexus/versions.env
 
@@ -59,11 +65,11 @@ RUN set -a && \
       *) echo "unsupported architecture for Node.js: ${TARGETARCH}" >&2; exit 1 ;; \
     esac && \
     node_tmp_dir="$(mktemp -d)" && \
-    curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" \
+    curl ${DOWNLOAD_CURL_FLAGS} "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" \
       -o "${node_tmp_dir}/node.tar.xz" && \
     tar -xJf "${node_tmp_dir}/node.tar.xz" -C /usr/local --strip-components=1 --no-same-owner && \
     npm_tmp_dir="$(mktemp -d)" && \
-    curl -fsSL "https://registry.npmjs.org/npm/-/npm-${NPM_VERSION}.tgz" \
+    curl ${DOWNLOAD_CURL_FLAGS} "https://registry.npmjs.org/npm/-/npm-${NPM_VERSION}.tgz" \
       -o "${npm_tmp_dir}/npm.tgz" && \
     rm -rf /usr/local/lib/node_modules/npm && \
     mkdir -p /usr/local/lib/node_modules && \
@@ -95,7 +101,7 @@ RUN set -a && \
       *) echo "unsupported architecture for Go: ${TARGETARCH}" >&2; exit 1 ;; \
     esac && \
     go_tmp_dir="$(mktemp -d)" && \
-    curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${go_arch}.tar.gz" \
+    curl ${DOWNLOAD_CURL_FLAGS} "https://go.dev/dl/go${GO_VERSION}.linux-${go_arch}.tar.gz" \
       -o "${go_tmp_dir}/go.tar.gz" && \
     rm -rf /usr/local/go && \
     tar -xzf "${go_tmp_dir}/go.tar.gz" -C /usr/local && \
@@ -104,13 +110,13 @@ RUN set -a && \
 RUN set -a && \
     source /usr/local/share/nexus/versions.env && \
     set +a && \
-    curl -LsSf "https://astral.sh/uv/${UV_VERSION}/install.sh" | \
+    curl ${SCRIPT_CURL_FLAGS} "https://astral.sh/uv/${UV_VERSION}/install.sh" | \
       env UV_UNMANAGED_INSTALL="/usr/local/bin" sh
 
 RUN set -a && \
     source /usr/local/share/nexus/versions.env && \
     set +a && \
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    curl ${SCRIPT_CURL_FLAGS} --proto '=https' --tlsv1.2 https://sh.rustup.rs | \
       sh -s -- -y --profile minimal --default-toolchain "${RUST_VERSION}" && \
     rustup component add clippy rustfmt
 
@@ -118,7 +124,7 @@ RUN set -a && \
     source /usr/local/share/nexus/versions.env && \
     set +a && \
     ruby_tmp_dir="$(mktemp -d)" && \
-    curl -fsSL "https://cache.ruby-lang.org/pub/ruby/${RUBY_VERSION%.*}/ruby-${RUBY_VERSION}.tar.gz" \
+    curl ${DOWNLOAD_CURL_FLAGS} "https://cache.ruby-lang.org/pub/ruby/${RUBY_VERSION%.*}/ruby-${RUBY_VERSION}.tar.gz" \
       -o "${ruby_tmp_dir}/ruby.tar.gz" && \
     tar -xzf "${ruby_tmp_dir}/ruby.tar.gz" -C "${ruby_tmp_dir}" && \
     pushd "${ruby_tmp_dir}/ruby-${RUBY_VERSION}" >/dev/null && \
