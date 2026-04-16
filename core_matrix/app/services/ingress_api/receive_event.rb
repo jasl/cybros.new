@@ -103,8 +103,9 @@ module IngressAPI
 
     def dispatch_handled_result!(context)
       return unless context.result.handled?
-      return unless context.result.handled_via == "sidecar_query"
+      return unless %w[sidecar_query control_command].include?(context.result.handled_via)
       return if context.channel_session.blank? || context.conversation.blank?
+      return if context.result.payload.dig("human_sidechat", "content").blank?
 
       @outbound_dispatcher.call(
         conversation: context.conversation,

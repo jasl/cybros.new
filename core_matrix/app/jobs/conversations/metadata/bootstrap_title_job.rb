@@ -45,6 +45,7 @@ module Conversations
       def eligible_for_upgrade?(conversation, turn, message)
         return false if message.blank?
         return false unless message.user? && message.input?
+        return false if Conversations::ManagedPolicy.call(conversation: conversation).fetch("managed", false)
         return false unless conversation.title_source_none?
         return false unless conversation.title_lock_state_unlocked?
         return false unless conversation.title == Conversations::Metadata::BootstrapTitle.placeholder_title

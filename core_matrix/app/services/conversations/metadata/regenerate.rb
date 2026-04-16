@@ -32,6 +32,11 @@ module Conversations
           active_message: "must be active before regenerating conversation metadata",
           closing_message: "must not regenerate conversation metadata while close is in progress"
         ) do |conversation|
+          Conversations::ManagedPolicy.assert_not_managed!(
+            conversation: conversation,
+            record: conversation,
+            message: "must not regenerate conversation metadata while externally managed"
+          )
           validate_field!(conversation)
           field_state_snapshot_for(conversation)
         end

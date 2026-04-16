@@ -1,7 +1,7 @@
 require "test_helper"
 
 class CoreMatrixCLITelegramCommandTest < CoreMatrixCLITestCase
-  def test_telegram_setup_creates_binding_when_missing_and_prints_webhook_material
+  def test_telegram_setup_creates_polling_binding_when_missing_and_prints_poller_material
     runtime = FakeRuntime.new(
       config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),
       credential_store: CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
@@ -12,7 +12,7 @@ class CoreMatrixCLITelegramCommandTest < CoreMatrixCLITestCase
       "ingress_binding" => {
         "ingress_binding_id" => "ib_tg_123",
         "setup" => {
-          "webhook_path" => "/ingress_api/telegram/bindings/pub_tg_123/updates",
+          "poller_binding_id" => "pub_tg_123",
         },
       },
     }
@@ -20,24 +20,23 @@ class CoreMatrixCLITelegramCommandTest < CoreMatrixCLITestCase
       "ingress_binding" => {
         "ingress_binding_id" => "ib_tg_123",
         "setup" => {
-          "webhook_path" => "/ingress_api/telegram/bindings/pub_tg_123/updates",
-          "webhook_secret_token" => "secret_tg_123",
+          "poller_binding_id" => "pub_tg_123",
         },
       },
     }
 
     output = run_cli(
       "ingress", "telegram", "setup",
-      input: "123:abc\nhttps://bot.example.com\n",
+      input: "123:abc\n",
       runtime: runtime
     )
 
-    assert_includes output, "https://bot.example.com/ingress_api/telegram/bindings/pub_tg_123/updates"
-    assert_includes output, "X-Telegram-Bot-Api-Secret-Token"
+    assert_includes output, "Polling Binding ID: pub_tg_123"
+    refute_includes output, "Webhook URL:"
     assert_equal "ib_tg_123", runtime.config_store.read.fetch("telegram_ingress_binding_id")
   end
 
-  def test_telegram_help_explains_operator_preparation
+  def test_telegram_help_explains_polling_operator_preparation
     runtime = FakeRuntime.new(
       config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),
       credential_store: CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
@@ -47,7 +46,8 @@ class CoreMatrixCLITelegramCommandTest < CoreMatrixCLITestCase
 
     assert_includes output, "cmctl ingress telegram setup"
     assert_includes output, "BotFather"
-    assert_includes output, "secret token"
+    assert_includes output, "queue worker"
+    assert_includes output, "different Telegram bot tokens"
   end
 
   def test_telegram_setup_explains_how_to_select_a_workspace_agent_when_missing

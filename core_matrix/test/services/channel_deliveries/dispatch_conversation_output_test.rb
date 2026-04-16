@@ -117,6 +117,27 @@ class ChannelDeliveries::DispatchConversationOutputTest < ActiveSupport::TestCas
     ChannelDeliveries::SendTelegramReply.singleton_class.send(:define_method, :call, original_telegram)
   end
 
+  test "routes telegram webhook deliveries through the telegram reply sender" do
+    context = delivery_context(platform: "telegram_webhook")
+    telegram_deliveries = []
+    original_telegram = ChannelDeliveries::SendTelegramReply.method(:call)
+    ChannelDeliveries::SendTelegramReply.singleton_class.send(:define_method, :call) do |channel_delivery:|
+      telegram_deliveries << channel_delivery
+    end
+
+    ChannelDeliveries::DispatchConversationOutput.call(
+      conversation: context[:conversation],
+      channel_session: context[:channel_session],
+      text: "Webhook final reply"
+    )
+
+    assert_equal 1, telegram_deliveries.length
+    assert_equal "Webhook final reply", telegram_deliveries.last.payload["text"]
+    assert_equal "telegram_webhook", telegram_deliveries.last.channel_connector.platform
+  ensure
+    ChannelDeliveries::SendTelegramReply.singleton_class.send(:define_method, :call, original_telegram)
+  end
+
   private
 
   def delivery_context(platform: "telegram")
@@ -142,11 +163,11 @@ class ChannelDeliveries::DispatchConversationOutputTest < ActiveSupport::TestCas
       installation: context[:installation],
       ingress_binding: ingress_binding,
       platform: platform,
-      driver: platform == "telegram" ? "telegram_bot_api" : "claw_bot_sdk_weixin",
-      transport_kind: platform == "telegram" ? "webhook" : "poller",
+      driver: telegram_family_platform?(platform) ? "telegram_bot_api" : "claw_bot_sdk_weixin",
+      transport_kind: transport_kind_for(platform),
       label: "Primary #{platform.titleize}",
       lifecycle_state: "active",
-      credential_ref_payload: platform == "telegram" ? {
+      credential_ref_payload: telegram_family_platform?(platform) ? {
         "bot_token" => "telegram-bot-token",
       } : {},
       config_payload: {},
@@ -161,9 +182,9 @@ class ChannelDeliveries::DispatchConversationOutputTest < ActiveSupport::TestCas
       conversation: conversation,
       platform: platform,
       peer_kind: "dm",
-      peer_id: platform == "telegram" ? "telegram-user-1" : "weixin-user-1",
+      peer_id: telegram_family_platform?(platform) ? "telegram-user-1" : "weixin-user-1",
       thread_key: nil,
-      session_metadata: platform == "telegram" ? {
+      session_metadata: telegram_family_platform?(platform) ? {
         "telegram_preview_message_id" => 88,
         "telegram_preview_external_message_key" => "telegram:chat:telegram-user-1:message:88",
       } : {
@@ -178,7 +199,7 @@ class ChannelDeliveries::DispatchConversationOutputTest < ActiveSupport::TestCas
         "ingress_binding_id" => ingress_binding.public_id,
         "channel_connector_id" => channel_connector.public_id,
         "channel_session_id" => channel_session.public_id,
-        "external_message_key" => "#{platform}:chat:#{channel_session.peer_id}:message:1001",
+        "external_message_key" => "#{wire_platform_for(platform)}:chat:#{channel_session.peer_id}:message:1001",
         "external_sender_id" => channel_session.peer_id,
       },
       selector_source: "conversation",
@@ -192,5 +213,24 @@ class ChannelDeliveries::DispatchConversationOutputTest < ActiveSupport::TestCas
       channel_session: channel_session,
       turn: turn
     )
+  end
+
+  def telegram_family_platform?(platform)
+    %w[telegram telegram_webhook].include?(platform)
+  end
+
+  def transport_kind_for(platform)
+    case platform
+    when "telegram"
+      "poller"
+    when "telegram_webhook"
+      "webhook"
+    else
+      "poller"
+    end
+  end
+
+  def wire_platform_for(platform)
+    telegram_family_platform?(platform) ? "telegram" : platform
   end
 end

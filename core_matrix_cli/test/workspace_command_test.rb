@@ -43,6 +43,7 @@ class CoreMatrixCLIWorkspaceCommandTest < CoreMatrixCLITestCase
       "workspace_id" => "ws_old",
       "workspace_agent_id" => "wa_old",
       "telegram_ingress_binding_id" => "ib_tg_old",
+      "telegram_webhook_ingress_binding_id" => "ib_tgwh_old",
       "weixin_ingress_binding_id" => "ib_wx_old"
     )
 

@@ -190,6 +190,71 @@ class Conversations::Metadata::BootstrapTitleJobTest < ActiveSupport::TestCase
     assert_equal "none", conversation.title_source
   end
 
+  test "managed channel conversations skip bootstrap title upgrades" do
+    context = create_workspace_context!
+    conversation = Conversations::CreateManagedChannelConversation.call(
+      workspace_agent: context[:workspace_agent],
+      platform: "telegram",
+      peer_kind: "dm",
+      peer_id: "42",
+      session_metadata: { "sender_username" => "alice" }
+    )
+    ingress_binding = IngressBinding.create!(
+      installation: context[:installation],
+      workspace_agent: context[:workspace_agent],
+      default_execution_runtime: context[:execution_runtime],
+      routing_policy_payload: {},
+      manual_entry_policy: IngressBinding::DEFAULT_MANUAL_ENTRY_POLICY
+    )
+    channel_connector = ChannelConnector.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      platform: "telegram",
+      driver: "telegram_bot_api",
+      transport_kind: "poller",
+      label: "Telegram Poller",
+      lifecycle_state: "active",
+      credential_ref_payload: { "bot_token" => "123:abc" },
+      config_payload: {},
+      runtime_state_payload: {}
+    )
+    channel_session = ChannelSession.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      channel_connector: channel_connector,
+      conversation: conversation,
+      platform: "telegram",
+      peer_kind: "dm",
+      peer_id: "42",
+      thread_key: nil,
+      binding_state: "active",
+      session_metadata: { "sender_username" => "alice" }
+    )
+    turn, = create_channel_ingress_turn!(
+      context: context,
+      conversation: conversation,
+      inbound_message_id: "channel_inbound_message_10",
+      content: "Inbound request for title bootstrap."
+    )
+    invoked = false
+
+    original_call = Conversations::Metadata::GenerateBootstrapTitle.method(:call)
+    Conversations::Metadata::GenerateBootstrapTitle.singleton_class.send(:define_method, :call) do |**_kwargs|
+      invoked = true
+      "unexpected"
+    end
+
+    Conversations::Metadata::BootstrapTitleJob.perform_now(conversation.public_id, turn.public_id)
+
+    conversation.reload
+    assert_equal false, invoked
+    assert_equal "Telegram DM @alice", conversation.title
+    assert_equal "agent", conversation.title_source
+    assert_equal channel_session.conversation, conversation
+  ensure
+    Conversations::Metadata::GenerateBootstrapTitle.singleton_class.send(:define_method, :call, original_call)
+  end
+
   private
 
   def create_manual_user_turn!(context:, conversation:, content:)

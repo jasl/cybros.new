@@ -20,10 +20,13 @@ module AppAPI
 
         def update
           channel_session = find_channel_session!
-          attributes = {}
-          attributes[:binding_state] = params.fetch(:binding_state) if params.key?(:binding_state)
-          attributes[:conversation] = resolve_conversation if params.key?(:conversation_id)
-          channel_session.update!(attributes)
+          if params.key?(:conversation_id)
+            ChannelSessions::RebindFromConversationContext.call(
+              channel_session: channel_session,
+              source_conversation: resolve_conversation
+            )
+          end
+          channel_session.update!(binding_state: params.fetch(:binding_state)) if params.key?(:binding_state)
 
           render_method_response(
             method_id: "ingress_binding_session_update",

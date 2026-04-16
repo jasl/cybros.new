@@ -20,7 +20,7 @@ module IngressAPI
         raise InvalidSecretToken, "invalid telegram webhook secret token" unless ingress_binding.matches_ingress_secret?(@secret_token)
 
         channel_connector = ingress_binding.channel_connectors.find_by!(
-          platform: "telegram",
+          platform: "telegram_webhook",
           driver: "telegram_bot_api",
           transport_kind: "webhook",
           lifecycle_state: "active"

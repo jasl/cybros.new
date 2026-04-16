@@ -33,7 +33,7 @@ module IngressCommands
       return Authorization.new(allowed: false, rejection_reason: "control_not_allowed") unless @context.conversation&.allows_entry_surface?("control")
 
       active_turn = @context.active_turn || @context.conversation&.latest_active_turn
-      return Authorization.new(allowed: false, rejection_reason: "no_active_turn") if active_turn.blank?
+      return Authorization.new(allowed: true, rejection_reason: nil) if active_turn.blank?
 
       active_sender_id = active_turn.origin_payload["external_sender_id"].presence
       return Authorization.new(allowed: false, rejection_reason: "missing_sender_provenance") if active_sender_id.blank?

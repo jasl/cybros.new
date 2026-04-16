@@ -23,6 +23,11 @@ module Conversations
           active_message: "must be active before updating overrides",
           closing_message: "must not update overrides while close is in progress"
         ) do |conversation|
+          Conversations::ManagedPolicy.assert_not_managed!(
+            conversation: conversation,
+            record: conversation,
+            message: "must not update overrides while externally managed"
+          )
           validate_payload!(conversation)
           validate_selector!(conversation)
 

@@ -169,6 +169,7 @@ class FakeRuntime
       next_payload["workspace_id"] = workspace_id
       next_payload.delete("workspace_agent_id")
       next_payload.delete("telegram_ingress_binding_id")
+      next_payload.delete("telegram_webhook_ingress_binding_id")
       next_payload.delete("weixin_ingress_binding_id")
     elsif workspace_id
       next_payload["workspace_id"] = workspace_id
@@ -177,6 +178,7 @@ class FakeRuntime
     if workspace_agent_changed
       next_payload["workspace_agent_id"] = workspace_agent_id
       next_payload.delete("telegram_ingress_binding_id")
+      next_payload.delete("telegram_webhook_ingress_binding_id")
       next_payload.delete("weixin_ingress_binding_id")
     elsif workspace_agent_id
       next_payload["workspace_agent_id"] = workspace_agent_id

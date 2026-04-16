@@ -131,10 +131,71 @@ class Conversations::Metadata::RegenerateTest < ActiveSupport::TestCase
     Conversations::Metadata::GenerateField.singleton_class.send(:define_method, :call, original_call)
   end
 
+  test "rejects regeneration for channel-managed conversations" do
+    context = fresh_workspace_context!
+    conversation = create_channel_managed_conversation!(context)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Conversations::Metadata::Regenerate.call(
+        conversation: conversation,
+        field: :title,
+        occurred_at: Time.zone.parse("2026-04-06 11:35:00")
+      )
+    end
+
+    assert_includes error.record.errors[:base], "must not regenerate conversation metadata while externally managed"
+  end
+
   private
 
   def fresh_workspace_context!
     delete_all_table_rows!
     create_workspace_context!
+  end
+
+  def create_channel_managed_conversation!(context)
+    conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      workspace_agent: context[:workspace_agent],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime],
+      entry_policy_payload: Conversation.channel_managed_entry_policy_payload(
+        base_policy_payload: context[:workspace_agent].entry_policy_payload,
+        purpose: "interactive"
+      )
+    )
+    ingress_binding = IngressBinding.create!(
+      installation: context[:installation],
+      workspace_agent: context[:workspace_agent],
+      default_execution_runtime: context[:execution_runtime],
+      routing_policy_payload: {},
+      manual_entry_policy: IngressBinding::DEFAULT_MANUAL_ENTRY_POLICY
+    )
+    channel_connector = ChannelConnector.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      platform: "telegram",
+      driver: "telegram_bot_api",
+      transport_kind: "poller",
+      label: "Telegram Poller",
+      lifecycle_state: "active",
+      credential_ref_payload: { "bot_token" => "123:abc" },
+      config_payload: {},
+      runtime_state_payload: {}
+    )
+    ChannelSession.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      channel_connector: channel_connector,
+      conversation: conversation,
+      platform: "telegram",
+      peer_kind: "dm",
+      peer_id: "42",
+      thread_key: nil,
+      binding_state: "active",
+      session_metadata: {}
+    )
+    conversation
   end
 end

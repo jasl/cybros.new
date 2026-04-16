@@ -6,6 +6,7 @@ This guide describes the operator inputs and prerequisites for the planned
 Primary operator entrypoint:
 
 - `cmctl ingress telegram setup --help`
+- `cmctl ingress telegram-webhook setup --help`
 - `cmctl ingress weixin setup --help`
 
 This document is a longer companion reference. It should not be the only place
@@ -22,14 +23,16 @@ Scope:
 This guide assumes `cmctl init` has already completed and that you have an
 authenticated operator session plus a selected workspace and workspace agent.
 
-## Telegram
+## Telegram Polling
 
 ### What you need before running the CLI
 
 1. A Telegram bot created in BotFather.
 2. The bot token for that bot.
-3. A public HTTPS base URL that reaches the CoreMatrix deployment.
+3. A CoreMatrix deployment with the recurring scheduler and queue worker
+   running.
 4. A target workspace and workspace agent already selected in `cmctl`.
+5. A bot token that is not also assigned to Telegram webhook mode.
 
 ### What the CLI will ask for
 
@@ -37,6 +40,70 @@ Run:
 
 ```bash
 cmctl ingress telegram setup
+```
+
+The v1 CLI should ask for:
+
+1. `bot_token`
+
+Example values:
+
+```text
+bot_token: 123456789:AAExampleBotToken
+```
+
+### What the CLI should print back
+
+After CoreMatrix creates or reuses the Telegram binding and saves the connector
+configuration, the CLI should print:
+
+1. The poller binding id
+2. A reminder that the recurring scheduler and queue workers must be running
+
+Expected shape:
+
+```text
+Polling Binding ID: ing_xxx
+Next: ensure recurring scheduler and queue workers are running for Telegram polling.
+```
+
+### Telegram polling checklist
+
+1. Create the bot in BotFather.
+2. Copy the bot token.
+3. Confirm the CoreMatrix recurring scheduler and queue workers are running.
+4. Run `cmctl ingress telegram setup`.
+5. Paste the bot token.
+6. Record the printed poller binding id for debugging.
+7. Keep the scheduler and queue workers running during staging.
+
+### Telegram polling v1 verification boundary
+
+In this round, self-verification is API-contract only:
+
+- binding creation
+- connector credential write
+- poller binding exposure
+
+Actual polling from Telegram into the live CoreMatrix deployment remains later
+manual integration work.
+
+## Telegram Webhook
+
+### What you need before running the CLI
+
+1. A Telegram bot created in BotFather.
+2. The bot token for that bot.
+3. A public HTTPS base URL that reaches the CoreMatrix deployment.
+4. A target workspace and workspace agent already selected in `cmctl`.
+5. A bot token that is not also assigned to Telegram polling mode.
+
+### What the CLI will ask for
+
+Run:
+
+```bash
+cmctl ingress telegram-webhook setup
 ```
 
 The v1 CLI should ask for:
@@ -53,8 +120,8 @@ webhook_base_url: https://core.example.com
 
 ### What the CLI should print back
 
-After CoreMatrix creates or reuses the Telegram binding and saves the connector
-configuration, the CLI should print:
+After CoreMatrix creates or reuses the Telegram webhook binding and saves the
+connector configuration, the CLI should print:
 
 1. The final webhook URL
 2. The Telegram webhook secret header name
@@ -72,22 +139,19 @@ This secret token is required because CoreMatrix verifies the
 `X-Telegram-Bot-Api-Secret-Token` header on inbound webhook requests and only
 stores the secret digest internally.
 
-If the operator loses the plaintext secret, the CLI should support rotating it
-and printing a new one. The old secret should then be considered invalid.
-
-### Telegram checklist
+### Telegram webhook checklist
 
 1. Create the bot in BotFather.
 2. Copy the bot token.
 3. Confirm the CoreMatrix deployment is reachable over public HTTPS.
-4. Run `cmctl ingress telegram setup`.
+4. Run `cmctl ingress telegram-webhook setup`.
 5. Paste the bot token.
 6. Paste the webhook base URL.
 7. Copy the printed webhook URL.
 8. Copy the printed webhook secret token.
-9. Use those values during later Telegram-side webhook registration.
+9. Use those values during Telegram-side webhook registration.
 
-### Telegram v1 verification boundary
+### Telegram webhook v1 verification boundary
 
 In this round, self-verification is API-contract only:
 
@@ -187,10 +251,16 @@ If you just want the shortest path, the intended order is:
    - `cmctl workspace create`
    - `cmctl agent attach`
 3. `cmctl providers codex login`
-4. `cmctl ingress telegram setup` or `cmctl ingress weixin setup`
-5. `cmctl status`
+4. `cmctl ingress telegram setup`
+5. Optional: `cmctl ingress telegram-webhook setup`
+6. `cmctl ingress weixin setup`
+7. `cmctl status`
 
-For Telegram, prepare the bot token and public HTTPS base URL first.
+For Telegram polling, prepare the bot token and make sure the recurring
+scheduler plus queue workers are running.
+
+For Telegram webhook, prepare a different bot token plus a public HTTPS base
+URL first.
 
 For Weixin, prepare a terminal that can render ANSI QR output and expect the
 CLI to drive the login lifecycle rather than prompt for a bot token.

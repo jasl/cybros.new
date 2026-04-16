@@ -63,9 +63,40 @@ class IngressAPI::Telegram::ProgressBridgeTest < ActiveSupport::TestCase
     ChannelDeliveries::SendTelegramReply.singleton_class.send(:define_method, :call, original_sender)
   end
 
+  test "projects assistant output streaming for telegram webhook sessions too" do
+    context = progress_context(platform: "telegram_webhook")
+    original_sender = ChannelDeliveries::SendTelegramReply.method(:call)
+    ChannelDeliveries::SendTelegramReply.singleton_class.send(:define_method, :call) do |channel_delivery:, **|
+      channel_delivery.update!(
+        delivery_state: "delivered",
+        external_message_key: "telegram:chat:telegram-user-1:message:700"
+      )
+      channel_delivery
+    end
+
+    ConversationRuntime::PublishEvent.call(
+      conversation: context[:conversation],
+      turn: context[:turn],
+      event_kind: "runtime.assistant_output.started",
+      payload: {
+        "stream_id" => "turn-output:#{context[:turn].public_id}",
+        "workflow_run_id" => context[:workflow_run].public_id,
+        "workflow_node_id" => context[:workflow_node].public_id,
+      },
+      progress_dispatcher: ChannelDeliveries::DispatchRuntimeProgress
+    )
+
+    delivery = ChannelDelivery.order(:id).last
+    assert_predicate delivery, :present?
+    assert_equal "telegram_webhook", delivery.channel_connector.platform
+    assert_equal "typing", delivery.payload["chat_action"]
+  ensure
+    ChannelDeliveries::SendTelegramReply.singleton_class.send(:define_method, :call, original_sender)
+  end
+
   private
 
-  def progress_context
+  def progress_context(platform: "telegram")
     context = create_workspace_context!
     conversation = create_conversation_record!(
       installation: context[:installation],
@@ -87,9 +118,9 @@ class IngressAPI::Telegram::ProgressBridgeTest < ActiveSupport::TestCase
     channel_connector = ChannelConnector.create!(
       installation: context[:installation],
       ingress_binding: ingress_binding,
-      platform: "telegram",
+      platform: platform,
       driver: "telegram_bot_api",
-      transport_kind: "webhook",
+      transport_kind: platform == "telegram_webhook" ? "webhook" : "poller",
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {
@@ -103,7 +134,7 @@ class IngressAPI::Telegram::ProgressBridgeTest < ActiveSupport::TestCase
       ingress_binding: ingress_binding,
       channel_connector: channel_connector,
       conversation: conversation,
-      platform: "telegram",
+      platform: platform,
       peer_kind: "dm",
       peer_id: "telegram-user-1",
       thread_key: nil,

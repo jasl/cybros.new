@@ -1,7 +1,7 @@
 require "test_helper"
 
 class IngressAPI::Telegram::VerifyRequestTest < ActiveSupport::TestCase
-  test "resolves the binding and active telegram connector from the public ingress id and secret token" do
+  test "resolves the binding and active telegram webhook connector from the public ingress id and secret token" do
     context = telegram_verify_context
 
     result = IngressAPI::Telegram::VerifyRequest.call(
@@ -11,6 +11,32 @@ class IngressAPI::Telegram::VerifyRequestTest < ActiveSupport::TestCase
 
     assert_equal context[:ingress_binding], result.fetch(:ingress_binding)
     assert_equal context[:channel_connector], result.fetch(:channel_connector)
+  end
+
+  test "ignores telegram poller connectors when resolving the webhook request" do
+    context = telegram_verify_context
+    poller_connector = ChannelConnector.create!(
+      installation: context[:installation],
+      ingress_binding: context[:ingress_binding],
+      platform: "telegram",
+      driver: "telegram_bot_api",
+      transport_kind: "poller",
+      label: "Primary Telegram Poller",
+      lifecycle_state: "disabled",
+      credential_ref_payload: {
+        "bot_token" => "telegram-poller-token",
+      },
+      config_payload: {},
+      runtime_state_payload: {}
+    )
+
+    result = IngressAPI::Telegram::VerifyRequest.call(
+      public_ingress_id: context[:ingress_binding].public_ingress_id,
+      secret_token: context[:plaintext_secret]
+    )
+
+    assert_equal context[:channel_connector], result.fetch(:channel_connector)
+    assert_not_equal poller_connector, result.fetch(:channel_connector)
   end
 
   test "rejects an invalid secret token" do
@@ -45,7 +71,7 @@ class IngressAPI::Telegram::VerifyRequestTest < ActiveSupport::TestCase
     channel_connector = ChannelConnector.create!(
       installation: context[:installation],
       ingress_binding: ingress_binding,
-      platform: "telegram",
+      platform: "telegram_webhook",
       driver: "telegram_bot_api",
       transport_kind: "webhook",
       label: "Primary Telegram",

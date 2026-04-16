@@ -156,6 +156,7 @@ class Conversation < ApplicationRecord
     dependent: :restrict_with_exception,
     inverse_of: :target_conversation
   has_many :conversation_close_operations, dependent: :restrict_with_exception
+  has_many :channel_sessions, dependent: :restrict_with_exception
   has_many :owned_subagent_connections,
     class_name: "SubagentConnection",
     foreign_key: :owner_conversation_id,
@@ -333,6 +334,18 @@ class Conversation < ApplicationRecord
       "artifact_ingress" => false,
       "channel_ingress" => false,
       "agent_internal" => true
+    )
+  end
+
+  def self.channel_managed_entry_policy_payload(base_policy_payload:, purpose:)
+    normalize_entry_policy_payload(base_policy_payload, purpose: purpose).merge(
+      "main_transcript" => false,
+      "sidecar_query" => false,
+      "control" => true,
+      "artifact_ingress" => false,
+      "channel_ingress" => true,
+      "agent_internal" => false,
+      "automation" => false
     )
   end
 

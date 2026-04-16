@@ -30,12 +30,40 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
     assert_equal channel_connector.public_id, response.parsed_body.dig("ingress_binding", "channel_connector", "channel_connector_id")
     assert_equal "telegram", response.parsed_body.dig("ingress_binding", "channel_connector", "platform")
     assert_equal "telegram_bot_api", response.parsed_body.dig("ingress_binding", "channel_connector", "driver")
-    assert_equal "webhook", response.parsed_body.dig("ingress_binding", "channel_connector", "transport_kind")
+    assert_equal "poller", response.parsed_body.dig("ingress_binding", "channel_connector", "transport_kind")
     assert_equal "active", response.parsed_body.dig("ingress_binding", "channel_connector", "lifecycle_state")
     assert_equal "telegram", response.parsed_body.dig("ingress_binding", "setup", "platform")
+    assert_equal ingress_binding.public_ingress_id, response.parsed_body.dig("ingress_binding", "setup", "poller_binding_id")
+    assert_nil response.parsed_body.dig("ingress_binding", "setup", "webhook_path")
+    assert_nil response.parsed_body.dig("ingress_binding", "setup", "webhook_secret_token")
+  end
+
+  test "creates an explicit telegram webhook binding under the workspace agent" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+
+    assert_difference(["IngressBinding.count", "ChannelConnector.count"], +1) do
+      post "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings",
+        params: {
+          platform: "telegram_webhook",
+          label: "Ops Telegram Webhook",
+        },
+        headers: app_api_headers(session.plaintext_token),
+        as: :json
+    end
+
+    assert_response :created
+    ingress_binding = IngressBinding.order(:id).last
+    channel_connector = ingress_binding.channel_connectors.order(:id).last
+
+    assert_equal "telegram_webhook", response.parsed_body.dig("ingress_binding", "channel_connector", "platform")
+    assert_equal "telegram_bot_api", response.parsed_body.dig("ingress_binding", "channel_connector", "driver")
+    assert_equal "webhook", response.parsed_body.dig("ingress_binding", "channel_connector", "transport_kind")
+    assert_equal "telegram_webhook", response.parsed_body.dig("ingress_binding", "setup", "platform")
     assert_includes response.parsed_body.dig("ingress_binding", "setup", "webhook_path"), ingress_binding.public_ingress_id
     assert response.parsed_body.dig("ingress_binding", "setup", "webhook_secret_token").present?
     assert ingress_binding.matches_ingress_secret?(response.parsed_body.dig("ingress_binding", "setup", "webhook_secret_token"))
+    assert_equal channel_connector.public_id, response.parsed_body.dig("ingress_binding", "channel_connector", "channel_connector_id")
   end
 
   test "disables a binding scoped through the workspace agent" do
@@ -75,13 +103,34 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
     assert_equal "ingress_binding_update", response.parsed_body.fetch("method_id")
     connector = ingress_binding.reload.channel_connectors.order(:id).last
     assert_equal "123:abc", connector.credential_ref_payload.fetch("bot_token")
+    assert_nil connector.config_payload["webhook_base_url"]
+  end
+
+  test "updates telegram webhook connector credentials and config through the binding" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    ingress_binding = create_ingress_binding!(context, platform: "telegram_webhook")
+
+    patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}",
+      params: {
+        channel_connector: {
+          credential_ref_payload: { bot_token: "123:abc" },
+          config_payload: { webhook_base_url: "https://bot.example.com" },
+        },
+      },
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :success
+    connector = ingress_binding.reload.channel_connectors.order(:id).last
+    assert_equal "123:abc", connector.credential_ref_payload.fetch("bot_token")
     assert_equal "https://bot.example.com", connector.config_payload.fetch("webhook_base_url")
   end
 
   test "reissues the telegram webhook secret token when requested" do
     context = create_workspace_context!
     session = create_session!(user: context[:user])
-    ingress_binding = create_ingress_binding!(context, platform: "telegram")
+    ingress_binding = create_ingress_binding!(context, platform: "telegram_webhook")
 
     patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}",
       params: {
@@ -105,7 +154,6 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
       params: {
         channel_connector: {
           credential_ref_payload: { bot_token: "123:abc" },
-          config_payload: { webhook_base_url: "https://bot.example.com" },
         },
       },
       headers: app_api_headers(session.plaintext_token),
@@ -118,6 +166,29 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
     assert_response :success
     assert_equal "ingress_binding_show", response.parsed_body.fetch("method_id")
     assert_equal ingress_binding.public_id, response.parsed_body.dig("ingress_binding", "ingress_binding_id")
+    assert_equal true, response.parsed_body.dig("ingress_binding", "channel_connector", "configured")
+  end
+
+  test "shows ingress binding configuration status for telegram webhook" do
+    context = create_workspace_context!
+    session = create_session!(user: context[:user])
+    ingress_binding = create_ingress_binding!(context, platform: "telegram_webhook")
+
+    patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}",
+      params: {
+        channel_connector: {
+          credential_ref_payload: { bot_token: "123:abc" },
+          config_payload: { webhook_base_url: "https://bot.example.com" },
+        },
+      },
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    get "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{ingress_binding.public_id}",
+      headers: app_api_headers(session.plaintext_token),
+      as: :json
+
+    assert_response :success
     assert_equal true, response.parsed_body.dig("ingress_binding", "channel_connector", "configured")
   end
 
@@ -255,8 +326,8 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
       installation: context[:installation],
       ingress_binding: ingress_binding,
       platform: platform,
-      driver: platform == "telegram" ? "telegram_bot_api" : "claw_bot_sdk_weixin",
-      transport_kind: platform == "telegram" ? "webhook" : "poller",
+      driver: telegram_platform?(platform) ? "telegram_bot_api" : "claw_bot_sdk_weixin",
+      transport_kind: transport_kind_for(platform),
       label: label,
       lifecycle_state: "active",
       credential_ref_payload: {},
@@ -265,5 +336,20 @@ class AppApiWorkspaceAgentIngressBindingsControllerTest < ActionDispatch::Integr
     )
 
     ingress_binding
+  end
+
+  def telegram_platform?(platform)
+    %w[telegram telegram_webhook].include?(platform)
+  end
+
+  def transport_kind_for(platform)
+    case platform
+    when "telegram"
+      "poller"
+    when "telegram_webhook"
+      "webhook"
+    else
+      "poller"
+    end
   end
 end

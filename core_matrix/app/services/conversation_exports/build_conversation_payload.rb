@@ -37,6 +37,7 @@ module ConversationExports
         "updated_at" => @conversation.updated_at&.iso8601(6),
         "title" => @conversation.title,
         "summary" => @conversation.summary,
+        "management" => Conversations::ManagedPolicy.call(conversation: @conversation),
         "title_source" => @conversation.title_source,
         "summary_source" => @conversation.summary_source,
       }

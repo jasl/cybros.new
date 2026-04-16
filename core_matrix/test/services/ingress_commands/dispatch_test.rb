@@ -32,7 +32,33 @@ class IngressCommands::DispatchTest < ActiveSupport::TestCase
 
       assert result.handled?
       assert_equal "control_command", result.handled_via
+      assert_equal "stop", result.command_name
+      assert_equal "stopped", result.payload["stop_status"]
+      assert_equal "final_delivery", result.payload["delivery_mode"]
+      assert_equal "Stopped the current work.", result.payload.dig("human_sidechat", "content")
       assert active_turn.reload.cancellation_requested_at.present? || active_turn.reload.canceled?
+    end
+  end
+
+  test "stop without active work returns an explicit no-op payload" do
+    context = dispatch_context
+    command = IngressCommands::Parse.call(text: "/stop")
+    ingress_context = IngressAPI::Context.new(
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector],
+      channel_session: context[:channel_session],
+      conversation: context[:conversation]
+    )
+
+    assert_no_difference("Turn.count") do
+      result = IngressCommands::Dispatch.call(command: command, context: ingress_context)
+
+      assert result.handled?
+      assert_equal "control_command", result.handled_via
+      assert_equal "stop", result.command_name
+      assert_equal "no_active_work", result.payload["stop_status"]
+      assert_equal "final_delivery", result.payload["delivery_mode"]
+      assert_equal "There is no active work to stop right now.", result.payload.dig("human_sidechat", "content")
     end
   end
 
@@ -117,7 +143,7 @@ class IngressCommands::DispatchTest < ActiveSupport::TestCase
     channel_connector = ChannelConnector.create!(
       installation: context[:installation],
       ingress_binding: ingress_binding,
-      platform: "telegram",
+      platform: "telegram_webhook",
       driver: "telegram_bot_api",
       transport_kind: "webhook",
       label: "Primary Telegram",
@@ -138,7 +164,7 @@ class IngressCommands::DispatchTest < ActiveSupport::TestCase
       ingress_binding: ingress_binding,
       channel_connector: channel_connector,
       conversation: conversation,
-      platform: "telegram",
+      platform: "telegram_webhook",
       peer_kind: "group",
       peer_id: "telegram-group-1",
       thread_key: "topic-1",

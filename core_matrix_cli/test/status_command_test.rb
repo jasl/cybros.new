@@ -21,6 +21,8 @@ class CoreMatrixCLIStatusCommandTest < CoreMatrixCLITestCase
         "lifecycle_state" => "active",
       },
       "codex_subscription" => "authorized",
+      "telegram" => "configured",
+      "telegram_webhook" => "configured",
     }
 
     output = run_cli("status", runtime: runtime)
@@ -31,6 +33,8 @@ class CoreMatrixCLIStatusCommandTest < CoreMatrixCLITestCase
     assert_includes output, "selected workspace: ws_123 (CLI Workspace)"
     assert_includes output, "selected workspace agent: wa_123 (active)"
     assert_includes output, "codex subscription: authorized"
+    assert_includes output, "telegram: configured"
+    assert_includes output, "telegram webhook: configured"
     assert_includes runtime.calls, [:readiness_snapshot]
   end
 

@@ -131,9 +131,28 @@ class ChannelSessionTest < ActiveSupport::TestCase
     assert_includes session.errors[:conversation], "must belong to the same workspace agent as the ingress binding"
   end
 
+  test "accepts telegram webhook as a distinct session platform" do
+    context = channel_session_context(platform: "telegram_webhook")
+
+    session = ChannelSession.create!(
+      installation: context[:installation],
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector],
+      conversation: context[:conversation],
+      platform: "telegram_webhook",
+      peer_kind: "dm",
+      peer_id: "telegram-user-2",
+      thread_key: nil,
+      session_metadata: {}
+    )
+
+    assert_equal "telegram_webhook", session.platform
+    assert_equal "telegram_webhook", session.channel_connector.platform
+  end
+
   private
 
-  def channel_session_context
+  def channel_session_context(platform: "telegram")
     context = create_workspace_context!
     ingress_binding = IngressBinding.create!(
       installation: context[:installation],
@@ -148,9 +167,9 @@ class ChannelSessionTest < ActiveSupport::TestCase
     channel_connector = ChannelConnector.create!(
       installation: context[:installation],
       ingress_binding: ingress_binding,
-      platform: "telegram",
+      platform: platform,
       driver: "telegram_bot_api",
-      transport_kind: "webhook",
+      transport_kind: transport_kind_for(platform),
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {},
@@ -173,5 +192,9 @@ class ChannelSessionTest < ActiveSupport::TestCase
       channel_connector: channel_connector,
       conversation: conversation
     )
+  end
+
+  def transport_kind_for(platform)
+    platform == "telegram_webhook" ? "webhook" : "poller"
   end
 end

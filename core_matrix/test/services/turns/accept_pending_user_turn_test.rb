@@ -93,4 +93,68 @@ class Turns::AcceptPendingUserTurnTest < ActiveSupport::TestCase
 
     assert_includes error.record.errors[:entry_policy_payload], "must allow main transcript entry for user turn entry"
   end
+
+  test "rejects channel-managed conversations even while idle" do
+    context = create_workspace_context!
+    conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      workspace_agent: context[:workspace_agent],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime],
+      entry_policy_payload: Conversation.channel_managed_entry_policy_payload(
+        base_policy_payload: context[:workspace_agent].entry_policy_payload,
+        purpose: "interactive"
+      )
+    )
+    bind_channel_session!(context:, conversation:)
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Turns::AcceptPendingUserTurn.call(
+        conversation: conversation,
+        content: "Blocked",
+        selector_source: "app_api",
+        selector: "candidate:codex_subscription/gpt-5.3-codex"
+      )
+    end
+
+    assert_includes error.record.errors[:entry_policy_payload], "must allow main transcript entry for user turn entry"
+  end
+
+  private
+
+  def bind_channel_session!(context:, conversation:, platform: "telegram")
+    ingress_binding = IngressBinding.create!(
+      installation: context[:installation],
+      workspace_agent: context[:workspace_agent],
+      default_execution_runtime: context[:execution_runtime],
+      routing_policy_payload: {},
+      manual_entry_policy: IngressBinding::DEFAULT_MANUAL_ENTRY_POLICY
+    )
+    channel_connector = ChannelConnector.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      platform: platform,
+      driver: "telegram_bot_api",
+      transport_kind: platform == "telegram_webhook" ? "webhook" : "poller",
+      label: "Telegram Connector",
+      lifecycle_state: "active",
+      credential_ref_payload: { "bot_token" => "123:abc" },
+      config_payload: {},
+      runtime_state_payload: {}
+    )
+
+    ChannelSession.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      channel_connector: channel_connector,
+      conversation: conversation,
+      platform: platform,
+      peer_kind: "dm",
+      peer_id: "42",
+      thread_key: nil,
+      binding_state: "active",
+      session_metadata: {}
+    )
+  end
 end

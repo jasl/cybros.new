@@ -83,6 +83,7 @@ module CoreMatrixCLI
 
             say("codex subscription: #{snapshot.fetch("codex_subscription", "unknown")}")
             say("telegram: #{snapshot.fetch("telegram", "unknown")}")
+            say("telegram webhook: #{snapshot.fetch("telegram_webhook", "unknown")}")
             say("weixin: #{snapshot.fetch("weixin", "unknown")}")
           end
 
@@ -110,6 +111,19 @@ module CoreMatrixCLI
 
           def normalize_base_url(base_url)
             base_url.to_s.strip.sub(%r{/+\z}, "")
+          end
+
+          def ensure_ingress_binding_id!(platform:, workspace_agent_id:)
+            ingress_binding_id = runtime.stored_ingress_binding_id(platform)
+            return ingress_binding_id unless ingress_binding_id.to_s.strip.empty?
+
+            created_binding = runtime.create_ingress_binding(
+              workspace_agent_id: workspace_agent_id,
+              platform: platform
+            ).fetch("ingress_binding")
+            ingress_binding_id = created_binding.fetch("ingress_binding_id")
+            runtime.persist_ingress_binding_id(platform, ingress_binding_id)
+            ingress_binding_id
           end
 
           def error_message_from(error)
@@ -332,7 +346,66 @@ module CoreMatrixCLI
       Preparation:
         - Create a bot in BotFather
         - Copy the bot token
+        - Ensure the recurring scheduler and queue worker are running for polling
+        - Use a bot token that is not also assigned to Telegram webhook mode
+
+      This command will ask for:
+        - bot token
+
+      This command will print:
+        - poller binding id
+
+      Transport notes:
+        - polling does not require a public HTTPS base URL
+        - polling and webhook require different Telegram bot tokens
+
+      v1 verification boundary:
+        - API-contract only, not real poll delivery
+    HELP
+    desc "setup", "Configure Telegram ingress"
+    def setup
+      with_cli_errors do
+        return unless require_base_url!
+
+        workspace_agent_id = selected_workspace_agent_id!
+        return if workspace_agent_id.nil?
+
+        ingress_binding_id = ensure_ingress_binding_id!(platform: "telegram", workspace_agent_id: workspace_agent_id)
+
+        bot_token = ask("Telegram Bot Token:")
+
+        updated_binding = runtime.update_ingress_binding(
+          workspace_agent_id: workspace_agent_id,
+          ingress_binding_id: ingress_binding_id,
+          channel_connector: {
+            credential_ref_payload: {
+              bot_token: bot_token,
+            },
+            config_payload: {},
+          }
+        ).fetch("ingress_binding")
+
+        setup = updated_binding.fetch("setup")
+        say("Polling Binding ID: #{setup.fetch("poller_binding_id")}")
+        say("Next: ensure recurring scheduler and queue workers are running for Telegram polling.")
+      end
+    end
+  end
+
+  class TelegramWebhookCLI < Thor
+    include CommandHelpers
+    remove_command :tree
+
+    def self.banner(command, *_args)
+      "cmctl ingress telegram-webhook #{command.usage}"
+    end
+
+    long_desc <<~HELP
+      Preparation:
+        - Create a bot in BotFather
+        - Copy the bot token
         - Prepare a public HTTPS base URL for CoreMatrix
+        - Use a bot token that is not also assigned to Telegram polling
 
       This command will ask for:
         - bot token
@@ -343,10 +416,13 @@ module CoreMatrixCLI
         - webhook secret header name
         - webhook secret token
 
+      Transport notes:
+        - polling and webhook require different Telegram bot tokens
+
       v1 verification boundary:
         - API-contract only, not real webhook delivery
     HELP
-    desc "setup", "Configure Telegram ingress"
+    desc "setup", "Configure Telegram webhook ingress"
     def setup
       with_cli_errors do
         return unless require_base_url!
@@ -354,16 +430,7 @@ module CoreMatrixCLI
         workspace_agent_id = selected_workspace_agent_id!
         return if workspace_agent_id.nil?
 
-        ingress_binding_id = runtime.stored_ingress_binding_id("telegram")
-
-        if ingress_binding_id.to_s.strip.empty?
-          created_binding = runtime.create_ingress_binding(
-            workspace_agent_id: workspace_agent_id,
-            platform: "telegram"
-          ).fetch("ingress_binding")
-          ingress_binding_id = created_binding.fetch("ingress_binding_id")
-          runtime.persist_ingress_binding_id("telegram", ingress_binding_id)
-        end
+        ingress_binding_id = ensure_ingress_binding_id!(platform: "telegram_webhook", workspace_agent_id: workspace_agent_id)
 
         bot_token = ask("Telegram Bot Token:")
         webhook_base_url = normalize_base_url(ask("Webhook Base URL:"))
@@ -424,16 +491,7 @@ module CoreMatrixCLI
         workspace_agent_id = selected_workspace_agent_id!
         return if workspace_agent_id.nil?
 
-        ingress_binding_id = runtime.stored_ingress_binding_id("weixin")
-
-        if ingress_binding_id.to_s.strip.empty?
-          created_binding = runtime.create_ingress_binding(
-            workspace_agent_id: workspace_agent_id,
-            platform: "weixin"
-          ).fetch("ingress_binding")
-          ingress_binding_id = created_binding.fetch("ingress_binding_id")
-          runtime.persist_ingress_binding_id("weixin", ingress_binding_id)
-        end
+        ingress_binding_id = ensure_ingress_binding_id!(platform: "weixin", workspace_agent_id: workspace_agent_id)
 
         runtime.start_weixin_login(
           workspace_agent_id: workspace_agent_id,
@@ -487,11 +545,10 @@ module CoreMatrixCLI
       "cmctl ingress #{command.usage}"
     end
 
-    desc "telegram SUBCOMMAND", "Manage Telegram ingress"
-    subcommand "telegram", TelegramCLI
-
-    desc "weixin SUBCOMMAND", "Manage Weixin ingress"
-    subcommand "weixin", WeixinCLI
+    register TelegramCLI, "telegram", "telegram SUBCOMMAND", "Manage Telegram ingress"
+    map "telegram-webhook" => "telegram_webhook"
+    register TelegramWebhookCLI, "telegram_webhook", "telegram-webhook SUBCOMMAND", "Manage Telegram webhook ingress"
+    register WeixinCLI, "weixin", "weixin SUBCOMMAND", "Manage Weixin ingress"
   end
 
   class CLI < Thor

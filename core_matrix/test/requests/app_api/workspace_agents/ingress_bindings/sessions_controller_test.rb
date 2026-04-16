@@ -20,7 +20,7 @@ class AppApiWorkspaceAgentIngressBindingSessionsControllerTest < ActionDispatch:
     assert_equal [channel_session.public_id], response.parsed_body.fetch("sessions").map { |item| item.fetch("channel_session_id") }
   end
 
-  test "rebinds a session to another conversation within the binding owner scope" do
+  test "rebinds a session by creating a managed child conversation within the binding owner scope" do
     context = ingress_session_context
     session = create_session!(user: context[:user])
     channel_session = create_channel_session!(context, peer_id: "telegram-user-1")
@@ -32,16 +32,26 @@ class AppApiWorkspaceAgentIngressBindingSessionsControllerTest < ActionDispatch:
       execution_runtime: context[:execution_runtime]
     )
 
-    patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{context[:ingress_binding].public_id}/sessions/#{channel_session.public_id}",
-      params: {
-        conversation_id: other_conversation.public_id,
-      },
-      headers: app_api_headers(session.plaintext_token),
-      as: :json
+    assert_difference("Conversation.count", 1) do
+      patch "/app_api/workspace_agents/#{context[:workspace_agent].public_id}/ingress_bindings/#{context[:ingress_binding].public_id}/sessions/#{channel_session.public_id}",
+        params: {
+          conversation_id: other_conversation.public_id,
+        },
+        headers: app_api_headers(session.plaintext_token),
+        as: :json
+    end
 
     assert_response :success
     assert_equal "ingress_binding_session_update", response.parsed_body.fetch("method_id")
-    assert_equal other_conversation, channel_session.reload.conversation
+    rebound_conversation = channel_session.reload.conversation
+    assert_not_equal other_conversation, rebound_conversation
+    assert_equal other_conversation, rebound_conversation.parent_conversation
+    assert_equal other_conversation.workspace_agent, rebound_conversation.workspace_agent
+    assert_equal Conversation.channel_managed_entry_policy_payload(
+      base_policy_payload: context[:workspace_agent].entry_policy_payload,
+      purpose: rebound_conversation.purpose
+    ), rebound_conversation.entry_policy_payload
+    assert_equal true, Conversations::ManagedPolicy.call(conversation: rebound_conversation).fetch("managed")
   end
 
   test "unbinds a session nested under the binding owner" do
@@ -117,7 +127,7 @@ class AppApiWorkspaceAgentIngressBindingSessionsControllerTest < ActionDispatch:
       ingress_binding: ingress_binding,
       platform: platform,
       driver: platform == "telegram" ? "telegram_bot_api" : "claw_bot_sdk_weixin",
-      transport_kind: platform == "telegram" ? "webhook" : "poller",
+      transport_kind: platform == "telegram" ? "poller" : "poller",
       label: label,
       lifecycle_state: "active",
       credential_ref_payload: {},

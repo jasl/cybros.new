@@ -16,7 +16,7 @@ class ChannelConnectorTest < ActiveSupport::TestCase
       ingress_binding: context[:ingress_binding],
       platform: "telegram",
       driver: "telegram_bot_api",
-      transport_kind: "webhook",
+      transport_kind: "poller",
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {},
@@ -29,7 +29,7 @@ class ChannelConnectorTest < ActiveSupport::TestCase
       ingress_binding: context[:ingress_binding],
       platform: "telegram",
       driver: "telegram_bot_api",
-      transport_kind: "webhook",
+      transport_kind: "poller",
       label: "Duplicate Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {},
@@ -40,6 +40,17 @@ class ChannelConnectorTest < ActiveSupport::TestCase
     assert_equal :belongs_to, ChannelConnector.reflect_on_association(:ingress_binding)&.macro
     assert_not duplicate.valid?
     assert duplicate.errors[:ingress_binding_id].present? || duplicate.errors[:base].present?
+  end
+
+  test "accepts telegram webhook as a distinct connector platform" do
+    connector = create_channel_connector!(
+      platform: "telegram_webhook",
+      transport_kind: "webhook",
+      label: "Primary Telegram Webhook"
+    )
+
+    assert_equal "telegram_webhook", connector.platform
+    assert_equal "webhook", connector.transport_kind
   end
 
   private
@@ -68,7 +79,7 @@ class ChannelConnectorTest < ActiveSupport::TestCase
       ingress_binding: context[:ingress_binding],
       platform: "telegram",
       driver: "telegram_bot_api",
-      transport_kind: "webhook",
+      transport_kind: "poller",
       label: "Primary Telegram",
       lifecycle_state: "active",
       credential_ref_payload: {},

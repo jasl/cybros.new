@@ -46,7 +46,21 @@ module IngressCommands
 
     def dispatch_stop
       active_turn = @context.active_turn || @context.conversation&.latest_active_turn
-      Conversations::RequestTurnInterrupt.call(turn: active_turn) if active_turn.present?
+      payload =
+        if active_turn.present?
+          Conversations::RequestTurnInterrupt.call(turn: active_turn)
+          stop_response_payload(
+            stop_status: "stopped",
+            response_kind: "control_dispatched",
+            content: "Stopped the current work."
+          )
+        else
+          stop_response_payload(
+            stop_status: "no_active_work",
+            response_kind: "control_noop",
+            content: "There is no active work to stop right now."
+          )
+        end
 
       IngressAPI::Result.handled(
         handled_via: "control_command",
@@ -55,7 +69,8 @@ module IngressCommands
         conversation: @context.conversation,
         channel_session: @context.channel_session,
         command_name: "stop",
-        request_metadata: @context.request_metadata
+        request_metadata: @context.request_metadata,
+        payload: payload
       )
     end
 
@@ -126,6 +141,19 @@ module IngressCommands
           supervision_access: supervision_access
         )
       end
+    end
+
+    def stop_response_payload(stop_status:, response_kind:, content:)
+      {
+        "stop_status" => stop_status,
+        "delivery_mode" => "final_delivery",
+        "responder_kind" => "builtin",
+        "human_sidechat" => {
+          "intent" => "control_request",
+          "response_kind" => response_kind,
+          "content" => content,
+        },
+      }
     end
   end
 end

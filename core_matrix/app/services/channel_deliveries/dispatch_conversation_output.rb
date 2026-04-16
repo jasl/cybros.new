@@ -67,7 +67,7 @@ module ChannelDeliveries
       end
 
       case delivery.channel_connector.platform
-      when "telegram"
+      when *ChannelConnector::TELEGRAM_FAMILY_PLATFORMS
         ChannelDeliveries::SendTelegramReply.call(channel_delivery: delivery)
       when "weixin"
         ChannelDeliveries::SendWeixinReply.call(channel_delivery: delivery)

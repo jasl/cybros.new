@@ -41,6 +41,14 @@ module IngressAPI
         dispatch(:send_document, **kwargs)
       end
 
+      def delete_webhook(**kwargs)
+        dispatch(:delete_webhook, **kwargs)
+      end
+
+      def get_updates(**kwargs)
+        dispatch(:get_updates, **kwargs)
+      end
+
       def get_file(**kwargs)
         dispatch(:get_file, **kwargs)
       end

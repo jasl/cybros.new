@@ -52,8 +52,10 @@ The fastest way to make a new installation usable today is through
 1. `cd core_matrix_cli`
 2. `bundle exec ./bin/cmctl init`
 3. `bundle exec ./bin/cmctl providers codex login`
-4. `bundle exec ./bin/cmctl ingress telegram setup` or `bundle exec ./bin/cmctl ingress weixin setup`
-5. `bundle exec ./bin/cmctl status`
+4. `bundle exec ./bin/cmctl ingress telegram setup`
+5. Optional: `bundle exec ./bin/cmctl ingress telegram-webhook setup`
+6. `bundle exec ./bin/cmctl ingress weixin setup`
+7. `bundle exec ./bin/cmctl status`
 
 For IM prerequisites and the exact values the CLI will ask for, see
 [docs/operations/core-matrix-im-preparation-guide.md](/Users/jasl/Workspaces/Ruby/cybros/docs/operations/core-matrix-im-preparation-guide.md).

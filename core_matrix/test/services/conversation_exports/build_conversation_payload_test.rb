@@ -128,6 +128,64 @@ class ConversationExportsBuildConversationPayloadTest < ActiveSupport::TestCase
     refute_includes json, %("#{child_conversation.id}")
   end
 
+  test "includes management projection for channel-managed conversations" do
+    context = create_workspace_context!
+    conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      workspace_agent: context[:workspace_agent],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime],
+      entry_policy_payload: Conversation.channel_managed_entry_policy_payload(
+        base_policy_payload: context[:workspace_agent].entry_policy_payload,
+        purpose: "interactive"
+      )
+    )
+    ingress_binding = IngressBinding.create!(
+      installation: context[:installation],
+      workspace_agent: context[:workspace_agent],
+      default_execution_runtime: context[:execution_runtime],
+      routing_policy_payload: {},
+      manual_entry_policy: IngressBinding::DEFAULT_MANUAL_ENTRY_POLICY
+    )
+    channel_connector = ChannelConnector.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      platform: "telegram",
+      driver: "telegram_bot_api",
+      transport_kind: "poller",
+      label: "Telegram Poller",
+      lifecycle_state: "active",
+      credential_ref_payload: { "bot_token" => "123:abc" },
+      config_payload: {},
+      runtime_state_payload: {}
+    )
+    channel_session = ChannelSession.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      channel_connector: channel_connector,
+      conversation: conversation,
+      platform: "telegram",
+      peer_kind: "dm",
+      peer_id: "42",
+      thread_key: nil,
+      binding_state: "active",
+      session_metadata: {}
+    )
+
+    payload = ConversationExports::BuildConversationPayload.call(conversation: conversation)
+
+    assert_equal true, payload.dig("conversation", "management", "managed")
+    assert_equal "channel_ingress", payload.dig("conversation", "management", "manager_kind")
+    assert_equal [channel_session.public_id], payload.dig("conversation", "management", "channel_session_ids")
+    assert_equal [ingress_binding.public_id], payload.dig("conversation", "management", "ingress_binding_ids")
+    assert_equal ["telegram"], payload.dig("conversation", "management", "platforms")
+
+    json = JSON.generate(payload)
+    refute_includes json, %("#{channel_session.id}")
+    refute_includes json, %("#{ingress_binding.id}")
+  end
+
   test "preloads transcript and attachments without query explosion" do
     context = create_workspace_context!
     conversation = Conversations::CreateRoot.call(

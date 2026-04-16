@@ -224,6 +224,7 @@ module ConversationDebugExports
         "retry_attempt_count" => snapshot.retry_attempt_count,
         "most_expensive_turn_id" => snapshot.most_expensive_turn&.public_id,
         "most_rounds_turn_id" => snapshot.most_rounds_turn&.public_id,
+        "management" => Conversations::ManagedPolicy.call(conversation: snapshot.conversation),
         "metadata" => public_snapshot_metadata(snapshot.metadata),
       }.compact
     end

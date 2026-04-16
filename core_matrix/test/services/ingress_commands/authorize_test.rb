@@ -78,6 +78,26 @@ class IngressCommands::AuthorizeTest < ActiveSupport::TestCase
     assert_equal "missing_sender_provenance", authorization.rejection_reason
   end
 
+  test "allows stop as a no-op when control is enabled and there is no active work" do
+    context = ingress_authorization_context
+    command = IngressCommands::Parse.call(text: "/stop")
+    ingress_context = IngressAPI::Context.new(
+      ingress_binding: context[:ingress_binding],
+      channel_connector: context[:channel_connector],
+      channel_session: context[:channel_session],
+      conversation: context[:conversation]
+    )
+
+    authorization = IngressCommands::Authorize.call(
+      command: command,
+      context: ingress_context,
+      sender_external_id: "telegram-user-1"
+    )
+
+    assert authorization.allowed?
+    assert_nil authorization.rejection_reason
+  end
+
   test "rejects btw when the question is blank" do
     context = ingress_authorization_context
     command = IngressCommands::Parse.call(text: "/btw")
@@ -150,7 +170,7 @@ class IngressCommands::AuthorizeTest < ActiveSupport::TestCase
     channel_connector = ChannelConnector.create!(
       installation: context[:installation],
       ingress_binding: ingress_binding,
-      platform: "telegram",
+      platform: "telegram_webhook",
       driver: "telegram_bot_api",
       transport_kind: "webhook",
       label: "Primary Telegram",
@@ -171,7 +191,7 @@ class IngressCommands::AuthorizeTest < ActiveSupport::TestCase
       ingress_binding: ingress_binding,
       channel_connector: channel_connector,
       conversation: conversation,
-      platform: "telegram",
+      platform: "telegram_webhook",
       peer_kind: "group",
       peer_id: "telegram-group-1",
       thread_key: "topic-1",

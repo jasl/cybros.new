@@ -78,4 +78,36 @@ class Turns::StartChannelIngressTurnTest < ActiveSupport::TestCase
 
     assert_equal "origin_payload must include external_sender_id", error.message
   end
+
+  test "allows channel ingress for managed channel conversations even when main transcript entry is disabled" do
+    context = create_workspace_context!
+    conversation = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      workspace_agent: context[:workspace_agent],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime],
+      entry_policy_payload: Conversation.channel_managed_entry_policy_payload(
+        base_policy_payload: context[:workspace_agent].entry_policy_payload,
+        purpose: "interactive"
+      )
+    )
+
+    turn = Turns::StartChannelIngressTurn.call(
+      conversation: conversation,
+      channel_inbound_message: InboundMessage.new("channel_inbound_message_4"),
+      content: "Inbound channel text",
+      origin_payload: {
+        "ingress_binding_id" => "ingress_binding_1",
+        "channel_session_id" => "channel_session_1",
+        "channel_inbound_message_id" => "channel_inbound_message_4",
+        "external_sender_id" => "telegram:user:42",
+      },
+      selector_source: "conversation",
+      selector: "candidate:codex_subscription/gpt-5.3-codex"
+    )
+
+    assert turn.active?
+    assert_equal "channel_ingress", turn.origin_kind
+  end
 end

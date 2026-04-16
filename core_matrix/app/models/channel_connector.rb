@@ -1,7 +1,9 @@
 class ChannelConnector < ApplicationRecord
   include HasPublicId
 
-  enum :platform, { telegram: "telegram", weixin: "weixin" }, validate: true
+  TELEGRAM_FAMILY_PLATFORMS = %w[telegram telegram_webhook].freeze
+
+  enum :platform, { telegram: "telegram", telegram_webhook: "telegram_webhook", weixin: "weixin" }, validate: true
   enum :transport_kind, { webhook: "webhook", poller: "poller" }, validate: true
   enum :lifecycle_state,
     {
@@ -29,6 +31,33 @@ class ChannelConnector < ApplicationRecord
 
   before_validation :apply_defaults
   before_validation :normalize_payloads
+
+  scope :telegram_family, -> { where(platform: TELEGRAM_FAMILY_PLATFORMS) }
+
+  def telegram_family?
+    TELEGRAM_FAMILY_PLATFORMS.include?(platform)
+  end
+
+  def bot_token
+    credential_ref_payload["bot_token"].to_s.strip
+  end
+
+  def webhook_base_url
+    config_payload["webhook_base_url"].to_s.strip
+  end
+
+  def poller_ready?
+    return false unless active? && poller?
+
+    case platform
+    when "telegram"
+      bot_token.present?
+    when "weixin"
+      runtime_state_payload["base_url"].to_s.present? && runtime_state_payload["bot_token"].to_s.present?
+    else
+      false
+    end
+  end
 
   private
 

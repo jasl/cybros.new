@@ -4,6 +4,10 @@ module AppAPI
       PLATFORM_CONNECTOR_DEFAULTS = {
         "telegram" => {
           driver: "telegram_bot_api",
+          transport_kind: "poller",
+        },
+        "telegram_webhook" => {
+          driver: "telegram_bot_api",
           transport_kind: "webhook",
         },
         "weixin" => {
@@ -197,6 +201,11 @@ module AppAPI
         when "telegram"
           {
             "platform" => "telegram",
+            "poller_binding_id" => ingress_binding.public_ingress_id,
+          }
+        when "telegram_webhook"
+          {
+            "platform" => "telegram_webhook",
             "webhook_path" => "/ingress_api/telegram/bindings/#{ingress_binding.public_ingress_id}/updates",
             "webhook_secret_token" => plaintext_secret_token,
           }
@@ -227,8 +236,9 @@ module AppAPI
       def channel_connector_configured?(connector)
         case connector.platform
         when "telegram"
-          connector.credential_ref_payload.fetch("bot_token", "").present? &&
-            connector.config_payload.fetch("webhook_base_url", "").present?
+          connector.bot_token.present?
+        when "telegram_webhook"
+          connector.bot_token.present? && connector.webhook_base_url.present?
         else
           connector.lifecycle_state == "active"
         end

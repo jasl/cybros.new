@@ -38,11 +38,6 @@ module Turns
       ) do |conversation|
         raise_invalid!(conversation, :purpose, "must be interactive for channel ingress turn entry") unless conversation.interactive?
         raise_invalid!(conversation, :entry_policy_payload, "must allow channel ingress turn entry") unless conversation.allows_entry_surface?("channel_ingress")
-        SubagentConnections::ValidateAddressability.call(
-          conversation: conversation,
-          sender_kind: "human",
-          rejection_message: "must allow main transcript entry for channel ingress turn entry"
-        )
 
         execution_identity = Turns::FreezeExecutionIdentity.call(
           conversation: conversation,

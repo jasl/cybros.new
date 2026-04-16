@@ -23,6 +23,7 @@ module AppSurface
           "lifecycle_state" => @conversation.lifecycle_state,
           "title" => @conversation.title,
           "summary" => @conversation.summary,
+          "management" => Conversations::ManagedPolicy.call(conversation: @conversation),
           "created_at" => @conversation.created_at&.iso8601(6),
           "updated_at" => @conversation.updated_at&.iso8601(6),
         }.compact

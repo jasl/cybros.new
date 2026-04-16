@@ -121,6 +121,56 @@ class Conversations::CreateForkTest < ActiveSupport::TestCase
     assert_equal root_turn.selected_input_message_id, fork.historical_anchor_message_id
   end
 
+  test "restores the ordinary interactive entry policy when forking a managed conversation" do
+    context = create_workspace_context!
+    parent = create_conversation_record!(
+      installation: context[:installation],
+      workspace: context[:workspace],
+      workspace_agent: context[:workspace_agent],
+      agent: context[:agent],
+      execution_runtime: context[:execution_runtime],
+      entry_policy_payload: Conversation.channel_managed_entry_policy_payload(
+        base_policy_payload: context[:workspace_agent].entry_policy_payload,
+        purpose: "interactive"
+      )
+    )
+    ingress_binding = IngressBinding.create!(
+      installation: context[:installation],
+      workspace_agent: context[:workspace_agent],
+      default_execution_runtime: context[:execution_runtime],
+      routing_policy_payload: {},
+      manual_entry_policy: IngressBinding::DEFAULT_MANUAL_ENTRY_POLICY
+    )
+    channel_connector = ChannelConnector.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      platform: "telegram",
+      driver: "telegram_bot_api",
+      transport_kind: "poller",
+      label: "Telegram Poller",
+      lifecycle_state: "active",
+      credential_ref_payload: { "bot_token" => "123:abc" },
+      config_payload: {},
+      runtime_state_payload: {}
+    )
+    ChannelSession.create!(
+      installation: context[:installation],
+      ingress_binding: ingress_binding,
+      channel_connector: channel_connector,
+      conversation: parent,
+      platform: "telegram",
+      peer_kind: "dm",
+      peer_id: "42",
+      thread_key: nil,
+      binding_state: "active",
+      session_metadata: {}
+    )
+
+    fork = Conversations::CreateFork.call(parent: parent)
+
+    assert_equal default_interactive_entry_policy_payload, fork.entry_policy_payload
+  end
+
   test "rejects parents while close is in progress" do
     context = create_workspace_context!
     root = Conversations::CreateRoot.call(

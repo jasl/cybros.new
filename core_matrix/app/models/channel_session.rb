@@ -1,7 +1,7 @@
 class ChannelSession < ApplicationRecord
   include HasPublicId
 
-  enum :platform, { telegram: "telegram", weixin: "weixin" }, validate: true
+  enum :platform, { telegram: "telegram", telegram_webhook: "telegram_webhook", weixin: "weixin" }, validate: true
   enum :binding_state,
     {
       active: "active",
@@ -19,6 +19,8 @@ class ChannelSession < ApplicationRecord
   has_many :channel_inbound_messages, dependent: :restrict_with_exception
   has_many :channel_deliveries, dependent: :restrict_with_exception
 
+  scope :telegram_family, -> { where(platform: ChannelConnector::TELEGRAM_FAMILY_PLATFORMS) }
+
   validates :peer_kind, presence: true
   validates :peer_id, presence: true
   validate :session_metadata_must_be_hash
@@ -32,6 +34,10 @@ class ChannelSession < ApplicationRecord
   before_validation :apply_defaults
   before_validation :normalize_thread_key
   before_validation :normalize_session_metadata
+
+  def telegram_family?
+    ChannelConnector::TELEGRAM_FAMILY_PLATFORMS.include?(platform)
+  end
 
   private
 

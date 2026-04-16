@@ -3,6 +3,19 @@ require "erb"
 require "yaml"
 
 class DataRetentionConfigurationTest < ActiveSupport::TestCase
+  test "recurring config schedules channel connector polling dispatch on the maintenance queue" do
+    config = YAML.safe_load(
+      ERB.new(Rails.root.join("config/recurring.yml").read).result,
+      aliases: true
+    )
+
+    task = config.fetch("production").fetch("channel_connector_poll_dispatch")
+
+    assert_equal "ChannelConnectors::DispatchActivePollersJob", task.fetch("class")
+    assert_equal "maintenance", task.fetch("queue")
+    assert_equal "every minute", task.fetch("schedule")
+  end
+
   test "recurring config schedules data retention maintenance on the maintenance queue" do
     config = YAML.safe_load(
       ERB.new(Rails.root.join("config/recurring.yml").read).result,

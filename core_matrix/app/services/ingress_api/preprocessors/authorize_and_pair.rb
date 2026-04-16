@@ -68,9 +68,13 @@ module IngressAPI
           existing_session = existing_dm_session
           return bind_pairing_request!(pairing_request, existing_session) if existing_session.present?
 
-          conversation = Conversations::CreateRoot.call(
+          conversation = Conversations::CreateManagedChannelConversation.call(
             workspace_agent: @context.ingress_binding.workspace_agent,
-            execution_runtime: resolved_execution_runtime
+            execution_runtime: resolved_execution_runtime,
+            platform: @context.channel_connector.platform,
+            peer_kind: "dm",
+            peer_id: @context.envelope.external_sender_id,
+            session_metadata: initial_session_metadata
           )
           session = ChannelSession.create!(
             installation: @context.ingress_binding.installation,
@@ -115,12 +119,22 @@ module IngressAPI
       end
 
       def initial_session_metadata
-        return {} unless @context.envelope.platform == "weixin"
+        metadata = {}
+        sender_snapshot = (@context.envelope.sender_snapshot || {}).deep_stringify_keys
+        username = sender_snapshot["username"].to_s
+        metadata["sender_username"] = username if username.present?
+        label = [
+          sender_snapshot["first_name"],
+          sender_snapshot["last_name"],
+        ].compact.join(" ").presence || sender_snapshot["label"].presence
+        metadata["sender_label"] = label if label.present?
 
-        token = @context.envelope.transport_metadata["context_token"].to_s
-        return {} if token.blank?
+        if @context.envelope.platform == "weixin"
+          token = @context.envelope.transport_metadata["context_token"].to_s
+          metadata["context_token"] = token if token.present?
+        end
 
-        { "context_token" => token }
+        metadata
       end
     end
   end

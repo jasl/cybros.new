@@ -24,6 +24,11 @@ module Conversations
             closing_message: "must not update conversation metadata while close is in progress"
           ) do |conversation|
             raise_missing_edit!(conversation) unless title_provided? || summary_provided?
+            Conversations::ManagedPolicy.assert_not_managed!(
+              conversation: conversation,
+              record: conversation,
+              message: "must not update conversation metadata while externally managed"
+            )
 
             attributes, rejections = update_plan_for(conversation)
             raise_rejections!(conversation, rejections) if attributes.empty?

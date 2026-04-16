@@ -33,11 +33,10 @@ module IngressAPI
       private
 
       def telegram_sessions
-        ChannelSession.where(
+        ChannelSession.telegram_family.where(
           installation_id: @conversation.installation_id,
           conversation_id: @conversation.id,
-          binding_state: "active",
-          platform: "telegram"
+          binding_state: "active"
         ).order(:id)
       end
 

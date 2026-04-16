@@ -48,7 +48,7 @@ class IngressAPI::CommandSurfaceTest < ActiveSupport::TestCase
     assert_equal "telegram:chat:telegram-user-1:message:1002", delivery.reply_to_external_message_key
   end
 
-  test "stop interrupts same sender work without creating transcript or sidecar output" do
+  test "stop interrupts same sender work and dispatches an outbound acknowledgement" do
     context = command_context
     active_turn = Turns::StartChannelIngressTurn.call(
       conversation: context[:conversation],
@@ -65,18 +65,55 @@ class IngressAPI::CommandSurfaceTest < ActiveSupport::TestCase
     )
     adapter = fake_adapter_for(context, text: "/stop", external_message_id: 1003)
 
-    assert_no_difference(["Turn.count", "ChannelDelivery.count"]) do
-      result = IngressAPI::ReceiveEvent.call(
-        adapter: adapter,
-        raw_payload: { "update_id" => 1003 },
-        request_metadata: { "source" => "telegram_webhook" }
-      )
+    assert_no_difference("Turn.count") do
+      assert_difference("ChannelDelivery.count", 1) do
+        result = IngressAPI::ReceiveEvent.call(
+          adapter: adapter,
+          raw_payload: { "update_id" => 1003 },
+          request_metadata: { "source" => "telegram_webhook" }
+        )
 
-      assert result.handled?
-      assert_equal "control_command", result.handled_via
+        assert result.handled?
+        assert_equal "control_command", result.handled_via
+        assert_equal "stopped", result.payload["stop_status"]
+        assert_equal "final_delivery", result.payload["delivery_mode"]
+        assert_equal "Stopped the current work.", result.payload.dig("human_sidechat", "content")
+      end
     end
 
+    delivery = ChannelDelivery.order(:id).last
+    assert_equal context[:conversation], delivery.conversation
+    assert_equal "Stopped the current work.", delivery.payload["text"]
+    assert_equal "final_delivery", delivery.payload["delivery_mode"]
+    assert_equal "telegram:chat:telegram-user-1:message:1003", delivery.reply_to_external_message_key
     assert active_turn.reload.cancellation_requested_at.present? || active_turn.reload.canceled?
+  end
+
+  test "stop without active work returns an explicit no-op acknowledgement" do
+    context = command_context
+    adapter = fake_adapter_for(context, text: "/stop", external_message_id: 1004)
+
+    assert_no_difference("Turn.count") do
+      assert_difference("ChannelDelivery.count", 1) do
+        result = IngressAPI::ReceiveEvent.call(
+          adapter: adapter,
+          raw_payload: { "update_id" => 1004 },
+          request_metadata: { "source" => "telegram_webhook" }
+        )
+
+        assert result.handled?
+        assert_equal "control_command", result.handled_via
+        assert_equal "no_active_work", result.payload["stop_status"]
+        assert_equal "final_delivery", result.payload["delivery_mode"]
+        assert_equal "There is no active work to stop right now.", result.payload.dig("human_sidechat", "content")
+      end
+    end
+
+    delivery = ChannelDelivery.order(:id).last
+    assert_equal context[:conversation], delivery.conversation
+    assert_equal "There is no active work to stop right now.", delivery.payload["text"]
+    assert_equal "final_delivery", delivery.payload["delivery_mode"]
+    assert_equal "telegram:chat:telegram-user-1:message:1004", delivery.reply_to_external_message_key
   end
 
   private
@@ -96,7 +133,7 @@ class IngressAPI::CommandSurfaceTest < ActiveSupport::TestCase
     channel_connector = ChannelConnector.create!(
       installation: context[:installation],
       ingress_binding: ingress_binding,
-      platform: "telegram",
+      platform: "telegram_webhook",
       driver: "telegram_bot_api",
       transport_kind: "webhook",
       label: "Primary Telegram",
@@ -119,7 +156,7 @@ class IngressAPI::CommandSurfaceTest < ActiveSupport::TestCase
       ingress_binding: ingress_binding,
       channel_connector: channel_connector,
       conversation: conversation,
-      platform: "telegram",
+      platform: "telegram_webhook",
       peer_kind: "dm",
       peer_id: "telegram-user-1",
       thread_key: nil,

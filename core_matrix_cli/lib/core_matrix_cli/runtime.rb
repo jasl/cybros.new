@@ -185,6 +185,7 @@ module CoreMatrixCLI
         "selected_workspace_agent" => nil,
         "codex_subscription" => "unknown",
         "telegram" => "unknown",
+        "telegram_webhook" => "unknown",
         "weixin" => "unknown",
       }
 
@@ -228,6 +229,15 @@ module CoreMatrixCLI
           ingress_binding_id: telegram_binding_id
         ).fetch("ingress_binding", {})
         snapshot["telegram"] = telegram_binding.dig("channel_connector", "configured") ? "configured" : "missing"
+      end
+
+      telegram_webhook_binding_id = stored_ingress_binding_id("telegram_webhook")
+      if workspace_agent_id.to_s.strip != "" && telegram_webhook_binding_id.to_s.strip != ""
+        telegram_webhook_binding = show_ingress_binding(
+          workspace_agent_id: workspace_agent_id,
+          ingress_binding_id: telegram_webhook_binding_id
+        ).fetch("ingress_binding", {})
+        snapshot["telegram_webhook"] = telegram_webhook_binding.dig("channel_connector", "configured") ? "configured" : "missing"
       end
 
       weixin_binding_id = stored_ingress_binding_id("weixin")
@@ -292,6 +302,7 @@ module CoreMatrixCLI
 
     def clear_ingress_binding_selection!(payload)
       payload.delete("telegram_ingress_binding_id")
+      payload.delete("telegram_webhook_ingress_binding_id")
       payload.delete("weixin_ingress_binding_id")
     end
   end

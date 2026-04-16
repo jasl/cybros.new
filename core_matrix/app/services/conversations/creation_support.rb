@@ -2,7 +2,7 @@ module Conversations
   module CreationSupport
     private
 
-    def create_root_conversation!(workspace_agent:, workspace:, agent:, purpose:, execution_runtime: nil)
+    def create_root_conversation!(workspace_agent:, workspace:, agent:, purpose:, execution_runtime: nil, entry_policy_payload: nil)
       capability_projection = WorkspacePolicies::Capabilities.projection_attributes_for(
         workspace: workspace,
         agent: agent,
@@ -19,7 +19,7 @@ module Conversations
         current_execution_runtime: execution_runtime,
         kind: "root",
         purpose: purpose,
-        entry_policy_payload: Conversation.normalize_entry_policy_payload(
+        entry_policy_payload: entry_policy_payload || Conversation.normalize_entry_policy_payload(
           workspace_agent.entry_policy_payload,
           purpose: purpose
         ),

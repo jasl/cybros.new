@@ -8,6 +8,7 @@ Thor-based operator CLI for CoreMatrix.
 bundle exec ./bin/cmctl init
 bundle exec ./bin/cmctl providers codex login
 bundle exec ./bin/cmctl ingress telegram setup
+bundle exec ./bin/cmctl ingress telegram-webhook setup
 bundle exec ./bin/cmctl ingress weixin setup
 bundle exec ./bin/cmctl status
 ```
@@ -30,7 +31,7 @@ administration. The implemented happy path is:
 - create and select a workspace
 - attach an agent to that workspace
 - authorize Codex Subscription
-- configure Telegram or drive the Weixin QR login contract
+- configure Telegram polling and optionally Telegram webhook, or drive the Weixin QR login contract
 - inspect the current readiness snapshot
 
 ## Command Groups
@@ -42,6 +43,7 @@ administration. The implemented happy path is:
 - `cmctl workspace list|create|use`
 - `cmctl agent attach`
 - `cmctl ingress telegram setup`
+- `cmctl ingress telegram-webhook setup`
 - `cmctl ingress weixin setup`
 
 ## IM Preparation
@@ -51,6 +53,7 @@ command help:
 
 ```bash
 bundle exec ./bin/cmctl ingress telegram help setup
+bundle exec ./bin/cmctl ingress telegram-webhook help setup
 bundle exec ./bin/cmctl ingress weixin help setup
 ```
 
@@ -60,6 +63,6 @@ The longer companion guide is available at
 ## Verification Boundary
 
 Telegram and Weixin self-verification in v1 is API-contract only. The CLI can
-prove the setup endpoints, connector writes, webhook material exposure, QR
-rendering, and status polling. Real webhook delivery and human QR scans remain
-later joint integration work.
+prove polling setup, webhook material exposure, connector writes, QR rendering,
+and status polling. Real Telegram delivery and human QR scans remain later
+joint integration work.
