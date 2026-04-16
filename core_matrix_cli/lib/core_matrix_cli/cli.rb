@@ -86,15 +86,49 @@ module CoreMatrixCLI
 
   class CodexCLI < Thor
     include CommandHelpers
+    POLL_TIMEOUT = 10
+    POLL_INTERVAL = 0.01
 
     desc "login", "Authorize the Codex subscription"
-    def login; end
+    def login
+      return unless require_base_url!
+
+      authorization = runtime.start_codex_authorization.fetch("authorization")
+      authorization_url = authorization["authorization_url"]
+      say("authorization url: #{authorization_url}") if authorization_url
+      browser_launcher.open(authorization_url) if authorization_url
+
+      final_payload = Polling.until(
+        timeout: POLL_TIMEOUT,
+        interval: POLL_INTERVAL,
+        stop_on: ->(payload) { payload.dig("authorization", "status") != "pending" }
+      ) do
+        runtime.codex_authorization_status
+      end
+
+      say("codex subscription: #{final_payload.dig("authorization", "status")}")
+    end
 
     desc "status", "Show the Codex authorization status"
-    def status; end
+    def status
+      return unless require_base_url!
+
+      say("codex subscription: #{runtime.codex_authorization_status.dig("authorization", "status")}")
+    end
 
     desc "logout", "Revoke the Codex authorization"
-    def logout; end
+    def logout
+      return unless require_base_url!
+
+      payload = runtime.revoke_codex_authorization
+      say("codex subscription: #{payload.dig("authorization", "status")}")
+    end
+
+    no_commands do
+      def browser_launcher
+        @browser_launcher ||= CoreMatrixCLI.browser_launcher_factory.call
+      end
+    end
   end
 
   class ProvidersCLI < Thor

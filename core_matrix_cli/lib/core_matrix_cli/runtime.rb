@@ -101,6 +101,18 @@ module CoreMatrixCLI
       authenticated_client.get("/app_api/admin/llm_providers/#{provider_handle}")
     end
 
+    def start_codex_authorization
+      authenticated_client.post("/app_api/admin/llm_providers/codex_subscription/authorization")
+    end
+
+    def codex_authorization_status
+      authenticated_client.get("/app_api/admin/llm_providers/codex_subscription/authorization")
+    end
+
+    def revoke_codex_authorization
+      authenticated_client.delete("/app_api/admin/llm_providers/codex_subscription/authorization")
+    end
+
     def readiness_snapshot
       snapshot = {
         "authenticated" => false,

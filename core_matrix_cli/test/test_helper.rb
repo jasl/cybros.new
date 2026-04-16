@@ -42,16 +42,26 @@ class CoreMatrixCLITestCase < Minitest::Test
     CoreMatrixCLI.runtime_factory = previous_runtime_factory
   end
 
-  def run_cli(*args, input: "", runtime:)
+  def with_browser_launcher_factory(browser_launcher)
+    previous_browser_launcher_factory = CoreMatrixCLI.browser_launcher_factory
+    CoreMatrixCLI.browser_launcher_factory = -> { browser_launcher }
+    yield
+  ensure
+    CoreMatrixCLI.browser_launcher_factory = previous_browser_launcher_factory
+  end
+
+  def run_cli(*args, input: "", runtime:, browser_launcher: FakeBrowserLauncher.new)
     output = nil
     stdin = $stdin
     $stdin = TestInput.new(input)
 
     with_runtime_factory(runtime) do
-      stdout, stderr = capture_io do
-        CoreMatrixCLI::CLI.start(args.flatten.map(&:to_s))
+      with_browser_launcher_factory(browser_launcher) do
+        stdout, stderr = capture_io do
+          CoreMatrixCLI::CLI.start(args.flatten.map(&:to_s))
+        end
+        output = stdout + stderr
       end
-      output = stdout + stderr
     end
 
     output
@@ -64,7 +74,9 @@ class FakeRuntime
   attr_reader :calls, :config_store, :credential_store
   attr_accessor :bootstrap_status_payload, :bootstrap_response, :login_response,
     :session_response, :logout_response, :readiness_payload, :workspaces_response,
-    :create_workspace_response, :agents_response, :attach_workspace_agent_response
+    :create_workspace_response, :agents_response, :attach_workspace_agent_response,
+    :start_codex_authorization_response, :codex_authorization_status_sequence,
+    :revoke_codex_authorization_response
 
   def initialize(config_store:, credential_store:)
     @config_store = config_store
@@ -80,6 +92,9 @@ class FakeRuntime
     @create_workspace_response = nil
     @agents_response = { "agents" => [] }
     @attach_workspace_agent_response = nil
+    @start_codex_authorization_response = nil
+    @codex_authorization_status_sequence = []
+    @revoke_codex_authorization_response = { "authorization" => { "status" => "missing" } }
   end
 
   def stored_base_url
@@ -168,9 +183,37 @@ class FakeRuntime
     calls << [:attach_workspace_agent, workspace_id, agent_id]
     @attach_workspace_agent_response || raise("missing attach_workspace_agent_response")
   end
+
+  def start_codex_authorization
+    calls << [:start_codex_authorization]
+    @start_codex_authorization_response || raise("missing start_codex_authorization_response")
+  end
+
+  def codex_authorization_status
+    calls << [:codex_authorization_status]
+    @codex_authorization_status_sequence.shift || raise("missing codex_authorization_status_sequence")
+  end
+
+  def revoke_codex_authorization
+    calls << [:revoke_codex_authorization]
+    @revoke_codex_authorization_response
+  end
 end
 
 FakeShellResult = Struct.new(:success?, :stdout, :stderr, keyword_init: true)
+
+class FakeBrowserLauncher
+  attr_reader :opened_urls
+
+  def initialize
+    @opened_urls = []
+  end
+
+  def open(url)
+    @opened_urls << url
+    true
+  end
+end
 
 class FakeShellRunner
   attr_reader :commands
