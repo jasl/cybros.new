@@ -136,6 +136,10 @@ bundle exec ruby script/manual/workflow_proof_export.rb export ...
 - Set `RAILS_DB_URL_BASE=postgresql://postgres:postgres@127.0.0.1:5432` on
   Ubuntu when Rails runs on the host and PostgreSQL 18 runs in Docker with a
   published port.
+- Set `CORE_MATRIX_PUBLIC_BASE_URL` to the externally reachable origin that
+  operators, browsers, and webhook providers should use for generated links.
+- Keep `CORE_MATRIX_PUBLIC_BASE_URL` distinct from the internal
+  container-to-container control-plane URL used by `fenix` or `nexus`.
 - Containerized services still use Docker Compose environment injection. In
   `compose.yaml.sample`, explicit service `environment` values override
   same-named values coming from `env_file`.

@@ -37,8 +37,8 @@ Rails.application.configure do
   # ActionMailer::Base.deliveries array.
   config.action_mailer.delivery_method = :test
 
-  # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "example.com" }
+  # Set host to be used by URLs generated for external consumers.
+  CoreMatrix::PublicUrlOptions.apply!(config, env_name: Rails.env)
 
   # Print deprecation notices to the stderr.
   config.active_support.deprecation = :stderr
