@@ -18,7 +18,7 @@ This design covers:
 - rebuilding `core_matrix_cli/` as the only CLI project
 - using `core_matrix_cli.old/` only as a behavior/specification source
 - removing `core_matrix_cli.old/` after the new CLI reaches feature parity
-- normalizing or deleting the partially generated gem scaffold files already
+- normalizing or deleting the checkpointed Bundler gem scaffold files already
   present under `core_matrix_cli/`
 - keeping the CLI under the MIT license
 - updating monorepo licensing so `core_matrix` remains O'Saasy while the other
@@ -89,6 +89,9 @@ should use when translating old behavior into the rebuilt project:
   - current operator smoke flow that must keep passing after the rebuild
 - `acceptance/lib/active_suite.rb:9-37`
   - current active acceptance matrix entry for the operator CLI smoke scenario
+- `acceptance/Gemfile:1-1`
+  - current acceptance Bundler context, which still only evals
+    `core_matrix/Gemfile`
 - `README.md:47-92`
   - current monorepo operator quickstart and licensing sections that need
     coordinated updates
@@ -103,21 +106,32 @@ should use when translating old behavior into the rebuilt project:
   - current placeholder Bundler README content
 - `core_matrix_cli/core_matrix_cli.gemspec:1-35`
   - current gem metadata, executable packaging rule, and missing real summary
-- `core_matrix_cli/lib/core_matrix_cli.rb:1-5`
+- `core_matrix_cli/.gitignore:1-9`
+  - current scaffold ignore rules, already excluding `pkg/` artifacts
+- `core_matrix_cli/lib/core_matrix_cli.rb:1-6`
   - current placeholder root module content
+- `core_matrix_cli/lib/core_matrix_cli/version.rb:1-3`
+  - current scaffold version, `0.0.1`
 - `core_matrix_cli/test/test_helper.rb:1-4`
   - current minimal test boot file
-- `core_matrix_cli/Gemfile:1-12`
-  - current gem development dependencies and missing fake-server dependency
+- `core_matrix_cli/Gemfile:1-13`
+  - current gem development dependencies, including `webrick`
+- `core_matrix_cli/Gemfile.lock:1-180`
+  - current locked dependency set for the scaffold shell
 - `core_matrix_cli/.rubocop.yml:1-47`
   - current scaffold RuboCop baseline that should be kept or deliberately
     replaced
-- `core_matrix_cli/bin/console:1-10`
+- `core_matrix_cli/bin/console:1-11`
   - current scaffold console helper that should be normalized if retained
 - `core_matrix_cli/bin/setup:1-8`
   - current scaffold setup helper that should be normalized if retained
 - `core_matrix_cli/sig/core_matrix_cli.rbs:1-4`
   - current stale placeholder RBS file with the wrong module name
+- `core_matrix_cli/.github/workflows/main.yml:1-32`
+  - scaffold-local workflow that should not survive in the monorepo
+
+At this checkpoint, `core_matrix_cli/` does not yet contain `.ruby-version` or
+`exe/cmctl`. Those absences are part of the verified Task 1 starting state.
 
 ## Architecture Recommendation
 

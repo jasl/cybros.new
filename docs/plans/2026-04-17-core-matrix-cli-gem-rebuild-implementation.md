@@ -15,16 +15,19 @@
 - Follow `@test-driven-development` for each behavior change.
 - If an old `core_matrix_cli.old` test is useful, rewrite its intent into the
   new test layout instead of copying the file unchanged.
-- Do not stage unrelated dirty worktree files. This repository already has
-  in-flight user changes under `core_matrix_cli/`.
+- Do not stage unrelated dirty worktree files.
 - Keep `core_matrix` application code untouched unless a verification step
   proves the rebuilt CLI cannot reach parity without a server-side change.
 - Use the approved design at
   `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-17-core-matrix-cli-gem-rebuild-design.md`
   as the architecture baseline.
-- Treat the current `core_matrix_cli/` tree as a partially generated scaffold
-  plus user in-flight churn. Normalize it deliberately; do not assume it is a
-  clean Bundler fresh-start.
+- Treat the current `core_matrix_cli/` tree as the committed scaffold
+  checkpoint from `70e193a2` (`rewrite checkpoint`). Normalize it deliberately,
+  but do not invent cleanup work for files that are no longer present.
+- The current scaffold baseline does not include
+  `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.ruby-version` or
+  `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/exe/cmctl`; Task 1
+  establishes both.
 
 **Verified reference anchors:**
 
@@ -37,19 +40,24 @@
 - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/lib/cli_support.rb:13-65`
 - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/scenarios/core_matrix_cli_operator_smoke_validation.rb:18-125`
 - `/Users/jasl/Workspaces/Ruby/cybros/acceptance/lib/active_suite.rb:9-37`
+- `/Users/jasl/Workspaces/Ruby/cybros/acceptance/Gemfile:1-1`
 - `/Users/jasl/Workspaces/Ruby/cybros/README.md:47-92`
 - `/Users/jasl/Workspaces/Ruby/cybros/lib/monorepo_dev_environment.rb:3-20`
 - `/Users/jasl/Workspaces/Ruby/cybros/test/monorepo_dev_environment_test.rb:1-29`
 - `/Users/jasl/Workspaces/Ruby/cybros/.github/workflows/ci.yml:382-418`
-- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/Gemfile:1-12`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.gitignore:1-9`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/Gemfile:1-13`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/Gemfile.lock:1-180`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/README.md:1-39`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/core_matrix_cli.gemspec:1-35`
-- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/lib/core_matrix_cli.rb:1-5`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/lib/core_matrix_cli.rb:1-6`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/lib/core_matrix_cli/version.rb:1-3`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/test/test_helper.rb:1-4`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.rubocop.yml:1-47`
-- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/bin/console:1-10`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/bin/console:1-11`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/bin/setup:1-8`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/sig/core_matrix_cli.rbs:1-4`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.github/workflows/main.yml:1-32`
 
 When a task below says "Modify" for one of these existing files without
 repeating a line range, use the anchor list above as the verified current-file
@@ -59,19 +67,18 @@ starting point before editing.
 
 **Files:**
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.ruby-version`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.gitignore`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.rubocop.yml`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/bin/console`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/bin/setup`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/exe/cmctl`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/test/executable_contract_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.gitignore`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.rubocop.yml`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/bin/console`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/bin/setup`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/core_matrix_cli.gemspec`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/lib/core_matrix_cli.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/lib/core_matrix_cli/version.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/test/test_helper.rb`
 - Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/test/test_core_matrix_cli.rb`
 - Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/sig/core_matrix_cli.rbs`
-- Delete (manual workspace cleanup): `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.git`
 - Delete (manual workspace cleanup): `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.github/workflows/main.yml`
 
 **Step 1: Write the failing executable contract test**
@@ -113,7 +120,7 @@ bundle exec ruby -Itest test/executable_contract_test.rb
 ```
 
 Expected: FAIL because `exe/cmctl` does not exist and the current root file at
-`/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/lib/core_matrix_cli.rb:1-5`
+`/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/lib/core_matrix_cli.rb:1-6`
 still exposes only placeholder content.
 
 **Step 3: Implement the minimal executable and root module contract**
@@ -140,14 +147,14 @@ CoreMatrixCLI::CLI.start(ARGV)
 ```
 
 - update the gemspec so the executable name is `cmctl`
+- align the gemspec Ruby requirement with the project toolchain while doing the
+  executable cleanup
 
-**Step 4: Remove nested gem-template repository scaffolding**
+**Step 4: Remove scaffold leftovers that should not survive in the monorepo**
 
-Clean the workspace-only nested repo artifacts that should never survive in the
-monorepo:
+Clean the scaffold files that should never survive in the monorepo:
 
 ```bash
-rm -rf /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.git
 rm -f /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.github/workflows/main.yml
 rm -f /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/test/test_core_matrix_cli.rb
 rm -f /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/sig/core_matrix_cli.rbs
@@ -178,6 +185,9 @@ git add /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.ruby-version \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/lib/core_matrix_cli/version.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/test/test_helper.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/test/executable_contract_test.rb
+git add -u /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.github/workflows/main.yml \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/test/test_core_matrix_cli.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/sig/core_matrix_cli.rbs
 git commit -m "build: restore clean core matrix cli gem boundary"
 ```
 
