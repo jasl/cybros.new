@@ -21,17 +21,35 @@ module CybrosNexus
         process_proxy_info
         process_read_output
       ].freeze
+      BROWSER_TOOL_NAMES = %w[
+        browser_open
+        browser_list
+        browser_navigate
+        browser_session_info
+        browser_get_content
+        browser_screenshot
+        browser_close
+      ].freeze
+      SKILL_FLOW_MODES = %w[
+        skills_catalog_list
+        skills_load
+        skills_read_file
+        skills_install
+      ].freeze
 
-      def initialize(store:, outbox:, command_host:, process_host:, workdir:, environment: {})
+      def initialize(store:, outbox:, command_host:, process_host:, workdir:, environment: {}, browser_host: nil, skills_root: nil)
         @store = store
         @outbox = outbox
         @command_host = command_host
         @process_host = process_host
         @workdir = workdir
         @environment = environment
+        @browser_host = browser_host
+        @skills_root = skills_root || CybrosNexus::Skills::Repository.default_skills_root
       end
 
       def call(mailbox_item:)
+        reset_assignment_state!
         @mailbox_item = normalize_hash(mailbox_item)
         persist_attempt(state: "running")
         enqueue_execution_event(
@@ -85,6 +103,8 @@ module CybrosNexus
         case mode
         when "tool_call"
           execute_tool_call
+        when *SKILL_FLOW_MODES
+          execute_skill_flow(mode)
         when "raise_error"
           raise StandardError, "requested execution assignment failure"
         else
@@ -181,8 +201,46 @@ module CybrosNexus
             arguments: tool_call.fetch("arguments", {}),
             resource_ref: runtime_resource_refs["process_run"]
           )
+        when *BROWSER_TOOL_NAMES
+          raise InvalidRequestError, "browser tools are unavailable" unless @browser_host
+
+          @browser_host.dispatch_tool_call(
+            tool_name: tool_name,
+            arguments: tool_call.fetch("arguments", {}),
+            runtime_owner_id: runtime_owner_id
+          )
         else
           raise InvalidRequestError, "unsupported execution runtime tool #{tool_name}"
+        end
+      end
+
+      def execute_skill_flow(mode)
+        result = case mode
+        when "skills_catalog_list"
+          skill_repository.catalog_list
+        when "skills_load"
+          skill_repository.load(skill_name: task_payload.fetch("skill_name"))
+        when "skills_read_file"
+          skill_repository.read_file(
+            skill_name: task_payload.fetch("skill_name"),
+            relative_path: task_payload.fetch("relative_path")
+          )
+        when "skills_install"
+          CybrosNexus::Skills::Install.call(
+            source_path: task_payload.fetch("source_path"),
+            repository: skill_repository
+          )
+        else
+          raise InvalidRequestError, "unsupported skill flow mode #{mode}"
+        end
+
+        if result.is_a?(Array)
+          {
+            "mode" => mode,
+            "entries" => result,
+          }
+        else
+          result.merge("mode" => mode)
         end
       end
 
@@ -239,10 +297,47 @@ module CybrosNexus
             "message" => error.message,
             "retryable" => false,
           }
-        when CybrosNexus::Tools::ExecCommand::ValidationError, CybrosNexus::Tools::ProcessTools::ValidationError
+        when CybrosNexus::Tools::ExecCommand::ValidationError,
+             CybrosNexus::Tools::ProcessTools::ValidationError,
+             CybrosNexus::Browser::Host::ValidationError
           {
             "classification" => "semantic",
             "code" => "invalid_tool_request",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when CybrosNexus::Skills::Repository::MissingScopeError
+          {
+            "classification" => "configuration",
+            "code" => "missing_skill_scope",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when CybrosNexus::Skills::Repository::SkillNotFound
+          {
+            "classification" => "semantic",
+            "code" => "skill_not_found",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when CybrosNexus::Skills::Repository::InvalidFileReference
+          {
+            "classification" => "semantic",
+            "code" => "invalid_skill_file_reference",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when CybrosNexus::Skills::Repository::ReservedSkillNameError
+          {
+            "classification" => "semantic",
+            "code" => "reserved_skill_name",
+            "message" => error.message,
+            "retryable" => false,
+          }
+        when CybrosNexus::Skills::Repository::InvalidSkillPackage
+          {
+            "classification" => "semantic",
+            "code" => "invalid_skill_package",
             "message" => error.message,
             "retryable" => false,
           }
@@ -330,6 +425,10 @@ module CybrosNexus
         @payload ||= normalize_hash(@mailbox_item.fetch("payload"))
       end
 
+      def runtime_context
+        @runtime_context ||= normalize_hash(payload.fetch("runtime_context", {}))
+      end
+
       def task_payload
         @task_payload ||= normalize_hash(payload.fetch("task_payload", {}))
       end
@@ -350,6 +449,13 @@ module CybrosNexus
           runtime_resource_refs.dig("process_run", "runtime_owner_id") ||
           task["workflow_node_id"] ||
           logical_work_id
+      end
+
+      def skill_repository
+        @skill_repository ||= CybrosNexus::Skills::Repository.from_runtime_context!(
+          runtime_context: runtime_context,
+          skills_root: @skills_root
+        )
       end
 
       def tool_invocation_id
@@ -377,6 +483,19 @@ module CybrosNexus
 
       def blank_string?(value)
         value.nil? || value.to_s.empty?
+      end
+
+      def reset_assignment_state!
+        @mailbox_item = nil
+        @payload = nil
+        @task = nil
+        @runtime_context = nil
+        @task_payload = nil
+        @tool_call = nil
+        @runtime_resource_refs = nil
+        @skill_repository = nil
+        @command_tools = nil
+        @process_tools = nil
       end
     end
   end

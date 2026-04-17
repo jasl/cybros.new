@@ -403,6 +403,8 @@ module CybrosNexus
             "bare_metal_validator" => "bin/check-runtime-host",
             "browser_automation_available" => @browser_available,
             "browser_automation_unavailable_reason" => @browser_unavailable_reason,
+            "attachment_input_refresh_available" => true,
+            "attachment_output_publish_available" => true,
           }.compact,
         }
       end

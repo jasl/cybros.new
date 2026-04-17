@@ -21,7 +21,12 @@ module CybrosNexus
       prepare_runtime_paths!(config)
 
       store = CybrosNexus::State::Store.open(path: config.state_path)
-      manifest = CybrosNexus::Session::RuntimeManifest.new(config: config)
+      browser_host = CybrosNexus::Browser::Host.new
+      manifest = CybrosNexus::Session::RuntimeManifest.new(
+        config: config,
+        browser_available: browser_host.available?,
+        browser_unavailable_reason: browser_host.unavailable_reason
+      )
       session_client = CybrosNexus::Session::Client.new(
         base_url: config.core_matrix_base_url,
         store: store,
@@ -43,7 +48,8 @@ module CybrosNexus
               manifest: manifest,
               outbox: outbox,
               session_client: session_client,
-              store: store
+              store: store,
+              browser_host: browser_host
             )
           end,
           http: lambda do |context|
@@ -56,6 +62,7 @@ module CybrosNexus
 
       supervisor.run
     ensure
+      browser_host&.shutdown
       http_server&.stop
       store&.close
     end
@@ -112,7 +119,7 @@ module CybrosNexus
       ENV["NEXUS_ONBOARDING_TOKEN"] || ENV["CORE_MATRIX_ONBOARDING_TOKEN"]
     end
 
-    def run_control_role(context:, config:, logger:, manifest:, outbox:, session_client:, store:)
+    def run_control_role(context:, config:, logger:, manifest:, outbox:, session_client:, store:, browser_host:)
       command_host = CybrosNexus::Resources::CommandHost.new(store: store)
       process_registry = CybrosNexus::Resources::ProcessRegistry.new(store: store)
       process_host = CybrosNexus::Resources::ProcessHost.new(
@@ -125,6 +132,7 @@ module CybrosNexus
         outbox: outbox,
         command_host: command_host,
         process_host: process_host,
+        browser_host: browser_host,
         workdir: Dir.pwd
       )
       close_request_executor = CybrosNexus::Mailbox::CloseRequestExecutor.new(
@@ -134,6 +142,7 @@ module CybrosNexus
       last_refresh_at = monotonic_now
 
       context.on_stop do
+        browser_host.shutdown
         process_host.shutdown
         command_host.shutdown
       end

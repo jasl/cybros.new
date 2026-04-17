@@ -908,14 +908,18 @@ git commit -m "feat: port runtime assignment and attachment execution flow"
 **Files:**
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/memory/store.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/skills/catalog.rb`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/skills/package_validator.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/skills/repository.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/skills/install.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/browser/host.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/browser/session_registry.rb`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/scripts/browser/session_host.mjs`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/memory/store_test.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/skills/catalog_test.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/skills/install_test.rb`
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/browser/host_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/mailbox/assignment_executor.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/cli.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/session/runtime_manifest.rb`
 
 **Step 1: Write the failing portability tests**
@@ -962,6 +966,8 @@ exist.
 - port skills with explicit repository and install boundaries
 - implement browser hosting as a distinct isolated subsystem, optionally under
   a dedicated role if the process boundary proves cleaner
+- wire skills and browser surfaces into the active runtime execution path so
+  advertised capability is backed by live mailbox execution behavior
 - make the runtime manifest advertise capability flags directly from the new
   implementation
 
@@ -976,14 +982,18 @@ Expected: PASS.
 ```bash
 git add /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/memory/store.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/skills/catalog.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/skills/package_validator.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/skills/repository.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/skills/install.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/browser/host.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/browser/session_registry.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/scripts/browser/session_host.mjs \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/memory/store_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/skills/catalog_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/skills/install_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/browser/host_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/mailbox/assignment_executor.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/cli.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/session/runtime_manifest.rb
 git commit -m "feat: port nexus memory skills and browser surfaces"
 ```
