@@ -19,6 +19,10 @@ Current distribution reality:
 That makes this a production-like deployment procedure, not a polished
 installer yet.
 
+This guide describes the local-build Compose path. If CoreMatrix later ships a
+registry-backed deployment, treat that as a separate Compose variant instead of
+overloading the current file.
+
 ## What Is Supported Today
 
 Treat this as the supported path today:
@@ -105,8 +109,8 @@ The minimum deployment files on the host are:
 
 - `core_matrix/.env`
 - `core_matrix/compose.yaml`
-- `core_matrix/state/postgres`
-- `core_matrix/state/storage`
+- `core_matrix/shared/postgres`
+- `core_matrix/shared/storage`
 - optional `core_matrix/config.d/*`
 
 ## Step 1: Sync The Code To The Host
@@ -194,20 +198,21 @@ Start from the checked-in sample:
 
 ```bash
 cp compose.yaml.sample compose.yaml
-mkdir -p config.d state/postgres state/storage
-chown -R 1000:1000 state/storage
+mkdir -p config.d shared/postgres shared/storage
+chown -R 1000:1000 shared/storage
 ```
 
 `compose.yaml.sample` intentionally uses host bind mounts instead of
 Docker-managed named volumes:
 
-- `./state/postgres` stores the PostgreSQL state root
-- `./state/storage` stores Active Storage blobs and derived files
+- `./shared/postgres` stores the PostgreSQL state root
+- `./shared/storage` stores Active Storage blobs and derived files
 
 That makes the installation easier to inspect, back up, and migrate in the
-same way operators expect from products such as Discourse or GitLab.
+same way operators expect from products such as Discourse or GitLab, where
+host-persistent data lives in an explicit shared directory tree.
 
-`state/storage` must be writable by the app container user. The shipped image
+`shared/storage` must be writable by the app container user. The shipped image
 runs Rails as UID `1000`, so the example above pre-creates the directory with
 matching ownership.
 
@@ -266,8 +271,8 @@ docker compose logs --tail=80 app jobs migrator
 
 The supported durable state for a single-host CoreMatrix deployment is:
 
-- `state/postgres`
-- `state/storage`
+- `shared/postgres`
+- `shared/storage`
 - `.env`
 - `compose.yaml`
 - optional `config.d/*`
@@ -280,7 +285,7 @@ For a coarse offline backup on a small installation:
 ```bash
 docker compose down
 tar -C /home/jasl/cybros/core_matrix -czf /tmp/core_matrix-state.tgz \
-  state/postgres state/storage .env compose.yaml config.d
+  shared/postgres shared/storage .env compose.yaml config.d
 docker compose up -d
 ```
 

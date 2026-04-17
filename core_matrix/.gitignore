@@ -58,7 +58,7 @@
 /tmp/storage/*
 !/tmp/storage/
 !/tmp/storage/.keep
-/state/
+/shared/
 
 # Ignore SQLite database files.
 /db/*.sqlite3

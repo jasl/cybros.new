@@ -9,7 +9,7 @@ Use these documents first:
 - [INTEGRATIONS.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/INTEGRATIONS.md): provider and IM integration guidance
 
 The supported Compose deployment model now assumes explicit host bind mounts
-under `state/` for PostgreSQL and uploaded files.
+under `shared/` for PostgreSQL and uploaded files.
 
 ## Scope
 
