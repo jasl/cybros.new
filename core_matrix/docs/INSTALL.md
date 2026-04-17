@@ -7,6 +7,7 @@ Current deployment model:
 - Linux host with Docker and Docker Compose plugin
 - PostgreSQL 18 in Docker
 - CoreMatrix split into `migrator`, `app`, and `jobs`
+- explicit host bind mounts for all durable service data
 - operator setup through `cmctl`
 
 Current distribution reality:
@@ -104,6 +105,8 @@ The minimum deployment files on the host are:
 
 - `core_matrix/.env`
 - `core_matrix/compose.yaml`
+- `core_matrix/state/postgres`
+- `core_matrix/state/storage`
 - optional `core_matrix/config.d/*`
 
 ## Step 1: Sync The Code To The Host
@@ -191,8 +194,22 @@ Start from the checked-in sample:
 
 ```bash
 cp compose.yaml.sample compose.yaml
-mkdir -p config.d
+mkdir -p config.d state/postgres state/storage
+chown -R 1000:1000 state/storage
 ```
+
+`compose.yaml.sample` intentionally uses host bind mounts instead of
+Docker-managed named volumes:
+
+- `./state/postgres` stores the PostgreSQL state root
+- `./state/storage` stores Active Storage blobs and derived files
+
+That makes the installation easier to inspect, back up, and migrate in the
+same way operators expect from products such as Discourse or GitLab.
+
+`state/storage` must be writable by the app container user. The shipped image
+runs Rails as UID `1000`, so the example above pre-creates the directory with
+matching ownership.
 
 For early LAN bootstrap, a direct published port is fine:
 
@@ -244,6 +261,31 @@ Check:
 docker compose ps
 docker compose logs --tail=80 app jobs migrator
 ```
+
+## Backup And Migration Boundary
+
+The supported durable state for a single-host CoreMatrix deployment is:
+
+- `state/postgres`
+- `state/storage`
+- `.env`
+- `compose.yaml`
+- optional `config.d/*`
+
+Those paths should be included in host-level backup, snapshot, and migration
+procedures.
+
+For a coarse offline backup on a small installation:
+
+```bash
+docker compose down
+tar -C /home/jasl/cybros/core_matrix -czf /tmp/core_matrix-state.tgz \
+  state/postgres state/storage .env compose.yaml config.d
+docker compose up -d
+```
+
+For PostgreSQL-aware backup, prefer adding a regular `pg_dump` or physical
+base-backup flow on top of the filesystem-level copy.
 
 ## Step 6: Verify Health
 

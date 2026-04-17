@@ -91,6 +91,7 @@
 /tmp/storage/*
 !/tmp/storage/
 !/tmp/storage/.keep
+/state/
 
 # Ignore SQLite database files.
 /db/*.sqlite3

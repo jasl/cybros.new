@@ -8,6 +8,9 @@ Use these documents first:
 - [ADMIN-QUICK-START-GUIDE.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/ADMIN-QUICK-START-GUIDE.md): bootstrap an installation and perform first operator tasks
 - [INTEGRATIONS.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/INTEGRATIONS.md): provider and IM integration guidance
 
+The supported Compose deployment model now assumes explicit host bind mounts
+under `state/` for PostgreSQL and uploaded files.
+
 ## Scope
 
 These docs describe how to use and operate CoreMatrix as a product.

@@ -13,7 +13,7 @@ x-app: &default-app
     SKIP_DEMO_DATA: 1
   entrypoint: []
   volumes:
-    - app-storage:/rails/storage
+    - ./state/storage:/rails/storage
     # Mount runtime config overrides without replacing the base config shipped in the image.
     - ./config.d:/rails/config.d:ro
 
@@ -24,7 +24,7 @@ services:
     networks:
       - default
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - ./state/postgres:/var/lib/postgresql
     environment:
       PGDATA: /var/lib/postgresql/data/18
       POSTGRES_USER: postgres
@@ -123,7 +123,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-volumes:
-  postgres-data:
-  app-storage:
