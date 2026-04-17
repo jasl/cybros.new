@@ -284,6 +284,9 @@ Rules for that adaptation:
 
 - acceptance tests may assume stable repo-root-relative paths for
   `acceptance/` and `core_matrix_cli/`
+- the acceptance harness may add `core_matrix_cli` as a path dependency in
+  `acceptance/Gemfile` so harness-side tests and support code run under a
+  single Bundler context
 - acceptance entrypoints must switch to the rebuilt executable layout,
   especially `bundle exec exe/cmctl`
 - any acceptance helper that references `core_matrix_cli.old/` or `bin/cmctl`

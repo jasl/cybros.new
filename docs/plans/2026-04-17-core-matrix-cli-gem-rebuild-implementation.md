@@ -614,13 +614,18 @@ Implement:
 - Telegram webhook setup
 - Weixin QR login flow
 - ingress binding id persistence per platform
-- add `webrick` back to the CLI development dependencies because the fake-server
+- verify the old CLI dependency surface remains present where needed:
+  - `webrick` is already present in
+    `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/Gemfile:10`
+  - `rqrcode` and `thor` are already present in
+    `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/core_matrix_cli.gemspec:33-34`
+- keep `webrick` in the CLI development dependencies because the fake-server
   contract from
   `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli.old/test/support/fake_core_matrix_server.rb:1-258`
   requires it outside the Ruby standard library bundle
-- run `bundle install` in `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli`
-  after changing `Gemfile` so `Gemfile.lock` is refreshed before re-running the
-  contract tests
+- if the dependency set changes at all while rebuilding the test harness, run
+  `bundle install` in `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli` so
+  `Gemfile.lock` is refreshed before re-running the contract tests
 
 Preserve the old product behavior but keep orchestration logic out of Thor.
 
@@ -800,6 +805,7 @@ git commit -m "ci: update core matrix cli workflow for rebuilt test layout"
 
 **Files:**
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/acceptance/test/cli_support_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/acceptance/Gemfile`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/acceptance/lib/cli_support.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/acceptance/scenarios/core_matrix_cli_operator_smoke_validation.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md`
@@ -851,13 +857,18 @@ Expected: FAIL because the helper still invokes `./bin/cmctl`.
 
 Implement:
 
+- add `gem "core_matrix_cli", path: "../core_matrix_cli"` to
+  `/Users/jasl/Workspaces/Ruby/cybros/acceptance/Gemfile` so acceptance-side
+  tests and support code run in an explicit Bundler context that knows about
+  the rebuilt CLI project
 - `Acceptance::CliSupport.run!` invoking `bundle exec ./exe/cmctl`
 - any needed scenario adjustments for the new command entrypoint
 - acceptance README snippets that mention the operator CLI path
 - root README quickstart commands switched from `bin/cmctl` to `exe/cmctl`
 
 Keep repo-root-relative `core_matrix_cli/` and `acceptance/` path assumptions
-explicit.
+explicit, while keeping the operator smoke scenario black-box through shell
+execution.
 
 **Step 4: Re-run the helper test to verify it passes**
 
@@ -881,6 +892,7 @@ Expected: PASS with fresh CLI artifacts under
 
 ```bash
 git add /Users/jasl/Workspaces/Ruby/cybros/acceptance/test/cli_support_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/acceptance/Gemfile \
   /Users/jasl/Workspaces/Ruby/cybros/acceptance/lib/cli_support.rb \
   /Users/jasl/Workspaces/Ruby/cybros/acceptance/scenarios/core_matrix_cli_operator_smoke_validation.rb \
   /Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md \
