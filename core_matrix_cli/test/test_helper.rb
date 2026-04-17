@@ -1,5 +1,7 @@
 require "fileutils"
+require "json"
 require "tmpdir"
+require "uri"
 
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 require "core_matrix_cli"
