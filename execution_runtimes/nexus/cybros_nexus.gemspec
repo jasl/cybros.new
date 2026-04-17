@@ -35,4 +35,6 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "thor", "~> 1.5"
   spec.add_dependency "sqlite3", "~> 2.9"
+  spec.add_dependency "webrick", "~> 1.9"
+  spec.add_dependency "websocket-client-simple", "~> 0.9"
 end

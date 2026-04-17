@@ -4,6 +4,10 @@ module CybrosNexus
       def stopping?
         supervisor.stopping?
       end
+
+      def on_stop(&block)
+        supervisor.send(:register_stop_hook, name, &block)
+      end
     end
 
     DEFAULT_RESTART_BACKOFF = 0.1
@@ -22,6 +26,7 @@ module CybrosNexus
       @signal_trap = signal_trap
       @role_threads = {}
       @restart_counts = Hash.new(0)
+      @stop_hooks = Hash.new { |hash, key| hash[key] = [] }
       @stopping = false
     end
 
@@ -47,6 +52,12 @@ module CybrosNexus
     end
 
     private
+
+    def register_stop_hook(name, &block)
+      return unless block
+
+      @stop_hooks[name.to_sym] << block
+    end
 
     def install_signal_handlers
       %w[INT TERM].each do |signal|
@@ -81,6 +92,7 @@ module CybrosNexus
     end
 
     def start_role(name)
+      @stop_hooks[name] = []
       @role_threads[name] = Thread.new do
         Thread.current.report_on_exception = false
         @roles.fetch(name).call(RoleContext.new(name: name, supervisor: self))
@@ -88,6 +100,14 @@ module CybrosNexus
     end
 
     def stop_roles
+      @stop_hooks.each_value do |hooks|
+        hooks.each do |hook|
+          hook.call
+        rescue StandardError => error
+          @logger.warn("stop hook failed: #{error.class}: #{error.message}")
+        end
+      end
+
       @role_threads.each_value do |thread|
         thread.join(1)
       end
