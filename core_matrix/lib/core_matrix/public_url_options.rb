@@ -4,11 +4,12 @@ module CoreMatrix
   module PublicUrlOptions
     DEFAULT_PUBLIC_BASE_URLS = {
       "development" => "http://localhost:3000",
-      "test" => "http://example.com",
       "production" => "https://example.com",
     }.freeze
-    ENV_KEY = "CORE_MATRIX_PUBLIC_BASE_URL".freeze
-    INVALID_URL_MESSAGE = "#{ENV_KEY} must be a valid http:// or https:// URL".freeze
+    PUBLIC_BASE_URL_ENV_KEY = "CORE_MATRIX_PUBLIC_BASE_URL".freeze
+    ASSUME_SSL_ENV_KEY = "RAILS_ASSUME_SSL".freeze
+    FORCE_SSL_ENV_KEY = "RAILS_FORCE_SSL".freeze
+    INVALID_URL_MESSAGE = "#{PUBLIC_BASE_URL_ENV_KEY} must be a valid http:// or https:// URL".freeze
 
     module_function
 
@@ -17,11 +18,13 @@ module CoreMatrix
 
       routes.default_url_options = options.dup
       config.action_mailer.default_url_options = options.dup
+      config.assume_ssl = boolean_config_for_env(ASSUME_SSL_ENV_KEY, env_name:, env:)
+      config.force_ssl = boolean_config_for_env(FORCE_SSL_ENV_KEY, env_name:, env:)
     end
 
     def default_url_options_for_env(env_name, env: ENV)
       build_default_url_options(
-        env.fetch(ENV_KEY) { default_public_base_url_for_env(env_name) }
+        env.fetch(PUBLIC_BASE_URL_ENV_KEY) { default_public_base_url_for_env(env_name) }
       )
     end
 
@@ -64,6 +67,16 @@ module CoreMatrix
       return nil if normalized.empty? || normalized == "/"
 
       normalized.chomp("/")
+    end
+
+    def boolean_config_for_env(key, env_name:, env: ENV)
+      ActiveModel::Type.lookup(:boolean).cast(
+        env.fetch(key) { ssl_enabled_by_default_for_env?(env_name) }
+      )
+    end
+
+    def ssl_enabled_by_default_for_env?(env_name)
+      env_name.to_s == "production"
     end
   end
 end
