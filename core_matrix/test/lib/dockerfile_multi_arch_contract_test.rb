@@ -29,6 +29,13 @@ class DockerfileMultiArchContractTest < ActiveSupport::TestCase
     end
   end
 
+  test "core matrix dockerfile preserves vendored gem paths before bundle install" do
+    dockerfile = Rails.root.join("../core_matrix/Dockerfile").read
+
+    assert_includes dockerfile, "COPY vendor/ ./vendor/"
+    assert_not_includes dockerfile, "COPY vendor/* ./vendor/"
+  end
+
   test "images nexus readme documents the buildx multi arch release command" do
     readme = Rails.root.join("../images/nexus/README.md").read
 
