@@ -1,16 +1,18 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require_relative "../lib/monorepo_dev_environment"
-
 ROOT = File.expand_path("..", __dir__)
 CORE_MATRIX_ROOT = File.join(ROOT, "core_matrix")
 CORE_MATRIX_RAILS = File.join(CORE_MATRIX_ROOT, "bin/rails")
 PROCFILE = File.join(ROOT, "Procfile.dev")
 
-MonorepoDevEnvironment.defaults.each do |key, value|
-  ENV[key] = value
-end
+core_matrix_port = ENV.fetch("CORE_MATRIX_PORT", ENV.fetch("PORT", "3000"))
+agent_fenix_port = ENV.fetch("AGENT_FENIX_PORT", "36173")
+
+ENV["PORT"] ||= core_matrix_port
+ENV["CORE_MATRIX_PORT"] ||= core_matrix_port
+ENV["AGENT_FENIX_PORT"] ||= agent_fenix_port
+ENV["AGENT_FENIX_BASE_URL"] ||= "http://127.0.0.1:#{agent_fenix_port}"
 
 VERBOSE = ARGV.include?("--verbose") || ARGV.include?("-v") || ENV["VERBOSE"]
 RAILS_ARGS = ARGV - %w[--verbose -v]

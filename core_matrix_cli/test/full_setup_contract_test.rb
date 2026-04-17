@@ -68,7 +68,7 @@ class FullSetupContractTest < CoreMatrixCLITestCase
       chdir: cli_root
     )
 
-    assert status.success?, "expected #{args.join(' ')} to pass, stderr=#{stderr}"
+    assert status.success?, "expected #{args.join(" ")} to pass, stderr=#{stderr}"
 
     stdout
   end
