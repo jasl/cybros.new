@@ -92,4 +92,39 @@ class InitCommandTest < CoreMatrixCLITestCase
     assert_includes api.calls, [:current_session]
     assert_includes output, "Primary Installation"
   end
+
+  def test_init_reuses_stored_base_url_when_bootstrapped
+    api = FakeCoreMatrixAPI.new
+    api.bootstrap_status_payload = {
+      "bootstrap_state" => "bootstrapped",
+      "installation" => { "name" => "Primary Installation" },
+    }
+    api.session_response = {
+      "user" => { "email" => "admin@example.com" },
+      "installation" => { "name" => "Primary Installation" },
+    }
+    api.workspaces_response = {
+      "workspaces" => [],
+    }
+    api.provider_status_responses["codex_subscription"] = {
+      "llm_provider" => { "configured" => false, "usable" => false },
+    }
+    config_repository = CoreMatrixCLI::State::ConfigRepository.new(path: tmp_path("config.json"))
+    credential_repository = CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
+    config_repository.merge("base_url" => "https://core.example.com")
+    credential_repository.write("session_token" => "sess_123")
+
+    run_cli(
+      "init",
+      input: "",
+      api: api,
+      config_repository: config_repository,
+      credential_repository: credential_repository
+    )
+
+    assert_equal "https://core.example.com", config_repository.read.fetch("base_url")
+    assert_includes api.calls, [:bootstrap_status]
+    assert_includes api.calls, [:current_session]
+    refute api.calls.any? { |call| call.first == :bootstrap }
+  end
 end

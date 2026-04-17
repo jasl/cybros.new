@@ -8,8 +8,9 @@ module CoreMatrixCLI
       desc "login", "Log in as an operator"
       def login
         with_cli_errors do
+          base_url = ensure_base_url!
           payload = build_use_case(UseCases::LoginOperator).call(
-            base_url: ask("CoreMatrix Base URL:"),
+            base_url: base_url,
             email: ask("Operator Email:"),
             password: prompt_secret("Password:")
           )

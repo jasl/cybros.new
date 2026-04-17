@@ -13,7 +13,7 @@ module Acceptance
     def run!(artifact_dir:, label:, args:, input: "", runner: Open3.method(:capture3))
       paths = automation_paths(artifact_dir: artifact_dir)
       env = automation_env(paths:)
-      command = ["./bin/cmctl", *Array(args).map(&:to_s)]
+      command = ["bundle", "exec", "./exe/cmctl", *Array(args).map(&:to_s)]
 
       stdout, stderr, status = Bundler.with_unbundled_env do
         runner.call(

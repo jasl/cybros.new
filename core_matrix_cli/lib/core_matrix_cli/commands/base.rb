@@ -114,6 +114,15 @@ module CoreMatrixCLI
           nil
         end
 
+        def ensure_base_url!
+          stored = config_repository.read["base_url"].to_s.strip
+          return stored unless stored.empty?
+
+          normalized = normalize_base_url(ask("CoreMatrix Base URL:"))
+          config_repository.merge("base_url" => normalized)
+          normalized
+        end
+
         def selected_workspace_id
           workspace_id = config_repository.read["workspace_id"]
           if workspace_id.to_s.strip.empty?
@@ -144,6 +153,10 @@ module CoreMatrixCLI
           ask(prompt, echo: false)
         rescue Errno::ENOTTY
           ask(prompt)
+        end
+
+        def normalize_base_url(base_url)
+          base_url.to_s.strip.sub(%r{/+\z}, "")
         end
       end
     end

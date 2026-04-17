@@ -5,8 +5,9 @@ module CoreMatrixCLI
     desc "init", "Bootstrap or continue operator setup"
     def init
       with_cli_errors do
+        base_url = ensure_base_url!
         result = build_use_case(UseCases::RunInit).call(
-          base_url: ask("CoreMatrix Base URL:"),
+          base_url: base_url,
           ask: ->(prompt) { ask(prompt) },
           ask_secret: ->(prompt) { prompt_secret(prompt) }
         )

@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
 # ACCEPTANCE_MODE: operator_cli_surface
-# This scenario validates the operator setup path through cmctl and only uses
-# acceptance-owned backend hooks where the CLI has no discovery surface yet.
+# This scenario validates the operator setup path through bundle exec ./exe/cmctl
+# and only uses acceptance-owned backend hooks where the CLI has no discovery
+# surface yet.
 
 require_relative "../lib/boot"
 

@@ -54,6 +54,32 @@ class AuthCommandTest < CoreMatrixCLITestCase
     assert_includes output, "admin@example.com"
   end
 
+  def test_login_reuses_stored_base_url_without_prompting_for_it_again
+    api = FakeCoreMatrixAPI.new
+    api.login_response = {
+      "session_token" => "sess_123",
+      "user" => {
+        "email" => "admin@example.com",
+        "display_name" => "Primary Admin",
+      },
+    }
+    config_repository = CoreMatrixCLI::State::ConfigRepository.new(path: tmp_path("config.json"))
+    credential_repository = CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
+    config_repository.merge("base_url" => "https://core.example.com")
+
+    run_cli(
+      "auth", "login",
+      input: "admin@example.com\nPassword123!\n",
+      api: api,
+      config_repository: config_repository,
+      credential_repository: credential_repository
+    )
+
+    assert_equal "https://core.example.com", config_repository.read.fetch("base_url")
+    assert_equal "sess_123", credential_repository.read.fetch("session_token")
+    assert_includes api.calls, [:login, "admin@example.com", "Password123!"]
+  end
+
   def test_logout_revokes_server_session_and_clears_local_token
     api = FakeCoreMatrixAPI.new
     config_repository = CoreMatrixCLI::State::ConfigRepository.new(path: tmp_path("config.json"))

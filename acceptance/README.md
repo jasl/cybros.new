@@ -55,7 +55,7 @@ Current acceptance matrix, organized by purpose:
 
 - Operator setup
   - `acceptance/scenarios/core_matrix_cli_operator_smoke_validation.rb`
-    - validates the black-box `cmctl` bootstrap/auth/provider/workspace/mount flow
+    - validates the black-box `bundle exec ./exe/cmctl` bootstrap/auth/provider/workspace/mount flow
       against the real local stack
 - Deployment flows
   - `acceptance/scenarios/bring_your_own_agent_validation.rb`
@@ -197,6 +197,7 @@ Current stabilization note:
 - `stress` stays local-only for now; it is useful when touching provider/exchange scheduling, queue topology, or perf telemetry, but its latency numbers are still local descriptive baselines rather than hard CI thresholds
 - `stress` currently drives the `role:mock` / `llm_dev` path, so it is a good local pressure gate for provider queueing and exchange behavior, but it is not a pure benchmark for OpenAI/OpenRouter HTTP transport changes by itself
 
-`acceptance/Gemfile` reserves a dedicated top-level home for the harness, but
-the supported execution path currently goes through `core_matrix/bin/rails`
-so the acceptance scripts reuse the product Rails environment directly.
+`acceptance/Gemfile` reserves a dedicated top-level home for the harness. The
+CLI helper shells out from `core_matrix_cli/` with `bundle exec ./exe/cmctl`,
+while the Ruby scenarios still run through `core_matrix/bin/rails` so the
+acceptance scripts reuse the product Rails environment directly.
