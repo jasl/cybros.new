@@ -36,8 +36,8 @@ That gap shows up in two places:
 
 - humans need a side-channel to inspect long-running work
 - automated supervisors such as
-  the active acceptance harness described in
-  [`acceptance/README.md`](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
+  the active verification harness described in
+  [`verification/README.md`](/Users/jasl/Workspaces/Ruby/cybros/verification/README.md)
   need a supported path for progress inspection instead of reading database rows
   and filesystem artifacts directly
 
@@ -573,9 +573,9 @@ Every identifier in this payload must be a `public_id`.
 - subagent connection public ids
 - conversation event stream keys when useful
 
-## Acceptance Harness Integration
+## Verification Harness Integration
 
-The capstone acceptance harness should change its in-flight supervision path.
+The capstone verification harness should change its in-flight supervision path.
 
 Current direction:
 
@@ -597,13 +597,13 @@ New direction:
    browser validation
 
 This means
-the active acceptance harness
-[`acceptance/README.md`](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
+the active verification harness
+[`verification/README.md`](/Users/jasl/Workspaces/Ruby/cybros/verification/README.md)
 acts as a supported supervisor client rather than as an implementation-aware
 database and filesystem observer for in-flight progress.
 
 Post-completion transcript, diagnostics, export/import, and host verification
-remain valid acceptance steps. The change here is specifically about how
+remain valid verification steps. The change here is specifically about how
 progress is observed before completion.
 
 ## Authority Model For Observe

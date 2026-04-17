@@ -121,7 +121,7 @@ Purpose:
 
 This layer continues to use:
 
-- `acceptance/README.md`
+- `verification/README.md`
 - committed proof artifacts under `docs/reports/phase-2/`
 
 ## Protocol E2E Infrastructure

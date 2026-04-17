@@ -27,8 +27,10 @@ Thumbs.db
 /coverage/
 /test-results/
 /playwright-report/
-/acceptance/artifacts/
-/acceptance/logs/
+/verification/artifacts/
+/verification/logs/
+/verification/tmp/
+/verification/coverage/
 /docs/checklists/artifacts/
 /docs/reports/phase-2/
 

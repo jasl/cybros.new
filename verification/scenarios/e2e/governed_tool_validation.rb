@@ -1,0 +1,117 @@
+#!/usr/bin/env ruby
+# VERIFICATION_MODE: internal_workflow
+# This scenario intentionally exercises internal governed-tool task semantics because there is no equivalent app_api surface.
+
+ENV["RAILS_ENV"] ||= "development"
+
+$LOAD_PATH.unshift(File.expand_path("../../lib", __dir__))
+require "verification/hosted/core_matrix"
+require "json"
+
+runtime_context = GovernedValidationSupport.bootstrap_runtime!(
+  agent_key: "verification-governed-tool",
+  display_name: "Verification Governed Tool Runtime",
+  execution_runtime_fingerprint: "verification-governed-tool-environment",
+  fingerprint: "verification-governed-tool-runtime",
+  tool_contract: [],
+  default_canonical_config: {
+    "sandbox" => "workspace-write",
+    "interactive" => {
+      "selector" => "role:main",
+      "profile" => "main",
+    },
+    "subagents" => {
+      "enabled" => true,
+      "allow_nested" => true,
+      "max_depth" => 3,
+    },
+  }
+)
+runtime_context.fetch(:workspace).primary_workspace_agent.update!(
+  settings_payload: {
+    "core_matrix" => {
+      "subagents" => {
+        "default_model_selector" => "role:researcher",
+      },
+    },
+  }
+)
+
+task_context = GovernedValidationSupport.create_task_context!(
+  workspace: runtime_context.fetch(:workspace),
+  agent_definition_version: runtime_context.fetch(:runtime).agent_definition_version,
+  content: "Spawn one governed subagent and report the durable records.",
+  allowed_tool_names: ["subagent_spawn"]
+)
+
+task_run = task_context.fetch(:agent_task_run)
+binding = task_run.tool_bindings.joins(:tool_definition).find_by!(
+  tool_definition: { tool_name: "subagent_spawn" }
+)
+
+invocation = ToolInvocations::Start.call(
+  tool_binding: binding,
+  request_payload: {
+    "content" => "Investigate the delegated task.",
+    "scope" => "turn",
+    "task_payload" => { "source" => "verification_governed_tool_validation" },
+  }
+)
+
+tool_call = {
+  "tool_name" => "subagent_spawn",
+  "arguments" => invocation.request_payload,
+}
+
+spawn_result = ProviderExecution::ExecuteCoreMatrixTool.call(
+  workflow_node: task_context.fetch(:workflow_node),
+  tool_call: tool_call
+)
+
+raise "expected no default profile label, got #{spawn_result["profile_key"].inspect}" if spawn_result.key?("profile_key")
+
+unless spawn_result["model_selector_hint"] == "candidate:dev/mock-model"
+  raise "expected default subagent model selector hint to soft-fallback to candidate:dev/mock-model, got #{spawn_result["model_selector_hint"].inspect}"
+end
+
+completed = ToolInvocations::Complete.call(
+  tool_invocation: invocation,
+  response_payload: spawn_result
+)
+
+expected_dag_shape = ["root->agent_turn_step"]
+observed_dag_shape = GovernedValidationSupport.dag_edges(task_context.fetch(:workflow_run))
+expected_conversation_state = {
+  "conversation_state" => "active",
+  "workflow_lifecycle_state" => "active",
+  "workflow_wait_state" => "ready",
+  "turn_lifecycle_state" => "active",
+}
+observed_conversation_state = GovernedValidationSupport.conversation_state(
+  conversation: task_context.fetch(:conversation),
+  workflow_run: task_context.fetch(:workflow_run)
+)
+
+Verification::ManualSupport.write_json(
+  Verification::ManualSupport.scenario_result(
+    scenario: "governed_tool_validation",
+    expected_dag_shape: expected_dag_shape,
+    observed_dag_shape: observed_dag_shape,
+    expected_conversation_state: expected_conversation_state,
+    observed_conversation_state: observed_conversation_state,
+    extra: {
+      "conversation_id" => task_context.fetch(:conversation).public_id,
+      "turn_id" => task_context.fetch(:turn).public_id,
+      "workflow_run_id" => task_context.fetch(:workflow_run).public_id,
+      "agent_task_run_id" => task_run.public_id,
+      "tool_binding_id" => binding.public_id,
+      "tool_definition_id" => binding.tool_definition.public_id,
+      "tool_implementation_id" => binding.tool_implementation.public_id,
+      "tool_invocation_id" => completed.public_id,
+      "governance_mode" => binding.tool_definition.governance_mode,
+      "tool_invocation_status" => completed.status,
+      "request_payload" => completed.request_payload,
+      "response_payload" => completed.response_payload,
+    }
+  )
+)

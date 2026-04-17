@@ -22,10 +22,10 @@ For the current implementation state, start here:
   - `core_matrix`: [core_matrix/docs/README.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/README.md)
 - active execution work:
   [docs/plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md)
-- current manual/product acceptance:
-  [acceptance/README.md](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
-- runtime-generated acceptance outputs:
-  [acceptance/README.md](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
+- current monorepo verification project:
+  [verification/README.md](/Users/jasl/Workspaces/Ruby/cybros/verification/README.md)
+- runtime-generated verification outputs:
+  [verification/README.md](/Users/jasl/Workspaces/Ruby/cybros/verification/README.md)
 - completed, verified reset and product-shape changes:
   [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md)
 

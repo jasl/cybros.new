@@ -61,7 +61,7 @@ docker build \
   images/nexus
 ```
 
-Plan/acceptance build: build from the monorepo root.
+Plan/verification build: build from the monorepo root.
 
 ```bash
 docker build -f images/nexus/Dockerfile -t nexus-local .
@@ -85,7 +85,7 @@ docker buildx build \
 
 ## Verify
 
-The acceptance check mounts this repository and runs the repo-owned verifier
+The verification check mounts this repository and runs the repo-owned verifier
 inside the built image:
 
 ```bash

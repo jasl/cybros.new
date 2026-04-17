@@ -13,6 +13,7 @@ This repository is a monorepo. Treat each top-level product directory as an inde
 - `core_matrix_cli`: Thor-based operator CLI for CoreMatrix
 - `core_matrix/vendor/simple_inference`: vendored Ruby gem maintained in-tree
 - `images/nexus`: Docker runtime base project for cowork agents
+- `verification`: monorepo verification harness with a pure bundle and CoreMatrix-hosted lanes
 
 ## Working Rules
 
@@ -30,12 +31,13 @@ This repository is a monorepo. Treat each top-level product directory as an inde
   rules.
 - For `core_matrix`, changes that touch conversation/turn/workflow bootstrap,
   runtime event streams, app-facing roundtrip paths, or other
-  acceptance-critical loop behavior are not complete with focused tests alone.
-  Before closing that work, run the full `core_matrix` verification suite, run
-  `ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash acceptance/bin/run_active_suite.sh`
-  from the repo root, and inspect both the relevant acceptance artifacts and the
-  resulting database state to confirm business data shapes and state transitions
-  are correct.
+  verification-critical loop behavior are not complete with focused tests
+  alone. Before closing that work, run the full `core_matrix` verification
+  suite, run
+  `ACTIVE_VERIFICATION_ENABLE_2048_CAPSTONE=1 bash verification/bin/run_active_suite.sh`
+  from the repo root, and inspect both the relevant verification artifacts and
+  the resulting database state to confirm business data shapes and state
+  transitions are correct.
 - For destructive schema refactors in any Rails subproject that owns
   `db/schema.rb` and rewrites original migrations in place, use the standard
   rebuild flow from that project root to safely regenerate the schema:
@@ -85,12 +87,42 @@ cd core_matrix_cli
 bundle exec rake test
 ```
 
-For `core_matrix` changes that modify acceptance-critical loop behavior, finish
+### `verification`
+
+Pure harness lane:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash verification/bin/test_pure.sh
+```
+
+CoreMatrix-hosted verification lane:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash verification/bin/test_core_matrix_hosted.sh
+```
+
+Both lanes:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash verification/bin/test_all.sh
+```
+
+Stop verification-managed daemons:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+bash verification/bin/stop_managed_processes.sh
+```
+
+For `core_matrix` changes that modify verification-critical loop behavior, finish
 verification with:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros
-ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash acceptance/bin/run_active_suite.sh
+ACTIVE_VERIFICATION_ENABLE_2048_CAPSTONE=1 bash verification/bin/run_active_suite.sh
 ```
 
 For destructive Rails migration rewrites in any database-backed subproject,

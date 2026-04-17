@@ -22,6 +22,7 @@ jobs:
       core_matrix_cli: ${{ steps.detect.outputs.core_matrix_cli }}
       images_nexus: ${{ steps.detect.outputs.images_nexus }}
       simple_inference: ${{ steps.detect.outputs.simple_inference }}
+      verification: ${{ steps.detect.outputs.verification }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -52,6 +53,7 @@ jobs:
           core_matrix_cli=false
           images_nexus=false
           simple_inference=false
+          verification=false
 
           echo "Changed files:"
           if [[ ${#changed_files[@]} -eq 0 ]]; then
@@ -71,6 +73,10 @@ jobs:
                 core_matrix_cli=true
                 images_nexus=true
                 simple_inference=true
+                verification=true
+                ;;
+              verification/*)
+                verification=true
                 ;;
               core_matrix_cli/*)
                 core_matrix_cli=true
@@ -97,6 +103,7 @@ jobs:
             echo "core_matrix_cli=$core_matrix_cli"
             echo "images_nexus=$images_nexus"
             echo "simple_inference=$simple_inference"
+            echo "verification=$verification"
           } >> "$GITHUB_OUTPUT"
 
   images_nexus_verify:
@@ -405,6 +412,54 @@ jobs:
 
       - name: Run CLI lint
         run: bundle exec rubocop --no-server
+
+  verification_pure_test:
+    name: verification / pure
+    needs: changes
+    if: needs.changes.outputs.verification == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: verification
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/verification/Gemfile
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 4.0.2
+          bundler-cache: true
+
+      - name: Run pure verification tests
+        run: bundle exec rake test
+
+  verification_core_matrix_hosted_test:
+    name: verification / core_matrix_hosted
+    needs: changes
+    if: needs.changes.outputs.verification == 'true' || needs.changes.outputs.core_matrix == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: core_matrix
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/core_matrix/Gemfile
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 4.0.2
+          bundler-cache: true
+
+      - name: Run CoreMatrix-hosted verification tests
+        run: bash ../verification/bin/test_core_matrix_hosted.sh
 
   simple_inference:
     name: core_matrix/vendor/simple_inference

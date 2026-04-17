@@ -21,15 +21,16 @@ the April 2026 supervision/runtime rebuild:
 - durable tool governance and invocation audit
 - one governed Streamable HTTP MCP path
 - bundled and external `Fenix` runtime plus skill validation flows
-- workflow proof export and acceptance harness coverage
+- workflow proof export and verification project coverage
 - turn-todo-backed supervision and canonical supervision feeds
 - canonical turn runtime event streams for app/review surfaces
 - plan-first supervision fallbacks plus replayable supervision evaluation dumps
 
-The baseline product acceptance path now lives in the top-level harness:
+The baseline product verification path now lives in the top-level verification
+project:
 
-- `../acceptance/README.md`
-- `../acceptance/bin/run_active_suite.sh`
+- `../verification/README.md`
+- `../verification/bin/run_active_suite.sh`
 
 Current authoritative project documents:
 
@@ -42,7 +43,7 @@ Current authoritative project documents:
 - Active plan index: `../docs/plans/README.md`
 - App-facing UI contract: `../docs/finished-plans/2026-04-06-fenix-app-ui-contract.md`
 - Deferred Web UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
-- Acceptance harness and active suite: `../acceptance/README.md`
+- Verification project and active suite: `../verification/README.md`
 - Archived pre-reset docs: `../docs/archived/README.md`
 - Product/operator docs: `docs/`
 - Legacy implementation archive:
@@ -72,15 +73,15 @@ claims real loop behavior, validation must include:
 - unit and integration coverage
 - `bin/dev`
 - a real LLM API
-- the current active acceptance suite from `../acceptance/README.md`
+- the current active verification suite from `../verification/README.md`
 
 Changes that touch conversation/turn/workflow bootstrap, runtime event streams,
 or app-facing roundtrip behavior must satisfy an even stricter gate before they
 are considered done:
 
 - the full local `core_matrix` verification suite
-- `ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash ../acceptance/bin/run_active_suite.sh`
-- inspection of the produced acceptance artifacts
+- `ACTIVE_VERIFICATION_ENABLE_2048_CAPSTONE=1 bash ../verification/bin/run_active_suite.sh`
+- inspection of the produced verification artifacts
 - inspection of the resulting database records so state shapes, anchors, and
   transitions are confirmed against the business contract rather than inferred
   only from exit codes
@@ -91,15 +92,15 @@ original migrations in place, the standard rebuild flow from the
 
 - `rails db:drop && rm db/schema.rb && rails db:create && rails db:migrate && rails db:reset`
 
-## Acceptance Baseline
+## Verification Baseline
 
-- Acceptance runs use the top-level harness in `../acceptance/`.
-- The canonical gate is `bash ../acceptance/bin/run_active_suite.sh`.
-- Generated logs and artifacts are written under `../acceptance/logs/` and
-  `../acceptance/artifacts/` and are intentionally not committed.
-- The reusable harness lives in `../acceptance/lib/manual_support.rb`.
-- Ruby scenario entrypoints live under `../acceptance/scenarios/*`, with shell
-  orchestration under `../acceptance/bin/*`.
+- Verification runs use the top-level project in `../verification/`.
+- The canonical gate is `bash ../verification/bin/run_active_suite.sh`.
+- Generated logs and artifacts are written under `../verification/logs/` and
+  `../verification/artifacts/` and are intentionally not committed.
+- The reusable harness lives in `../verification/lib/verification/suites/e2e/manual_support.rb`.
+- Ruby scenario entrypoints live under `../verification/scenarios/*`, with shell
+  orchestration under `../verification/bin/*`.
 - Historical pre-reset checklists and bundled-runtime closeout documents were
   moved to `../docs/archived/`.
 
@@ -113,10 +114,10 @@ bin/rubocop -f github
 bun run lint:js
 bin/rails db:test:prepare test
 bin/rails db:test:prepare test:system
-ACTIVE_ACCEPTANCE_ENABLE_2048_CAPSTONE=1 bash ../acceptance/bin/run_active_suite.sh
+ACTIVE_VERIFICATION_ENABLE_2048_CAPSTONE=1 bash ../verification/bin/run_active_suite.sh
 rails db:drop && rm db/schema.rb && rails db:create && rails db:migrate && rails db:reset
-../acceptance/bin/run_active_suite.sh
-bin/rails runner ../acceptance/scenarios/provider_backed_turn_validation.rb
+../verification/bin/run_active_suite.sh
+bin/rails runner ../verification/scenarios/e2e/provider_backed_turn_validation.rb
 bundle exec ruby script/manual/workflow_proof_export.rb export ...
 ```
 

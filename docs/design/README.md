@@ -9,7 +9,7 @@ it matches the current code. For current implementation truth, use:
 
 - [docs/plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md)
 - [docs/finished-plans](/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/README.md)
-- [acceptance/README.md](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
+- [verification/README.md](/Users/jasl/Workspaces/Ruby/cybros/verification/README.md)
 
 Superseded design baselines that still encode pre-reset resource visibility or
 bundled-runtime assumptions belong in

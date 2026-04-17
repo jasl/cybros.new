@@ -24,12 +24,12 @@ Practical state:
   legacy execution family in this directory.
 - The agent/runtime/conversation reset is now an active destructive architecture
   reset track spanning `core_matrix`, `agents/fenix`,
-  `execution_runtimes/nexus`, docs, and acceptance.
+  `execution_runtimes/nexus`, docs, and verification.
 - The agent/runtime visibility reset is now an active follow-up track for
   `public/private` ownership semantics, bundled system provisioning, and
   workspace/conversation usability after visibility changes.
-- Current acceptance runs now execute through the top-level
-  [acceptance harness](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md),
+- Current verification runs now execute through the top-level
+  [verification project](/Users/jasl/Workspaces/Ruby/cybros/verification/README.md),
   not the old `core_matrix/script/manual/acceptance` path.
 - The completed April supervision and `2048` acceptance execution plans were
   archived to

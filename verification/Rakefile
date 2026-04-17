@@ -1,0 +1,10 @@
+require_relative "test/manifest"
+require "minitest/test_task"
+
+Minitest::TestTask.create do |task|
+  task.libs << "test"
+  task.libs << "lib"
+  task.test_globs = Verification::TestManifest.absolute_paths(Verification::TestManifest::PURE_TEST_FILES)
+end
+
+task default: %i[test]

@@ -1,0 +1,312 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# rubocop:disable Metrics/MethodLength
+require 'fileutils'
+require 'json'
+require 'time'
+
+$LOAD_PATH.unshift(File.expand_path("../../lib", __dir__))
+require "verification/hosted/core_matrix"
+require "verification/suites/perf/event_reader"
+require "verification/suites/perf/gate_evaluator"
+require "verification/suites/perf/metrics_aggregator"
+require "verification/suites/perf/profile"
+require "verification/suites/perf/provider_catalog_override"
+require "verification/suites/perf/report_builder"
+require "verification/suites/perf/runtime_registration_matrix"
+require "verification/suites/perf/topology"
+require "verification/suites/perf/workload_driver"
+require "verification/suites/perf/workload_executor"
+require "verification/suites/perf/workload_manifest"
+
+def write_json(path, payload)
+  FileUtils.mkdir_p(File.dirname(path))
+  File.write(path, "#{JSON.pretty_generate(payload)}\n")
+end
+
+def write_text(path, contents)
+  FileUtils.mkdir_p(File.dirname(path))
+  File.binwrite(path, contents)
+end
+
+def append_jsonl(path, payload)
+  FileUtils.mkdir_p(File.dirname(path))
+  File.open(path, 'a') { |file| file.puts(JSON.generate(payload)) }
+end
+
+def decorate_boot_states(registration_matrix, topology)
+  topology.runtime_slots.reduce(registration_matrix) do |matrix, slot|
+    decorate_boot_state(matrix, slot)
+  end
+end
+
+def decorate_boot_state(registration_matrix, slot)
+  return registration_matrix unless slot.runtime_boot_json_path.exist?
+
+  payload = JSON.parse(slot.runtime_boot_json_path.read)
+  status = payload.fetch('event', 'ready') == 'ready' ? 'ready' : 'failed'
+  registration_matrix.with_boot_state(
+    slot_label: slot.label,
+    status: status,
+    error: status == 'ready' ? nil : payload['error'] || payload['message']
+  )
+rescue JSON::ParserError => e
+  registration_matrix.with_boot_state(
+    slot_label: slot.label,
+    status: 'failed',
+    error: "invalid boot json: #{e.message}"
+  )
+end
+
+def execute_mailbox_task_on_conversation!(conversation:, task:)
+  run = Verification::ManualSupport.start_turn_workflow_on_conversation!(
+    conversation: conversation,
+    execution_runtime: task.fetch('execution_runtime'),
+    content: task.fetch('content'),
+    root_node_key: 'agent_turn_step',
+    root_node_type: 'turn_step',
+    decision_source: 'agent',
+    initial_kind: 'turn_step',
+    initial_payload: { 'mode' => task.fetch('mode') }.merge(task.fetch('extra_payload', {}))
+  )
+  agent_task_run = Verification::ManualSupport.wait_for_agent_task_terminal!(
+    agent_task_run: run.fetch(:agent_task_run),
+    timeout_seconds: 30
+  )
+  terminal_payload = agent_task_run.terminal_payload || {}
+  completed = agent_task_run.lifecycle_state == 'completed'
+
+  {
+    'status' => completed ? 'completed' : 'failed',
+    'conversation_public_id' => conversation.public_id,
+    'turn_public_id' => run.fetch(:turn).public_id,
+    'workflow_run_public_id' => run.fetch(:workflow_run).public_id,
+    'agent_task_run_public_id' => agent_task_run.public_id,
+    'runtime_output' => terminal_payload['output'],
+    'runtime_error' => completed ? nil : terminal_payload
+  }
+end
+
+def execute_agent_request_exchange_task_on_conversation!(conversation:, task:, catalog: nil)
+  run = Verification::ManualSupport.execute_provider_turn_on_conversation!(
+    conversation: conversation,
+    execution_runtime: task.fetch('execution_runtime'),
+    content: task.fetch('content'),
+    selector_source: task.fetch('selector_source', 'manual'),
+    selector: task.fetch('selector'),
+    catalog: catalog,
+    inline_if_queued: false
+  )
+  workflow_run = run.fetch(:workflow_run).reload
+  turn = run.fetch(:turn).reload
+  completed = workflow_run.lifecycle_state == 'completed'
+
+  {
+    'status' => completed ? 'completed' : 'failed',
+    'conversation_public_id' => conversation.public_id,
+    'turn_public_id' => turn.public_id,
+    'workflow_run_public_id' => workflow_run.public_id,
+    'runtime_output' => turn.selected_output_message&.content,
+    'runtime_error' => completed ? nil : workflow_run.reload.error_payload
+  }
+end
+
+def with_runtime_control_workers!(registrations, inline:, index: 0, &block)
+  return yield if index >= registrations.length
+
+  registration = registrations.fetch(index)
+  Verification::ManualSupport.with_nexus_control_worker_for_registration!(
+    registration: registration,
+    limit: 1,
+    inline: inline,
+    env: registration.runtime_task_env
+  ) do
+    with_runtime_control_workers!(registrations, inline: inline, index: index + 1, &block)
+  end
+end
+
+def with_agent_control_workers!(agent_registrations, inline:, index: 0, &block)
+  return yield if index >= agent_registrations.length
+
+  registration = agent_registrations.fetch(index)
+  Verification::ManualSupport.with_fenix_control_worker!(
+    agent_connection_credential: registration.fetch(:agent_connection_credential),
+    limit: 1,
+    inline: inline
+  ) do
+    with_agent_control_workers!(agent_registrations, inline: inline, index: index + 1, &block)
+  end
+end
+
+def summary_for(profile:, registration_matrix:, metrics:, driver_report:, gate_result:)
+  summary = Verification::Perf::ReportBuilder.call(
+    profile_name: profile.name,
+    agent_count: registration_matrix.agent_count,
+    runtime_count: registration_matrix.runtime_count,
+    metrics: metrics,
+    structural_failures: driver_report.fetch('structural_failures'),
+    gate_result: gate_result,
+    artifact_paths: {
+      'aggregated_metrics' => 'evidence/aggregated-metrics.json',
+      'runtime_topology' => 'evidence/runtime-topology.json',
+      'workload_profile' => 'evidence/workload-profile.json'
+    }
+  ).merge(
+    'completed_workload_items' => driver_report.fetch('completed_workload_items'),
+    'agent_count' => registration_matrix.agent_count,
+    'runtime_count' => registration_matrix.runtime_count
+  )
+  return summary unless gate_result['eligible']
+
+  summary.tap do |payload|
+    payload['outcome']['classification'] = gate_result['passed'] ? 'gate_passed' : 'gate_failed'
+  end
+end
+
+repo_root = Verification.repo_root
+verification_root = Verification.verification_root
+agent_base_url = ENV.fetch('FENIX_AGENT_BASE_URL', 'http://127.0.0.1:3101')
+profile = Verification::Perf::Profile.fetch(ENV.fetch('MULTI_FENIX_LOAD_PROFILE', 'smoke'))
+artifact_stamp = ENV.fetch('MULTI_FENIX_LOAD_ARTIFACT_STAMP') do
+  "#{Time.now.utc.strftime('%Y-%m-%d-%H%M%S')}-multi-agent-runtime-core-matrix-load-#{profile.name}"
+end
+topology = Verification::Perf::Topology.build(
+  profile: profile,
+  repo_root: repo_root,
+  verification_root: verification_root,
+  artifact_stamp: artifact_stamp
+)
+manifest = Verification::Perf::WorkloadManifest.for_profile(profile)
+provider_catalog_override = Verification::Perf::ProviderCatalogOverride.build(
+  profile: profile,
+  topology: topology,
+  rails_root: Rails.root,
+  env: Rails.env
+)
+workload_executor = Verification::Perf::WorkloadExecutor.new(
+  run_execution_assignment: lambda do |conversation:, registration:, task:, slot_index:|
+    execute_mailbox_task_on_conversation!(
+      conversation: conversation,
+      task: task.merge('execution_runtime' => registration.execution_runtime)
+    ).merge('slot_index' => slot_index)
+  end,
+  run_agent_request_exchange: lambda do |conversation:, registration:, task:, slot_index:|
+    execute_agent_request_exchange_task_on_conversation!(
+      conversation: conversation,
+      task: task.merge('execution_runtime' => registration.execution_runtime),
+      catalog: provider_catalog_override&.catalog
+    ).merge('slot_index' => slot_index)
+  end,
+  append_event: lambda do |path:, payload:|
+    append_jsonl(path, payload)
+  end
+)
+
+stack_already_reset = ActiveModel::Type::Boolean.new.cast(
+  ENV.fetch('MULTI_FENIX_LOAD_STACK_ALREADY_RESET', 'false')
+)
+Verification::ManualSupport.reset_backend_state! unless stack_already_reset
+bootstrap = Verification::ManualSupport.bootstrap_and_seed!
+
+registration_matrix = Verification::Perf::RuntimeRegistrationMatrix.call(
+  installation: bootstrap.installation,
+  actor: bootstrap.user,
+  topology: topology,
+  agent_count: profile.agent_count,
+  agent_base_url: agent_base_url,
+  create_bring_your_own_agent: Verification::ManualSupport.method(:create_bring_your_own_agent!),
+  register_bring_your_own_agent: Verification::ManualSupport.method(:register_bring_your_own_agent_from_manifest!),
+  create_bring_your_own_execution_runtime: Verification::ManualSupport.method(:create_bring_your_own_execution_runtime!),
+  register_bring_your_own_execution_runtime: Verification::ManualSupport.method(:register_bring_your_own_execution_runtime!)
+)
+registration_matrix = decorate_boot_states(registration_matrix, topology)
+
+driver_report =
+  if registration_matrix.all_booted?
+    with_agent_control_workers!(
+      registration_matrix.agent_registrations,
+      inline: profile.inline_control_worker?
+    ) do
+      with_runtime_control_workers!(
+        registration_matrix.runtime_registrations,
+        inline: profile.inline_control_worker?
+      ) do
+        Verification::Perf::WorkloadDriver.call(
+          manifest: manifest,
+          registration_matrix: registration_matrix,
+          create_conversation: lambda do |agent_definition_version:|
+            Verification::ManualSupport.create_conversation!(agent_definition_version: agent_definition_version)
+          end,
+          execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
+            workload_executor.call(
+              conversation: conversation,
+              registration: registration,
+              task: task,
+              slot_index: slot_index,
+              event_output_path: registration.event_output_path
+            )
+          end
+        )
+      end
+    end
+  else
+    Verification::Perf::WorkloadDriver.call(
+      manifest: manifest,
+      registration_matrix: registration_matrix,
+      create_conversation: lambda do |agent_definition_version:|
+        Verification::ManualSupport.create_conversation!(agent_definition_version: agent_definition_version)
+      end,
+      execute_workload_item: lambda do |conversation:, registration:, task:, slot_index:|
+        workload_executor.call(
+          conversation: conversation,
+          registration: registration,
+          task: task,
+          slot_index: slot_index,
+          event_output_path: registration.event_output_path
+        )
+      end
+    )
+  end
+
+event_paths = [registration_matrix.core_matrix_events_path]
+agent_event_path = ENV['FENIX_AGENT_EVENTS_PATH']
+event_paths << agent_event_path if agent_event_path.present?
+event_paths.concat(registration_matrix.runtime_registrations.map(&:event_output_path))
+existing_event_paths = event_paths.map { |path| Pathname(path) }.select(&:exist?)
+metrics = Verification::Perf::MetricsAggregator.call(event_paths: existing_event_paths)
+gate_result = Verification::Perf::GateEvaluator.call(
+  profile: profile,
+  metrics: metrics,
+  structural_failures: driver_report.fetch('structural_failures'),
+  completed_workload_items: driver_report.fetch('completed_workload_items')
+)
+summary = summary_for(
+  profile: profile,
+  registration_matrix: registration_matrix,
+  metrics: metrics,
+  driver_report: driver_report,
+  gate_result: gate_result
+)
+
+artifact_dir = topology.artifact_root
+write_json(
+  artifact_dir.join('evidence', 'runtime-topology.json'),
+  { 'profile_name' => profile.name }.merge(registration_matrix.artifact_payload)
+)
+write_json(
+  artifact_dir.join('evidence', 'workload-profile.json'),
+  {
+    **manifest.artifact_payload,
+    'provider_catalog_override' => provider_catalog_override&.payload
+  }
+)
+write_json(artifact_dir.join('evidence', 'aggregated-metrics.json'), metrics)
+write_json(artifact_dir.join('evidence', 'run-summary.json'), summary)
+write_text(
+  artifact_dir.join('review', 'load-summary.md'),
+  Verification::BenchmarkReporting.load_summary_markdown(summary)
+)
+
+puts JSON.pretty_generate(summary)
+# rubocop:enable Metrics/MethodLength
