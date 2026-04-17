@@ -48,4 +48,29 @@ class CoreMatrixCLITestCase < Minitest::Test
       value == :__missing__ ? ENV.delete(key) : ENV[key] = value
     end
   end
+
+  def with_dir_home(path)
+    with_stubbed_singleton_method(Dir, :home, -> { path }) do
+      yield
+    end
+  end
+
+  def with_stubbed_singleton_method(object, method_name, replacement)
+    singleton = object.singleton_class
+    alias_name = :"__codex_original_#{method_name}_#{object.object_id}_#{rand(1_000_000)}"
+
+    singleton.class_eval do
+      alias_method alias_name, method_name
+      remove_method method_name
+      define_method(method_name, &replacement)
+    end
+
+    yield
+  ensure
+    singleton.class_eval do
+      remove_method method_name
+      alias_method method_name, alias_name
+      remove_method alias_name
+    end
+  end
 end

@@ -2,6 +2,30 @@ require "test_helper"
 require_relative "../support/fake_shell_runner"
 
 class CredentialRepositoryTest < CoreMatrixCLITestCase
+  class RecordingStore
+    attr_reader :writes, :cleared
+
+    def initialize(read_value = {})
+      @read_value = read_value
+      @writes = []
+      @cleared = false
+    end
+
+    def read
+      @read_value
+    end
+
+    def write(values)
+      @writes << values
+      @read_value = values
+    end
+
+    def clear
+      @cleared = true
+      @read_value = {}
+    end
+  end
+
   def test_file_store_writes_with_0600_permissions
     store = CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
 
@@ -48,6 +72,50 @@ class CredentialRepositoryTest < CoreMatrixCLITestCase
 
       assert_instance_of CoreMatrixCLI::CredentialStores::FileStore, store
       assert_equal tmp_path("credentials-from-env.json"), store.path
+    end
+  end
+
+  def test_credential_repository_delegates_to_selected_store
+    store = RecordingStore.new("session_token" => "stored")
+    repository = CoreMatrixCLI::State::CredentialRepository.new(store: store)
+
+    assert_equal({ "session_token" => "stored" }, repository.read)
+
+    repository.write("session_token" => "new-secret")
+    repository.clear
+
+    assert_equal [{ "session_token" => "new-secret" }], store.writes
+    assert_equal true, store.cleared
+  end
+
+  def test_file_store_default_path_uses_home_config_directory_without_override
+    with_env("CORE_MATRIX_CLI_CREDENTIAL_PATH" => nil) do
+      with_dir_home("/tmp/core-matrix-cli-home") do
+        assert_equal(
+          "/tmp/core-matrix-cli-home/.config/core_matrix_cli/credentials.json",
+          CoreMatrixCLI::CredentialStores::FileStore.default_path
+        )
+      end
+    end
+  end
+
+  def test_default_store_falls_back_to_file_store_with_default_path_when_keychain_is_unavailable
+    with_env(
+      "CORE_MATRIX_CLI_CREDENTIAL_STORE" => nil,
+      "CORE_MATRIX_CLI_CREDENTIAL_PATH" => nil
+    ) do
+      with_dir_home("/tmp/core-matrix-cli-home") do
+        with_stubbed_singleton_method(
+          CoreMatrixCLI::CredentialStores::MacOSKeychainStore,
+          :available?,
+          -> { false }
+        ) do
+          store = CoreMatrixCLI::State::CredentialRepository.default_store
+
+          assert_instance_of CoreMatrixCLI::CredentialStores::FileStore, store
+          assert_equal "/tmp/core-matrix-cli-home/.config/core_matrix_cli/credentials.json", store.path
+        end
+      end
     end
   end
 end
