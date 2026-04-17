@@ -17,7 +17,7 @@ module ExecutionRuntimeAPI
       raise ActiveRecord::RecordNotFound, "Couldn't find MessageAttachment" if manifest_entry.blank?
 
       render json: {
-        method_id: "request_attachment",
+        method_id: "refresh_attachment",
         execution_runtime_id: current_execution_runtime.public_id,
         turn_id: turn.public_id,
         conversation_id: turn.conversation.public_id,

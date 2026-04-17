@@ -1,5 +1,9 @@
 module AgentControl
   class SerializeMailboxItem
+    EVENT_SUBMISSION_PATH = "/execution_runtime_api/events/batch".freeze
+    ATTACHMENT_REFRESH_PATH = "/execution_runtime_api/attachments/request".freeze
+    ATTACHMENT_PUBLISH_PATH = "/execution_runtime_api/attachments/publish".freeze
+
     def self.call(mailbox_item, execution_snapshot_cache: nil)
       {
         "item_id" => mailbox_item.public_id,
@@ -46,11 +50,15 @@ module AgentControl
         ),
         "capability_projection" => snapshot.capability_projection,
         "provider_context" => snapshot.provider_context,
+        "transport_hints" => transport_hints,
         "runtime_context" => snapshot.runtime_context.merge(
           "control_plane" => mailbox_item.control_plane,
           "logical_work_id" => mailbox_item.logical_work_id,
           "attempt_no" => mailbox_item.attempt_no,
-          "agent_definition_version_id" => mailbox_item.execution_contract.agent_definition_version.public_id
+          "agent_definition_version_id" => mailbox_item.execution_contract.agent_definition_version.public_id,
+          "event_submission_path" => EVENT_SUBMISSION_PATH,
+          "attachment_refresh_path" => ATTACHMENT_REFRESH_PATH,
+          "attachment_publish_path" => ATTACHMENT_PUBLISH_PATH
         ),
         "task_payload" => payload["task_payload"] || mailbox_item.agent_task_run&.task_payload || {},
       }.merge(payload.except("task_payload", "prior_tool_results"))
@@ -67,6 +75,10 @@ module AgentControl
         end
 
       execution_snapshot_cache[turn_id] if turn_id.present?
+    end
+
+    def self.transport_hints
+      ExecutionRuntimeSessions::Open.send(:transport_hints).deep_dup
     end
   end
 end

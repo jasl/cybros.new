@@ -1,6 +1,38 @@
 require "test_helper"
 
 class AgentControl::SerializeMailboxItemsTest < ActiveSupport::TestCase
+  test "serializes execution assignments with runtime transport and attachment hints" do
+    context = build_agent_control_context!
+    agent_task_run = create_agent_task_run!(
+      workflow_node: context[:workflow_node],
+      task_payload: { "mode" => "tool_call" }
+    )
+    mailbox_item = AgentControl::CreateExecutionAssignment.call(
+      agent_task_run: agent_task_run,
+      payload: {
+        "task_payload" => agent_task_run.task_payload,
+        "runtime_resource_refs" => {
+          "command_run" => {
+            "command_run_id" => "command-run-public-id",
+            "runtime_owner_id" => context[:workflow_node].public_id,
+          },
+        },
+      },
+      dispatch_deadline_at: 5.minutes.from_now,
+      execution_hard_deadline_at: 10.minutes.from_now
+    )
+
+    serialized = AgentControl::SerializeMailboxItems.call(mailbox_item).sole
+
+    assert_equal "command-run-public-id",
+      serialized.dig("payload", "runtime_resource_refs", "command_run", "command_run_id")
+    assert_equal "/cable", serialized.dig("payload", "transport_hints", "websocket", "path")
+    assert_equal "/execution_runtime_api/mailbox/pull", serialized.dig("payload", "transport_hints", "mailbox", "pull_path")
+    assert_equal "/execution_runtime_api/events/batch", serialized.dig("payload", "runtime_context", "event_submission_path")
+    assert_equal "/execution_runtime_api/attachments/request", serialized.dig("payload", "runtime_context", "attachment_refresh_path")
+    assert_equal "/execution_runtime_api/attachments/publish", serialized.dig("payload", "runtime_context", "attachment_publish_path")
+  end
+
   test "serializes materialized agent requests with frozen workspace agent documents without query explosion" do
     mailbox_items = 3.times.map do |index|
       context = build_agent_control_context!(

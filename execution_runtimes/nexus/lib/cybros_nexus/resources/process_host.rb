@@ -83,6 +83,58 @@ module CybrosNexus
         }
       end
 
+      def close(process_run_id:, close_request_id:, mailbox_item_id:, strictness:)
+        handle = @registry.fetch(process_run_id:)
+
+        if handle
+          normalized_strictness = strictness.to_s == "forced" ? "forced" : "graceful"
+          signal = normalized_strictness == "forced" ? "KILL" : "TERM"
+          @registry.mark_close_request(
+            process_run_id: process_run_id,
+            close_request_id: close_request_id,
+            mailbox_item_id: mailbox_item_id,
+            strictness: normalized_strictness,
+            signal: signal
+          )
+
+          terminate_process_tree!(handle.pid, signal: signal)
+
+          return {
+            "status" => "closing",
+            "resource_id" => process_run_id,
+            "close_request_id" => close_request_id,
+            "strictness" => normalized_strictness,
+          }
+        end
+
+        snapshot = @registry.snapshot(process_run_id:)
+        return { "status" => "missing", "resource_id" => process_run_id, "close_request_id" => close_request_id } if snapshot.nil?
+
+        {
+          "status" => "closed",
+          "resource_id" => process_run_id,
+          "close_request_id" => close_request_id,
+          "strictness" => strictness.to_s == "forced" ? "forced" : "graceful",
+          "close_outcome_payload" => {
+            "source" => "nexus_runtime",
+            "reason" => "already_stopped",
+            "previous_lifecycle_state" => snapshot["lifecycle_state"],
+            "exit_status" => snapshot["exit_status"],
+          }.compact,
+        }
+      rescue Errno::ESRCH
+        {
+          "status" => "closed",
+          "resource_id" => process_run_id,
+          "close_request_id" => close_request_id,
+          "strictness" => strictness.to_s == "forced" ? "forced" : "graceful",
+          "close_outcome_payload" => {
+            "source" => "nexus_runtime",
+            "reason" => "already_stopped",
+          },
+        }
+      end
+
       def shutdown
         @registry.shutdown.each do |handle|
           terminate_process_tree!(handle.pid, signal: "TERM")
@@ -143,16 +195,9 @@ module CybrosNexus
           next if snapshot.nil?
 
           enqueue_event(
-            event_key: "process-exited:#{handle.process_run_id}",
-            event_type: "process_exited",
-            payload: {
-              "method_id" => "process_exited",
-              "protocol_message_id" => "nexus-process-exited-#{SecureRandom.uuid}",
-              "resource_type" => "ProcessRun",
-              "resource_id" => handle.process_run_id,
-              "lifecycle_state" => snapshot.fetch("lifecycle_state"),
-              "exit_status" => snapshot.fetch("exit_status"),
-            }
+            event_key: terminal_event_key_for(handle),
+            event_type: terminal_event_type_for(handle),
+            payload: terminal_event_payload_for(handle, snapshot)
           )
 
           @registry.release(process_run_id: handle.process_run_id)
@@ -198,6 +243,47 @@ module CybrosNexus
         end
       rescue Errno::EPERM
         nil
+      end
+
+      def terminal_event_key_for(handle)
+        if handle.close_request_id
+          "resource-closed:#{handle.close_request_id}"
+        else
+          "process-exited:#{handle.process_run_id}"
+        end
+      end
+
+      def terminal_event_type_for(handle)
+        handle.close_request_id ? "resource_closed" : "process_exited"
+      end
+
+      def terminal_event_payload_for(handle, snapshot)
+        if handle.close_request_id
+          {
+            "method_id" => "resource_closed",
+            "protocol_message_id" => "nexus-resource-closed-#{SecureRandom.uuid}",
+            "mailbox_item_id" => handle.close_mailbox_item_id,
+            "close_request_id" => handle.close_request_id,
+            "resource_type" => "ProcessRun",
+            "resource_id" => handle.process_run_id,
+            "close_outcome_kind" => handle.close_strictness == "forced" ? "forced" : "graceful",
+            "close_outcome_payload" => {
+              "source" => "nexus_runtime",
+              "signal" => handle.close_signal,
+              "exit_status" => snapshot["exit_status"],
+              "lifecycle_state" => snapshot["lifecycle_state"],
+            }.compact,
+          }.compact
+        else
+          {
+            "method_id" => "process_exited",
+            "protocol_message_id" => "nexus-process-exited-#{SecureRandom.uuid}",
+            "resource_type" => "ProcessRun",
+            "resource_id" => handle.process_run_id,
+            "lifecycle_state" => snapshot.fetch("lifecycle_state"),
+            "exit_status" => snapshot.fetch("exit_status"),
+          }
+        end
       end
     end
   end

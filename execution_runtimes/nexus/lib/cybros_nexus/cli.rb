@@ -113,7 +113,30 @@ module CybrosNexus
     end
 
     def run_control_role(context:, config:, logger:, manifest:, outbox:, session_client:, store:)
+      command_host = CybrosNexus::Resources::CommandHost.new(store: store)
+      process_registry = CybrosNexus::Resources::ProcessRegistry.new(store: store)
+      process_host = CybrosNexus::Resources::ProcessHost.new(
+        store: store,
+        registry: process_registry,
+        outbox: outbox
+      )
+      assignment_executor = CybrosNexus::Mailbox::AssignmentExecutor.new(
+        store: store,
+        outbox: outbox,
+        command_host: command_host,
+        process_host: process_host,
+        workdir: Dir.pwd
+      )
+      close_request_executor = CybrosNexus::Mailbox::CloseRequestExecutor.new(
+        process_host: process_host,
+        outbox: outbox
+      )
       last_refresh_at = monotonic_now
+
+      context.on_stop do
+        process_host.shutdown
+        command_host.shutdown
+      end
 
       until context.stopping?
         control_loop = CybrosNexus::Mailbox::ControlLoop.new(
@@ -126,7 +149,15 @@ module CybrosNexus
           outbox: outbox,
           mailbox_handler: lambda do |mailbox_item|
             logger.info("received mailbox item #{mailbox_item.fetch("item_id")}")
-            { "mailbox_item_id" => mailbox_item.fetch("item_id") }
+
+            case mailbox_item.fetch("item_type")
+            when "execution_assignment"
+              assignment_executor.call(mailbox_item: mailbox_item)
+            when "resource_close_request"
+              close_request_executor.call(mailbox_item: mailbox_item)
+            else
+              raise CybrosNexus::Error, "unsupported mailbox item #{mailbox_item.fetch("item_type").inspect}"
+            end
           end
         )
 

@@ -45,7 +45,10 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       context.fetch(:turn).execution_snapshot.runtime_context.merge(
         "logical_work_id" => agent_task_run.logical_work_id,
         "attempt_no" => agent_task_run.attempt_no,
-        "control_plane" => "execution_runtime"
+        "control_plane" => "execution_runtime",
+        "event_submission_path" => "/execution_runtime_api/events/batch",
+        "attachment_refresh_path" => "/execution_runtime_api/attachments/request",
+        "attachment_publish_path" => "/execution_runtime_api/attachments/publish"
       ),
       mailbox_item.payload.fetch("runtime_context")
     )
@@ -183,6 +186,12 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
         agent_task_run: agent_task_run,
         payload: {
           "task_payload" => agent_task_run.task_payload,
+          "runtime_resource_refs" => {
+            "command_run" => {
+              "command_run_id" => "command-run-public-id",
+              "runtime_owner_id" => workflow_node.public_id,
+            },
+          },
         },
         dispatch_deadline_at: Time.zone.parse("2026-03-28 10:05:00 UTC"),
         execution_hard_deadline_at: Time.zone.parse("2026-03-28 10:10:00 UTC"),
@@ -247,6 +256,11 @@ class AgentControlCreateExecutionAssignmentTest < ActiveSupport::TestCase
       "user_id" => "user-public-id",
       "execution_runtime_id" => "execution-runtime-public-id",
       "execution_runtime_version_id" => "execution-runtime-version-public-id"
+    )
+    payload["runtime_resource_refs"] = payload.fetch("runtime_resource_refs").merge(
+      "command_run" => payload.fetch("runtime_resource_refs").fetch("command_run").merge(
+        "runtime_owner_id" => "workflow-node-public-id"
+      )
     )
 
     serialized.merge(

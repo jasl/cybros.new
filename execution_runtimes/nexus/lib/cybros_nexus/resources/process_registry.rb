@@ -19,6 +19,10 @@ module CybrosNexus
         :exit_status,
         :stdout_bytes,
         :stdout_tail,
+        :close_request_id,
+        :close_mailbox_item_id,
+        :close_strictness,
+        :close_signal,
         keyword_init: true
       )
 
@@ -52,6 +56,20 @@ module CybrosNexus
 
           handle.stdout_bytes += text.to_s.bytesize
           handle.stdout_tail = trim_tail(handle.stdout_tail, text)
+          persist_handle!(handle)
+          snapshot_for(handle)
+        end
+      end
+
+      def mark_close_request(process_run_id:, close_request_id:, mailbox_item_id:, strictness:, signal:)
+        @mutex.synchronize do
+          handle = @handles[process_run_id]
+          next nil if handle.nil?
+
+          handle.close_request_id = close_request_id
+          handle.close_mailbox_item_id = mailbox_item_id
+          handle.close_strictness = strictness
+          handle.close_signal = signal
           persist_handle!(handle)
           snapshot_for(handle)
         end
@@ -118,6 +136,10 @@ module CybrosNexus
           "stdout_tail" => handle.stdout_tail.dup,
           "proxy_path" => handle.proxy_path,
           "proxy_target_url" => handle.proxy_target_url,
+          "close_request_id" => handle.close_request_id,
+          "close_mailbox_item_id" => handle.close_mailbox_item_id,
+          "close_strictness" => handle.close_strictness,
+          "close_signal" => handle.close_signal,
         }.compact
       end
 
@@ -144,6 +166,10 @@ module CybrosNexus
                 "stdout_tail" => handle.stdout_tail,
                 "proxy_path" => handle.proxy_path,
                 "proxy_target_url" => handle.proxy_target_url,
+                "close_request_id" => handle.close_request_id,
+                "close_mailbox_item_id" => handle.close_mailbox_item_id,
+                "close_strictness" => handle.close_strictness,
+                "close_signal" => handle.close_signal,
               }
             ),
             Time.now.utc.iso8601,

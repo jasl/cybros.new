@@ -145,7 +145,7 @@ class ExecutorApiAttachmentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "files_missing", JSON.parse(response.body).fetch("error")
   end
 
-  test "request_attachment returns a signed handle for an attachment on the turn snapshot" do
+  test "refresh_attachment returns a signed handle for an attachment on the turn snapshot" do
     context = build_agent_control_context!
     attachment = create_message_attachment!(
       message: context[:turn].selected_input_message,
@@ -173,7 +173,7 @@ class ExecutorApiAttachmentsControllerTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     attachment_payload = body.fetch("attachment")
 
-    assert_equal "request_attachment", body.fetch("method_id")
+    assert_equal "refresh_attachment", body.fetch("method_id")
     assert_equal context[:execution_runtime].public_id, body.fetch("execution_runtime_id")
     assert_equal context[:turn].public_id, body.fetch("turn_id")
     assert_equal context[:conversation].public_id, body.fetch("conversation_id")
@@ -185,7 +185,7 @@ class ExecutorApiAttachmentsControllerTest < ActionDispatch::IntegrationTest
     assert_match %r{/rails/active_storage/blobs/redirect/}, attachment_payload.fetch("download_url")
   end
 
-  test "request_attachment rejects an execution runtime connection from another runtime" do
+  test "refresh_attachment rejects an execution runtime connection from another runtime" do
     context = build_agent_control_context!
     attachment = create_message_attachment!(message: context[:turn].selected_input_message)
     Workflows::BuildExecutionSnapshot.call(turn: context[:turn])
