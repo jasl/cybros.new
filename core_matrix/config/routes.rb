@@ -51,6 +51,10 @@ Rails.application.routes.draw do
     resources :registrations, only: :create
     resource :health, only: :show, controller: :health
     resource :capabilities, only: [:show, :create], controller: :capabilities
+    post "session/open", to: "session#open"
+    post "session/refresh", to: "session#refresh"
+    post "mailbox/pull", to: "mailbox#pull"
+    post "events/batch", to: "events#batch"
     resources :command_runs, only: :create do
       post :activate, on: :member
     end
