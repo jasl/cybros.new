@@ -140,6 +140,10 @@ bundle exec ruby script/manual/workflow_proof_export.rb export ...
   operators, browsers, and webhook providers should use for generated links.
 - Keep `CORE_MATRIX_PUBLIC_BASE_URL` distinct from the internal
   container-to-container control-plane URL used by `fenix` or `nexus`.
+- For home or office deployments without a public IP, choose a LAN URL,
+  internal HTTPS hostname, or public tunnel origin based on the operating mode
+  documented in
+  [../docs/operations/core-matrix-private-lan-deployment-guide.md](/Users/jasl/Workspaces/Ruby/cybros/docs/operations/core-matrix-private-lan-deployment-guide.md).
 - Containerized services still use Docker Compose environment injection. In
   `compose.yaml.sample`, explicit service `environment` values override
   same-named values coming from `env_file`.

@@ -23,6 +23,13 @@ Scope:
 This guide assumes `cmctl init` has already completed and that you have an
 authenticated operator session plus a selected workspace and workspace agent.
 
+For private home or office deployments without a public IP, first decide
+whether the installation is LAN-only, private HTTPS, or publicly exposed
+through a tunnel or reverse proxy. See
+[core-matrix-private-lan-deployment-guide.md](/Users/jasl/Workspaces/Ruby/cybros/docs/operations/core-matrix-private-lan-deployment-guide.md)
+for the deployment-side decision tree before choosing Telegram polling or
+webhook mode.
+
 ## Codex Subscription
 
 Before IM testing, authorize Codex Subscription through the CLI:

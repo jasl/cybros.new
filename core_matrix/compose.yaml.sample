@@ -72,6 +72,8 @@ services:
       migrator:
         condition: service_completed_successfully
     ports:
+      # Direct LAN access example. When you add a host reverse proxy, prefer a
+      # loopback-only publish such as `127.0.0.1:8080:80` instead.
       - '8080:80'
     restart: unless-stopped
     healthcheck:
