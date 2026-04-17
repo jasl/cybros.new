@@ -1,12 +1,10 @@
-require_relative "lib/core_matrix_cli"
+require "bundler/gem_tasks"
+require "minitest/test_task"
 
-task default: :test
+Minitest::TestTask.create
 
-desc "Run the full CLI test suite"
-task :test do
-  ruby "-Itest", "-e", <<~RUBY
-    Dir.glob("test/**/*_test.rb").sort.each do |path|
-      require File.expand_path(path)
-    end
-  RUBY
-end
+require "rubocop/rake_task"
+
+RuboCop::RakeTask.new
+
+task default: %i[test rubocop]

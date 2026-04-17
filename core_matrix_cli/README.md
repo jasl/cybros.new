@@ -1,72 +1,39 @@
-# Core Matrix CLI
+# CoreMatrixCli
 
-Thor-based operator CLI for CoreMatrix.
+TODO: Delete this and the text below, and describe your gem
 
-## Quickstart
+Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/core_matrix_cli`. To experiment with that code, run `bin/console` for an interactive prompt.
 
-```bash
-bundle exec ./bin/cmctl init
-bundle exec ./bin/cmctl providers codex login
-bundle exec ./bin/cmctl ingress telegram setup
-bundle exec ./bin/cmctl ingress telegram-webhook setup
-bundle exec ./bin/cmctl ingress weixin setup
-bundle exec ./bin/cmctl status
-```
+## Installation
 
-If `cmctl init` does not reuse a bundled workspace and workspace agent, create
-and select them before IM setup:
+TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
+
+Install the gem and add to the application's Gemfile by executing:
 
 ```bash
-bundle exec ./bin/cmctl workspace create --name "Integration Lab"
-bundle exec ./bin/cmctl agent attach --workspace-id <workspace_id> --agent-id <agent_id>
+bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
 ```
 
-## Operator Focus
-
-`cmctl` is intentionally narrow in v1. It is for operator setup, not full
-administration. The implemented happy path is:
-
-- bootstrap or log into a CoreMatrix installation
-- persist the operator session locally
-- create and select a workspace
-- attach an agent to that workspace
-- authorize Codex Subscription
-- configure Telegram polling and optionally Telegram webhook, or drive the Weixin QR login contract
-- inspect the current readiness snapshot
-
-Codex authorization uses OpenAI device flow. `cmctl providers codex login`
-prints the verification URL and user code, opens the verification URL when
-possible, and polls CoreMatrix until the subscription becomes authorized.
-
-## Command Groups
-
-- `cmctl init`
-- `cmctl auth login|whoami|logout`
-- `cmctl status`
-- `cmctl providers codex login|status|logout`
-- `cmctl workspace list|create|use`
-- `cmctl agent attach`
-- `cmctl ingress telegram setup`
-- `cmctl ingress telegram-webhook setup`
-- `cmctl ingress weixin setup`
-
-## IM Preparation
-
-The canonical operator entrypoint for IM prerequisites is built into the
-command help:
+If bundler is not being used to manage dependencies, install the gem by executing:
 
 ```bash
-bundle exec ./bin/cmctl ingress telegram help setup
-bundle exec ./bin/cmctl ingress telegram-webhook help setup
-bundle exec ./bin/cmctl ingress weixin help setup
+gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
 ```
 
-The longer companion guide is available at
-[core_matrix/docs/INTEGRATIONS.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/INTEGRATIONS.md).
+## Usage
 
-## Verification Boundary
+TODO: Write usage instructions here
 
-Telegram and Weixin self-verification in v1 is API-contract only. The CLI can
-prove polling setup, webhook material exposure, connector writes, QR rendering,
-and status polling. Real Telegram delivery and human QR scans remain later
-joint integration work.
+## Development
+
+After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+
+To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+
+## Contributing
+
+Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/core_matrix_cli.
+
+## License
+
+The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
