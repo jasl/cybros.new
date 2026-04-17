@@ -13,19 +13,19 @@
 **Execution notes:**
 
 - Follow `@test-driven-development` for each behavior change.
-- This plan is safest in a fresh dedicated worktree. The current repository
-  state is already dirty and contains unrelated staged changes, so do not use
-  a bare `git commit` in this checkout without first ensuring only the intended
-  paths are staged.
+- Execute this plan from an isolated execution workspace. As of
+  `2026-04-18`, the rewrite was started from a dedicated branch
+  `codex/nexus-runtime-rewrite` in the main checkout rather than a separate
+  worktree, so all commits must continue to use explicit path-based staging.
 - Use the approved design at
   `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-18-nexus-runtime-redesign-design.md`
   as the architecture baseline.
-- Do not stage unrelated dirty worktree files. The current repository already
-  contains unrelated staged renames and an untracked `execution_runtimes/nexus/`
-  tree.
-- Before Task 1 lands, remove the nested git metadata directory at
-  `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/.git` so the
-  monorepo can own the rebuilt gem files directly.
+- Do not stage unrelated worktree files. Even when the checkout starts clean,
+  all commits for this rewrite must continue to stage only the intended target
+  paths.
+- At execution start, `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/.git`
+  was already absent, so Task 1 should treat monorepo ownership of the rebuilt
+  gem tree as an invariant rather than a pending cleanup step.
 - Keep Action Cable as the primary low-latency path. Poll remains fallback and
   recovery infrastructure and should never become the only happy-path design.
 - Final delivery must not keep compatibility shims, but the implementation
@@ -82,8 +82,8 @@ before editing.
 ### Task 0: Normalize the rewrite starting point and isolate the execution workspace
 
 **Goal:** Make the current `nexus.old` + new `nexus/` layout reproducible and
-execute the rewrite from a clean branch/worktree boundary instead of from the
-current mixed checkout.
+execute the rewrite from a clean isolated branch boundary instead of from a
+mixed checkout.
 
 **Step 1: Verify the expected starting layout exists**
 
@@ -105,10 +105,11 @@ checkout state is understood before any implementation commits are made.
 **Step 2: Create an isolated execution workspace**
 
 - If the current checkout already contains unrelated staged or unstaged work,
-  create a dedicated worktree or otherwise isolate the rewrite before Task 1.
-- If a clean isolated worktree does not yet contain the `nexus.old` rename and
-  the new `nexus/` gem stub, recreate that starting layout intentionally before
-  continuing.
+  isolate the rewrite before Task 1 by switching to a dedicated branch or by
+  otherwise ensuring commits can be staged by explicit target path only.
+- If the selected execution workspace does not yet contain the `nexus.old`
+  rename and the new `nexus/` gem stub, recreate that starting layout
+  intentionally before continuing.
 - Do not begin Task 1 until the selected workspace contains both directories
   and no unrelated staged changes that would leak into the task commits.
 
@@ -116,8 +117,9 @@ checkout state is understood before any implementation commits are made.
 
 Before Task 1, note in the execution log or task journal which workspace will
 carry the rewrite and whether `execution_runtimes/nexus/.git` is still present.
-Task 1 is responsible for deleting the nested git metadata only after this
-starting point is isolated.
+For the `2026-04-18` execution, the selected workspace is branch
+`codex/nexus-runtime-rewrite` in the main checkout, and
+`execution_runtimes/nexus/.git` is already absent.
 
 ### Task 1: Re-establish a monorepo-owned gem boundary and `nexus run` entrypoint
 
@@ -176,9 +178,10 @@ bundle exec ruby -Itest test/executable_contract_test.rb
 
 Expected: FAIL because `exe/nexus` and `CybrosNexus::CLI` do not exist yet.
 
-**Step 3: Remove the nested git metadata and implement the minimal boot path**
+**Step 3: Confirm monorepo ownership and implement the minimal boot path**
 
-- delete `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/.git`
+- confirm `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/.git`
+  is absent before continuing
 - restore `.ruby-version` to `4.0.2`
 - add `exe/nexus` with a standard Bundler boot shim:
 
@@ -193,8 +196,9 @@ CybrosNexus::CLI.start(ARGV)
 
 - replace placeholder gem metadata with real summary, description, homepage
   paths, and executable registration
-- add a minimal Thor CLI with a `run` command stub and a root `version`
-  command
+- add a minimal CLI that preserves the user-facing `nexus run` contract while
+  using Thor-compatible internal command naming where needed, plus a root
+  `version` command
 - clean README wording so it describes the actual runtime product instead of
   the Bundler gem template
 

@@ -8,21 +8,21 @@ Gem::Specification.new do |spec|
   spec.authors = ["jasl"]
   spec.email = ["jasl9187@hotmail.com"]
 
-  spec.summary = "TODO: Write a short summary, because RubyGems requires one."
-  spec.description = "TODO: Write a longer description or delete this line."
-  spec.homepage = "https://github.com/jasl/cybros"
+  spec.summary = "Nexus execution runtime for the Cybros monorepo"
+  spec.description = "CybrosNexus packages the Nexus execution runtime as a Ruby gem with a single nexus CLI entrypoint."
+  spec.homepage = "https://github.com/jasl/cybros/tree/main/execution_runtimes/nexus"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 4.0.2"
 
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/jasl/cybros/tree/main/core_matrix_cli"
-  spec.metadata["documentation_uri"] = "https://github.com/jasl/cybros/blob/main/core_matrix_cli/README.md"
+  spec.metadata["source_code_uri"] = spec.homepage
+  spec.metadata["documentation_uri"] = "https://github.com/jasl/cybros/blob/main/execution_runtimes/nexus/README.md"
   spec.metadata["bug_tracker_uri"] = "https://github.com/jasl/cybros/issues"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   spec.bindir = "exe"
-  spec.executables = []
+  spec.executables = ["nexus"]
   spec.require_paths = ["lib"]
   spec.files = Dir.glob("**/*", base: __dir__).reject do |f|
     File.directory?(File.join(__dir__, f)) ||

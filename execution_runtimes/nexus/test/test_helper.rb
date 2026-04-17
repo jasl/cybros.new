@@ -2,5 +2,4 @@
 
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 require "cybros_nexus"
-
 require "minitest/autorun"

@@ -1,38 +1,45 @@
 # CybrosNexus
 
-TODO: Delete this and the text below, and describe your gem
-
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/cybros_nexus`. To experiment with that code, run `bin/console` for an interactive prompt.
+CybrosNexus is the Nexus execution runtime rebuild for the Cybros monorepo.
+It packages the runtime as a Ruby gem so operators can install one artifact and
+start the runtime through the `nexus` executable.
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
-
-Install the gem and add to the application's Gemfile by executing:
+For local development inside the monorepo:
 
 ```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+bundle install
+bundle exec ./exe/nexus --help
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+The packaged runtime will eventually be installed with:
 
 ```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+gem install cybros_nexus
+nexus run
 ```
 
-## Usage
+## Commands
 
-TODO: Write usage instructions here
+```bash
+nexus --help
+nexus run
+nexus version
+```
+
+`nexus run` is the operator entrypoint for the runtime supervisor. In this
+initial rewrite stage it is only a CLI stub; later tasks connect it to the new
+runtime kernel.
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+Run the targeted test suite from this project root:
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
-
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/cybros_nexus.
+```bash
+bundle exec rake test
+bundle exec rubocop
+```
 
 ## License
 
