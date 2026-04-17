@@ -27,7 +27,7 @@
 - secondary review surfaces when needed for confirmation or rejection:
   - `core_matrix/config`
   - `core_matrix/db`
-  - `core_matrix/docs/behavior`
+  - `docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior`
   - root `docs/plans` artifacts for current phase intent
 - fixed broad-scan viewpoints:
   - layering
@@ -105,8 +105,8 @@
 - Evidence:
   - `core_matrix/app/models/conversation.rb`
   - `core_matrix/app/models/turn.rb`
-  - `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
-  - `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
+  - `docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/workflow-context-assembly-and-execution-snapshot.md`
+  - `docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/turn-entry-and-selector-state.md`
 - Counterpoint: the behavior docs do intentionally bless an explicit workflow
   snapshot assembly boundary and a limited `Turn` read surface, so some
   exposure is expected.
@@ -159,7 +159,7 @@
   - `core_matrix/app/services/workflows/manual_retry.rb`
   - `core_matrix/test/services/workflows/manual_resume_test.rb`
   - `core_matrix/test/services/workflows/manual_retry_test.rb`
-  - `core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md`
+  - `docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/agent-definition-version-bootstrap-and-recovery-flows.md`
 - Counterpoint: the final side effects are materially different, so these
   should not be collapsed into one opaque service.
 - Related concepts: paused recovery, mutable workflow context, deployment
@@ -180,7 +180,7 @@
 - Evidence:
   - `core_matrix/app/services/provider_execution/execute_turn_step.rb`
   - `core_matrix/app/services/provider_execution/build_request_context.rb`
-  - `core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`
+  - `docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/workflow-context-assembly-and-execution-snapshot.md`
 - Counterpoint: the write path is deliberately transactional and fail-closed, so
   some orchestration density is justified.
 - Related concepts: provider request context, output variants, usage events,

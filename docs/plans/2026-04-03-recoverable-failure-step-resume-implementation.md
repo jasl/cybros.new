@@ -197,7 +197,7 @@
 ### Task 9: Update docs
 
 **Files:**
-- Modify: `core_matrix/docs/behavior/*` as needed
+- Modify: `docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/*` only if the historical reference set needs correction
 - Modify: `acceptance/README.md` only if acceptance wording needs blocked-state semantics
 
 **Step 1: Update behavior docs**

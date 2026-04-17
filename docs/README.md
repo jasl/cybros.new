@@ -18,6 +18,8 @@
 
 For the current implementation state, start here:
 
+- project-facing product docs:
+  - `core_matrix`: [core_matrix/docs/README.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/README.md)
 - active execution work:
   [docs/plans](/Users/jasl/Workspaces/Ruby/cybros/docs/plans/README.md)
 - current manual/product acceptance:

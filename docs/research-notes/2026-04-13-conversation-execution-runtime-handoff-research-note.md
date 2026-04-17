@@ -346,7 +346,7 @@ Current `Core Matrix` references:
 - `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-12-ssr-first-workbench-and-onboarding-design.md`
 - `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-12-ssr-first-workbench-and-onboarding.md`
 - `/Users/jasl/Workspaces/Ruby/cybros/docs/finished-plans/2026-04-03-agent-execution-runtime-reset-design.md`
-- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/turn-entry-and-selector-state.md`
+- `/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/turn-entry-and-selector-state.md`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/app_api/agent_conversations_controller.rb`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/app_api/conversation_messages_controller.rb`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/workbench/create_conversation_from_agent.rb`

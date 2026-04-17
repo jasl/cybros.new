@@ -1033,7 +1033,7 @@ git commit -m "test: add operator cli full setup contract coverage"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/.github/workflows/ci.yml`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/README.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-16-core-matrix-operator-cli-design.md`
-- Create: `/Users/jasl/Workspaces/Ruby/cybros/docs/operations/core-matrix-im-preparation-guide.md`
+- Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/INTEGRATIONS.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/README.md`
 
 **Step 1: Write the failing CI/documentation expectations**
@@ -1090,7 +1090,7 @@ Expected: PASS.
 git add /Users/jasl/Workspaces/Ruby/cybros/.github/workflows/ci.yml \
   /Users/jasl/Workspaces/Ruby/cybros/README.md \
   /Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-16-core-matrix-operator-cli-design.md \
-  /Users/jasl/Workspaces/Ruby/cybros/docs/operations/core-matrix-im-preparation-guide.md \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/INTEGRATIONS.md \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/README.md
 git commit -m "docs: wire operator cli into monorepo docs and ci"
 ```

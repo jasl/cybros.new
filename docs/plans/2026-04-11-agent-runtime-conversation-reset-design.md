@@ -3,7 +3,7 @@
 ## Status
 
 - Date: 2026-04-11
-- Status: superseded by `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-12-agent-canonical-config-and-runtime-pairing-design.md`; terminology normalized here for consistency with the implemented model
+- Status: superseded by `/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/plans/2026-04-12-agent-canonical-config-and-runtime-pairing-design.md`; terminology normalized here for consistency with the implemented model
 
 ## Goal
 

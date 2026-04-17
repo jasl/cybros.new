@@ -24,8 +24,9 @@ Implementation status refresh (`2026-03-30`):
   - governed MCP execution
   - `agents/fenix` skill compatibility, proof export, and final acceptance
     evidence
-- Use `docs/plans/` for execution ordering. Use `core_matrix/docs/behavior/`
-  for the current landed backend truth.
+- Use `docs/plans/` for execution ordering. Use
+  `docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/` only when
+  historical pre-product-doc backend notes are needed.
 
 ## Purpose
 

@@ -153,7 +153,7 @@ git commit -m "feat: initialize execution epochs for conversations"
 - Modify: `core_matrix/app/services/turns/select_execution_runtime.rb`
 - Modify: `core_matrix/app/services/turns/freeze_execution_identity.rb`
 - Modify: `core_matrix/app/services/turns/start_user_turn.rb`
-- Modify: `core_matrix/core_matrix/docs/behavior/turn-entry-and-selector-state.md`
+- Modify: `docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/turn-entry-and-selector-state.md` only if the historical note needs correction
 - Test: `core_matrix/test/services/workbench/send_message_test.rb`
 - Test: `core_matrix/test/services/turns/start_user_turn_test.rb`
 
@@ -184,7 +184,7 @@ Run: `bin/rails test test/services/workbench/send_message_test.rb test/services/
 **Step 5: Commit**
 
 ```bash
-git add core_matrix/app/services/turns core_matrix/test/services core_matrix/docs/behavior/turn-entry-and-selector-state.md
+git add core_matrix/app/services/turns core_matrix/test/services docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/turn-entry-and-selector-state.md
 git commit -m "feat: drive turn continuity from execution epochs"
 ```
 
@@ -268,7 +268,7 @@ git commit -m "feat: attach process runs to execution epochs"
 ### Task 7: Update Documentation And Focused Regression Coverage
 
 **Files:**
-- Modify: `core_matrix/docs/behavior/turn-entry-and-selector-state.md`
+- Modify: `docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/turn-entry-and-selector-state.md` only if the historical note needs correction
 - Modify: `docs/research-notes/2026-04-13-conversation-execution-runtime-handoff-research-note.md`
 - Modify: `docs/plans/2026-04-12-ssr-first-workbench-and-onboarding-design.md`
 - Modify: `docs/plans/2026-04-12-ssr-first-workbench-and-onboarding.md`

@@ -44,7 +44,9 @@ Current authoritative project documents:
 - Deferred Web UI follow-up: `../docs/future-plans/2026-03-24-core-matrix-kernel-ui-follow-up.md`
 - Acceptance harness and active suite: `../acceptance/README.md`
 - Archived pre-reset docs: `../docs/archived/README.md`
-- Behavior notes for landed backend modules: `docs/behavior/`
+- Product/operator docs: `docs/`
+- Legacy implementation archive:
+  `../docs/archived-plans/core_matrix-docs-legacy-2026-04-17/`
 
 ## What Core Matrix Owns
 
@@ -140,10 +142,9 @@ bundle exec ruby script/manual/workflow_proof_export.rb export ...
   operators, browsers, and webhook providers should use for generated links.
 - Keep `CORE_MATRIX_PUBLIC_BASE_URL` distinct from the internal
   container-to-container control-plane URL used by `fenix` or `nexus`.
-- For home or office deployments without a public IP, choose a LAN URL,
-  internal HTTPS hostname, or public tunnel origin based on the operating mode
+- For home or office deployments without a public IP, use the deployment modes
   documented in
-  [../docs/operations/core-matrix-private-lan-deployment-guide.md](/Users/jasl/Workspaces/Ruby/cybros/docs/operations/core-matrix-private-lan-deployment-guide.md).
+  [docs/INSTALL.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/INSTALL.md).
 - Containerized services still use Docker Compose environment injection. In
   `compose.yaml.sample`, explicit service `environment` values override
   same-named values coming from `env_file`.

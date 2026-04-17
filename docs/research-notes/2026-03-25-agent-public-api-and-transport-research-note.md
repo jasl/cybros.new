@@ -181,8 +181,8 @@ These references informed the note, but they are not the source of truth.
 
 Local monorepo references:
 
-- [/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-runtime-resource-apis.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-runtime-resource-apis.md)
-- [/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/agent-snapshot-bootstrap-and-recovery-flows.md)
+- [/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/agent-runtime-resource-apis.md](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/agent-runtime-resource-apis.md)
+- [/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/agent-definition-version-bootstrap-and-recovery-flows.md](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/agent-definition-version-bootstrap-and-recovery-flows.md)
 - [/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-24-core-matrix-agent-protocol-and-tool-surface-design.md)
 - [/Users/jasl/Workspaces/Ruby/cybros/references/original/agents/claw/lib/cybros/agents/claw/tool_executor.rb](/Users/jasl/Workspaces/Ruby/cybros/references/original/agents/claw/lib/cybros/agents/claw/tool_executor.rb)
 - [/Users/jasl/Workspaces/Ruby/cybros/references/original/agents/claw/lib/cybros/agents/claw/hooks/before_agent_step.rb](/Users/jasl/Workspaces/Ruby/cybros/references/original/agents/claw/lib/cybros/agents/claw/hooks/before_agent_step.rb)

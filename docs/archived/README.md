@@ -10,4 +10,4 @@ For current implementation truth, start from:
 
 - [/Users/jasl/Workspaces/Ruby/cybros/docs/README.md](/Users/jasl/Workspaces/Ruby/cybros/docs/README.md)
 - [/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md](/Users/jasl/Workspaces/Ruby/cybros/acceptance/README.md)
-- [/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior)
+- [/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/README.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/README.md)

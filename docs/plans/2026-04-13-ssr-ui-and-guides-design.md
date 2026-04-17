@@ -66,7 +66,7 @@ UI routes should follow the same principle now used by `app_api`:
 
 This is now a project-level design principle. See:
 
-- `core_matrix/docs/behavior/app-api-route-and-scope-design.md`
+- `docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/app-api-route-and-scope-design.md`
 
 The same principle should guide HTML routes:
 
@@ -412,4 +412,3 @@ This design should be considered correctly implemented only when:
 - admin onboarding is centered on `onboarding_session`
 - `guides` document the onboarding flows and are used for manual acceptance
 - the Web UI remains SSR-first without coupling product semantics to HTML
-

@@ -10,7 +10,7 @@
 
 Related principle:
 
-- [App API Route And Scope Design](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/app-api-route-and-scope-design.md)
+- [App API Route And Scope Design](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/app-api-route-and-scope-design.md)
 
 ## Why This Refactor Exists
 

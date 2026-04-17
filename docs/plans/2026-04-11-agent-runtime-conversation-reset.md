@@ -4,7 +4,7 @@
 
 **Goal:** Replace the remaining `Agent` / `ExecutionRuntime` / dual-role runtime assumptions with the final `Agent` / `ExecutionRuntime` / `Conversation` architecture, split Fenix and Nexus into separate registration identities, and update the monorepo so code, APIs, docs, files, and folders all use the new architecture.
 
-> Superseded by `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/plans/2026-04-12-agent-canonical-config-and-runtime-pairing-design.md`; terminology is normalized here to match the implemented model.
+> Superseded by `/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/plans/2026-04-12-agent-canonical-config-and-runtime-pairing-design.md`; terminology is normalized here to match the implemented model.
 
 **Architecture:** CoreMatrix becomes the single orchestrator for `Agent`, `ExecutionRuntime`, `Conversation`, and frozen turn snapshots. Fenix becomes the pure agent decision layer, while Nexus becomes the single execution runtime appliance that owns runtime tools, runtime context materialization, filesystem-backed skill assets, and filesystem-backed memory. Tool resolution follows `ExecutionRuntime > Agent > CoreMatrix`, except for reserved CoreMatrix names that can never be overridden.
 

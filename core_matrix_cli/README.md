@@ -62,7 +62,7 @@ bundle exec ./bin/cmctl ingress weixin help setup
 ```
 
 The longer companion guide is available at
-[docs/operations/core-matrix-im-preparation-guide.md](/Users/jasl/Workspaces/Ruby/cybros/docs/operations/core-matrix-im-preparation-guide.md).
+[core_matrix/docs/INTEGRATIONS.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/INTEGRATIONS.md).
 
 ## Verification Boundary
 

@@ -49,9 +49,9 @@ human-readable side chat and machine-readable supervision.
 
 This design builds on the current landed behavior in:
 
-- [`core_matrix/docs/behavior/human-interactions-and-conversation-events.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/human-interactions-and-conversation-events.md)
-- [`core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/workflow-context-assembly-and-execution-snapshot.md)
-- [`core_matrix/docs/behavior/subagent-connections-and-execution-leases.md`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/behavior/subagent-connections-and-execution-leases.md)
+- [`human-interactions-and-conversation-events.md`](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/human-interactions-and-conversation-events.md)
+- [`workflow-context-assembly-and-execution-snapshot.md`](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/workflow-context-assembly-and-execution-snapshot.md)
+- [`subagent-connections-and-execution-leases.md`](/Users/jasl/Workspaces/Ruby/cybros/docs/archived-plans/core_matrix-docs-legacy-2026-04-17/behavior/subagent-connections-and-execution-leases.md)
 - [`docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md`](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-03-26-core-matrix-conversation-close-and-mailbox-control-protocol-design.md)
 - [`docs/design/2026-04-01-agent-runtime-contract.md`](/Users/jasl/Workspaces/Ruby/cybros/docs/design/2026-04-01-agent-runtime-contract.md)
 
@@ -707,8 +707,8 @@ Program-backed responders can follow once the builtin path is stable.
 
 After implementation lands, these documents should be updated or added:
 
-- a `core_matrix/docs/behavior/*` note for landed conversation observation
-  behavior
+- a product or design note under `core_matrix/docs/` or `docs/design/`
+  describing landed conversation observation behavior
 - a behavior update describing the new durable lightweight runtime projection
 - a follow-up `control` design note covering stop, steer, and send-message
   semantics

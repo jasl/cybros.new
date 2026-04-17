@@ -57,8 +57,10 @@ The fastest way to make a new installation usable today is through
 6. `bundle exec ./bin/cmctl ingress weixin setup`
 7. `bundle exec ./bin/cmctl status`
 
-For IM prerequisites and the exact values the CLI will ask for, see
-[docs/operations/core-matrix-im-preparation-guide.md](/Users/jasl/Workspaces/Ruby/cybros/docs/operations/core-matrix-im-preparation-guide.md).
+For product deployment and integration prerequisites, see:
+
+- [core_matrix/docs/INSTALL.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/INSTALL.md)
+- [core_matrix/docs/INTEGRATIONS.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/docs/INTEGRATIONS.md)
 
 ## Validation Rule
 
