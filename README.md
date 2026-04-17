@@ -77,13 +77,16 @@ claims real loop behavior, validation must include:
 Licensing in this monorepo is project-scoped.
 
 - Repository-root materials that are not covered by a more specific
-  subdirectory license are licensed under the O'Saasy License Agreement. See
+  subdirectory license are licensed under the MIT License. See
   [LICENSE.md](/Users/jasl/Workspaces/Ruby/cybros/LICENSE.md).
-- [core_matrix](/Users/jasl/Workspaces/Ruby/cybros/core_matrix) and each
-  standalone project under
-  [agents/](/Users/jasl/Workspaces/Ruby/cybros/agents) are licensed under the
-  O'Saasy License Agreement, as stated in the license file at the root of the
-  relevant project.
+- [core_matrix_cli](/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli),
+  [agents/fenix](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix), and
+  [images/nexus](/Users/jasl/Workspaces/Ruby/cybros/images/nexus) are
+  separately licensed under the MIT License in their local `LICENSE.txt`
+  files.
+- [core_matrix](/Users/jasl/Workspaces/Ruby/cybros/core_matrix) remains
+  licensed under the O'Saasy License Agreement in
+  [core_matrix/LICENSE.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/LICENSE.md).
 - [core_matrix/vendor/simple_inference](/Users/jasl/Workspaces/Ruby/cybros/core_matrix/vendor/simple_inference)
   is a separately licensed vendored gem and remains licensed under the MIT
   License. See

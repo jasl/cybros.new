@@ -150,3 +150,8 @@ runtime is selected and no default execution runtime is available, Fenix can
 still drive agent-only conversations with prompt assembly plus any
 agent-owned or Core Matrix-owned tools that remain visible after profile
 policy masking.
+
+## License
+
+`agents/fenix` is licensed under the MIT License. See
+[LICENSE.txt](/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/LICENSE.txt).

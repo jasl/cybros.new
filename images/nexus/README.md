@@ -114,3 +114,8 @@ docker run --rm -v /Users/jasl/Workspaces/Ruby/cybros:/workspace nexus-local /wo
 - runtime dependency selection tracks the active `agents/fenix` contract
 - version truth stays local to this subproject instead of copying the
   `codex-universal` matrix
+
+## License
+
+`images/nexus` is licensed under the MIT License. See
+[LICENSE.txt](/Users/jasl/Workspaces/Ruby/cybros/images/nexus/LICENSE.txt).
