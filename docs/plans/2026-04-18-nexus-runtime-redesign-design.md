@@ -30,12 +30,18 @@ This design covers:
 
 This design does not include compatibility shims, migration bridges, or a
 phased coexistence strategy with the old Rails implementation.
+During implementation, one branch may temporarily carry both the old and new
+runtime protocol surfaces until migration tests are green, but the shipped
+design still has no long-term coexistence layer.
 
 ## Approved Direction
 
 - destructive cleanup is acceptable
 - compatibility is not a goal
 - full functional parity is required before the old implementation is deleted
+- functional parity means the same operator-visible and runtime-visible feature
+  surface, not wire compatibility with the old Rails runtime protocol or worker
+  topology
 - a single operator command matters more than a single OS process
 - internal process splitting is acceptable where it materially improves
   reliability
@@ -417,6 +423,9 @@ Design rules:
 - disabled or unsupported tools fail predictably against the same contract
 - CoreMatrix orchestration can safely build generic infrastructure and UI around
   these contracts
+- the contract families are intentionally extensible so future runtime-owned
+  tools can grow without turning the process and TTY surfaces back into
+  per-runtime special cases
 
 This allows future runtimes to opt in or opt out of a tool family while still
 sharing one coherent platform surface.
@@ -482,6 +491,8 @@ new gem alive together for long-term support.
 - `execution_runtimes/nexus/` is a real gem product and the only active Nexus
   project
 - `execution_runtimes/nexus.old/` is deleted
+- the packaged gem can be built and installed into a clean `GEM_HOME`, exposes
+  the `nexus` executable, and operators bring the runtime up with `nexus run`
 - operators can install Nexus and start it with one command
 - Action Cable websocket delivery is active by default and poll remains a
   working fallback path
@@ -500,6 +511,8 @@ Implementation should not be considered complete until all of the following are
 green and inspected:
 
 - the new Nexus gem test suite from `execution_runtimes/nexus/`
+- a packaged-gem smoke check that builds the gem, installs it into a clean
+  temporary `GEM_HOME`, and verifies the installed `nexus` executable works
 - relevant CoreMatrix request, service, and integration tests covering the new
   protocol and envelope shape
 - the full `core_matrix` verification suite
@@ -509,11 +522,15 @@ green and inspected:
 
 Staging acceptance must additionally confirm:
 
+- on a clean staging host, `gem install` plus `nexus run` is sufficient to
+  bring the runtime up with only the documented environment variables
 - runtime session opens and refreshes successfully
 - websocket reconnect plus poll fallback recovers from transport interruption
 - detached command, process, and browser resources produce sane post-restart
   outcomes
 - attachment, skill, and memory flows do not silently corrupt state
+- Nexus restart leaves `event_outbox` and `resource_handles` in a sane
+  explainable state after recovery
 
 ## Open Implementation Biases
 

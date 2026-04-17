@@ -13,6 +13,10 @@
 **Execution notes:**
 
 - Follow `@test-driven-development` for each behavior change.
+- This plan is safest in a fresh dedicated worktree. The current repository
+  state is already dirty and contains unrelated staged changes, so do not use
+  a bare `git commit` in this checkout without first ensuring only the intended
+  paths are staged.
 - Use the approved design at
   `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-18-nexus-runtime-redesign-design.md`
   as the architecture baseline.
@@ -24,6 +28,10 @@
   monorepo can own the rebuilt gem files directly.
 - Keep Action Cable as the primary low-latency path. Poll remains fallback and
   recovery infrastructure and should never become the only happy-path design.
+- Final delivery must not keep compatibility shims, but the implementation
+  sequence may temporarily keep old and new CoreMatrix runtime endpoints alive
+  until all callers, harnesses, and tests have moved. Do not delete the legacy
+  surface before the new surface is exercised end-to-end.
 - Preserve `CoreMatrix` ownership of public IDs. Nexus consumes public refs and
   reports lifecycle events; it does not allocate durable IDs itself.
 - Keep the process and TTY contract standardized even when capability flags
@@ -46,7 +54,21 @@
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/command_runs_controller.rb:2-29`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/process_runs_controller.rb:2-25`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/attachments_controller.rb:9-75`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_control_mailbox_item.rb:6-24`
 - `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/create_execution_assignment_test.rb:54-258`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/support/fake_agent_runtime_harness.rb:91-168`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/registrations_test.rb:3-116`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/capabilities_test.rb:3-65`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/control_poll_test.rb:3-113`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/command_runs_controller_test.rb:3-220`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/process_runs_controller_test.rb:3-150`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/resource_close_test.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/process_runtime_test.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/execution_delivery_test.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/agent_registration_contract_test.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/agent_runtime_resource_api_test.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/installations/register_bundled_agent_runtime_test.rb`
+- `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/execution_runtime_versions/register_test.rb`
 - `/Users/jasl/Workspaces/Ruby/cybros/shared/fixtures/contracts/core_matrix_nexus_execution_assignment.json`
 - `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/cybros_nexus.gemspec:1-32`
 - `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/Gemfile:1-10`
@@ -56,6 +78,46 @@
 When a task below says "Modify" for one of these files without repeating a line
 range, use the anchor list above as the verified current-file starting point
 before editing.
+
+### Task 0: Normalize the rewrite starting point and isolate the execution workspace
+
+**Goal:** Make the current `nexus.old` + new `nexus/` layout reproducible and
+execute the rewrite from a clean branch/worktree boundary instead of from the
+current mixed checkout.
+
+**Step 1: Verify the expected starting layout exists**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+test -d execution_runtimes/nexus.old
+test -d execution_runtimes/nexus
+test -f execution_runtimes/nexus.old/README.md
+test -f execution_runtimes/nexus/cybros_nexus.gemspec
+git status --short
+```
+
+Expected: the old Rails runtime is present at `execution_runtimes/nexus.old/`,
+the new gem stub is present at `execution_runtimes/nexus/`, and the current
+checkout state is understood before any implementation commits are made.
+
+**Step 2: Create an isolated execution workspace**
+
+- If the current checkout already contains unrelated staged or unstaged work,
+  create a dedicated worktree or otherwise isolate the rewrite before Task 1.
+- If a clean isolated worktree does not yet contain the `nexus.old` rename and
+  the new `nexus/` gem stub, recreate that starting layout intentionally before
+  continuing.
+- Do not begin Task 1 until the selected workspace contains both directories
+  and no unrelated staged changes that would leak into the task commits.
+
+**Step 3: Record the starting assumption**
+
+Before Task 1, note in the execution log or task journal which workspace will
+carry the rewrite and whether `execution_runtimes/nexus/.git` is still present.
+Task 1 is responsible for deleting the nested git metadata only after this
+starting point is isolated.
 
 ### Task 1: Re-establish a monorepo-owned gem boundary and `nexus run` entrypoint
 
@@ -261,7 +323,7 @@ git add /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_n
 git commit -m "feat: add nexus runtime state and supervisor foundation"
 ```
 
-### Task 3: Replace CoreMatrix runtime registration and control endpoints with `session`, `mailbox`, and `events`
+### Task 3: Add the new CoreMatrix `session`, `mailbox`, and `events` protocol surface without deleting the old one yet
 
 **Files:**
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/session_controller.rb`
@@ -276,9 +338,6 @@ git commit -m "feat: add nexus runtime state and supervisor foundation"
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/events_controller_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/config/routes.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/base_controller.rb`
-- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/registrations_controller.rb`
-- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/capabilities_controller.rb`
-- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/control_controller.rb`
 
 **Step 1: Write the failing request tests**
 
@@ -332,6 +391,10 @@ For the first pass, `ApplyEventBatch` can internally delegate to the existing
 single-event report services one event at a time; the important step is to make
 the public protocol batch-oriented immediately.
 
+Do not delete the old controllers in this task. The legacy surface stays
+temporarily so the next task can migrate all callers, support harnesses, and
+request/integration coverage onto the new protocol cleanly.
+
 **Step 4: Re-run the tests to verify they pass**
 
 Run the same command from Step 2.
@@ -353,13 +416,170 @@ git add /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/events_controller_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/config/routes.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/base_controller.rb
+git commit -m "feat: add the new runtime session mailbox and events api"
+```
+
+### Task 4: Migrate CoreMatrix callers, support harnesses, and legacy request coverage to the new protocol, then delete the old surface
+
+**Files:**
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/support/fake_agent_runtime_harness.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/registrations_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/capabilities_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/control_poll_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/command_runs_controller_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/process_runs_controller_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/resource_close_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/process_runtime_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/execution_delivery_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/agent_registration_contract_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/agent_runtime_resource_api_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/installations/register_bundled_agent_runtime_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/execution_runtime_versions/register_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_control_mailbox_item.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/poll_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/report_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/serialize_mailbox_items_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/e2e/protocol/mailbox_delivery_e2e_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/e2e/protocol/retry_semantics_e2e_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/e2e/protocol/conversation_close_e2e_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/e2e/protocol/process_close_escalation_e2e_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/runtime_capability_contract_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/test_helper.rb`
+- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/registrations_controller.rb`
+- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/capabilities_controller.rb`
+- Delete: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/control_controller.rb`
+
+**Step 1: Write the failing migration and cleanup tests**
+
+Update the existing harness and request tests so they now expect:
+
+- `session/open` and `session/refresh` instead of `registrations` and
+  `capabilities`
+- `mailbox/pull` instead of `control/poll`
+- `events/batch` instead of `control/report`
+- no remaining `command_runs` or `process_runs` provisioning requests from the
+  runtime side
+- no remaining `capabilities_refresh_request` mailbox item type usage
+
+Add at least one route-level contract assertion that fails if these old
+runtime-only paths remain:
+
+```ruby
+assert_raises(ActionController::RoutingError) do
+  Rails.application.routes.recognize_path("/execution_runtime_api/control/poll", method: :post)
+end
+
+assert_raises(ActionController::RoutingError) do
+  Rails.application.routes.recognize_path("/execution_runtime_api/registrations", method: :post)
+end
+```
+
+Also add an explicit runtime-protocol sweep step to the migration task notes:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros
+rg -n "execution_runtime_api/(registrations|capabilities|control|command_runs|process_runs)|command_run_create|process_run_create|execution_runtime_registration|capabilities_refresh_request" \
+  core_matrix/app/controllers/execution_runtime_api \
+  core_matrix/config/routes.rb \
+  core_matrix/test/requests/execution_runtime_api \
+  core_matrix/test/requests/agent_api \
+  core_matrix/test/support/fake_agent_runtime_harness.rb \
+  core_matrix/test/integration/agent_registration_contract_test.rb \
+  core_matrix/test/integration/agent_runtime_resource_api_test.rb
+```
+
+Do not use repo-wide `capabilities_handshake` or `capabilities_refresh` greps
+as deletion signals. Agent-side protocol methods under `agent_api`,
+`AgentDefinitionVersions`, and generic helper defaults remain valid unless they
+are explicitly brought into this runtime-protocol migration.
+
+The task is not done until every remaining runtime-protocol hit is either
+rewritten for the new runtime protocol or deleted.
+
+**Step 2: Run the tests to verify they fail**
+
+Run:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test \
+  test/requests/execution_runtime_api/registrations_test.rb \
+  test/requests/execution_runtime_api/capabilities_test.rb \
+  test/requests/execution_runtime_api/control_poll_test.rb \
+  test/requests/agent_api/command_runs_controller_test.rb \
+  test/requests/agent_api/process_runs_controller_test.rb \
+  test/requests/agent_api/resource_close_test.rb \
+  test/requests/agent_api/process_runtime_test.rb \
+  test/requests/agent_api/execution_delivery_test.rb \
+  test/integration/agent_registration_contract_test.rb \
+  test/integration/agent_runtime_resource_api_test.rb \
+  test/services/installations/register_bundled_agent_runtime_test.rb \
+  test/services/execution_runtime_versions/register_test.rb \
+  test/services/agent_control/poll_test.rb \
+  test/services/agent_control/report_test.rb \
+  test/services/agent_control/serialize_mailbox_items_test.rb \
+  test/e2e/protocol/mailbox_delivery_e2e_test.rb \
+  test/e2e/protocol/retry_semantics_e2e_test.rb \
+  test/e2e/protocol/conversation_close_e2e_test.rb \
+  test/e2e/protocol/process_close_escalation_e2e_test.rb
+```
+
+Expected: FAIL because the support harnesses and request tests still target the
+old protocol.
+
+**Step 3: Migrate callers and remove the legacy protocol**
+
+- update the fake runtime harness and any CoreMatrix-side test helpers to speak
+  the new `session`, `mailbox`, and `events` API
+- update the service and e2e suites that rely on the fake runtime harness or
+  serialized mailbox envelopes so they prove the new runtime protocol rather
+  than only the old controller names
+- rewrite or delete request tests that only existed to prove runtime-side
+  `command_runs#create` and `process_runs#create`
+- remove `capabilities_refresh_request` from mailbox item types if it is no
+  longer part of the redesigned runtime protocol
+- delete the old registration, capabilities, and control controllers only after
+  the harnesses and tests are already green on the new paths
+
+**Step 4: Re-run the tests to verify they pass**
+
+Run the same command from Step 2.
+
+Expected: PASS.
+
+**Step 5: Commit**
+
+```bash
+git add /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/support/fake_agent_runtime_harness.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/registrations_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/capabilities_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/control_poll_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/command_runs_controller_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/process_runs_controller_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/resource_close_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/process_runtime_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/agent_api/execution_delivery_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/agent_registration_contract_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/integration/agent_runtime_resource_api_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/installations/register_bundled_agent_runtime_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/execution_runtime_versions/register_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/models/agent_control_mailbox_item.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/poll_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/report_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/serialize_mailbox_items_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/e2e/protocol/mailbox_delivery_e2e_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/e2e/protocol/retry_semantics_e2e_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/e2e/protocol/conversation_close_e2e_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/e2e/protocol/process_close_escalation_e2e_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/models/runtime_capability_contract_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/test_helper.rb
 git add -u /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/registrations_controller.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/capabilities_controller.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/control_controller.rb
-git commit -m "refactor: replace runtime api with session mailbox and events"
+git commit -m "refactor: migrate runtime callers and drop the old protocol"
 ```
 
-### Task 4: Implement the websocket-first control role and poll fallback in the new gem
+### Task 5: Implement the websocket-first control role and poll fallback in the new gem
 
 **Files:**
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/session/client.rb`
@@ -375,6 +595,12 @@ git commit -m "refactor: replace runtime api with session mailbox and events"
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/http/server_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/cli.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/supervisor.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/channels/control_plane_channel.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/publish_pending.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/publish_mailbox_lease_event.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/channels/control_plane_channel_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/publish_pending_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/publish_mailbox_lease_event_test.rb`
 
 **Step 1: Write the failing transport and loop tests**
 
@@ -421,6 +647,12 @@ bundle exec ruby -Itest \
   test/mailbox/control_loop_test.rb \
   test/events/outbox_test.rb \
   test/http/server_test.rb
+
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
+bin/rails test \
+  test/channels/control_plane_channel_test.rb \
+  test/services/agent_control/publish_pending_test.rb \
+  test/services/agent_control/publish_mailbox_lease_event_test.rb
 ```
 
 Expected: FAIL because the new control-plane classes do not exist yet.
@@ -437,6 +669,10 @@ Expected: FAIL because the new control-plane classes do not exist yet.
 - implement a tiny local HTTP server for `/runtime/manifest` and health probes
 - wire the `run` command so the supervisor starts the `control` and `http`
   roles
+- if protocol or payload details change the realtime happy path, update
+  `ControlPlaneChannel`, `PublishPending`, and
+  `PublishMailboxLeaseEvent` so CoreMatrix continues to publish runtime
+  mailbox availability over Action Cable while poll remains the fallback
 
 **Step 4: Re-run the tests to verify they pass**
 
@@ -459,11 +695,17 @@ git add /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_n
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/events/outbox_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/test/http/server_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/cli.rb \
-  /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/supervisor.rb
+  /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/supervisor.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/channels/control_plane_channel.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/publish_pending.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/publish_mailbox_lease_event.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/channels/control_plane_channel_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/publish_pending_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/publish_mailbox_lease_event_test.rb
 git commit -m "feat: add websocket-first nexus control role"
 ```
 
-### Task 5: Standardize the command and process infrastructure contract and implement the resource host
+### Task 6: Standardize the command and process infrastructure contract and implement the resource host
 
 **Files:**
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/resources/command_host.rb`
@@ -561,7 +803,7 @@ git add /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_n
 git commit -m "feat: standardize runtime command and process contracts"
 ```
 
-### Task 6: Port execution assignment dispatch, close handling, and attachments to the new protocol
+### Task 7: Port execution assignment dispatch, close handling, and attachments to the new protocol
 
 **Files:**
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/mailbox/assignment_executor.rb`
@@ -574,6 +816,8 @@ git commit -m "feat: standardize runtime command and process contracts"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/serialize_mailbox_item.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/attachments_controller.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/create_execution_assignment_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/serialize_mailbox_items_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/attachments_controller_test.rb`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/shared/fixtures/contracts/core_matrix_nexus_execution_assignment.json`
 
 **Step 1: Write the failing assignment and attachment tests**
@@ -602,7 +846,10 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
-bin/rails test test/services/agent_control/create_execution_assignment_test.rb
+bin/rails test \
+  test/services/agent_control/create_execution_assignment_test.rb \
+  test/services/agent_control/serialize_mailbox_items_test.rb \
+  test/requests/execution_runtime_api/attachments_controller_test.rb
 
 cd /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus
 bundle exec ruby -Itest \
@@ -646,11 +893,13 @@ git add /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_n
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/services/agent_control/serialize_mailbox_item.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/app/controllers/execution_runtime_api/attachments_controller.rb \
   /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/create_execution_assignment_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/services/agent_control/serialize_mailbox_items_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/requests/execution_runtime_api/attachments_controller_test.rb \
   /Users/jasl/Workspaces/Ruby/cybros/shared/fixtures/contracts/core_matrix_nexus_execution_assignment.json
 git commit -m "feat: port runtime assignment and attachment execution flow"
 ```
 
-### Task 7: Port filesystem memory, skills, and browser hosting into the new runtime kernel
+### Task 8: Port filesystem memory, skills, and browser hosting into the new runtime kernel
 
 **Files:**
 - Create: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_nexus/memory/store.rb`
@@ -735,7 +984,7 @@ git add /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/lib/cybros_n
 git commit -m "feat: port nexus memory skills and browser surfaces"
 ```
 
-### Task 8: Remove the legacy Rails runtime, update docs and CI, and run the destructive cutover verification
+### Task 9: Remove the legacy Rails runtime, update docs and CI, and run the destructive cutover verification
 
 **Files:**
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/AGENTS.md`
@@ -743,6 +992,7 @@ git commit -m "feat: port nexus memory skills and browser surfaces"
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/agents/fenix/README.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/README.md`
 - Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/lib/root_layout_contract_test.rb`
+- Modify: `/Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/support/fake_agent_runtime_harness.rb`
 - Delete: `/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus.old/`
 
 **Step 1: Write the failing contract and layout tests**
@@ -752,8 +1002,11 @@ Add or update tests that assert:
 - the monorepo points to `execution_runtimes/nexus` as the active runtime gem
 - CI runs the new Nexus verification command instead of Rails-app-specific
   checks
-- no docs or tests still reference `nexus.old`
+- active operator-facing docs, CI, and contract tests no longer point to
+  `nexus.old` as a supported product path
 - README and AGENTS verification commands match the rebuilt gem
+- packaged-gem smoke instructions are documented with the installed `nexus`
+  executable, not only `bundle exec ./exe/nexus`
 
 Start with assertions like:
 
@@ -778,12 +1031,16 @@ Expected: FAIL because the docs and CI still describe the old runtime shape.
 
 - update monorepo docs and verification commands to match the rebuilt gem
 - update CI path detection and verification commands
+- keep historical planning documents intact; the cleanup requirement only
+  applies to active operator-facing docs, CI, and active contract tests
 - delete `execution_runtimes/nexus.old/`
 - make the new Nexus README document:
-  - `bundle exec ./exe/nexus run`
+  - `nexus run` for installed-gem operators
+  - `bundle exec ./exe/nexus run` only as the development workflow
   - required env
   - state root
   - verification command
+  - packaged-gem smoke check from a clean temporary `GEM_HOME`
 
 **Step 4: Run the project and monorepo verification**
 
@@ -791,7 +1048,25 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus
-bundle exec ruby -Itest -e 'Dir["test/**/*_test.rb"].sort.each { |f| require File.expand_path(f) }'
+bundle exec rake test
+bundle exec rubocop
+rm -rf tmp/package_smoke
+mkdir -p tmp/package_smoke/gems tmp/package_smoke/home
+rm -f cybros_nexus-*.gem
+bundle exec gem build cybros_nexus.gemspec
+GEM_HOME="$PWD/tmp/package_smoke/gems" \
+GEM_PATH="$PWD/tmp/package_smoke/gems" \
+gem install --no-document --install-dir "$PWD/tmp/package_smoke/gems" ./cybros_nexus-*.gem
+HOME="$PWD/tmp/package_smoke/home" \
+GEM_HOME="$PWD/tmp/package_smoke/gems" \
+GEM_PATH="$PWD/tmp/package_smoke/gems" \
+PATH="$PWD/tmp/package_smoke/gems/bin:$PATH" \
+nexus --help
+HOME="$PWD/tmp/package_smoke/home" \
+GEM_HOME="$PWD/tmp/package_smoke/gems" \
+GEM_PATH="$PWD/tmp/package_smoke/gems" \
+PATH="$PWD/tmp/package_smoke/gems/bin:$PATH" \
+nexus run --help
 
 cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix
 bin/brakeman --no-pager
@@ -803,11 +1078,13 @@ bin/rails test
 bin/rails test:system
 
 cd /Users/jasl/Workspaces/Ruby/cybros
+bash verification/bin/test_all.sh
 ACTIVE_VERIFICATION_ENABLE_2048_CAPSTONE=1 bash verification/bin/run_active_suite.sh
 ```
 
 Expected: PASS, with artifacts and resulting database state manually inspected
-before calling the cutover complete.
+before calling the cutover complete. The packaged-gem smoke step must prove
+that a clean `GEM_HOME` exposes the installed `nexus` executable successfully.
 
 **Step 5: Commit**
 
@@ -816,7 +1093,8 @@ git add /Users/jasl/Workspaces/Ruby/cybros/AGENTS.md \
   /Users/jasl/Workspaces/Ruby/cybros/.github/workflows/ci.yml \
   /Users/jasl/Workspaces/Ruby/cybros/agents/fenix/README.md \
   /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus/README.md \
-  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/lib/root_layout_contract_test.rb
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/lib/root_layout_contract_test.rb \
+  /Users/jasl/Workspaces/Ruby/cybros/core_matrix/test/support/fake_agent_runtime_harness.rb
 git add -u /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus.old
 git commit -m "refactor: cut over to the rebuilt nexus runtime"
 ```
