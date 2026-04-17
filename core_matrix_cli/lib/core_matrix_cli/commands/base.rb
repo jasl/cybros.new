@@ -5,6 +5,10 @@ module CoreMatrixCLI
     class Base < Thor
       remove_command :tree
 
+      def self.exit_on_failure?
+        false
+      end
+
       no_commands do
         def config_repository
           @config_repository ||= CoreMatrixCLI.config_repository_factory.call
