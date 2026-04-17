@@ -147,7 +147,7 @@ class AgentApiRegistrationsTest < ActionDispatch::IntegrationTest
   private
 
   def register_execution_runtime!(onboarding_token:)
-    post "/execution_runtime_api/registrations",
+    post "/execution_runtime_api/session/open",
       params: {
         onboarding_token: onboarding_token,
         endpoint_metadata: {

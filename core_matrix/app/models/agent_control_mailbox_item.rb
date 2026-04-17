@@ -8,7 +8,6 @@ class AgentControlMailboxItem < ApplicationRecord
       execution_assignment: "execution_assignment",
       agent_request: "agent_request",
       resource_close_request: "resource_close_request",
-      capabilities_refresh_request: "capabilities_refresh_request",
       recovery_notice: "recovery_notice",
     },
     validate: true

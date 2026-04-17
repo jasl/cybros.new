@@ -21,19 +21,19 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
 
     broadcasts = capture_broadcasts(stream_name) do
-      post "/execution_runtime_api/control/report",
+      execution_runtime_report(
+        context: context,
         params: {
           method_id: "process_started",
           protocol_message_id: "process-started-#{next_test_sequence}",
           resource_type: "ProcessRun",
           resource_id: process_run.public_id,
-        },
-        headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-        as: :json
+        }
+      )
     end
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal ["runtime.process_run.started"], broadcasts.map { |payload| payload.fetch("event_kind") }
     assert process_run.reload.running?
   end
@@ -54,7 +54,8 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
 
     broadcasts = capture_broadcasts(stream_name) do
-      post "/execution_runtime_api/control/report",
+      execution_runtime_report(
+        context: context,
         params: {
           method_id: "process_output",
           protocol_message_id: "process-output-#{next_test_sequence}",
@@ -63,13 +64,12 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
           output_chunks: [
             { "stream" => "stdout", "text" => "hello from process\n" },
           ],
-        },
-        headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-        as: :json
+        }
+      )
     end
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal ["runtime.process_run.output"], broadcasts.map { |payload| payload.fetch("event_kind") }
     assert_equal "stdout", broadcasts.first.dig("payload", "stream")
     assert_equal "hello from process\n", broadcasts.first.dig("payload", "text")
@@ -93,7 +93,8 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
 
     broadcasts = capture_broadcasts(stream_name) do
-      post "/execution_runtime_api/control/report",
+      execution_runtime_report(
+        context: context,
         params: {
           method_id: "process_exited",
           protocol_message_id: "process-exited-#{next_test_sequence}",
@@ -105,13 +106,12 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
             "source" => "process_runtime_test",
             "reason" => "natural_exit",
           },
-        },
-        headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-        as: :json
+        }
+      )
     end
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal ["runtime.process_run.failed"], broadcasts.map { |payload| payload.fetch("event_kind") }
     assert process_run.reload.failed?
     assert_equal 127, process_run.exit_status
@@ -138,7 +138,8 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
     ).fetch(:mailbox_item)
     AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10)
 
-    post "/execution_runtime_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "process_exited",
         protocol_message_id: "process-exited-close-#{next_test_sequence}",
@@ -150,12 +151,11 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
           "source" => "process_runtime_test",
           "reason" => "natural_exit",
         },
-      },
-      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
 
     process_run.reload
     assert_equal "stopped", process_run.lifecycle_state
@@ -190,7 +190,8 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
     stream_name = ConversationRuntime::StreamName.for_conversation(context[:conversation])
 
     broadcasts = capture_broadcasts(stream_name) do
-      post "/execution_runtime_api/control/report",
+      execution_runtime_report(
+        context: context,
         params: {
           method_id: "resource_closed",
           protocol_message_id: "process-close-#{next_test_sequence}",
@@ -203,17 +204,29 @@ class AgentApiProcessRuntimeTest < ActionDispatch::IntegrationTest
           output_chunks: [
             { "stream" => "stdout", "text" => "goodbye from process\n" },
           ],
-        },
-        headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-        as: :json
+        }
+      )
     end
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal %w[runtime.process_run.output runtime.process_run.stopped], broadcasts.map { |payload| payload.fetch("event_kind") }
     assert_equal "goodbye from process\n", broadcasts.first.dig("payload", "text")
     assert_equal "closed", process_run.reload.close_state
     assert_equal "stopped", process_run.lifecycle_state
     assert_equal 0, ToolInvocation.count
+  end
+
+  private
+
+  def execution_runtime_report(context:, params:)
+    post "/execution_runtime_api/events/batch",
+      params: { events: [params] },
+      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
+      as: :json
+  end
+
+  def execution_runtime_result
+    JSON.parse(response.body).fetch("results").fetch(0)
   end
 end

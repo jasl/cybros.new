@@ -90,28 +90,26 @@ class FakeAgentRuntimeHarness
 
   def report!(method_id:, **params)
     if execution_report?(method_id:, params:)
+      event_payload = params.merge(method_id: method_id)
+
       if execution_runtime_connection_credential.present?
-        return post_and_parse(
-          "/execution_runtime_api/control/report",
-          params: params.merge(method_id: method_id),
+        response = post_and_parse(
+          "/execution_runtime_api/events/batch",
+          params: { events: [event_payload] },
           headers: @test_case.send(:execution_runtime_api_headers, execution_runtime_connection_credential)
         )
+
+        return normalize_event_batch_response(response)
       end
 
       raise ArgumentError, "execution_runtime_connection_credential is required for #{method_id}" if resolved_execution_runtime_connection.blank?
 
-      result = AgentControl::Report.call(
-        agent_definition_version: agent_definition_version,
+      result = AgentControl::ApplyEventBatch.call(
         execution_runtime_connection: resolved_execution_runtime_connection,
-        resource: resolved_execution_resource_for(params),
-        payload: params.merge(method_id: method_id)
+        events: [event_payload]
       )
 
-      return {
-        "result" => result.code,
-        "mailbox_items" => AgentControl::SerializeMailboxItems.call(result.mailbox_items),
-        "http_status" => Rack::Utils.status_code(result.http_status),
-      }
+      return normalize_event_batch_response(result.merge("http_status" => 200))
     end
 
     post_and_parse(
@@ -131,7 +129,7 @@ class FakeAgentRuntimeHarness
 
   def poll_execution!(limit:)
     post_and_parse(
-      "/execution_runtime_api/control/poll",
+      "/execution_runtime_api/mailbox/pull",
       params: { limit: limit },
       headers: @test_case.send(:execution_runtime_api_headers, execution_runtime_connection_credential)
     )
@@ -182,5 +180,34 @@ class FakeAgentRuntimeHarness
 
   def normalize_mailbox_item(payload)
     payload.is_a?(String) ? JSON.parse(payload) : payload
+  end
+
+  def normalize_event_batch_response(response)
+    first_result = response.fetch("results").fetch(0)
+    result_code = first_result.fetch("result")
+
+    {
+      "result" => result_code,
+      "error" => first_result["error"],
+      "mailbox_items" => first_result.fetch("mailbox_items", []),
+      "http_status" => normalized_http_status(response.fetch("http_status", 200), result_code),
+    }
+  end
+
+  def normalized_http_status(response_status, result_code)
+    response_status.to_i == 200 ? batch_http_status_for(result_code) : response_status
+  end
+
+  def batch_http_status_for(result_code)
+    case result_code
+    when "stale"
+      409
+    when "not_found"
+      404
+    when "invalid"
+      422
+    else
+      200
+    end
   end
 end

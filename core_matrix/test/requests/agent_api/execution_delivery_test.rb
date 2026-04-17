@@ -22,7 +22,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal "acked", mailbox_item.reload.status
     assert_equal "running", agent_task_run.reload.lifecycle_state
     assert_equal context[:agent_definition_version], agent_task_run.holder_agent_definition_version
@@ -75,7 +75,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
 
     execution_runtime_report(
       context: context,
@@ -91,7 +91,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal({ "state" => "working", "percent" => 50 }, agent_task_run.reload.progress_payload)
     assert_equal "running", agent_task_run.lifecycle_state
     assert agent_task_run.execution_lease.reload.active?
@@ -110,7 +110,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
 
     agent_task_run.reload
 
@@ -161,9 +161,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     execution_runtime_report(context: context, params: params)
 
     assert_response :success
-    response_body = JSON.parse(response.body)
-
-    assert_equal "duplicate", response_body.fetch("result")
+    assert_equal "duplicate", execution_runtime_result.fetch("result")
     assert_equal first_updated_at, agent_task_run.reload.updated_at
   end
 
@@ -203,7 +201,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
     )
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
 
     agent_task_run.reload
 
@@ -253,7 +251,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       as: :json
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal "completed", mailbox_item.reload.status
     assert_not_nil mailbox_item.completed_at
 
@@ -323,7 +321,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       as: :json
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal "failed", mailbox_item.reload.status
     assert_equal "failed", control_request.reload.lifecycle_state
     assert_equal mailbox_item.public_id, control_request.result_payload.fetch("mailbox_item_id")
@@ -390,7 +388,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       as: :json
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal "completed", control_request.reload.lifecycle_state
     assert_equal "status_refresh_acknowledged",
       control_request.result_payload.dig("response_payload", "control_outcome", "outcome_kind")
@@ -416,8 +414,8 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       }
     )
 
-    assert_response :conflict
-    assert_equal "stale", JSON.parse(response.body).fetch("result")
+    assert_response :success
+    assert_equal "stale", execution_runtime_result.fetch("result")
   end
 
   test "retryable execution failure moves the workflow into the step retry gate" do
@@ -507,8 +505,8 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       }
     )
 
-    assert_response :conflict
-    assert_equal "stale", JSON.parse(response.body).fetch("result")
+    assert_response :success
+    assert_equal "stale", execution_runtime_result.fetch("result")
   end
 
   test "agent_completed accepts the shared supervision guidance report fixture through the public report api" do
@@ -567,7 +565,7 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
       as: :json
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal "completed", control_request.reload.lifecycle_state
     assert_equal "guidance_acknowledged",
       control_request.result_payload.dig("response_payload", "control_outcome", "outcome_kind")
@@ -618,10 +616,20 @@ class AgentApiExecutionDeliveryTest < ActionDispatch::IntegrationTest
   end
 
   def execution_runtime_report(context:, params:)
-    post "/execution_runtime_api/control/report",
-      params: params,
+    post "/execution_runtime_api/events/batch",
+      params: { events: [params] },
       headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
       as: :json
+  end
+
+  def execution_runtime_result
+    response_body = JSON.parse(response.body)
+
+    if response_body.key?("results")
+      response_body.fetch("results").fetch(0)
+    else
+      response_body
+    end
   end
 
   def supervision_guidance_report_fixture

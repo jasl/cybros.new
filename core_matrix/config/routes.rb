@@ -48,25 +48,17 @@ Rails.application.routes.draw do
   end
 
   namespace :execution_runtime_api do
-    resources :registrations, only: :create
     resource :health, only: :show, controller: :health
-    resource :capabilities, only: [:show, :create], controller: :capabilities
     post "session/open", to: "session#open"
     post "session/refresh", to: "session#refresh"
     post "mailbox/pull", to: "mailbox#pull"
     post "events/batch", to: "events#batch"
-    resources :command_runs, only: :create do
-      post :activate, on: :member
-    end
-    resources :process_runs, only: :create
     resources :attachments, only: [] do
       collection do
         post "request", action: :create
         post "publish", action: :publish
       end
     end
-    post "control/poll", to: "control#poll"
-    post "control/report", to: "control#report"
   end
 
   namespace :ingress_api do

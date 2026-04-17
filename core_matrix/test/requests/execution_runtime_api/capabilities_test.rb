@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ExecutionRuntimeApiCapabilitiesTest < ActionDispatch::IntegrationTest
-  test "capabilities refresh returns the current runtime version surface" do
+  test "session refresh returns the current runtime version surface" do
     registration = register_agent_runtime!(
       execution_runtime_capability_payload: {
         "runtime_foundation" => {
@@ -22,22 +22,24 @@ class ExecutionRuntimeApiCapabilitiesTest < ActionDispatch::IntegrationTest
       ]
     )
 
-    get "/execution_runtime_api/capabilities", headers: execution_runtime_api_headers(registration[:execution_runtime_connection_credential])
+    post "/execution_runtime_api/session/refresh",
+      headers: execution_runtime_api_headers(registration[:execution_runtime_connection_credential]),
+      as: :json
 
     assert_response :success
 
     response_body = JSON.parse(response.body)
-    assert_equal "capabilities_refresh", response_body["method_id"]
+    assert_equal "execution_runtime_session_refresh", response_body["method_id"]
     assert_equal registration[:execution_runtime].public_id, response_body["execution_runtime_id"]
     assert_equal registration[:execution_runtime].current_execution_runtime_version.public_id, response_body["execution_runtime_version_id"]
     assert_equal registration[:execution_runtime].execution_runtime_fingerprint, response_body["execution_runtime_fingerprint"]
     assert_equal registration[:execution_runtime].capability_payload, response_body["execution_runtime_capability_payload"]
   end
 
-  test "capabilities handshake refreshes the runtime version contract" do
+  test "session refresh accepts a version package update" do
     registration = register_agent_runtime!
 
-    post "/execution_runtime_api/capabilities",
+    post "/execution_runtime_api/session/refresh",
       params: {
         version_package: {
           "execution_runtime_fingerprint" => registration[:execution_runtime].execution_runtime_fingerprint,
@@ -59,8 +61,18 @@ class ExecutionRuntimeApiCapabilitiesTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     response_body = JSON.parse(response.body)
-    assert_equal "capabilities_handshake", response_body["method_id"]
+    assert_equal "execution_runtime_session_refresh", response_body["method_id"]
     assert_equal registration[:execution_runtime].public_id, response_body["execution_runtime_id"]
     assert_equal "images/nexus", response_body.dig("execution_runtime_capability_payload", "runtime_foundation", "docker_base_project")
+  end
+
+  test "legacy execution runtime capabilities routes are removed" do
+    assert_raises(ActionController::RoutingError) do
+      Rails.application.routes.recognize_path("/execution_runtime_api/capabilities", method: :get)
+    end
+
+    assert_raises(ActionController::RoutingError) do
+      Rails.application.routes.recognize_path("/execution_runtime_api/capabilities", method: :post)
+    end
   end
 end

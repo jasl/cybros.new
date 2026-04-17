@@ -18,7 +18,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     ).fetch(:mailbox_item)
     AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10)
 
-    post "/execution_runtime_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "resource_close_acknowledged",
         protocol_message_id: "close-ack-#{next_test_sequence}",
@@ -26,15 +27,15 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
         close_request_id: mailbox_item.public_id,
         resource_type: "ProcessRun",
         resource_id: process_run.public_id,
-      },
-      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal "acknowledged", process_run.reload.close_state
 
-    post "/execution_runtime_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "resource_closed",
         protocol_message_id: "close-terminal-#{next_test_sequence}",
@@ -44,12 +45,11 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
         resource_id: process_run.public_id,
         close_outcome_kind: "graceful",
         close_outcome_payload: { "signal" => "SIGINT" },
-      },
-      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
 
     process_run.reload
     assert_equal "closed", process_run.close_state
@@ -75,7 +75,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10)
 
     queries = capture_sql_queries do
-      post "/execution_runtime_api/control/report",
+      execution_runtime_report(
+        context: context,
         params: {
           method_id: "resource_close_acknowledged",
           protocol_message_id: "close-ack-budget-#{next_test_sequence}",
@@ -83,9 +84,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
           close_request_id: mailbox_item.public_id,
           resource_type: "ProcessRun",
           resource_id: process_run.public_id,
-        },
-        headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-        as: :json
+        }
+      )
     end
 
     assert_response :success
@@ -120,21 +120,15 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
       close_outcome_payload: { "signal" => "SIGKILL" },
     }
 
-    post "/execution_runtime_api/control/report",
-      params: params,
-      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-      as: :json
+    execution_runtime_report(context: context, params: params)
 
     assert_response :success
     first_updated_at = process_run.reload.updated_at
 
-    post "/execution_runtime_api/control/report",
-      params: params,
-      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-      as: :json
+    execution_runtime_report(context: context, params: params)
 
     assert_response :success
-    assert_equal "duplicate", JSON.parse(response.body).fetch("result")
+    assert_equal "duplicate", execution_runtime_result.fetch("result")
     assert_equal first_updated_at, process_run.reload.updated_at
   end
 
@@ -162,7 +156,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     end
 
     travel_to(occurred_at + 31.seconds) do
-      post "/execution_runtime_api/control/report",
+      execution_runtime_report(
+        context: context,
         params: {
           method_id: "resource_close_acknowledged",
           protocol_message_id: "close-ack-stale-#{next_test_sequence}",
@@ -171,13 +166,12 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
           resource_type: "ProcessRun",
           resource_id: process_run.public_id,
           occurred_at: occurred_at.iso8601,
-        },
-        headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-        as: :json
+        }
+      )
     end
 
-    assert_response :conflict
-    assert_equal "stale", JSON.parse(response.body).fetch("result")
+    assert_response :success
+    assert_equal "stale", execution_runtime_result.fetch("result")
     assert_equal "requested", process_run.reload.close_state
     assert_equal "leased", mailbox_item.reload.status
     assert_equal context[:execution_runtime_connection].public_id, mailbox_item.leased_to_execution_runtime_connection.public_id
@@ -216,7 +210,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
 
     AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10)
 
-    post "/execution_runtime_api/control/report",
+    execution_runtime_report(
+      context: wrong_runtime,
       params: {
         method_id: "resource_closed",
         protocol_message_id: "close-spoofed-env-#{next_test_sequence}",
@@ -228,12 +223,12 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
         execution_runtime_id: context[:execution_runtime].public_id,
         close_outcome_kind: "graceful",
         close_outcome_payload: { "signal" => "SIGINT" },
-      },
-      headers: execution_runtime_api_headers(wrong_runtime.fetch(:execution_runtime_connection_credential)),
-      as: :json
+      }
+    )
 
-    assert_response :not_found
-    assert_equal "Couldn't find ProcessRun", JSON.parse(response.body).fetch("error")
+    assert_response :success
+    assert_equal "not_found", execution_runtime_result.fetch("result")
+    assert_equal "Couldn't find ProcessRun", execution_runtime_result.fetch("error")
     assert_equal "requested", process_run.reload.close_state
     assert_equal "leased", mailbox_item.reload.status
     assert_equal context[:execution_runtime_connection].public_id, mailbox_item.reload.leased_to_execution_runtime_connection.public_id
@@ -351,7 +346,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     ).fetch(:mailbox_item)
     AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10)
 
-    post "/execution_runtime_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "resource_close_failed",
         protocol_message_id: "process-close-failed-#{next_test_sequence}",
@@ -361,9 +357,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
         resource_id: process_run.public_id,
         close_outcome_kind: "timed_out_forced",
         close_outcome_payload: { "signal" => "SIGKILL", "timeout" => true },
-      },
-      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
 
@@ -391,7 +386,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     ).fetch(:mailbox_item)
     AgentControl::Poll.call(execution_runtime_connection: context[:execution_runtime_connection], limit: 10)
 
-    post "/execution_runtime_api/control/report",
+    execution_runtime_report(
+      context: context,
       params: {
         method_id: "resource_closed",
         protocol_message_id: "process-close-#{next_test_sequence}",
@@ -401,9 +397,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
         resource_id: process_run.public_id,
         close_outcome_kind: "residual_abandoned",
         close_outcome_payload: { "signal" => "SIGKILL", "residual" => true },
-      },
-      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-      as: :json
+      }
+    )
 
     assert_response :success
 
@@ -435,19 +430,32 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
       "resource_id" => process_run.public_id
     )
 
-    post "/execution_runtime_api/control/report",
-      params: report.merge("protocol_message_id" => "resource-close-contract-#{next_test_sequence}"),
-      headers: execution_runtime_api_headers(context[:execution_runtime_connection_credential]),
-      as: :json
+    execution_runtime_report(
+      context: context,
+      params: report.merge("protocol_message_id" => "resource-close-contract-#{next_test_sequence}")
+    )
 
     assert_response :success
-    assert_equal "accepted", JSON.parse(response.body).fetch("result")
+    assert_equal "accepted", execution_runtime_result.fetch("result")
     assert_equal "closed", process_run.reload.close_state
     assert_equal "graceful", process_run.close_outcome_kind
     assert_equal "completed", mailbox_item.reload.status
   end
 
   private
+
+  def execution_runtime_report(context:, params:)
+    credential = context.fetch(:execution_runtime_connection_credential)
+
+    post "/execution_runtime_api/events/batch",
+      params: { events: [params] },
+      headers: execution_runtime_api_headers(credential),
+      as: :json
+  end
+
+  def execution_runtime_result
+    JSON.parse(response.body).fetch("results").fetch(0)
+  end
 
   def resource_closed_report_fixture
     JSON.parse(

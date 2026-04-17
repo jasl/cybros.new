@@ -1,7 +1,7 @@
 require "test_helper"
 
 class ExecutionRuntimeApiRegistrationsTest < ActionDispatch::IntegrationTest
-  test "registration exchanges an onboarding token for an execution runtime connection and current runtime version" do
+  test "session open exchanges an onboarding token for an execution runtime connection and current runtime version" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     onboarding_session = OnboardingSessions::Issue.call(
@@ -12,7 +12,7 @@ class ExecutionRuntimeApiRegistrationsTest < ActionDispatch::IntegrationTest
       expires_at: 2.hours.from_now
     )
 
-    post "/execution_runtime_api/registrations",
+    post "/execution_runtime_api/session/open",
       params: {
         onboarding_token: onboarding_session.plaintext_token,
         endpoint_metadata: {
@@ -32,7 +32,7 @@ class ExecutionRuntimeApiRegistrationsTest < ActionDispatch::IntegrationTest
     contract = RuntimeCapabilityContract.build(execution_runtime: execution_runtime)
 
     assert response_body["execution_runtime_connection_credential"].present?
-    assert_equal "execution_runtime_registration", response_body.fetch("method_id")
+    assert_equal "execution_runtime_session_open", response_body.fetch("method_id")
     assert_equal execution_runtime.public_id, response_body.fetch("execution_runtime_id")
     assert_equal execution_runtime.execution_runtime_fingerprint, response_body.fetch("execution_runtime_fingerprint")
     assert_equal execution_runtime_version.public_id, response_body.fetch("execution_runtime_version_id")
@@ -40,12 +40,13 @@ class ExecutionRuntimeApiRegistrationsTest < ActionDispatch::IntegrationTest
     assert_equal contract.execution_runtime_capability_payload, response_body.fetch("execution_runtime_capability_payload")
     assert_equal contract.execution_runtime_tool_catalog, response_body.fetch("execution_runtime_tool_catalog")
     assert_equal contract.execution_runtime_plane, response_body.fetch("execution_runtime_plane")
+    assert_equal "/execution_runtime_api/mailbox/pull", response_body.dig("transport_hints", "mailbox", "pull_path")
     assert_equal execution_runtime_connection, ExecutionRuntimeConnection.find_by_plaintext_connection_credential(response_body.fetch("execution_runtime_connection_credential"))
     refute_includes response.body, %("#{execution_runtime.id}")
     refute_includes response.body, %("#{execution_runtime_version.id}")
   end
 
-  test "registration rejects invalid version packages with an unprocessable response" do
+  test "session open rejects invalid version packages with an unprocessable response" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
     onboarding_session = OnboardingSessions::Issue.call(
@@ -57,7 +58,7 @@ class ExecutionRuntimeApiRegistrationsTest < ActionDispatch::IntegrationTest
     )
 
     assert_no_difference("ExecutionRuntimeVersion.count") do
-      post "/execution_runtime_api/registrations",
+      post "/execution_runtime_api/session/open",
         params: {
           onboarding_token: onboarding_session.plaintext_token,
           endpoint_metadata: {
@@ -80,6 +81,12 @@ class ExecutionRuntimeApiRegistrationsTest < ActionDispatch::IntegrationTest
     assert_includes error_message, "Version package capability_payload must be a Hash"
     assert_includes error_message, "Version package tool_catalog must be an Array"
     assert_includes error_message, "Version package reflected_host_metadata must be a Hash"
+  end
+
+  test "legacy execution runtime registration route is removed" do
+    assert_raises(ActionController::RoutingError) do
+      Rails.application.routes.recognize_path("/execution_runtime_api/registrations", method: :post)
+    end
   end
 
   private

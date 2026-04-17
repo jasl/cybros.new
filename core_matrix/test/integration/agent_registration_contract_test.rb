@@ -20,7 +20,7 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
       expires_at: 2.hours.from_now
     )
 
-    post "/execution_runtime_api/registrations",
+    post "/execution_runtime_api/session/open",
       params: {
         onboarding_token: runtime_onboarding_session.plaintext_token,
         endpoint_metadata: {
@@ -94,6 +94,7 @@ class AgentRegistrationContractTest < ActionDispatch::IntegrationTest
     capability_body = JSON.parse(response.body)
 
     assert_equal agent.public_id, registration_body["agent_id"]
+    assert_equal "execution_runtime_session_open", runtime_registration_body["method_id"]
     assert_equal "fenix-host-a", runtime_registration_body["execution_runtime_fingerprint"]
     assert_equal "fenix-host-a", registration_body["execution_runtime_fingerprint"]
     assert_equal AgentDefinitionVersion.find_by_public_id!(registration_body.fetch("agent_definition_version_id")).public_id, registration_body["agent_definition_version_id"]
