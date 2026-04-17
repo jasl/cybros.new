@@ -22,7 +22,7 @@
   `/Users/jasl/Workspaces/Ruby/cybros/docs/plans/2026-04-17-core-matrix-cli-gem-rebuild-design.md`
   as the architecture baseline.
 - Treat the current `core_matrix_cli/` tree as the committed scaffold
-  checkpoint from `70e193a2` (`rewrite checkpoint`). Normalize it deliberately,
+  checkpoint from `7190f575` (`rewrite checkpoint`). Normalize it deliberately,
   but do not invent cleanup work for files that are no longer present.
 - The current scaffold baseline does not include
   `/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/.ruby-version` or
