@@ -96,6 +96,19 @@ module CoreMatrixCLI
         config_repository.merge("#{platform}_ingress_binding_id" => ingress_binding_id)
       end
 
+      def ensure_ingress_binding_id(platform:, workspace_agent_id:)
+        ingress_binding_id = stored_ingress_binding_id(platform)
+        return ingress_binding_id unless ingress_binding_id.to_s.strip.empty?
+
+        created_binding = authenticated_api.create_ingress_binding(
+          workspace_agent_id: workspace_agent_id,
+          platform: platform
+        ).fetch("ingress_binding")
+        ingress_binding_id = created_binding.fetch("ingress_binding_id")
+        persist_ingress_binding_id(platform, ingress_binding_id)
+        ingress_binding_id
+      end
+
       def select_workspace(workspaces_payload)
         workspace_id = config_payload["workspace_id"]
 

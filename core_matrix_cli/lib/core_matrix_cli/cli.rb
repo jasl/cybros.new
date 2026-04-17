@@ -4,7 +4,17 @@ module CoreMatrixCLI
 
     desc "init", "Bootstrap or continue operator setup"
     def init
-      raise NotImplementedError, "init not implemented yet"
+      with_cli_errors do
+        result = build_use_case(UseCases::RunInit).call(
+          base_url: ask("CoreMatrix Base URL:"),
+          ask: ->(prompt) { ask(prompt) },
+          ask_secret: ->(prompt) { prompt_secret(prompt) }
+        )
+
+        installation_name = result.dig(:payload, "installation", "name")
+        say("Installation: #{installation_name}") if installation_name
+        print_snapshot(result.fetch(:snapshot))
+      end
     end
 
     desc "status", "Show installation readiness"
