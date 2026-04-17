@@ -11,7 +11,7 @@ Run:
 
 ```bash
 cd core_matrix_cli
-bundle exec ./exe/cmctl init
+bundle exec exe/cmctl init
 ```
 
 If you are running on the CoreMatrix host itself, use:
@@ -28,8 +28,8 @@ operator-facing LAN or HTTPS hostname instead.
 Run:
 
 ```bash
-bundle exec ./exe/cmctl status
-bundle exec ./exe/cmctl auth whoami
+bundle exec exe/cmctl status
+bundle exec exe/cmctl auth whoami
 ```
 
 Healthy early state looks like:
@@ -45,9 +45,9 @@ Healthy early state looks like:
 Run:
 
 ```bash
-bundle exec ./exe/cmctl workspace create --name "Staging" --default
-bundle exec ./exe/cmctl workspace list
-bundle exec ./exe/cmctl status
+bundle exec exe/cmctl workspace create --name "Staging" --default
+bundle exec exe/cmctl workspace list
+bundle exec exe/cmctl status
 ```
 
 ## 4. Authorize Codex
@@ -55,7 +55,7 @@ bundle exec ./exe/cmctl status
 Run:
 
 ```bash
-bundle exec ./exe/cmctl providers codex login
+bundle exec exe/cmctl providers codex login
 ```
 
 This uses OpenAI device flow. Expect:
@@ -68,7 +68,7 @@ This uses OpenAI device flow. Expect:
 Check later with:
 
 ```bash
-bundle exec ./exe/cmctl providers codex status
+bundle exec exe/cmctl providers codex status
 ```
 
 ## 5. Understand The Current Empty State

@@ -50,12 +50,12 @@ The fastest way to make a new installation usable today is through
 [`core_matrix_cli`](/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli):
 
 1. `cd core_matrix_cli`
-2. `bundle exec ./exe/cmctl init`
-3. `bundle exec ./exe/cmctl providers codex login`
-4. `bundle exec ./exe/cmctl ingress telegram setup`
-5. Optional: `bundle exec ./exe/cmctl ingress telegram-webhook setup`
-6. `bundle exec ./exe/cmctl ingress weixin setup`
-7. `bundle exec ./exe/cmctl status`
+2. `bundle exec exe/cmctl init`
+3. `bundle exec exe/cmctl providers codex login`
+4. `bundle exec exe/cmctl ingress telegram setup`
+5. Optional: `bundle exec exe/cmctl ingress telegram-webhook setup`
+6. `bundle exec exe/cmctl ingress weixin setup`
+7. `bundle exec exe/cmctl status`
 
 For product deployment and integration prerequisites, see:
 

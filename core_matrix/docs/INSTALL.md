@@ -324,7 +324,7 @@ Example on the host:
 ```bash
 cd /home/jasl/cybros/core_matrix_cli
 bundle install
-bundle exec ./exe/cmctl init
+bundle exec exe/cmctl init
 ```
 
 The first operator flow asks for:
@@ -338,8 +338,8 @@ The first operator flow asks for:
 Then verify:
 
 ```bash
-bundle exec ./exe/cmctl status
-bundle exec ./exe/cmctl auth whoami
+bundle exec exe/cmctl status
+bundle exec exe/cmctl auth whoami
 ```
 
 ## Step 8: Create A Workspace
@@ -349,8 +349,8 @@ Current CoreMatrix bootstrap does not automatically create a workspace.
 Run:
 
 ```bash
-bundle exec ./exe/cmctl workspace create --name "Staging" --default
-bundle exec ./exe/cmctl status
+bundle exec exe/cmctl workspace create --name "Staging" --default
+bundle exec exe/cmctl status
 ```
 
 At this point it is normal for `selected workspace agent` to remain missing.
@@ -361,7 +361,7 @@ That requires a separately deployed agent such as Fenix.
 For private-LAN deployments, start with polling:
 
 ```bash
-bundle exec ./exe/cmctl ingress telegram setup
+bundle exec exe/cmctl ingress telegram setup
 ```
 
 Do not attempt Telegram webhook until you have a public HTTPS entrypoint.
