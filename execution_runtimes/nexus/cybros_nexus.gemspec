@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 require_relative "lib/cybros_nexus/version"
 
 Gem::Specification.new do |spec|
@@ -36,4 +34,5 @@ Gem::Specification.new do |spec|
   end
 
   spec.add_dependency "thor", "~> 1.5"
+  spec.add_dependency "sqlite3", "~> 2.9"
 end

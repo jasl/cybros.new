@@ -275,7 +275,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus
-bundle exec ruby -Itest \
+bundle exec ruby -Itest -e 'ARGV.each { |file| require File.expand_path(file) }' \
   test/config_test.rb \
   test/state/store_test.rb \
   test/state/migrator_test.rb \
@@ -645,7 +645,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus
-bundle exec ruby -Itest \
+bundle exec ruby -Itest -e 'ARGV.each { |file| require File.expand_path(file) }' \
   test/session/client_test.rb \
   test/transport/action_cable_client_test.rb \
   test/mailbox/control_loop_test.rb \
@@ -758,7 +758,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus
-bundle exec ruby -Itest \
+bundle exec ruby -Itest -e 'ARGV.each { |file| require File.expand_path(file) }' \
   test/resources/command_host_test.rb \
   test/resources/process_host_test.rb \
   test/tools/exec_command_test.rb \
@@ -856,7 +856,7 @@ bin/rails test \
   test/requests/execution_runtime_api/attachments_controller_test.rb
 
 cd /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus
-bundle exec ruby -Itest \
+bundle exec ruby -Itest -e 'ARGV.each { |file| require File.expand_path(file) }' \
   test/mailbox/assignment_executor_test.rb \
   test/mailbox/close_request_executor_test.rb \
   test/attachments/client_test.rb
@@ -946,7 +946,7 @@ Run:
 
 ```bash
 cd /Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus
-bundle exec ruby -Itest \
+bundle exec ruby -Itest -e 'ARGV.each { |file| require File.expand_path(file) }' \
   test/memory/store_test.rb \
   test/skills/catalog_test.rb \
   test/skills/install_test.rb \
