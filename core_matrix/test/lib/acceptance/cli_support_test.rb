@@ -42,7 +42,7 @@ class Acceptance::CliSupportTest < ActiveSupport::TestCase
         runner: runner
       )
 
-      assert_equal ["./bin/cmctl", "init"], captured_command
+      assert_equal ["bundle", "exec", "./exe/cmctl", "init"], captured_command
       assert_equal "https://core.example.com\n", captured_input
       assert_equal Acceptance::CliSupport.send(:repo_root).join("core_matrix_cli").to_s, captured_chdir
       assert_equal "1", captured_env.fetch("BUNDLE_FROZEN")
