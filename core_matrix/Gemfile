@@ -39,7 +39,7 @@ gem "with_advisory_lock"
 gem "web-push"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
-gem "tzinfo-data", platforms: %i[ windows jruby ]
+gem "tzinfo-data", platforms: %i[windows jruby]
 
 # Use the database-backed adapters for Rails.cache, Active Job, and Action Cable
 gem "solid_cache"
@@ -60,6 +60,8 @@ gem "simple_inference", path: "vendor/simple_inference"
 
 gem "tokenizers"
 gem "tiktoken_ruby"
+
+gem "telegram-bot", "~> 0.17"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
@@ -90,5 +92,3 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
-
-gem "telegram-bot", "~> 0.17.0"
