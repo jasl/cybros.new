@@ -446,17 +446,34 @@ jobs:
       run:
         shell: bash
         working-directory: core_matrix
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
     env:
       BUNDLE_GEMFILE: ${{ github.workspace }}/core_matrix/Gemfile
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
+      - name: Install packages
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 4.0.2
           bundler-cache: true
+
+      - name: Prepare Rails credentials
+        run: EDITOR=cat bin/rails credentials:edit
 
       - name: Run CoreMatrix-hosted verification tests
         run: bash ../verification/bin/test_core_matrix_hosted.sh

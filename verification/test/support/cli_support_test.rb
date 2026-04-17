@@ -20,8 +20,8 @@ class CliSupportTest < Minitest::Test
     )
 
     assert_equal ["bundle", "exec", "./exe/cmctl", "status"], calls.fetch(0).fetch(:command)
-    assert_equal "/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli", calls.fetch(0).dig(:kwargs, :chdir)
-    assert_equal "/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/Gemfile", calls.fetch(0).dig(:env, "BUNDLE_GEMFILE")
+    assert_equal Verification::Adapters::CoreMatrixCli.root.to_s, calls.fetch(0).dig(:kwargs, :chdir)
+    assert_equal Verification::Adapters::CoreMatrixCli.gemfile_path.to_s, calls.fetch(0).dig(:env, "BUNDLE_GEMFILE")
   ensure
     FileUtils.rm_rf(artifact_dir) if artifact_dir
   end
