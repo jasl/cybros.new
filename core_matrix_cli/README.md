@@ -1,39 +1,102 @@
-# CoreMatrixCli
+# Core Matrix CLI
 
-TODO: Delete this and the text below, and describe your gem
-
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/core_matrix_cli`. To experiment with that code, run `bin/console` for an interactive prompt.
+`core_matrix_cli` is the standalone operator CLI for bringing a CoreMatrix
+installation into a usable state before the web UI covers the full setup path.
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
-
-Install the gem and add to the application's Gemfile by executing:
+For local monorepo development:
 
 ```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli
+bundle install
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+For packaged distribution:
 
 ```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+gem install core_matrix_cli
 ```
 
-## Usage
+The executable entrypoint is `cmctl`. Inside this repository, the supported
+black-box invocation is:
 
-TODO: Write usage instructions here
+```bash
+bundle exec exe/cmctl
+```
 
-## Development
+## Quickstart
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+```bash
+bundle exec exe/cmctl init
+bundle exec exe/cmctl providers codex login
+bundle exec exe/cmctl ingress telegram setup
+bundle exec exe/cmctl ingress telegram-webhook setup
+bundle exec exe/cmctl ingress weixin setup
+bundle exec exe/cmctl status
+```
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+If `init` cannot reuse a bundled workspace and workspace agent, create and
+select them explicitly:
 
-## Contributing
+```bash
+bundle exec exe/cmctl workspace create --name "Integration Lab"
+bundle exec exe/cmctl agent attach --workspace-id <workspace_id> --agent-id <agent_id>
+```
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/core_matrix_cli.
+## Command Groups
+
+- `bundle exec exe/cmctl init`
+- `bundle exec exe/cmctl auth login`
+- `bundle exec exe/cmctl auth whoami`
+- `bundle exec exe/cmctl auth logout`
+- `bundle exec exe/cmctl status`
+- `bundle exec exe/cmctl providers codex login`
+- `bundle exec exe/cmctl providers codex status`
+- `bundle exec exe/cmctl providers codex logout`
+- `bundle exec exe/cmctl workspace list`
+- `bundle exec exe/cmctl workspace create`
+- `bundle exec exe/cmctl workspace use <workspace_id>`
+- `bundle exec exe/cmctl agent attach --agent-id <agent_id>`
+- `bundle exec exe/cmctl ingress telegram setup`
+- `bundle exec exe/cmctl ingress telegram-webhook setup`
+- `bundle exec exe/cmctl ingress weixin setup`
+
+## Integrations
+
+Operator-facing integration guidance lives inside this project:
+
+- [docs/integrations.md](/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/docs/integrations.md)
+
+For command-specific prompts and prerequisites, the help tree is also part of
+the contract:
+
+```bash
+bundle exec exe/cmctl ingress telegram help setup
+bundle exec exe/cmctl ingress telegram-webhook help setup
+bundle exec exe/cmctl ingress weixin help setup
+```
+
+## Local Development
+
+Install dependencies and prepare the local checkout:
+
+```bash
+cd /Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli
+bin/setup
+```
+
+Primary verification commands:
+
+```bash
+bundle exec rake test
+bundle exec rubocop --no-server
+bundle exec rake build
+```
+
+Use `bin/console` for an interactive shell against the rebuilt gem.
 
 ## License
 
-The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+`core_matrix_cli` is licensed under the MIT License. See
+[LICENSE.txt](/Users/jasl/Workspaces/Ruby/cybros/core_matrix_cli/LICENSE.txt).
