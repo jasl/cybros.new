@@ -126,7 +126,7 @@ class AppApiAdminLLMProvidersTest < ActionDispatch::IntegrationTest
       headers: app_api_headers(session.plaintext_token)
 
     assert_response :unprocessable_entity
-    assert_equal "oauth credentials must use the oauth authorization flow", response.parsed_body.fetch("error")
+    assert_equal "oauth credentials must use the codex device flow", response.parsed_body.fetch("error")
   end
 
   test "updates provider selection defaults through the policy subresource" do

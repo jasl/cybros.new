@@ -75,7 +75,7 @@ class ProviderCredentials::UpsertSecretTest < ActiveSupport::TestCase
     assert_includes error.record.errors[:provider_handle], "must exist in the provider catalog"
   end
 
-  test "rejects oauth codex credentials because they must use the authorization flow" do
+  test "rejects oauth codex credentials because they must use the codex device flow" do
     installation = create_installation!
     actor = create_user!(installation: installation, role: "admin")
 
@@ -90,6 +90,6 @@ class ProviderCredentials::UpsertSecretTest < ActiveSupport::TestCase
       )
     end
 
-    assert_equal "oauth credentials must use the oauth authorization flow", error.message
+    assert_equal "oauth credentials must use the codex device flow", error.message
   end
 end

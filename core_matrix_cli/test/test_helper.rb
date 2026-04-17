@@ -100,6 +100,7 @@ class FakeRuntime
     :session_response, :logout_response, :readiness_payload, :workspaces_response,
     :create_workspace_response, :agents_response, :attach_workspace_agent_response,
     :start_codex_authorization_response, :codex_authorization_status_sequence,
+    :poll_codex_authorization_sequence,
     :revoke_codex_authorization_response, :create_ingress_binding_responses,
     :update_ingress_binding_responses, :weixin_start_login_response,
     :weixin_login_status_sequence
@@ -120,6 +121,7 @@ class FakeRuntime
     @attach_workspace_agent_response = nil
     @start_codex_authorization_response = nil
     @codex_authorization_status_sequence = []
+    @poll_codex_authorization_sequence = []
     @revoke_codex_authorization_response = { "authorization" => { "status" => "missing" } }
     @create_ingress_binding_responses = {}
     @update_ingress_binding_responses = {}
@@ -255,6 +257,11 @@ class FakeRuntime
   def codex_authorization_status
     calls << [:codex_authorization_status]
     @codex_authorization_status_sequence.shift || raise("missing codex_authorization_status_sequence")
+  end
+
+  def poll_codex_authorization
+    calls << [:poll_codex_authorization]
+    @poll_codex_authorization_sequence.shift || raise("missing poll_codex_authorization_sequence")
   end
 
   def revoke_codex_authorization

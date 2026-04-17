@@ -137,6 +137,10 @@ module CoreMatrixCLI
       authenticated_client.get("/app_api/admin/llm_providers/codex_subscription/authorization")
     end
 
+    def poll_codex_authorization
+      authenticated_client.post("/app_api/admin/llm_providers/codex_subscription/authorization/poll")
+    end
+
     def revoke_codex_authorization
       authenticated_client.delete("/app_api/admin/llm_providers/codex_subscription/authorization")
     end

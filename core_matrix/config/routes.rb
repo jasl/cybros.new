@@ -97,7 +97,7 @@ Rails.application.routes.draw do
       namespace :llm_providers do
         namespace :codex_subscription do
           resource :authorization, only: [:show, :create, :destroy], controller: :authorizations do
-            get :callback
+            post :poll
           end
         end
       end

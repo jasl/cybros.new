@@ -34,6 +34,10 @@ administration. The implemented happy path is:
 - configure Telegram polling and optionally Telegram webhook, or drive the Weixin QR login contract
 - inspect the current readiness snapshot
 
+Codex authorization uses OpenAI device flow. `cmctl providers codex login`
+prints the verification URL and user code, opens the verification URL when
+possible, and polls CoreMatrix until the subscription becomes authorized.
+
 ## Command Groups
 
 - `cmctl init`

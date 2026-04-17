@@ -1541,22 +1541,23 @@ ActiveRecord::Schema[8.2].define(version: 2026_04_15_110000) do
   create_table "provider_authorization_sessions", force: :cascade do |t|
     t.datetime "completed_at"
     t.datetime "created_at", null: false
+    t.text "device_auth_id", null: false
     t.datetime "expires_at", null: false
     t.bigint "installation_id", null: false
     t.datetime "issued_at", null: false
     t.bigint "issued_by_user_id"
-    t.text "pkce_verifier", null: false
+    t.integer "poll_interval_seconds", default: 5, null: false
     t.string "provider_handle", null: false
     t.uuid "public_id", default: -> { "uuidv7()" }, null: false
     t.datetime "revoked_at"
-    t.string "state_digest", null: false
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
+    t.string "user_code", null: false
+    t.string "verification_uri", null: false
     t.index ["installation_id", "provider_handle", "status", "issued_at"], name: "idx_provider_auth_sessions_installation_provider_status_issued"
     t.index ["installation_id"], name: "index_provider_authorization_sessions_on_installation_id"
     t.index ["issued_by_user_id"], name: "index_provider_authorization_sessions_on_issued_by_user_id"
     t.index ["public_id"], name: "index_provider_authorization_sessions_on_public_id", unique: true
-    t.index ["state_digest"], name: "index_provider_authorization_sessions_on_state_digest", unique: true
   end
 
   create_table "provider_connection_checks", force: :cascade do |t|

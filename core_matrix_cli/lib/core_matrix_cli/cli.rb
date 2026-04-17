@@ -1,4 +1,6 @@
 module CoreMatrixCLI
+  require "time"
+
   module CommandHelpers
     def self.included(base)
       base.class_eval do
@@ -184,8 +186,8 @@ module CoreMatrixCLI
   class CodexCLI < Thor
     include CommandHelpers
     remove_command :tree
-    POLL_TIMEOUT = 10
-    POLL_INTERVAL = 0.01
+    FALLBACK_POLL_TIMEOUT = 900
+    DEFAULT_POLL_INTERVAL = 5.0
 
     def self.banner(command, *_args)
       "cmctl providers codex #{command.usage}"
@@ -197,22 +199,19 @@ module CoreMatrixCLI
         return unless require_base_url!
 
         authorization = runtime.start_codex_authorization.fetch("authorization")
-        authorization_url = authorization["authorization_url"]
-        if authorization_url
-          browser_launcher.open(authorization_url)
-          say("Open this URL if the browser does not launch:")
-          say(authorization_url)
-        end
+        open_verification_uri(authorization)
+        print_codex_authorization(authorization)
+        say("Waiting for authorization...")
 
         final_payload = Polling.until(
-          timeout: POLL_TIMEOUT,
-          interval: POLL_INTERVAL,
+          timeout: poll_timeout_seconds_for(authorization),
+          interval: poll_interval_seconds_for(authorization),
           stop_on: ->(payload) { payload.dig("authorization", "status") != "pending" }
         ) do
-          runtime.codex_authorization_status
+          runtime.poll_codex_authorization
         end
 
-        say("codex subscription: #{final_payload.dig("authorization", "status")}")
+        print_codex_authorization(final_payload.fetch("authorization"))
       end
     end
 
@@ -221,7 +220,7 @@ module CoreMatrixCLI
       with_cli_errors do
         return unless require_base_url!
 
-        say("codex subscription: #{runtime.codex_authorization_status.dig("authorization", "status")}")
+        print_codex_authorization(runtime.codex_authorization_status.fetch("authorization"))
       end
     end
 
@@ -238,6 +237,49 @@ module CoreMatrixCLI
     no_commands do
       def browser_launcher
         @browser_launcher ||= CoreMatrixCLI.browser_launcher_factory.call
+      end
+
+      def print_codex_authorization(authorization)
+        say("codex subscription: #{authorization.fetch("status")}")
+        return unless authorization["status"] == "pending"
+
+        verification_uri = authorization["verification_uri"]
+        user_code = authorization["user_code"]
+        expires_at = authorization["expires_at"]
+
+        say("Verification URL:") if verification_uri
+        say(verification_uri) if verification_uri
+        say("User code: #{user_code}") if user_code
+        say("Expires at: #{expires_at}") if expires_at
+      end
+
+      def open_verification_uri(authorization)
+        verification_uri = authorization["verification_uri"]
+        return if verification_uri.to_s.strip.empty?
+
+        browser_launcher.open(verification_uri)
+      end
+
+      def poll_interval_seconds_for(authorization)
+        raw = authorization["poll_interval_seconds"]
+        interval = raw.nil? ? DEFAULT_POLL_INTERVAL : raw.to_f
+        interval.positive? ? interval : 0.0
+      end
+
+      def poll_timeout_seconds_for(authorization)
+        expires_at = parse_time(authorization["expires_at"])
+        return FALLBACK_POLL_TIMEOUT unless expires_at
+
+        remaining = expires_at - Time.now
+        remaining.positive? ? remaining : 0.0
+      end
+
+      def parse_time(value)
+        return nil if value.to_s.strip.empty?
+
+        Time.iso8601(value.to_s)
+      rescue ArgumentError
+        nil
       end
     end
   end
@@ -462,6 +504,8 @@ module CoreMatrixCLI
   class WeixinCLI < Thor
     include CommandHelpers
     remove_command :tree
+    POLL_TIMEOUT = 10
+    POLL_INTERVAL = 0.01
 
     def self.banner(command, *_args)
       "cmctl ingress weixin #{command.usage}"
@@ -513,8 +557,8 @@ module CoreMatrixCLI
         last_qr_code_url = nil
 
         Polling.until(
-          timeout: CodexCLI::POLL_TIMEOUT,
-          interval: CodexCLI::POLL_INTERVAL,
+          timeout: POLL_TIMEOUT,
+          interval: POLL_INTERVAL,
           stop_on: ->(payload) { payload.dig("weixin", "login_state") != "pending" }
         ) do
           payload = runtime.weixin_login_status(

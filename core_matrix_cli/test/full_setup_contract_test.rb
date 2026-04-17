@@ -4,7 +4,8 @@ class CoreMatrixCLIFullSetupContractTest < CoreMatrixCLITestCase
   def test_full_setup_contract_bootstraps_authorizes_and_configures_im_paths
     server = FakeCoreMatrixServer.new do |state|
       state.bootstrap_state = "unbootstrapped"
-      state.codex_authorization_status_sequence = %w[pending authorized]
+      state.codex_authorization_status_sequence = %w[authorized]
+      state.codex_authorization_poll_sequence = %w[pending authorized]
       state.weixin_status_sequence = [
         { "login_state" => "pending" },
         { "login_state" => "pending", "qr_text" => "weixin://qr-login-token" },

@@ -1,37 +1,34 @@
 module ProviderAuthorizationSessions
   class Issue
     DEFAULT_EXPIRY = 15.minutes
+    DEFAULT_POLL_INTERVAL_SECONDS = 5
 
     def self.call(...)
       new(...).call
     end
 
-    def initialize(installation:, actor:, provider_handle:, redirect_uri:, issuer_base_url: LLMProviders::CodexSubscription::OAuthClient.default_issuer_base_url, client_id: LLMProviders::CodexSubscription::OAuthClient.default_client_id, expires_at: DEFAULT_EXPIRY.from_now)
+    def initialize(installation:, actor:, provider_handle:, device_flow_start: nil, expires_at: DEFAULT_EXPIRY.from_now)
       @installation = installation
       @actor = actor
       @provider_handle = provider_handle
-      @redirect_uri = redirect_uri
-      @issuer_base_url = issuer_base_url
-      @client_id = client_id
+      @device_flow_start = device_flow_start
       @expires_at = expires_at
     end
 
     def call
       ApplicationRecord.transaction do
         revoke_pending_sessions!
+        device_flow = start_device_flow
 
         authorization_session = ProviderAuthorizationSession.issue!(
           installation: @installation,
           provider_handle: @provider_handle,
           issued_by_user: @actor,
-          expires_at: @expires_at
-        )
-        authorization_url = LLMProviders::CodexSubscription::OAuthClient.authorization_url(
-          redirect_uri: @redirect_uri,
-          state: authorization_session.plaintext_state,
-          code_challenge: ProviderAuthorizationSession.code_challenge_for(authorization_session.plaintext_pkce_verifier),
-          issuer_base_url: @issuer_base_url,
-          client_id: @client_id
+          device_auth_id: device_flow.fetch("device_auth_id"),
+          user_code: device_flow.fetch("user_code"),
+          verification_uri: device_flow.fetch("verification_uri"),
+          poll_interval_seconds: Integer(device_flow.fetch("interval", DEFAULT_POLL_INTERVAL_SECONDS)),
+          expires_at: parse_expires_at(device_flow["expires_at"]) || @expires_at
         )
 
         AuditLog.record!(
@@ -46,12 +43,28 @@ module ProviderAuthorizationSessions
 
         {
           authorization_session: authorization_session,
-          authorization_url: authorization_url,
         }
       end
     end
 
     private
+
+    def start_device_flow
+      (@device_flow_start || default_device_flow_start).call
+    end
+
+    def default_device_flow_start
+      -> { LLMProviders::CodexSubscription::OAuthClient.start_device_flow! }
+    end
+
+    def parse_expires_at(value)
+      return value if value.is_a?(Time)
+      return nil if value.blank?
+
+      Time.iso8601(value.to_s)
+    rescue ArgumentError
+      nil
+    end
 
     def revoke_pending_sessions!
       ProviderAuthorizationSession.where(

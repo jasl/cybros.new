@@ -15,7 +15,7 @@ module ProviderCredentials
     end
 
     def call
-      raise ArgumentError, "oauth credentials must use the oauth authorization flow" if @credential_kind == "oauth_codex"
+      raise ArgumentError, "oauth credentials must use the codex device flow" if @credential_kind == "oauth_codex"
 
       ApplicationRecord.transaction do
         credential = ProviderCredential.find_or_initialize_by(

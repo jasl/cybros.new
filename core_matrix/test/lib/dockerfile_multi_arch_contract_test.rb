@@ -21,7 +21,7 @@ class DockerfileMultiArchContractTest < ActiveSupport::TestCase
     dockerfiles = [
       Rails.root.join("../core_matrix/Dockerfile"),
       Rails.root.join("../agents/fenix/Dockerfile"),
-      Rails.root.join("../execution_runtimes/nexus/Dockerfile")
+      Rails.root.join("../execution_runtimes/nexus/Dockerfile"),
     ]
 
     dockerfiles.each do |dockerfile|

@@ -27,12 +27,12 @@ class AppApiAdminLlmProvidersCodexSubscriptionAuthorizationsTest < ActionDispatc
     assert_equal "destroy", recognized.fetch(:action)
 
     recognized = Rails.application.routes.recognize_path(
-      "/app_api/admin/llm_providers/codex_subscription/authorization/callback",
-      method: :get
+      "/app_api/admin/llm_providers/codex_subscription/authorization/poll",
+      method: :post
     )
 
     assert_equal "app_api/admin/llm_providers/codex_subscription/authorizations", recognized.fetch(:controller)
-    assert_equal "callback", recognized.fetch(:action)
+    assert_equal "poll", recognized.fetch(:action)
 
     assert_raises(ActionController::RoutingError) do
       Rails.application.routes.recognize_path(
@@ -42,10 +42,21 @@ class AppApiAdminLlmProvidersCodexSubscriptionAuthorizationsTest < ActionDispatc
     end
   end
 
-  test "creates a codex subscription authorization session and returns an authorization url" do
+  test "creates a codex subscription authorization session and returns device flow details" do
     installation = create_installation!
     admin = create_user!(installation: installation, role: "admin")
     session = create_session!(user: admin)
+    expires_at = 15.minutes.from_now.change(usec: 0)
+    original_start = LLMProviders::CodexSubscription::OAuthClient.method(:start_device_flow!)
+    LLMProviders::CodexSubscription::OAuthClient.singleton_class.define_method(:start_device_flow!) do
+      {
+        "device_auth_id" => "deviceauth_123",
+        "user_code" => "ABCD-EFGH",
+        "verification_uri" => "https://auth.openai.com/codex/device",
+        "interval" => 5,
+        "expires_at" => expires_at.iso8601,
+      }
+    end
 
     post "/app_api/admin/llm_providers/codex_subscription/authorization",
       headers: app_api_headers(session.plaintext_token)
@@ -57,9 +68,14 @@ class AppApiAdminLlmProvidersCodexSubscriptionAuthorizationsTest < ActionDispatc
     authorization = response_body.fetch("authorization")
     assert_equal "codex_subscription", authorization.fetch("provider_handle")
     assert_equal "pending", authorization.fetch("status")
-    assert_match(%r{\Ahttps?://}, authorization.fetch("authorization_url"))
+    assert_equal "https://auth.openai.com/codex/device", authorization.fetch("verification_uri")
+    assert_equal "ABCD-EFGH", authorization.fetch("user_code")
+    assert_equal 5, authorization.fetch("poll_interval_seconds")
+    assert_equal expires_at.iso8601(6), authorization.fetch("expires_at")
     assert_nil authorization["access_token"]
     assert_nil authorization["refresh_token"]
+  ensure
+    LLMProviders::CodexSubscription::OAuthClient.singleton_class.define_method(:start_device_flow!, original_start) if original_start
   end
 
   test "returns not found when codex subscription is disabled in the effective catalog" do
@@ -86,6 +102,10 @@ class AppApiAdminLlmProvidersCodexSubscriptionAuthorizationsTest < ActionDispatc
       installation: installation,
       provider_handle: "codex_subscription",
       issued_by_user: admin,
+      device_auth_id: "deviceauth_123",
+      user_code: "ABCD-EFGH",
+      verification_uri: "https://auth.openai.com/codex/device",
+      poll_interval_seconds: 5,
       expires_at: 15.minutes.from_now
     )
     ProviderCredential.create!(
@@ -109,6 +129,8 @@ class AppApiAdminLlmProvidersCodexSubscriptionAuthorizationsTest < ActionDispatc
     assert_nil authorization["access_token"]
     assert_nil authorization["refresh_token"]
     assert_equal true, authorization.fetch("usable")
+    assert_equal "ABCD-EFGH", authorization.fetch("user_code")
+    assert_equal "https://auth.openai.com/codex/device", authorization.fetch("verification_uri")
     assert authorization_session.reload.active?
   end
 
@@ -120,6 +142,10 @@ class AppApiAdminLlmProvidersCodexSubscriptionAuthorizationsTest < ActionDispatc
       installation: installation,
       provider_handle: "codex_subscription",
       issued_by_user: admin,
+      device_auth_id: "deviceauth_123",
+      user_code: "ABCD-EFGH",
+      verification_uri: "https://auth.openai.com/codex/device",
+      poll_interval_seconds: 5,
       expires_at: 15.minutes.from_now
     )
     ProviderCredential.create!(
@@ -146,32 +172,37 @@ class AppApiAdminLlmProvidersCodexSubscriptionAuthorizationsTest < ActionDispatc
     )
   end
 
-  test "callback completes the authorization session and persists the oauth credential" do
+  test "poll completes the authorization session and persists the oauth credential" do
     installation = create_installation!
     admin = create_user!(installation: installation, role: "admin")
+    session = create_session!(user: admin)
     authorization_session = ProviderAuthorizationSession.issue!(
       installation: installation,
       provider_handle: "codex_subscription",
       issued_by_user: admin,
+      device_auth_id: "deviceauth_123",
+      user_code: "ABCD-EFGH",
+      verification_uri: "https://auth.openai.com/codex/device",
+      poll_interval_seconds: 5,
       expires_at: 15.minutes.from_now
     )
-    original_exchange = LLMProviders::CodexSubscription::OAuthClient.method(:exchange_code)
-    LLMProviders::CodexSubscription::OAuthClient.singleton_class.define_method(:exchange_code) do |**_kwargs|
+    original_poll = LLMProviders::CodexSubscription::OAuthClient.method(:poll_device_flow!)
+    LLMProviders::CodexSubscription::OAuthClient.singleton_class.define_method(:poll_device_flow!) do |**_kwargs|
       {
-        access_token: "access-token-1",
-        refresh_token: "refresh-token-1",
-        expires_at: 2.hours.from_now,
+        status: :authorized,
+        tokens: {
+          "access_token" => "access-token-1",
+          "refresh_token" => "refresh-token-1",
+          "expires_at" => 2.hours.from_now,
+        },
       }
     end
 
-    get "/app_api/admin/llm_providers/codex_subscription/authorization/callback",
-      params: {
-        state: authorization_session.plaintext_state,
-        code: "oauth-code-123",
-      }
+    post "/app_api/admin/llm_providers/codex_subscription/authorization/poll",
+      headers: app_api_headers(session.plaintext_token)
 
     assert_response :success
-    assert_match(/authorization completed/i, response.body)
+    assert_equal "authorized", response.parsed_body.dig("authorization", "status")
     assert_equal "completed", authorization_session.reload.status
     credential = ProviderCredential.find_by!(
       installation: installation,
@@ -181,15 +212,16 @@ class AppApiAdminLlmProvidersCodexSubscriptionAuthorizationsTest < ActionDispatc
     assert_equal "access-token-1", credential.access_token
     assert_equal "refresh-token-1", credential.refresh_token
   ensure
-    LLMProviders::CodexSubscription::OAuthClient.singleton_class.define_method(:exchange_code, original_exchange) if original_exchange
+    LLMProviders::CodexSubscription::OAuthClient.singleton_class.define_method(:poll_device_flow!, original_poll) if original_poll
   end
 
-  test "callback returns unprocessable entity for an invalid state" do
-    get "/app_api/admin/llm_providers/codex_subscription/authorization/callback",
-      params: {
-        state: "not-a-real-state",
-        code: "oauth-code-123",
-      }
+  test "poll returns unprocessable entity when no active device flow exists" do
+    installation = create_installation!
+    admin = create_user!(installation: installation, role: "admin")
+    session = create_session!(user: admin)
+
+    post "/app_api/admin/llm_providers/codex_subscription/authorization/poll",
+      headers: app_api_headers(session.plaintext_token)
 
     assert_response :unprocessable_entity
   end

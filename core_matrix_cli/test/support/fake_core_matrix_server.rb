@@ -16,7 +16,8 @@ class FakeCoreMatrixServer
   class State
     attr_accessor :bootstrap_state, :installation_name, :session_token, :operator_email,
       :operator_display_name, :workspace_id, :workspace_name, :workspace_agent_id,
-      :codex_authorization_status_sequence, :codex_current_status, :weixin_status_sequence
+      :codex_authorization_status_sequence, :codex_authorization_poll_sequence,
+      :codex_current_status, :weixin_status_sequence
     attr_reader :authorized_request_tokens, :ingress_bindings
 
     def initialize
@@ -29,6 +30,7 @@ class FakeCoreMatrixServer
       @workspace_name = "Primary Workspace"
       @workspace_agent_id = "wa_contract_123"
       @codex_authorization_status_sequence = []
+      @codex_authorization_poll_sequence = []
       @codex_current_status = "missing"
       @weixin_status_sequence = []
       @connector_payloads = {}
@@ -59,6 +61,12 @@ class FakeCoreMatrixServer
 
     def next_codex_status
       next_status = @codex_authorization_status_sequence.shift
+      @codex_current_status = next_status if next_status
+      @codex_current_status
+    end
+
+    def next_codex_poll_status
+      next_status = @codex_authorization_poll_sequence.shift
       @codex_current_status = next_status if next_status
       @codex_current_status
     end
@@ -175,7 +183,25 @@ class FakeCoreMatrixServer
           authorization: {
             provider_handle: "codex_subscription",
             status: "pending",
-            authorization_url: "#{base_url}/oauth/codex/device",
+            verification_uri: "https://auth.openai.com/codex/device",
+            user_code: "ABCD-EFGH",
+            poll_interval_seconds: 0,
+            expires_at: (Time.now + 900).utc.iso8601(6),
+          },
+        }
+      )
+      return true
+    end
+
+    if request.request_method == "POST" && request.path == "/app_api/admin/llm_providers/codex_subscription/authorization/poll"
+      respond_json(
+        response,
+        200,
+        {
+          method_id: "admin_codex_subscription_authorization_poll",
+          authorization: {
+            provider_handle: "codex_subscription",
+            status: state.next_codex_poll_status,
           },
         }
       )
@@ -191,6 +217,8 @@ class FakeCoreMatrixServer
           authorization: {
             provider_handle: "codex_subscription",
             status: state.next_codex_status,
+            verification_uri: "https://auth.openai.com/codex/device",
+            user_code: "ABCD-EFGH",
           },
         }
       )

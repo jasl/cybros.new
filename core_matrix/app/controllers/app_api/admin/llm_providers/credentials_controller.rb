@@ -5,7 +5,7 @@ module AppAPI
         def update
           provider = provider_resource
           raise ArgumentError, "provider does not accept credentials" unless provider.fetch("requires_credential")
-          raise ArgumentError, "oauth credentials must use the oauth authorization flow" if provider.fetch("credential_kind") == "oauth_codex"
+          raise ArgumentError, "oauth credentials must use the codex device flow" if provider.fetch("credential_kind") == "oauth_codex"
 
           secret = credential_params["secret"]
           raise ArgumentError, "secret is required" if secret.blank?

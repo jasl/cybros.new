@@ -3,9 +3,6 @@ module AppAPI
     module LLMProviders
       module CodexSubscription
         class AuthorizationsController < AppAPI::Admin::BaseController
-          skip_before_action :authenticate_session!, only: :callback
-          skip_before_action :verify_cookie_backed_session_csrf!, only: :callback
-          skip_before_action :authorize_admin!, only: :callback
           before_action :ensure_codex_subscription_enabled!
 
           def show
@@ -19,16 +16,20 @@ module AppAPI
             result = ProviderAuthorizationSessions::Issue.call(
               installation: current_installation,
               actor: current_user,
-              provider_handle: "codex_subscription",
-              redirect_uri: callback_redirect_uri
+              provider_handle: "codex_subscription"
             )
 
             render_method_response(
               method_id: "admin_codex_subscription_authorization_create",
               authorization: authorization_payload(
-                authorization_session: result.fetch(:authorization_session),
-                authorization_url: result.fetch(:authorization_url)
+                authorization_session: result.fetch(:authorization_session)
               )
+            )
+          rescue LLMProviders::CodexSubscription::OAuthClient::RequestFailed => error
+            render_method_response(
+              method_id: "admin_codex_subscription_authorization_create_error",
+              status: :unprocessable_entity,
+              error: error.message
             )
           end
 
@@ -52,21 +53,24 @@ module AppAPI
             )
           end
 
-          def callback
-            ProviderAuthorizationSessions::CompleteCodexCallback.call(
-              state: params.fetch(:state),
-              code: params.fetch(:code),
-              redirect_uri: callback_redirect_uri
+          def poll
+            ProviderAuthorizationSessions::Poll.call(
+              installation: current_installation,
+              provider_handle: "codex_subscription"
             )
+            reset_authorization_state_cache!
 
-            render plain: "Codex subscription authorization completed. You can return to the app.", status: :ok
-          rescue KeyError => error
-            render plain: error.message, status: :unprocessable_entity
-          rescue ProviderAuthorizationSessions::ResolveFromState::InvalidState,
-                 ProviderAuthorizationSessions::ResolveFromState::ExpiredSession,
-                 ProviderAuthorizationSessions::ResolveFromState::RevokedSession,
-                 ProviderAuthorizationSessions::ResolveFromState::CompletedSession => error
-            render plain: error.message, status: :unprocessable_entity
+            render_method_response(
+              method_id: "admin_codex_subscription_authorization_poll",
+              authorization: authorization_payload
+            )
+          rescue ProviderAuthorizationSessions::Poll::NoActiveSession,
+                 ProviderAuthorizationSessions::Poll::TerminalPollFailure => error
+            render_method_response(
+              method_id: "admin_codex_subscription_authorization_poll_error",
+              status: :unprocessable_entity,
+              error: error.message
+            )
           end
 
           private
@@ -97,10 +101,10 @@ module AppAPI
               installation: current_installation,
               provider_handle: "codex_subscription",
               status: "pending"
-            ).order(issued_at: :desc, id: :desc).first
+            ).where("expires_at > ?", Time.current).order(issued_at: :desc, id: :desc).first
           end
 
-          def authorization_payload(authorization_session: pending_authorization_session, authorization_url: nil)
+          def authorization_payload(authorization_session: pending_authorization_session)
             credential = current_credential
             {
               "provider_handle" => "codex_subscription",
@@ -109,8 +113,10 @@ module AppAPI
               "enabled" => true,
               "usable" => credential&.usable_for_provider_requests? || false,
               "reauthorization_required" => credential&.reauthorization_required? || false,
-              "authorization_url" => authorization_url,
-              "expires_at" => credential&.expires_at&.iso8601(6),
+              "verification_uri" => authorization_session&.active? ? authorization_session.verification_uri : nil,
+              "user_code" => authorization_session&.active? ? authorization_session.user_code : nil,
+              "poll_interval_seconds" => authorization_session&.active? ? authorization_session.poll_interval_seconds : nil,
+              "expires_at" => authorization_session&.active? ? authorization_session.expires_at&.iso8601(6) : credential&.expires_at&.iso8601(6),
               "last_refreshed_at" => credential&.last_refreshed_at&.iso8601(6),
               "refresh_failed_at" => credential&.refresh_failed_at&.iso8601(6),
               "refresh_failure_reason" => credential&.refresh_failure_reason,
@@ -125,8 +131,9 @@ module AppAPI
             "missing"
           end
 
-          def callback_redirect_uri
-            "#{request.base_url}/app_api/admin/llm_providers/codex_subscription/authorization/callback"
+          def reset_authorization_state_cache!
+            @current_credential = nil
+            @pending_authorization_session = nil
           end
         end
       end

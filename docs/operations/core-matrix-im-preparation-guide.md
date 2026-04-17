@@ -23,6 +23,29 @@ Scope:
 This guide assumes `cmctl init` has already completed and that you have an
 authenticated operator session plus a selected workspace and workspace agent.
 
+## Codex Subscription
+
+Before IM testing, authorize Codex Subscription through the CLI:
+
+```bash
+cmctl providers codex login
+```
+
+The CLI now uses OpenAI device flow. Expect it to:
+
+1. Print the verification URL.
+2. Print the user code you must enter on that page.
+3. Open the verification URL in a browser when possible.
+4. Poll CoreMatrix until the subscription becomes authorized or the device flow expires.
+
+If the command is interrupted while the flow is still pending, run:
+
+```bash
+cmctl providers codex status
+```
+
+to retrieve the current pending status and any still-active verification code.
+
 ## Telegram Polling
 
 ### What you need before running the CLI

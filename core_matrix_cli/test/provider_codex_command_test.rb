@@ -12,7 +12,7 @@ class CoreMatrixCLICodexCommandTest < CoreMatrixCLITestCase
     assert_includes output, "cmctl providers codex login"
   end
 
-  def test_codex_login_opens_authorization_url_and_polls_until_authorized
+  def test_codex_login_opens_verification_url_prints_user_code_and_polls_until_authorized
     runtime = FakeRuntime.new(
       config_store: CoreMatrixCLI::ConfigStore.new(path: tmp_path("config.json")),
       credential_store: CoreMatrixCLI::CredentialStores::FileStore.new(path: tmp_path("credentials.json"))
@@ -20,11 +20,14 @@ class CoreMatrixCLICodexCommandTest < CoreMatrixCLITestCase
     runtime.persist_base_url("https://core.example.com")
     runtime.start_codex_authorization_response = {
       "authorization" => {
-        "authorization_url" => "https://auth.example.test/device",
+        "verification_uri" => "https://auth.example.test/device",
+        "user_code" => "ABCD-EFGH",
+        "poll_interval_seconds" => 0,
+        "expires_at" => (Time.now + 60).utc.iso8601,
         "status" => "pending",
       },
     }
-    runtime.codex_authorization_status_sequence = [
+    runtime.poll_codex_authorization_sequence = [
       { "authorization" => { "status" => "pending" } },
       { "authorization" => { "status" => "authorized" } },
     ]
@@ -37,7 +40,8 @@ class CoreMatrixCLICodexCommandTest < CoreMatrixCLITestCase
     )
 
     assert_equal ["https://auth.example.test/device"], browser_launcher.opened_urls
-    assert_includes output, "Open this URL if the browser does not launch:"
+    assert_includes output, "Verification URL:"
+    assert_includes output, "User code: ABCD-EFGH"
     assert_includes output, "authorized"
   end
 
