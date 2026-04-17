@@ -183,6 +183,7 @@ module ProviderExecution
 
         {
           "command_run_id" => command_run.public_id,
+          "runtime_owner_id" => @workflow_node.public_id,
         }
       end
 
