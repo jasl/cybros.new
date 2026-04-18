@@ -1,7 +1,0 @@
-#!/usr/bin/env ruby
-ENV["NEXUS_HOME_ROOT"] ||= File.expand_path("../tmp/nexus-home-test", __dir__) if ENV["RAILS_ENV"] == "test"
-require_relative "../lib/runtime/python_bootstrap"
-Runtime::PythonBootstrap.ensure_ready!
-APP_PATH = File.expand_path("../config/application", __dir__)
-require_relative "../config/boot"
-require "rails/commands"

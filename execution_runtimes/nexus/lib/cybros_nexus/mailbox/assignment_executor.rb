@@ -447,6 +447,8 @@ module CybrosNexus
       def runtime_owner_id
         runtime_resource_refs.dig("command_run", "runtime_owner_id") ||
           runtime_resource_refs.dig("process_run", "runtime_owner_id") ||
+          task["turn_id"] ||
+          task["agent_task_run_id"] ||
           task["workflow_node_id"] ||
           logical_work_id
       end

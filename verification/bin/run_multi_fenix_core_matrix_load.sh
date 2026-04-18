@@ -274,96 +274,48 @@ prepare_fenix_slot_database() {
   )
 }
 
-nexus_worker_topology_ready() {
-  local home_root="$1"
-  local storage_root="$2"
-  local event_output_path="$3"
-  local slot_label="$4"
-
-  (
-    cd "${NEXUS_ROOT}"
-    NEXUS_HOME_ROOT="${home_root}" \
-      NEXUS_STORAGE_ROOT="${storage_root}" \
-      CYBROS_PERF_EVENTS_PATH="${event_output_path}" \
-      CYBROS_PERF_INSTANCE_LABEL="${slot_label}" \
-      ruby bin/rails runner '
-        expected_queues = %w[runtime_control maintenance]
-        heartbeat_cutoff = 5.seconds.ago
-
-        live_pid = lambda do |pid|
-          next false unless pid
-
-          Process.kill(0, pid)
-          true
-        rescue Errno::ESRCH, Errno::EPERM
-          false
-        end
-
-        supervisor = SolidQueue::Process.find_by(kind: "Supervisor(fork)")
-        workers = SolidQueue::Process.where(kind: "Worker")
-        registered_queues =
-          workers.filter_map do |worker|
-            next unless worker.last_heartbeat_at && worker.last_heartbeat_at >= heartbeat_cutoff
-            next unless live_pid.call(worker.pid)
-
-            worker.metadata["queues"]
-          end.uniq
-
-        supervisor_ready =
-          supervisor &&
-          supervisor.last_heartbeat_at &&
-          supervisor.last_heartbeat_at >= heartbeat_cutoff &&
-          live_pid.call(supervisor.pid)
-
-        exit(supervisor_ready && expected_queues.all? { |queue| registered_queues.include?(queue) } ? 0 : 1)
-      ' >/dev/null 2>&1
-  )
-}
-
-fetch_nexus_jobs_supervisor_pid() {
-  local home_root="$1"
-  local storage_root="$2"
-  local event_output_path="$3"
-  local slot_label="$4"
-
-  (
-    cd "${NEXUS_ROOT}"
-    NEXUS_HOME_ROOT="${home_root}" \
-      NEXUS_STORAGE_ROOT="${storage_root}" \
-      CYBROS_PERF_EVENTS_PATH="${event_output_path}" \
-      CYBROS_PERF_INSTANCE_LABEL="${slot_label}" \
-      ruby bin/rails runner '
-        heartbeat_cutoff = 5.seconds.ago
-        supervisor = SolidQueue::Process.find_by(kind: "Supervisor(fork)")
-
-        if supervisor&.last_heartbeat_at && supervisor.last_heartbeat_at >= heartbeat_cutoff
-          begin
-            Process.kill(0, supervisor.pid)
-            puts supervisor.pid
-          rescue Errno::ESRCH, Errno::EPERM
-            puts ""
-          end
-        else
-          puts ""
-        end
-      '
-  )
-}
-
-start_nexus_jobs_daemon() {
+prepare_nexus_slot_home() {
   local slot_label="$1"
   local home_root="$2"
   local storage_root="$3"
   local event_output_path="$4"
-  local pidfile="$5"
-  local log_path="$6"
+  local log_path="$5"
+
+  rm -rf "${home_root}"
+  mkdir -p "${home_root}" "${storage_root}" "$(dirname "${event_output_path}")"
+  printf 'prepared nexus slot home %s at %s\n' "${slot_label}" "${home_root}" >>"${log_path}"
+}
+
+start_nexus_manifest_server_daemon() {
+  local slot_label="$1"
+  local slot_base_url="$2"
+  local runtime_port="$3"
+  local slot_home_root="$4"
+  local slot_storage_root="$5"
+  local slot_event_output_path="$6"
+  local pidfile="$7"
+  local log_path="$8"
+  local runtime_host
+
+  runtime_host="$(python3 - <<'PY' "${slot_base_url}"
+import sys
+from urllib.parse import urlparse
+
+uri = urlparse(sys.argv[1])
+print(uri.hostname or "")
+PY
+)"
 
   (
     cd "${NEXUS_ROOT}"
-    NEXUS_HOME_ROOT="${home_root}" \
-      NEXUS_STORAGE_ROOT="${storage_root}" \
-      CYBROS_PERF_EVENTS_PATH="${event_output_path}" \
+    NEXUS_HOME_ROOT="${slot_home_root}" \
+      NEXUS_STORAGE_ROOT="${slot_storage_root}" \
+      CYBROS_PERF_EVENTS_PATH="${slot_event_output_path}" \
       CYBROS_PERF_INSTANCE_LABEL="${slot_label}" \
+      NEXUS_HTTP_BIND="${runtime_host}" \
+      NEXUS_HTTP_PORT="${runtime_port}" \
+      NEXUS_PUBLIC_BASE_URL="${slot_base_url}" \
+      BUNDLE_GEMFILE="${NEXUS_ROOT}/Gemfile" \
       ruby - "${log_path}" <<'RUBY'
 log_path = ARGV.fetch(0)
 STDOUT.reopen(log_path, "a")
@@ -375,41 +327,22 @@ STDOUT.reopen(log_path, "a")
 STDERR.reopen(STDOUT)
 STDOUT.sync = true
 STDERR.sync = true
-exec("./bin/jobs", "start")
+exec("bundle", "exec", "ruby", "scripts/manifest_server.rb")
 RUBY
   )
 
-  for _ in $(seq 1 30); do
-    if nexus_worker_topology_ready "${home_root}" "${storage_root}" "${event_output_path}" "${slot_label}"; then
-      fetch_nexus_jobs_supervisor_pid "${home_root}" "${storage_root}" "${event_output_path}" "${slot_label}" >"${pidfile}"
+  for _ in $(seq 1 50); do
+    local pid
+    pid="$(lsof -nP -iTCP:"${runtime_port}" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true)"
+    if [[ -n "${pid}" ]]; then
+      printf '%s' "${pid}" >"${pidfile}"
       return 0
     fi
-    sleep 0.2
+    sleep 0.1
   done
 
-  stop_matching_process "${NEXUS_ROOT}/bin/jobs" "start"
-  echo "timed out waiting for ${slot_label} jobs daemon to become ready" >&2
+  echo "timed out waiting for ${slot_label} manifest server to become ready" >&2
   return 1
-}
-
-prepare_nexus_slot_database() {
-  local slot_label="$1"
-  local home_root="$2"
-  local storage_root="$3"
-  local event_output_path="$4"
-  local log_path="$5"
-
-  rm -rf "${storage_root}"
-  mkdir -p "${home_root}" "${storage_root}" "$(dirname "${event_output_path}")"
-
-  (
-    cd "${NEXUS_ROOT}"
-    NEXUS_HOME_ROOT="${home_root}" \
-      NEXUS_STORAGE_ROOT="${storage_root}" \
-      CYBROS_PERF_EVENTS_PATH="${event_output_path}" \
-      CYBROS_PERF_INSTANCE_LABEL="${slot_label}" \
-      bin/rails db:prepare >>"${log_path}" 2>&1
-  )
 }
 
 require_command curl
@@ -569,35 +502,28 @@ trap verification_process_manager_cleanup_current_session_and_verify EXIT
 for row in "${SLOT_ROWS[@]}"; do
   IFS=$'\t' read -r _ slot_index slot_label slot_base_url runtime_port slot_home_root slot_storage_root slot_event_output_path <<< "${row}"
   pidfile="${RUN_ROOT}/pids/${slot_label}-server.pid"
-  jobs_pidfile="${RUN_ROOT}/pids/${slot_label}-jobs.pid"
   log_path="${LOG_DIR}/${slot_label}-server.log"
-  jobs_log_path="${LOG_DIR}/${slot_label}-jobs.log"
 
   stop_listening_port "${runtime_port}"
-  rm -f "${pidfile}" "${jobs_pidfile}"
-  prepare_nexus_slot_database \
+  rm -f "${pidfile}"
+  prepare_nexus_slot_home \
     "${slot_label}" \
     "${slot_home_root}" \
     "${slot_storage_root}" \
     "${slot_event_output_path}" \
     "${LOG_DIR}/${slot_label}-db-prepare.log"
 
-  (
-    cd "${NEXUS_ROOT}"
-    NEXUS_HOME_ROOT="${slot_home_root}" \
-      NEXUS_STORAGE_ROOT="${slot_storage_root}" \
-      CYBROS_PERF_EVENTS_PATH="${slot_event_output_path}" \
-      CYBROS_PERF_INSTANCE_LABEL="${slot_label}" \
-      bin/rails server -d -b 127.0.0.1 -p "${runtime_port}" -P "${pidfile}" >>"${log_path}" 2>&1
-  )
-
+  start_nexus_manifest_server_daemon \
+    "${slot_label}" \
+    "${slot_base_url}" \
+    "${runtime_port}" \
+    "${slot_home_root}" \
+    "${slot_storage_root}" \
+    "${slot_event_output_path}" \
+    "${pidfile}" \
+    "${log_path}"
   EXTRA_RUNTIME_PIDFILES+=("${pidfile}")
-  if [[ "${START_FENIX_JOBS_DAEMONS}" == "true" ]]; then
-    start_nexus_jobs_daemon "${slot_label}" "${slot_home_root}" "${slot_storage_root}" "${slot_event_output_path}" "${jobs_pidfile}" "${jobs_log_path}"
-    EXTRA_RUNTIME_PIDFILES+=("${jobs_pidfile}")
-    verification_process_manager_track_pidfile "${slot_label}-jobs" "${jobs_pidfile}" ""
-  fi
-  wait_for_http_ok "${slot_base_url}/up"
+  wait_for_http_ok "${slot_base_url}/health/ready"
   wait_for_http_ok "${slot_base_url}/runtime/manifest"
   verification_process_manager_track_pidfile "${slot_label}-server" "${pidfile}" "${runtime_port}"
 done

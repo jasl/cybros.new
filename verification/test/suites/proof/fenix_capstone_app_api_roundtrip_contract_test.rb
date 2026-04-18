@@ -104,4 +104,14 @@ class VerificationCapstoneAppApiRoundtripContractTest < ActiveSupport::TestCase
     assert_includes prompt, "use only non-interactive shell commands with no attached TTY session"
     assert_includes prompt, "do not start a second dev server"
   end
+
+  test "capstone prompt requires a reproducible dependency manifest after config edits" do
+    prompt = Verification::CapstoneAppApiRoundtrip.prompt(
+      generated_app_dir: "/tmp/fenix/game-2048"
+    )
+
+    assert_includes prompt, "if you edit `package.json`, lockfiles, or TypeScript/Vite config"
+    assert_includes prompt, "rerun `npm install` before the final `npm run build`"
+    assert_includes prompt, "must still pass after that reinstall"
+  end
 end

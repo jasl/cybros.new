@@ -411,6 +411,15 @@ reset_project_database() {
   )
 }
 
+reset_nexus_home_root() {
+  local home_root="$1"
+  local log_path="$2"
+
+  rm -rf "${home_root}"
+  mkdir -p "${home_root}"
+  printf 'reset nexus home root at %s\n' "${home_root}" >>"${log_path}"
+}
+
 start_rails_server_daemon() {
   local name="$1"
   local project_root="$2"
@@ -432,6 +441,48 @@ start_rails_server_daemon() {
   done
 
   echo "timed out waiting for server on port ${port}" >&2
+  return 1
+}
+
+start_nexus_manifest_server_daemon() {
+  local project_root="$1"
+  local host="$2"
+  local port="$3"
+  local public_base_url="$4"
+  local home_root="$5"
+  local log_path="$6"
+
+  (
+    cd "${project_root}"
+    BUNDLE_GEMFILE="${project_root}/Gemfile" \
+      NEXUS_HTTP_BIND="${host}" \
+      NEXUS_HTTP_PORT="${port}" \
+      NEXUS_PUBLIC_BASE_URL="${public_base_url}" \
+      NEXUS_HOME_ROOT="${home_root}" \
+      "${RUBY_BIN}" - "${log_path}" <<'RUBY'
+log_path = ARGV.fetch(0)
+STDOUT.reopen(log_path, "a")
+STDERR.reopen(STDOUT)
+STDOUT.sync = true
+STDERR.sync = true
+Process.daemon(true, true)
+STDOUT.reopen(log_path, "a")
+STDERR.reopen(STDOUT)
+STDOUT.sync = true
+STDERR.sync = true
+exec("bundle", "exec", "ruby", "scripts/manifest_server.rb")
+RUBY
+  )
+
+  for _ in $(seq 1 50); do
+    STARTED_PID="$(lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true)"
+    if [[ -n "${STARTED_PID}" ]]; then
+      return 0
+    fi
+    sleep 0.1
+  done
+
+  echo "timed out waiting for nexus manifest server on port ${port}" >&2
   return 1
 }
 
@@ -482,15 +533,19 @@ export NEXUS_STORAGE_ROOT
 export CYBROS_PERF_EVENTS_PATH
 export CYBROS_PERF_INSTANCE_LABEL
 stop_listening_port "${NEXUS_RUNTIME_PORT}"
-stop_matching_process "${NEXUS_ROOT}/bin/rails" "server"
-clear_server_pidfile "${NEXUS_ROOT}"
-reset_project_database "nexus-runtime" "${NEXUS_ROOT}" "${LOG_DIR}/nexus-runtime-db-reset.log"
+reset_nexus_home_root "${NEXUS_HOME_ROOT}" "${LOG_DIR}/nexus-runtime-db-reset.log"
 
-start_rails_server_daemon "nexus-runtime-server" "${NEXUS_ROOT}" "${NEXUS_RUNTIME_HOST}" "${NEXUS_RUNTIME_PORT}" "${LOG_DIR}/nexus-runtime-server.log"
+start_nexus_manifest_server_daemon \
+  "${NEXUS_ROOT}" \
+  "${NEXUS_RUNTIME_HOST}" \
+  "${NEXUS_RUNTIME_PORT}" \
+  "${NEXUS_RUNTIME_BASE_URL}" \
+  "${NEXUS_HOME_ROOT}" \
+  "${LOG_DIR}/nexus-runtime-server.log"
 NEXUS_RUNTIME_PID="${STARTED_PID}"
 verification_process_manager_track_process "nexus-runtime-server" "${NEXUS_RUNTIME_PID}" "${NEXUS_RUNTIME_PORT}"
 
-wait_for_http_ok "${NEXUS_RUNTIME_BASE_URL}/up"
+wait_for_http_ok "${NEXUS_RUNTIME_BASE_URL}/health/ready"
 wait_for_http_ok "${NEXUS_RUNTIME_BASE_URL}/runtime/manifest"
 
 export FENIX_HOME_ROOT

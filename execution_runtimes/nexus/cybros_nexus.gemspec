@@ -25,6 +25,7 @@ Gem::Specification.new do |spec|
   spec.files = Dir.glob("**/*", base: __dir__).reject do |f|
     File.directory?(File.join(__dir__, f)) ||
       (f == File.basename(__FILE__)) ||
+      f.end_with?(".gem") ||
       f.start_with?(
         *%w[Gemfile bin test tmp]
       ) ||
@@ -37,4 +38,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "sqlite3", "~> 2.9"
   spec.add_dependency "webrick", "~> 1.9"
   spec.add_dependency "websocket-client-simple", "~> 0.9"
+  spec.add_dependency "logger", "~> 1.7"
 end

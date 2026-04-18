@@ -58,8 +58,9 @@ class ProcessCloseEscalationE2ETest < ActionDispatch::IntegrationTest
       close_outcome_payload: { "source" => "wrong-environment" }
     )
 
-    assert_equal 404, wrong_result.fetch("http_status")
-    assert_equal "Couldn't find ProcessRun", wrong_result.fetch("error")
+    assert_equal 409, wrong_result.fetch("http_status")
+    assert_equal "stale", wrong_result.fetch("result")
+    assert_nil wrong_result["error"]
     assert_equal "requested", process_run.reload.close_state
   end
 

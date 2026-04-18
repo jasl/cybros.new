@@ -1,6 +1,7 @@
 require_relative "cybros_nexus/version"
 require_relative "cybros_nexus/config"
 require_relative "cybros_nexus/logger"
+require_relative "cybros_nexus/perf/event_sink"
 require_relative "cybros_nexus/state/schema"
 require_relative "cybros_nexus/state/migrator"
 require_relative "cybros_nexus/state/store"

@@ -227,8 +227,8 @@ class AgentApiResourceCloseTest < ActionDispatch::IntegrationTest
     )
 
     assert_response :success
-    assert_equal "not_found", execution_runtime_result.fetch("result")
-    assert_equal "Couldn't find ProcessRun", execution_runtime_result.fetch("error")
+    assert_equal "stale", execution_runtime_result.fetch("result")
+    assert_nil execution_runtime_result["error"]
     assert_equal "requested", process_run.reload.close_state
     assert_equal "leased", mailbox_item.reload.status
     assert_equal context[:execution_runtime_connection].public_id, mailbox_item.reload.leased_to_execution_runtime_connection.public_id

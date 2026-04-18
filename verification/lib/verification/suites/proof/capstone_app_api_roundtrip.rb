@@ -20,6 +20,8 @@ module Verification
         - add automated tests for the game logic
         - run the tests and production build successfully
         - ensure the final Vite/Vitest configuration keeps `npm run build` passing
+        - if you edit `package.json`, lockfiles, or TypeScript/Vite config, keep the dependency manifest self-consistent, rerun `npm install` before the final `npm run build`, and the build must still pass after that reinstall
+        - preserve scaffolded dependencies required by the Vite TypeScript template, including Node type support when `tsconfig.node.json` references `"node"`
         - start the app on `0.0.0.0:4173`
         - verify it in a browser session
         - end with a concise completion note that reflects what actually passed

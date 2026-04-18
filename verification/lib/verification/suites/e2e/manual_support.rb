@@ -918,72 +918,58 @@ module Verification
       end
     end
 
-    def run_nexus_runtime_task!(task_name:, execution_runtime_connection_credential:, env: {})
-      run_runtime_task!(
-        project_root: nexus_project_root,
-        task_name: task_name,
-        env: {
-          'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential
-        }.merge(forwarded_nexus_env).merge(env),
-        failure_label: 'nexus mailbox pump'
-      )
-    end
-
-    def run_nexus_mailbox_pump_once!(execution_runtime_connection_credential:, limit: 10, inline: true, env: {})
-      run_nexus_runtime_task!(
-        task_name: 'runtime:mailbox_pump_once',
-        execution_runtime_connection_credential:,
-        env: {
-          'LIMIT' => limit.to_s,
-          'INLINE' => inline ? 'true' : 'false'
-        }.merge(env)
-      )
-    end
-
-    def run_nexus_control_loop_once!(execution_runtime_connection_credential:, limit: 10, inline: true,
-                                     realtime_timeout_seconds: 5, env: {})
-      run_nexus_runtime_task!(
-        task_name: 'runtime:control_loop_once',
-        execution_runtime_connection_credential:,
-        env: {
-          'LIMIT' => limit.to_s,
-          'INLINE' => inline ? 'true' : 'false',
-          'REALTIME_TIMEOUT_SECONDS' => realtime_timeout_seconds.to_s
-        }.merge(env)
-      )
-    end
-
-    def run_nexus_control_loop_for_registration!(registration:, **kwargs)
-      run_nexus_control_loop_once!(
-        execution_runtime_connection_credential: registration.execution_runtime_connection_credential,
-        **kwargs
-      )
-    end
-
     def with_nexus_control_worker!(execution_runtime_connection_credential:, limit: 10, inline: true,
-                                   realtime_timeout_seconds: 5, ready_timeout_seconds: 30, env: {})
+                                   realtime_timeout_seconds: 5, ready_timeout_seconds: 30, env: {},
+                                   runtime_base_url: default_nexus_runtime_base_url)
+      _unused_limit = limit
+      _unused_inline = inline
+      _unused_realtime_timeout_seconds = realtime_timeout_seconds
       worker_pid = nil
-      with_runtime_control_worker!(
-        project_root: nexus_project_root,
-        worker_label: 'nexus control worker',
-        ready_timeout_seconds: ready_timeout_seconds,
-        env: {
-          'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential,
-          'LIMIT' => limit.to_s,
-          'INLINE' => inline ? 'true' : 'false',
-          'REALTIME_TIMEOUT_SECONDS' => realtime_timeout_seconds.to_s
-        }.merge(forwarded_nexus_env).merge(env)
-      ) do |pid|
-        worker_pid = pid
-        yield pid
+      nexus_env = forwarded_nexus_env.merge(env)
+      nexus_env['NEXUS_HOME_ROOT'] ||= default_nexus_home_root.to_s
+      project_root = nexus_project_root
+      task_env = {
+        'CORE_MATRIX_BASE_URL' => CONTROL_BASE_URL,
+        'CORE_MATRIX_EXECUTION_RUNTIME_CONNECTION_CREDENTIAL' => execution_runtime_connection_credential,
+        'BUNDLE_GEMFILE' => project_root.join('Gemfile').to_s
+      }.merge(nexus_env)
+      task_env = apply_nexus_runtime_http_env(task_env, runtime_base_url: runtime_base_url)
+      runtime_port = Integer(task_env.fetch('NEXUS_HTTP_PORT'))
+
+      stop_listener_on_port!(runtime_port)
+
+      reader, writer = IO.pipe
+
+      Bundler.with_unbundled_env do
+        worker_pid = Process.spawn(
+          task_env,
+          'bundle', 'exec', './exe/nexus', 'run',
+          chdir: project_root.to_s,
+          out: writer,
+          err: writer
+        )
       end
+
+      writer.close
+      wait_for_nexus_runtime_ready!(
+        base_url: task_env.fetch('NEXUS_PUBLIC_BASE_URL'),
+        home_root: task_env.fetch('NEXUS_HOME_ROOT'),
+        reader: reader,
+        pid: worker_pid,
+        timeout_seconds: ready_timeout_seconds,
+        worker_label: 'nexus control worker'
+      )
+      yield worker_pid
     ensure
+      writer&.close unless writer.nil? || writer.closed?
+      reader&.close unless reader.nil? || reader.closed?
       stop_nexus_control_worker!(worker_pid) if worker_pid.present?
     end
 
     def with_nexus_control_worker_for_registration!(registration:, **kwargs, &block)
       with_nexus_control_worker!(
         execution_runtime_connection_credential: registration.execution_runtime_connection_credential,
+        runtime_base_url: registration.respond_to?(:runtime_base_url) ? registration.runtime_base_url : default_nexus_runtime_base_url,
         **kwargs,
         &block
       )
@@ -991,6 +977,101 @@ module Verification
 
     def stop_nexus_control_worker!(pid)
       stop_fenix_control_worker!(pid)
+    end
+
+    def default_nexus_runtime_base_url
+      ENV.fetch('NEXUS_RUNTIME_BASE_URL', 'http://127.0.0.1:3301')
+    end
+
+    def default_nexus_home_root
+      Verification.repo_root.join('tmp', 'verification-nexus-home')
+    end
+
+    def apply_nexus_runtime_http_env(env, runtime_base_url:)
+      runtime_uri = URI.parse(runtime_base_url)
+      runtime_port = runtime_uri.port || (runtime_uri.scheme == 'https' ? 443 : 80)
+      normalized_env = env.dup
+
+      normalized_env['NEXUS_PUBLIC_BASE_URL'] = runtime_base_url
+      normalized_env['NEXUS_HTTP_BIND'] = runtime_uri.host
+      normalized_env['NEXUS_HTTP_PORT'] = runtime_port.to_s
+      normalized_env
+    end
+
+    def stop_listener_on_port!(port)
+      pids = `lsof -nP -iTCP:#{port} -sTCP:LISTEN -t 2>/dev/null`.lines.map(&:strip).reject(&:blank?).map(&:to_i)
+      return if pids.empty?
+
+      pids.each do |pid|
+        Process.kill('TERM', pid)
+      rescue Errno::ESRCH
+        nil
+      end
+
+      Timeout.timeout(5) do
+        loop do
+          live_pids = pids.select { |pid| process_alive?(pid) }
+          break if live_pids.empty?
+
+          sleep(0.1)
+        end
+      end
+    rescue Timeout::Error
+      pids.each do |pid|
+        Process.kill('KILL', pid)
+      rescue Errno::ESRCH
+        nil
+      end
+    end
+
+    def wait_for_nexus_runtime_ready!(base_url:, home_root:, reader:, pid:, timeout_seconds: 15, worker_label: 'nexus control worker')
+      deadline_at = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
+      buffered_output = +""
+      recent_output = []
+
+      loop do
+        record_recent_worker_output!(reader: reader, buffered_output: buffered_output, recent_output: recent_output)
+        return if nexus_runtime_ready?(base_url) && nexus_runtime_state_ready?(home_root)
+
+        raise worker_ready_timeout_message(worker_label, recent_output) if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline_at
+        raise "#{worker_label} exited before becoming ready#{worker_output_excerpt(recent_output)}" unless process_alive?(pid)
+
+        IO.select([reader], nil, nil, 0.1)
+      end
+    end
+
+    def nexus_runtime_ready?(base_url)
+      response = Net::HTTP.get_response(URI.join(base_url, '/health/ready'))
+      response.code == '200'
+    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, EOFError, Net::HTTPError, SocketError
+      false
+    end
+
+    def nexus_runtime_state_ready?(home_root)
+      state_path = File.join(home_root, 'state.sqlite3')
+
+      File.size?(state_path).present? &&
+        %w[memory skills logs tmp].all? { |entry| File.directory?(File.join(home_root, entry)) }
+    end
+
+    def record_recent_worker_output!(reader:, buffered_output:, recent_output:)
+      loop do
+        chunk = reader.read_nonblock(4096, exception: false)
+        case chunk
+        when :wait_readable, nil
+          break
+        else
+          buffered_output << chunk
+        end
+      end
+
+      while (newline_index = buffered_output.index("\n"))
+        line = buffered_output.slice!(0..newline_index).strip
+        next if line.empty?
+
+        recent_output << line
+        recent_output.shift while recent_output.length > 10
+      end
     end
 
     def run_runtime_task!(project_root:, task_name:, env:, failure_label:)
@@ -1310,7 +1391,7 @@ module Verification
     def register_bring_your_own_execution_runtime!(onboarding_token:, runtime_base_url:, execution_runtime_fingerprint:)
       manifest = live_manifest(base_url: runtime_base_url)
       registration = http_post_json(
-        "#{CONTROL_BASE_URL}/execution_runtime_api/registrations",
+        "#{CONTROL_BASE_URL}/execution_runtime_api/session/open",
         {
           onboarding_token: onboarding_token,
           endpoint_metadata: manifest.fetch(

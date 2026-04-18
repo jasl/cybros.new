@@ -1,5 +1,4 @@
 #!/usr/bin/env ruby
-require "bundler/setup"
-require "cybros_nexus"
+require_relative "../lib/cybros_nexus"
 
 CybrosNexus::CLI.start(ARGV.dup)

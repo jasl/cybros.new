@@ -429,46 +429,11 @@ class Verification::ManualSupportTest < ActiveSupport::TestCase
     ENV["FENIX_HOME_ROOT"] = previous_home_root
   end
 
-  test "run_nexus_runtime_task! forwards NEXUS_HOME_ROOT into the spawned nexus task" do
-    captured = nil
-    previous_home_root = ENV["NEXUS_HOME_ROOT"]
-    ENV["NEXUS_HOME_ROOT"] = "/tmp/verification-nexus-home"
-
-    with_redefined_singleton_method(Bundler, :with_unbundled_env, ->(&block) { block.call }) do
-      with_redefined_singleton_method(Open3, :capture3, lambda { |*args, **kwargs|
-        captured = { args:, kwargs: }
-        ['{"items":[]}', "", Struct.new(:success?, :exitstatus).new(true, 0)]
-      }) do
-        with_redefined_singleton_method(
-          Verification::ManualSupport,
-          :nexus_project_root,
-          -> { Pathname.new("/tmp/nexus-project") }
-        ) do
-          result = Verification::ManualSupport.run_nexus_runtime_task!(
-            task_name: "runtime:control_loop_once",
-            execution_runtime_connection_credential: "execution-secret",
-            env: {}
-          )
-
-          assert_equal({ "items" => [] }, result)
-        end
-      end
-    end
-
-    env, command, task_name = captured.fetch(:args)
-    assert_equal "bin/rails", command
-    assert_equal "runtime:control_loop_once", task_name
-    assert_equal "/tmp/verification-nexus-home", env.fetch("NEXUS_HOME_ROOT")
-    assert_equal "/tmp/nexus-project/Gemfile", env.fetch("BUNDLE_GEMFILE")
-    assert_equal "/tmp/nexus-project", captured.fetch(:kwargs).fetch(:chdir)
-  ensure
-    ENV["NEXUS_HOME_ROOT"] = previous_home_root
-  end
-
   test "with_nexus_control_worker! lets explicit runtime env override the forwarded nexus home root" do
     captured = nil
     yielded_pid = nil
     wait_args = nil
+    stopped_port = nil
     previous_home_root = ENV["NEXUS_HOME_ROOT"]
     ENV["NEXUS_HOME_ROOT"] = "/tmp/verification-nexus-home"
 
@@ -479,12 +444,17 @@ class Verification::ManualSupportTest < ActiveSupport::TestCase
       }) do
         with_redefined_singleton_method(
           Verification::ManualSupport,
-          :wait_for_worker_ready!,
-          lambda do |reader:, pid:, timeout_seconds: 15, worker_label: "fenix control worker"|
-            wait_args = { pid:, timeout_seconds:, worker_label: }
-            nil
-          end
+          :stop_listener_on_port!,
+          ->(port) { stopped_port = port }
         ) do
+          with_redefined_singleton_method(
+            Verification::ManualSupport,
+            :wait_for_nexus_runtime_ready!,
+            lambda do |base_url:, home_root:, reader:, pid:, timeout_seconds: 15, worker_label: "fenix control worker"|
+              wait_args = { base_url:, home_root:, pid:, timeout_seconds:, worker_label: }
+              nil
+            end
+          ) do
           with_redefined_singleton_method(Verification::ManualSupport, :stop_fenix_control_worker!, ->(pid) { nil }) do
             with_redefined_singleton_method(
               Verification::ManualSupport,
@@ -503,16 +473,26 @@ class Verification::ManualSupportTest < ActiveSupport::TestCase
               end
             end
           end
+          end
         end
       end
     end
 
-    env = captured.fetch(:args).first
+    env, command, exec_command, executable, subcommand = captured.fetch(:args)
     assert_equal 43_211, yielded_pid
     assert_equal "/tmp/nexus-slot-home", env.fetch("NEXUS_HOME_ROOT")
     assert_equal "/tmp/nexus-slot-events.ndjson", env.fetch("CYBROS_PERF_EVENTS_PATH")
     assert_equal "nexus-03", env.fetch("CYBROS_PERF_INSTANCE_LABEL")
-    assert_equal({ pid: 43_211, timeout_seconds: 30, worker_label: "nexus control worker" }, wait_args)
+    assert_equal "http://127.0.0.1:3301", env.fetch("NEXUS_PUBLIC_BASE_URL")
+    assert_equal "127.0.0.1", env.fetch("NEXUS_HTTP_BIND")
+    assert_equal "3301", env.fetch("NEXUS_HTTP_PORT")
+    assert_equal "/tmp/nexus-project/Gemfile", env.fetch("BUNDLE_GEMFILE")
+    assert_equal 3301, stopped_port
+    assert_equal "bundle", command
+    assert_equal "exec", exec_command
+    assert_equal "./exe/nexus", executable
+    assert_equal "run", subcommand
+    assert_equal({ base_url: "http://127.0.0.1:3301", home_root: "/tmp/nexus-slot-home", pid: 43_211, timeout_seconds: 30, worker_label: "nexus control worker" }, wait_args)
   ensure
     ENV["NEXUS_HOME_ROOT"] = previous_home_root
   end
@@ -786,7 +766,7 @@ class Verification::ManualSupportTest < ActiveSupport::TestCase
         Verification::ManualSupport,
         :http_post_json,
         lambda do |url, payload, headers: {}|
-          if url.end_with?("/execution_runtime_api/registrations")
+          if url.end_with?("/execution_runtime_api/session/open")
             execution_registration_calls << [url, payload, headers]
             {
               "execution_runtime_connection_credential" => "execution-secret",
@@ -983,7 +963,7 @@ class Verification::ManualSupportTest < ActiveSupport::TestCase
           assert_equal execution_runtime_connection, result.fetch(:execution_runtime_connection)
           assert_equal "rtc_456", result.fetch(:execution_runtime_connection_id)
           assert_equal 1, registration_calls.length
-          assert_match(%r{/execution_runtime_api/registrations\z}, registration_calls.first.fetch(0))
+          assert_match(%r{/execution_runtime_api/session/open\z}, registration_calls.first.fetch(0))
           assert_equal "onboarding-token", registration_calls.first.fetch(1).fetch(:onboarding_token)
           assert_equal manifest.fetch("version_package"), registration_calls.first.fetch(1).fetch(:version_package)
           assert_equal manifest.fetch("execution_runtime_connection_metadata"), registration_calls.first.fetch(1).fetch(:endpoint_metadata)

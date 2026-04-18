@@ -5,8 +5,7 @@
 Fenix is now an agent-only service. It owns prompt assembly, agent-owned tools,
 and agent mailbox handling. It does not execute runtime tools, manage detached
 processes, host browser sessions, or persist filesystem-backed skills or
-memory. Those responsibilities belong to
-[execution_runtimes/nexus](/Users/jasl/Workspaces/Ruby/cybros/execution_runtimes/nexus).
+memory. Those responsibilities belong to `execution_runtimes/nexus`.
 
 ## Monorepo Role
 

@@ -20,6 +20,7 @@ jobs:
       agent_fenix: ${{ steps.detect.outputs.agent_fenix }}
       core_matrix: ${{ steps.detect.outputs.core_matrix }}
       core_matrix_cli: ${{ steps.detect.outputs.core_matrix_cli }}
+      execution_runtime_nexus: ${{ steps.detect.outputs.execution_runtime_nexus }}
       images_nexus: ${{ steps.detect.outputs.images_nexus }}
       simple_inference: ${{ steps.detect.outputs.simple_inference }}
       verification: ${{ steps.detect.outputs.verification }}
@@ -51,6 +52,7 @@ jobs:
           agent_fenix=false
           core_matrix=false
           core_matrix_cli=false
+          execution_runtime_nexus=false
           images_nexus=false
           simple_inference=false
           verification=false
@@ -71,6 +73,7 @@ jobs:
                 agent_fenix=true
                 core_matrix=true
                 core_matrix_cli=true
+                execution_runtime_nexus=true
                 images_nexus=true
                 simple_inference=true
                 verification=true
@@ -83,6 +86,9 @@ jobs:
                 ;;
               agents/fenix/*)
                 agent_fenix=true
+                ;;
+              execution_runtimes/nexus/*)
+                execution_runtime_nexus=true
                 ;;
               images/nexus/*)
                 images_nexus=true
@@ -101,10 +107,65 @@ jobs:
             echo "agent_fenix=$agent_fenix"
             echo "core_matrix=$core_matrix"
             echo "core_matrix_cli=$core_matrix_cli"
+            echo "execution_runtime_nexus=$execution_runtime_nexus"
             echo "images_nexus=$images_nexus"
             echo "simple_inference=$simple_inference"
             echo "verification=$verification"
           } >> "$GITHUB_OUTPUT"
+
+  execution_runtime_nexus_verify:
+    name: execution_runtimes/nexus / verify
+    needs: changes
+    if: needs.changes.outputs.execution_runtime_nexus == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: execution_runtimes/nexus
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/execution_runtimes/nexus/Gemfile
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 4.0.2
+          bundler-cache: true
+
+      - name: Run Nexus test suite
+        run: bundle exec rake test
+
+      - name: Run Nexus lint
+        run: bundle exec rubocop
+
+      - name: Build packaged gem
+        run: |
+          rm -rf tmp/package_smoke
+          mkdir -p tmp/package_smoke/gems tmp/package_smoke/home
+          rm -f cybros_nexus-*.gem
+          bundle exec gem build cybros_nexus.gemspec
+
+      - name: Install packaged gem into a clean GEM_HOME
+        run: |
+          GEM_HOME="$PWD/tmp/package_smoke/gems" \
+          GEM_PATH="$PWD/tmp/package_smoke/gems" \
+          gem install --no-document --install-dir "$PWD/tmp/package_smoke/gems" ./cybros_nexus-*.gem
+
+      - name: Smoke check packaged nexus executable
+        run: |
+          HOME="$PWD/tmp/package_smoke/home" \
+          GEM_HOME="$PWD/tmp/package_smoke/gems" \
+          GEM_PATH="$PWD/tmp/package_smoke/gems" \
+          PATH="$PWD/tmp/package_smoke/gems/bin:$PATH" \
+          nexus --help
+
+          HOME="$PWD/tmp/package_smoke/home" \
+          GEM_HOME="$PWD/tmp/package_smoke/gems" \
+          GEM_PATH="$PWD/tmp/package_smoke/gems" \
+          PATH="$PWD/tmp/package_smoke/gems/bin:$PATH" \
+          nexus run --help
 
   images_nexus_verify:
     name: images/nexus / verify

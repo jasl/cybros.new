@@ -29,8 +29,13 @@ class ExecutableContractTest < Minitest::Test
 
   def capture_cli(*args)
     Open3.capture3(
-      { "BUNDLE_GEMFILE" => File.expand_path("../Gemfile", __dir__) },
-      "bundle", "exec", "./exe/nexus", *args,
+      {
+        "BUNDLE_BIN_PATH" => nil,
+        "BUNDLE_GEMFILE" => nil,
+        "RUBYLIB" => nil,
+        "RUBYOPT" => nil,
+      },
+      Gem.ruby, "./exe/nexus", *args,
       chdir: File.expand_path("..", __dir__)
     )
   end

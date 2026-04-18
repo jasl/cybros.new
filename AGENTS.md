@@ -12,6 +12,7 @@ This repository is a monorepo. Treat each top-level product directory as an inde
 - `core_matrix`: main Ruby on Rails application
 - `core_matrix_cli`: Thor-based operator CLI for CoreMatrix
 - `core_matrix/vendor/simple_inference`: vendored Ruby gem maintained in-tree
+- `execution_runtimes/nexus`: active Nexus execution runtime gem
 - `images/nexus`: Docker runtime base project for cowork agents
 - `verification`: monorepo verification harness with a pure bundle and CoreMatrix-hosted lanes
 
@@ -137,6 +138,31 @@ rails db:drop && rm db/schema.rb && rails db:create && rails db:migrate && rails
 ```bash
 cd core_matrix/vendor/simple_inference
 bundle exec rake
+```
+
+### `execution_runtimes/nexus`
+
+```bash
+cd execution_runtimes/nexus
+bundle exec rake test
+bundle exec rubocop
+rm -rf tmp/package_smoke
+mkdir -p tmp/package_smoke/gems tmp/package_smoke/home
+rm -f cybros_nexus-*.gem
+bundle exec gem build cybros_nexus.gemspec
+GEM_HOME="$PWD/tmp/package_smoke/gems" \
+GEM_PATH="$PWD/tmp/package_smoke/gems" \
+gem install --no-document --install-dir "$PWD/tmp/package_smoke/gems" ./cybros_nexus-*.gem
+HOME="$PWD/tmp/package_smoke/home" \
+GEM_HOME="$PWD/tmp/package_smoke/gems" \
+GEM_PATH="$PWD/tmp/package_smoke/gems" \
+PATH="$PWD/tmp/package_smoke/gems/bin:$PATH" \
+nexus --help
+HOME="$PWD/tmp/package_smoke/home" \
+GEM_HOME="$PWD/tmp/package_smoke/gems" \
+GEM_PATH="$PWD/tmp/package_smoke/gems" \
+PATH="$PWD/tmp/package_smoke/gems/bin:$PATH" \
+nexus run --help
 ```
 
 ### `images/nexus`

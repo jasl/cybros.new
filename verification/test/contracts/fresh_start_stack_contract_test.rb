@@ -52,9 +52,9 @@ class VerificationFreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, 'export MULTI_FENIX_LOAD_STACK_ALREADY_RESET="true"'
     assert_includes script, 'bash "${SCRIPT_DIR}/fresh_start_stack.sh"'
     assert_includes script, 'for row in "${SLOT_ROWS[@]}"'
-    assert_includes script, "prepare_nexus_slot_database"
-    assert_includes script, "bin/rails db:prepare"
-    assert_includes script, 'bin/rails server -d -b 127.0.0.1 -p "${runtime_port}" -P "${pidfile}"'
+    assert_includes script, "prepare_nexus_slot_home"
+    assert_includes script, "bundle\", \"exec\", \"ruby\", \"scripts/manifest_server.rb\""
+    assert_includes script, 'wait_for_http_ok "${slot_base_url}/health/ready"'
     assert_includes script, 'bin/rails runner "${REPO_ROOT}/verification/scenarios/perf/multi_fenix_core_matrix_load_validation.rb"'
   end
 
@@ -66,7 +66,6 @@ class VerificationFreshStartStackContractTest < ActiveSupport::TestCase
     assert_includes script, 'START_FENIX_JOBS_DAEMONS="true"'
     assert_includes script, 'if [[ "${PROFILE_INLINE_CONTROL_WORKER}" == "true" ]]; then'
     assert_includes script, 'export FENIX_HOST_START_JOBS_DAEMON="${START_FENIX_JOBS_DAEMONS}"'
-    assert_includes script, 'if [[ "${START_FENIX_JOBS_DAEMONS}" == "true" ]]; then'
     assert_includes script, 'exec("./bin/jobs", "start")'
   end
 
@@ -99,8 +98,10 @@ class VerificationFreshStartStackContractTest < ActiveSupport::TestCase
 
     assert_includes script, 'NEXUS_RUNTIME_BASE_URL="${NEXUS_RUNTIME_BASE_URL:-http://127.0.0.1:3301}"'
     assert_includes script, 'NEXUS_HOME_ROOT="${NEXUS_HOME_ROOT:-${REPO_ROOT}/tmp/verification-nexus-home}"'
-    assert_includes script, 'reset_project_database "nexus-runtime" "${NEXUS_ROOT}" "${LOG_DIR}/nexus-runtime-db-reset.log"'
-    assert_includes script, 'start_rails_server_daemon "nexus-runtime-server" "${NEXUS_ROOT}" "${NEXUS_RUNTIME_HOST}" "${NEXUS_RUNTIME_PORT}" "${LOG_DIR}/nexus-runtime-server.log"'
+    assert_includes script, 'reset_nexus_home_root "${NEXUS_HOME_ROOT}" "${LOG_DIR}/nexus-runtime-db-reset.log"'
+    assert_includes script, "start_nexus_manifest_server_daemon \\"
+    assert_includes script, 'exec("bundle", "exec", "ruby", "scripts/manifest_server.rb")'
+    assert_includes script, 'wait_for_http_ok "${NEXUS_RUNTIME_BASE_URL}/health/ready"'
     assert_includes script, 'wait_for_http_ok "${NEXUS_RUNTIME_BASE_URL}/runtime/manifest"'
     assert_includes script, "nexus_runtime_base_url=${NEXUS_RUNTIME_BASE_URL}"
   end

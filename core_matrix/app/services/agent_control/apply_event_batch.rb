@@ -87,7 +87,6 @@ module AgentControl
         public_id: payload.fetch("resource_id")
       )
       raise ActiveRecord::RecordNotFound, "Couldn't find ProcessRun" unless process_run.is_a?(ProcessRun)
-      raise ActiveRecord::RecordNotFound, "Couldn't find ProcessRun" unless process_run.execution_runtime_id == @execution_runtime_connection.execution_runtime_id
 
       {
         agent_definition_version: process_run.turn.agent_definition_version,
@@ -105,8 +104,6 @@ module AgentControl
           public_id: agent_task_run_id,
           installation_id: @execution_runtime_connection.execution_runtime.installation_id
         )
-
-      raise ActiveRecord::RecordNotFound, "Couldn't find AgentTaskRun" unless agent_task_run.turn.execution_runtime_id == @execution_runtime_connection.execution_runtime_id
 
       agent_task_run
     end

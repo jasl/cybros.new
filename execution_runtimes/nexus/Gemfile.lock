@@ -2,6 +2,7 @@ PATH
   remote: .
   specs:
     cybros_nexus (0.1.0)
+      logger (~> 1.7)
       sqlite3 (~> 2.9)
       thor (~> 1.5)
       webrick (~> 1.9)

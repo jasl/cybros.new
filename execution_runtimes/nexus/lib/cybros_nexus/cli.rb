@@ -34,6 +34,7 @@ module CybrosNexus
       )
       http_server = CybrosNexus::HTTP::Server.new(config: config, manifest: manifest)
       outbox = CybrosNexus::Events::Outbox.new(store: store)
+      event_sink = CybrosNexus::Perf::EventSink.build(env: ENV, source_app: "nexus")
       logger = CybrosNexus::Logger.build
 
       bootstrap_session!(session_client: session_client, manifest: manifest)
@@ -49,7 +50,8 @@ module CybrosNexus
               outbox: outbox,
               session_client: session_client,
               store: store,
-              browser_host: browser_host
+              browser_host: browser_host,
+              event_sink: event_sink
             )
           end,
           http: lambda do |context|
@@ -119,7 +121,7 @@ module CybrosNexus
       ENV["NEXUS_ONBOARDING_TOKEN"] || ENV["CORE_MATRIX_ONBOARDING_TOKEN"]
     end
 
-    def run_control_role(context:, config:, logger:, manifest:, outbox:, session_client:, store:, browser_host:)
+    def run_control_role(context:, config:, logger:, manifest:, outbox:, session_client:, store:, browser_host:, event_sink:)
       command_host = CybrosNexus::Resources::CommandHost.new(store: store)
       process_registry = CybrosNexus::Resources::ProcessRegistry.new(store: store)
       process_host = CybrosNexus::Resources::ProcessHost.new(
@@ -156,6 +158,7 @@ module CybrosNexus
             session_client: session_client
           ),
           outbox: outbox,
+          event_sink: event_sink,
           mailbox_handler: lambda do |mailbox_item|
             logger.info("received mailbox item #{mailbox_item.fetch("item_id")}")
 
@@ -183,7 +186,8 @@ module CybrosNexus
       CybrosNexus::Transport::ActionCableClient.new(
         base_url: config.core_matrix_base_url,
         credential: session_client.connection_credential,
-        timeout_seconds: realtime_timeout_seconds
+        timeout_seconds: realtime_timeout_seconds,
+        mailbox_item_timeout_seconds: realtime_timeout_seconds
       )
     end
 

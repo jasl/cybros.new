@@ -12,6 +12,11 @@ class AssignmentExecutorTest < Minitest::Test
       case tool_name
       when "browser_open"
         { "browser_session_id" => "browser-session-1", "current_url" => arguments.fetch("url") }
+      when "browser_session_info"
+        {
+          "browser_session_id" => arguments.fetch("browser_session_id"),
+          "current_url" => "https://example.com/docs",
+        }
       else
         raise "unexpected browser tool #{tool_name}"
       end
@@ -137,13 +142,85 @@ class AssignmentExecutorTest < Minitest::Test
       [{
         "tool_name" => "browser_open",
         "arguments" => { "url" => "https://example.com" },
-        "runtime_owner_id" => "workflow-node-1",
+        "runtime_owner_id" => "turn-1",
       }],
       browser_host.calls
     )
     assert_equal(
       "browser-session-1",
       outbox.pending.last.dig("payload", "terminal_payload", "tool_invocations", 0, "response_payload", "browser_session_id")
+    )
+  ensure
+    process_host&.shutdown
+    command_host&.shutdown
+    store&.close
+  end
+
+  def test_browser_sessions_keep_a_stable_owner_across_tool_nodes_and_task_runs_in_the_same_turn
+    store = CybrosNexus::State::Store.open(path: tmp_path("state.sqlite3"))
+    outbox = CybrosNexus::Events::Outbox.new(store: store)
+    command_host = CybrosNexus::Resources::CommandHost.new(store: store)
+    process_registry = CybrosNexus::Resources::ProcessRegistry.new(store: store)
+    process_host = CybrosNexus::Resources::ProcessHost.new(store: store, registry: process_registry, outbox: outbox)
+    browser_host = FakeBrowserHost.new(calls: [])
+    executor = CybrosNexus::Mailbox::AssignmentExecutor.new(
+      store: store,
+      outbox: outbox,
+      command_host: command_host,
+      process_host: process_host,
+      browser_host: browser_host,
+      workdir: tmp_root
+    )
+
+    executor.call(
+      mailbox_item: execution_assignment_mailbox_item(
+        item_id: "mailbox-item-open",
+        logical_work_id: "logical-work-open",
+        task_payload: { "mode" => "tool_call" },
+        tool_call: {
+          "call_id" => "tool-call-open",
+          "tool_name" => "browser_open",
+          "arguments" => {
+            "url" => "https://example.com",
+          },
+        },
+        agent_task_run_id: "agent-task-run-1",
+        workflow_node_id: "workflow-node-1"
+      )
+    )
+
+    result = executor.call(
+      mailbox_item: execution_assignment_mailbox_item(
+        item_id: "mailbox-item-info",
+        logical_work_id: "logical-work-info",
+        task_payload: { "mode" => "tool_call" },
+        tool_call: {
+          "call_id" => "tool-call-info",
+          "tool_name" => "browser_session_info",
+          "arguments" => {
+            "browser_session_id" => "browser-session-1",
+          },
+        },
+        agent_task_run_id: "agent-task-run-2",
+        workflow_node_id: "workflow-node-2"
+      )
+    )
+
+    assert_equal "ok", result.fetch("status")
+    assert_equal(
+      [
+        {
+          "tool_name" => "browser_open",
+          "arguments" => { "url" => "https://example.com" },
+          "runtime_owner_id" => "turn-1",
+        },
+        {
+          "tool_name" => "browser_session_info",
+          "arguments" => { "browser_session_id" => "browser-session-1" },
+          "runtime_owner_id" => "turn-1",
+        },
+      ],
+      browser_host.calls
     )
   ensure
     process_host&.shutdown
@@ -240,7 +317,16 @@ class AssignmentExecutorTest < Minitest::Test
 
   private
 
-  def execution_assignment_mailbox_item(item_id: "mailbox-item-1", logical_work_id: "logical-work-1", task_payload:, tool_call: nil, runtime_resource_refs: {}, runtime_context: {})
+  def execution_assignment_mailbox_item(
+    item_id: "mailbox-item-1",
+    logical_work_id: "logical-work-1",
+    task_payload:,
+    tool_call: nil,
+    runtime_resource_refs: {},
+    runtime_context: {},
+    agent_task_run_id: "agent-task-run-1",
+    workflow_node_id: "workflow-node-1"
+  )
     {
       "item_type" => "execution_assignment",
       "item_id" => item_id,
@@ -251,9 +337,9 @@ class AssignmentExecutorTest < Minitest::Test
       "payload" => {
         "request_kind" => "execution_assignment",
         "task" => {
-          "agent_task_run_id" => "agent-task-run-1",
+          "agent_task_run_id" => agent_task_run_id,
           "workflow_run_id" => "workflow-run-1",
-          "workflow_node_id" => "workflow-node-1",
+          "workflow_node_id" => workflow_node_id,
           "conversation_id" => "conversation-1",
           "turn_id" => "turn-1",
           "kind" => "turn_step",

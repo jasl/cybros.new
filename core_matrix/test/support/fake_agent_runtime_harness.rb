@@ -89,7 +89,7 @@ class FakeAgentRuntimeHarness
   end
 
   def report!(method_id:, **params)
-    if execution_report?(method_id:, params:)
+    if execution_runtime_report?(method_id:, params:)
       event_payload = params.merge(method_id: method_id)
 
       if execution_runtime_connection_credential.present?
@@ -145,9 +145,14 @@ class FakeAgentRuntimeHarness
     end
   end
 
-  def execution_report?(method_id:, params:)
+  def execution_runtime_report?(method_id:, params:)
     EXECUTION_REPORT_METHODS.include?(method_id) ||
-      (CLOSE_REPORT_METHODS.include?(method_id) && params[:resource_type].to_s == "ProcessRun")
+      runtime_close_report?(method_id:, params:)
+  end
+
+  def runtime_close_report?(method_id:, params:)
+    CLOSE_REPORT_METHODS.include?(method_id) &&
+      (params[:resource_type] || params["resource_type"]).to_s == "ProcessRun"
   end
 
   def post_and_parse(path, params:, headers:)
