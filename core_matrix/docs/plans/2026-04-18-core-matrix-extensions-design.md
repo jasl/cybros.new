@@ -1,161 +1,192 @@
-# CoreMatrix Extensions Architecture Design
-
-**Date:** 2026-04-18
-
-**Status:** Approved for implementation planning
-
-## Goal
-
-Refactor CoreMatrix so ingress integrations, embedded agents, and embedded features become first-class extension contracts under `core_matrix/app`, while concrete built-in implementations move into plugin packages that are easy to discover, reason about, and evolve into a future developer ecosystem.
+# CoreMatrix Packages, Conversation Surfaces, and Capabilities Design
 
 ## Context
 
-CoreMatrix currently has three extension-like areas, but they are shaped as service clusters instead of a clear extension system:
+The current codebase has two different architectural problems at the same time.
 
-- `app/services/ingress_api/*` contains ingress pipeline orchestration and platform-specific logic.
-- `app/services/embedded_agents/*` contains built-in agent-like capabilities behind a hard-coded registry.
-- `app/services/runtime_features/*` plus `app/services/embedded_features/*` split feature orchestration from built-in fallback execution.
+First, the extension seams are split by historical implementation shape rather than by stable product concepts:
 
-That shape creates several long-term problems:
+- `embedded_agents` is a tiny keyed invoke registry at `core_matrix/app/services/embedded_agents/invoke.rb:1-58`
+- `runtime_features` is another keyed invoke registry plus backend selection at `core_matrix/app/services/runtime_features/invoke.rb:1-40`
+- `embedded_features` is a third local execution path, and `title_bootstrap` already bridges across those seams by calling `EmbeddedAgents::Invoke` from inside `EmbeddedFeatures::TitleBootstrap::Invoke` at `core_matrix/app/services/embedded_features/title_bootstrap/invoke.rb:1-64`
+- the current feature registry literally stores both `orchestrator_class` and `embedded_executor_class`, which is a strong signal that the system wants one capability contract with multiple backends, not separate architectural categories; see `core_matrix/app/services/runtime_features/registry.rb:1-38`
 
-- Concrete extension implementations are hidden inside `app/services`.
-- Host orchestration and plugin-specific behavior are mixed together.
-- Platform branching is repeated in controllers, jobs, and dispatchers.
-- Bundled capabilities are installed through large configuration hashes instead of discoverable definitions.
-- Future contributors must learn internal CoreMatrix service layout before they can add a new ingress or built-in capability.
+Second, the host ingress model is still shaped around channel history instead of a real external interaction contract:
 
-This redesign intentionally allows breaking changes. Compatibility with the current internal structure is not a goal. Long-term clarity, explicit contracts, and maintainability take priority.
+- platform branching still lives in the App API controller at `core_matrix/app/controllers/app_api/workspace_agents/ingress_bindings_controller.rb:3-246`
+- poller dispatch still branches on platform at `core_matrix/app/jobs/channel_connectors/dispatch_active_pollers_job.rb:1-24`
+- outbound delivery still branches on platform at `core_matrix/app/services/channel_deliveries/dispatch_conversation_output.rb:1-180`
+- routes still expose Telegram- and Weixin-specific paths at `core_matrix/config/routes.rb:64-148`
+- CLI calls still create ingress bindings by `platform` and then call Weixin-specific routes directly at `core_matrix_cli/lib/core_matrix_cli/core_matrix_api.rb:106-133`
 
-## Confirmed Product Decisions
+The persistence model carries the same historical shape:
 
-The following decisions were explicitly confirmed during design review:
+- `ChannelConnector` still hard-codes `telegram`, `telegram_webhook`, and `weixin` into the host model at `core_matrix/app/models/channel_connector.rb:1-104`
+- `ChannelSession` is the current host mapping between an external boundary and a conversation, but it is still expressed as a platform-specific channel construct at `core_matrix/app/models/channel_session.rb:1-108`
+- `IngressBinding` is already close to the right host resource, but it is still tied to `kind = "channel"` and to channel-owned associations at `core_matrix/app/models/ingress_binding.rb:1-99`
 
-- all concrete built-in extensions are packaged as plugins
-- `Ingress`, `EmbeddedAgent`, and `EmbeddedFeature` remain host-owned contract categories
-- plugins may ship migrations, but only through host-governed loading and naming rules
-- plugins may declare gem dependencies, but dependency resolution remains build-time through a single application bundle
-- App UI does not become an open-ended plugin page system; plugins contribute settings, pairing, status, and management actions through host-owned surfaces
-- `core_matrix_cli` remains a host-owned consumer of public management RPC; it does not need its own plugin system in this phase
-- compatibility with the current internal shape is not required
-- breaking refactors are acceptable when they improve the long-term design
+Bundled provisioning is also still host-owned by a large configuration hash instead of by explicit extension metadata; see `core_matrix/app/services/installations/register_bundled_agent_runtime.rb:5-260`.
 
-## Current-State Anchors
+The user has explicitly said this refactor may be breaking, does not need compatibility, and should optimize for long-term clarity, low runtime overhead, and pluginization.
 
-The design is anchored to the current CoreMatrix implementation and operator docs at these exact locations:
+## Design Goal
 
-- hard-coded embedded agent registry: `core_matrix/app/services/embedded_agents/registry.rb:1-14`
-- hard-coded runtime feature registry: `core_matrix/app/services/runtime_features/registry.rb:1-38`
-- ingress management controller with platform branching and Weixin-specific actions: `core_matrix/app/controllers/app_api/workspace_agents/ingress_bindings_controller.rb:3-245`
-- active poller dispatch branching by platform: `core_matrix/app/jobs/channel_connectors/dispatch_active_pollers_job.rb:1-24`
-- outbound delivery branching by platform: `core_matrix/app/services/channel_deliveries/dispatch_conversation_output.rb:1-180`
-- bundled agent/runtime registration through a large configuration hash: `core_matrix/app/services/installations/register_bundled_agent_runtime.rb:5-220`
-- Telegram-specific ingress route plus Weixin-specific management routes: `core_matrix/config/routes.rb:68-150`
-- plugin-specific gem currently still declared in the host bundle: `core_matrix/Gemfile:58-64`
-- current operator workflows for Telegram and Weixin: `core_matrix/docs/INTEGRATIONS.md:1-145`
-- current CLI API still creates ingress bindings by `platform` and calls Weixin-specific routes directly: `core_matrix_cli/lib/core_matrix_cli/core_matrix_api.rb:106-132`
-- current CLI setup/status flows still branch by `telegram`, `telegram_webhook`, and `weixin`: `core_matrix_cli/lib/core_matrix_cli/use_cases/setup_telegram_polling.rb:1-18`, `core_matrix_cli/lib/core_matrix_cli/use_cases/setup_telegram_webhook.rb:1-20`, `core_matrix_cli/lib/core_matrix_cli/use_cases/setup_weixin.rb:1-47`, and `core_matrix_cli/lib/core_matrix_cli/use_cases/show_status.rb:3-83`
-- monorepo architectural and verification constraints that this work must continue to obey: `AGENTS.md:20-45` and `AGENTS.md:72-81` and `AGENTS.md:120-132`
+Replace the current three-family extension shape:
+
+- `ingresses`
+- `embedded_agents`
+- `embedded_features` plus `runtime_features`
+
+with a smaller, more orthogonal host kernel:
+
+- `conversation_surfaces`
+- `capabilities`
+
+while keeping `plugin packages` as the only packaging and ownership unit.
+
+This design assumes:
+
+- `conversation` is a working-memory container, not a user record
+- external users may be unregistered
+- shared surfaces such as Telegram groups must work
+- generic webhook-driven SaaS integrations should be first-class and should serve as the simplest architecture probe
+- plugin loading must not make the hot path meaningfully heavier than the current code
 
 ## Evaluated Approaches
 
 ### 1. Directory Promotion Only
 
-Move current code from `app/services/*` into `app/ingresses`, `app/embedded_agents`, and `app/embedded_features` without changing the registration model.
+Move existing code out of `app/services/*` into better-named directories, but keep the current contract families and host data model.
 
 Pros:
 
-- Smallest migration cost
-- Lowest short-term implementation risk
-- Minimal boot/runtime overhead
+- smallest code delta
+- lowest immediate migration risk
+- minimal boot-time change
 
 Cons:
 
-- Preserves hard-coded registries and platform branching
-- Does not create a real plugin system
-- Still makes future extension authors learn host internals first
+- preserves the wrong abstraction split
+- keeps `channel_*` history in the host
+- still leaves extension authors learning implementation accidents first
 
-### 2. In-Repo Plugin Packages With Host Contracts
+### 2. Previous Three-Family Plugin Design
 
-Promote ingress, embedded-agent, and embedded-feature into explicit host contracts, and move concrete built-in implementations into plugin packages loaded through a registry and manifest system.
+Keep `ingresses`, `embedded_agents`, and `embedded_features` as first-class host contract families, but package all concrete implementations as plugins.
 
 Pros:
 
-- Best matches the desired future developer ecosystem
-- Makes extension entry points obvious
-- Keeps host governance centralized
-- Can evolve into extracted gems or Rails engines later
+- already much better than today
+- creates explicit plugin packages
+- removes most controller/job branching
 
 Cons:
 
-- Requires a new loader, definition model, and migration rules
-- Introduces more boot-time structure than a simple move
+- still bakes a dubious split into the public architecture
+- keeps two nearly identical invocation systems alive
+- makes future “external conversation surface” work fit under an IM-shaped name
 
-### 3. Immediate Rails Engine / Gem Ecosystem
+### 3. Packages + Conversation Surfaces + Capabilities
 
-Require third-party-style plugin boundaries immediately using gems or Rails engines.
+Recommended.
 
 Pros:
 
-- Highest theoretical openness from day one
+- matches the product concepts more directly
+- reduces the host kernel to two orthogonal extension families
+- gives a natural place for Telegram, Weixin, webhook SaaS, and embedded support/chat widgets
+- collapses `embedded_agents`, `runtime_features`, and `embedded_features` into one capability system with selectable backends
+- lets the host delete more `channel_*` history instead of rebranding it
 
 Cons:
 
-- Freezes unstable contracts too early
-- Adds unnecessary complexity around bundling, load order, migrations, and routing
-- Slows down core refactoring before the contracts are proven
+- more destructive than the previous plan
+- requires rewriting the host schema, not just moving files
+- forces the CLI and App API to adopt new resource names
 
-## Recommendation
+## Core Principles
 
-Choose approach 2.
+### Plugin Package Is The Only Packaging Unit
 
-It preserves the practicality of an in-repo refactor while forcing a stable host/plugin shape. It is close in spirit to GitLab's extension seams, but more productized and explicit: plugin packages are first-class, extension points are narrow, and host contracts are intentionally discoverable rather than implied by conventions or monkey patches.
+Every built-in extension ships as a plugin package under `app/plugins/*`.
 
-## Architectural Principles
+A plugin package owns:
 
-### Plugin Is the Packaging Unit
+- dependency fragments
+- migrations
+- documentation
+- one or more `conversation_surfaces`
+- one or more `capabilities`
 
-Every built-in extension is packaged as a plugin. A plugin may contribute zero or more ingresses, embedded agents, and embedded features.
+The host does not care whether a behavior came from a built-in package or a future external package. It only consumes compiled definitions.
 
-The plugin package is the primary unit of ownership, dependency declaration, migrations, management actions, and documentation.
+### Conversation Surface Is The User Interaction Contract
 
-### Contract Type Is Separate From Packaging
+A conversation surface is any package-contributed entry point that brings user interaction into CoreMatrix and binds it to conversation working memory.
 
-`Ingress`, `EmbeddedAgent`, and `EmbeddedFeature` remain real architectural categories, but they are host-owned contracts, not top-level code ownership buckets for concrete implementations.
+It is not limited to IM platforms.
 
-This means:
+Examples:
 
-- `app/ingresses`, `app/embedded_agents`, and `app/embedded_features` contain host contracts, registries, dispatchers, and common policies.
-- `app/plugins/core/telegram` contains the Telegram plugin package.
-- Inside that plugin package, `ingresses/telegram.rb` contributes an ingress definition.
+- Telegram DM
+- Telegram group
+- Weixin polling account
+- a generic SaaS webhook sender
+- an embedded support widget inside another app
 
-### Host Owns Governance
+The common trait is not “chat platform”; it is “surface that sends external interaction into a CoreMatrix conversation.”
+
+### Capability Is The Reusable Execution Contract
+
+A capability is a host-visible unit of behavior that can be invoked with normalized target/input/options and that can choose from one or more execution backends.
+
+This replaces:
+
+- `embedded_agents`
+- `runtime_features`
+- `embedded_features`
+
+The important distinction is no longer “agent vs feature,” but:
+
+- what schema the capability accepts
+- what target it operates on
+- what authorization it needs
+- what backend strategy it uses
+
+### Conversation Is Working Memory, Not Identity
+
+The host must keep these concepts separate:
+
+- `subject`
+  who is interacting
+- `thread`
+  where the interaction is happening
+- `conversation`
+  the working-memory container CoreMatrix uses for accumulation and execution
+
+A conversation surface definition decides how a surface maps normalized subject/thread claims into a conversation scope.
+
+### Host Owns Governance, Not Business Semantics
 
 CoreMatrix continues to own:
 
 - orchestration
 - persistence of host entities
 - public identifiers
-- installation/workspace/resource scoping
-- authorization and auditing
-- host-visible lifecycle
-- runtime policy boundaries
+- authorization
+- auditing
+- lifecycle
+- runtime policy enforcement
 
-Plugins may contribute behavior, but they do not redefine host semantics.
+Plugin packages contribute behavior, but they do not redefine host semantics.
 
-### No Reverse Ownership
+Per the monorepo boundary in `AGENTS.md`, prompt-heavy and business-semantic logic should still trend toward the Agent or ExecutionRuntime side over time. The capability system must therefore support package-local embedded handlers now while remaining able to point at agent-owned or runtime-owned implementations later.
 
-Plugins must not take control of CoreMatrix through monkey patches, `prepend`, implicit callbacks, or arbitrary controller injection. All extension behavior must flow through explicit registries and contract dispatchers.
+### Breaking Cleanup Is Required
 
-### Breaking Cleanup Is A Goal
+This redesign is not a compatibility exercise.
 
-This redesign is not a compatibility bridge. Once host-owned extension contracts and plugin packages are in place, legacy structures should be deleted rather than preserved as permanent shims.
-
-That includes eventual removal or collapse of:
-
-- `app/services/embedded_agents/*`
-- `app/services/runtime_features/*`
-- `app/services/embedded_features/*`
-- platform-specific ingress API controllers and route branches
+If a legacy host abstraction exists only because the old architecture happened to create it, it should be deleted instead of preserved under a new name.
 
 ## Target Directory Shape
 
@@ -168,408 +199,501 @@ core_matrix/app/
     manifest_validator.rb
     dependency_resolver.rb
     definition_index.rb
+    conversation_surfaces/
+      surface_definition.rb
+      registry.rb
+      envelope.rb
+      scope_key.rb
+      receive_event.rb
+      create_or_bind_conversation.rb
+      materialize_turn_entry.rb
+      attach_materialized_attachments.rb
+      endpoint_dispatcher.rb
+      management_action_dispatcher.rb
+      poller_dispatcher.rb
+      delivery_dispatcher.rb
+      middleware/
+      preprocessors/
+    capabilities/
+      capability_definition.rb
+      registry.rb
+      invoke.rb
+      result.rb
+      backend_selector.rb
+      runtime_exchange.rb
 
   controllers/
-    ingress_api/
+    conversation_surfaces/
       public_endpoints_controller.rb
     app_api/
       workspace_agents/
-        ingress_binding_actions_controller.rb
+        surface_bindings_controller.rb
+        surface_binding_actions_controller.rb
 
-  ingresses/
-    ingress_definition.rb
-    registry.rb
-    endpoint_dispatcher.rb
-    management_action_dispatcher.rb
-    poller_dispatcher.rb
-    delivery_dispatcher.rb
-    envelope.rb
-    inbound_pipeline/
-    management/
+  jobs/
+    conversation_surfaces/
+      dispatch_active_pollers_job.rb
 
-  embedded_agents/
-    embedded_agent_definition.rb
-    registry.rb
-    invoke.rb
-    result.rb
-    errors.rb
-    authorization/
-
-  embedded_features/
-    embedded_feature_definition.rb
-    registry.rb
-    invoke.rb
-    policy_resolver.rb
-    capability_resolver.rb
-    runtime_delegate.rb
+  models/
+    surface_binding.rb
+    conversation_scope_binding.rb
+    surface_event_receipt.rb
+    surface_delivery_attempt.rb
 
   plugins/
     core/
+      webhook_inbox/
+        plugin.rb
+        gems.rb
+        conversation_surfaces/
+          webhook_inbox.rb
+        public_endpoints/
+          events.rb
+        management_actions/
+          configure.rb
+          status.rb
+          rotate_secret.rb
+        deliveries/
+          post_callback.rb
+        docs/
       telegram/
         plugin.rb
         gems.rb
-        ingresses/
+        conversation_surfaces/
           telegram.rb
-        management_actions/
         public_endpoints/
         pollers/
         deliveries/
+        management_actions/
+      weixin/
+        plugin.rb
+        gems.rb
+        conversation_surfaces/
+          weixin.rb
+        pollers/
+        deliveries/
+        management_actions/
+        lib/
         models/
         db/migrate/
-        docs/
-      weixin/
-        ...
       conversation_title/
         plugin.rb
-        embedded_agents/
+        capabilities/
           conversation_title.rb
       conversation_supervision/
         plugin.rb
-        embedded_agents/
+        capabilities/
           conversation_supervision.rb
+      title_bootstrap/
+        plugin.rb
+        capabilities/
+          title_bootstrap.rb
       prompt_compaction/
         plugin.rb
-        embedded_features/
+        capabilities/
           prompt_compaction.rb
 ```
 
-`config/initializers/extensions.rb` loads and freezes plugin manifests during boot. `config/routes.rb` exposes only host-owned generic routes, never plugin-authored routing DSL.
+`config/initializers/extensions.rb` loads and freezes package manifests during boot. `config/routes.rb` exposes only host-owned generic routes.
 
-Because Rails/Zeitwerk would otherwise treat each new `app/*` subtree as an independent autoload root, boot configuration must register explicit namespace mappings for `Extensions`, `Ingresses`, `EmbeddedAgents`, `EmbeddedFeatures`, and `Plugins`. The directory promotion is not safe unless those namespaces are bootstrapped deliberately.
+Because Rails/Zeitwerk would otherwise treat each `app/*` subtree as an independent autoload root, boot configuration must explicitly map:
 
-## Plugin Package Model
+- `app/extensions/**` to `Extensions::*`
+- `app/plugins/**` to `Plugins::*`
 
-Each plugin package exposes a short declaration file, for example `plugin.rb`, which registers a plugin manifest with the host.
+If package-private helpers live under package-local `lib/`, boot configuration must also collapse `app/plugins/*/*/lib` so `app/plugins/core/weixin/lib/client.rb` resolves as `Plugins::Core::Weixin::Client` rather than `Plugins::Core::Weixin::Lib::Client`.
+
+No request-time constant guessing is allowed.
+
+## Package Manifest Model
+
+Each package exposes a short `plugin.rb` declaration that registers a manifest with the host.
 
 Each manifest contains:
 
-- stable plugin `id`
-- plugin `version`
-- short `display_name`
-- host contract compatibility requirements
-- optional dependency declarations
-- declared extension contributions
-- management schemas and actions
-- optional public endpoint declarations
+- `id`
+- `version`
+- `dependencies`
+- optional declarative `gems.rb`
 - optional migration paths
+- declared `conversation_surfaces`
+- declared `capabilities`
+- management schemas/actions
+- optional public endpoint declarations
 - optional documentation metadata
 
 The loader validates manifests at boot and compiles them into immutable definitions. Runtime dispatch works only against compiled definitions.
 
-## Boot And Load Order
+Package-private support code that exists only to implement one package, such as API clients, normalizers, pollers, token stores, or QR-login helpers, should live inside that package rather than under the app-global `lib/`. For example, Weixin support code should move under `app/plugins/core/weixin/lib/*`, with the package-local `lib` directory collapsed so the constants still live directly under the Weixin package namespace. The app-global `lib/` should be reserved for genuinely shared cross-package or cross-project code.
 
-Plugin discovery is deterministic and host-controlled.
+## Conversation Surface Contract
 
-Rules:
+A conversation surface definition describes:
 
-- plugin entrypoints are discovered from `app/plugins/**/plugin.rb`
-- discovery order is lexical and deterministic
-- `config/initializers/extensions.rb` loads manifests during application boot
-- Zeitwerk namespace roots are explicitly configured so constants resolve from the new `app/extensions`, `app/ingresses`, `app/embedded_agents`, `app/embedded_features`, and `app/plugins` directories without leaking into unintended top-level constants
-- the loader validates manifests before any registry is published
-- compiled definition registries are frozen after boot
-- missing gem dependencies or invalid manifests fail boot loudly instead of degrading silently
-
-This keeps all dynamic behavior at boot time and prevents request-time file scanning or constant guessing.
-
-## Extension Definitions
-
-### IngressDefinition
-
-An ingress definition describes:
-
-- plugin key and ingress key
+- package key and surface key
 - binding kind
-- supported transport styles (`webhook`, `poller`, or both)
+- supported ingress transports for the current phase: `webhook` and/or `poller`
+- supported outbound delivery styles for the current phase: `push_delivery` and/or `callback_delivery`
 - request verification handler
 - inbound normalization handler
+- external subject resolver
+- external thread resolver
+- conversation scope policy
+- activation policy for shared surfaces
 - attachment materialization strategy
-- delivery adapter
+- outbound delivery adapter
 - poller handler, if any
 - public endpoints exposed through host-managed routes
 - management actions and schemas
 
-### EmbeddedAgentDefinition
+Future synchronous or streaming response transports are explicitly out of scope for the first implementation. The design should leave room for them, but the host should not claim support before the transport path exists.
 
-An embedded agent definition describes:
+### External Subjects And Shared Threads
 
-- plugin key and agent key
+The normalized surface envelope should carry explicit claims for:
+
+- `subject_ref`
+  The external actor sending the event.
+- `thread_ref`
+  The external shared surface where the event happened.
+- `participant_role`
+  Optional role hints such as member, admin, bot, guest, or system.
+- `visibility`
+  Direct, shared, topic-scoped, or another host-approved value.
+- `activation_reason`
+  Why the agent should respond in a shared surface, such as explicit mention, reply-to-agent, or configured auto-respond policy.
+
+This is necessary for:
+
+- Telegram groups where unfamiliar participants can ask the agent after the bot is added
+- embedded support/chat surfaces where the end user is not a CoreMatrix account
+- generic webhook senders that identify subjects and threads by external business IDs
+
+### Conversation Scope Policy
+
+The surface definition chooses how the host maps normalized claims to conversation working memory.
+
+Supported strategies should include:
+
+- `subject`
+- `thread`
+- `subject_in_thread`
+- `explicit_session`
+
+The host should derive one stable `scope_key` per normalized event and use that key for indexed lookup. This keeps the hot path to one deterministic key computation plus one indexed query/upsert rather than a pile of plugin-specific branching.
+
+## Capability Contract
+
+A capability definition describes:
+
+- package key and capability key
 - target schema
 - input schema
 - options schema
+- optional policy schema
 - authorization boundary
-- invoke handler
+- backend strategy
+- optional embedded handler
+- optional runtime capability key
+- optional agent reference
 - result schema
 
-### EmbeddedFeatureDefinition
+This contract intentionally separates “what the capability is” from “how it executes.”
 
-An embedded feature definition describes:
+Examples:
 
-- plugin key and feature key
-- policy schema
-- capability key
-- execution modes supported by the host
-- embedded executor handler
-- runtime delegation behavior
-- result schema
+- `conversation_title`
+  a capability whose current implementation may remain package-local but whose long-term ownership could move toward the Agent layer
+- `title_bootstrap`
+  a capability with an embedded fallback and optional delegated path
+- `prompt_compaction`
+  a capability that may prefer runtime delegation but still expose an embedded fallback
 
 ## Unified Host Surface
 
-### Public Ingress Endpoints
+### Public Surface Endpoints
 
-Plugins may declare restricted public endpoints, but they do not define arbitrary Rails routing. The host mounts all public ingress endpoints under a fixed namespace, for example:
+Packages may declare restricted public endpoints, but they do not define arbitrary Rails routing.
 
-`/ingress/:plugin_key/bindings/:public_ingress_id/:endpoint_key`
+The host mounts public endpoints under a fixed namespace, for example:
+
+`/surfaces/:package_key/bindings/:public_surface_id/:endpoint_key`
 
 The host dispatcher performs:
 
-- ingress binding lookup
-- plugin resolution
-- request authentication/verification dispatch
+- binding lookup
+- package resolution
+- request verification
 - idempotency enforcement
 - audit/event wrapping
 - error normalization
 
-Only then does control pass to the plugin endpoint handler.
+Only then does control pass to the package handler.
 
 ### Authenticated Management RPC
 
-Plugins do not add arbitrary App API controllers. Instead, they declare `management_actions` that the host exposes through a unified authenticated RPC layer for App UI, CLI, and future automation clients.
+Packages do not add arbitrary App API controllers.
 
-The host exposes ingress binding management through a generic action endpoint, for example:
+Instead, the host exposes generic binding management through a unified action endpoint, for example:
 
-`POST /app_api/workspace_agents/:workspace_agent_id/ingress_bindings/:ingress_binding_id/actions/:action_key`
+`POST /app_api/workspace_agents/:workspace_agent_id/surface_bindings/:surface_binding_id/actions/:action_key`
 
-Binding creation stays host-owned, but creation payloads become plugin-aware:
+Binding creation stays host-owned, but creation payloads become package-aware:
 
-- `plugin_id`
-- `ingress_key`
-- initial settings/config payload
+- `package_id`
+- `surface_key`
+- initial settings payload
 - optional initial management action input
 
-For ingress plugins, common actions include:
+Common actions include:
 
 - `configure`
 - `status`
-- `start_pairing`
-- `pairing_status`
-- `confirm_pairing`
-- `disconnect`
 - `rotate_secret`
 - `test_connection`
+- `start_pairing`
+- `pairing_status`
+- `disconnect`
 
-Each action declares:
+This keeps App UI and CLI generic while still allowing package-specific workflows.
 
-- `action_key`
-- `input_schema`
-- `result_schema`
-- `authorization_policy`
-- `idempotency_policy`
-- `side_effect_level`
+## Host Persistence Model
 
-This keeps the host surface uniform while still allowing plugin-specific workflows such as QR login, webhook secret rotation, or token validation.
+### Host-Owned Models
 
-Existing nested ingress management resources such as pairing/session helpers should be collapsed into host-managed action semantics unless a truly generic resource abstraction survives the refactor.
+The first implementation should replace the current ingress/channel host schema with four generic models:
 
-## Data Boundaries
+- `SurfaceBinding`
+  The host-owned binding resource. This replaces `IngressBinding` plus the active connector concept.
+- `ConversationScopeBinding`
+  The mapping between a normalized surface scope and a conversation working-memory container. This replaces `ChannelSession`.
+- `SurfaceEventReceipt`
+  Generic idempotency and inbound audit data when the host needs to remember processed external events.
+- `SurfaceDeliveryAttempt`
+  Generic outbound delivery audit data if the host can still describe outbound attempts in a surface-neutral way.
 
-### Host-Owned State
-
-CoreMatrix host models continue to own:
+The host continues to own:
 
 - installations
 - workspaces
 - agents and agent definition versions
 - execution runtimes
 - conversations and turns
-- ingress bindings as host binding resources
-- generic channel/session/delivery relationships when still justified as host abstractions
+- binding resources
+- public identifiers
 
 ### Plugin-Owned State
 
-Plugins may store state in:
+Plugin packages own:
 
-- host-approved generic extension storage
-- plugin-specific tables with plugin-prefixed names
-
-Plugin tables are required for many ingress cases such as:
-
+- pairing state
 - OAuth or QR-login state
-- external ticket/session mapping
-- platform-specific cursors
-- platform-specific delivery metadata
-- pairing state that is not truly generic
+- poll cursors
+- external ticket/session state
+- package-specific delivery metadata
+- any package-specific records that stop being genuinely generic once the legacy channel shell is removed
 
-Plugins may reference host entities, but they may not redefine host business semantics.
+If `SurfaceDeliveryAttempt` or `SurfaceEventReceipt` turns out not to be genuinely generic during implementation, they should also move into package-owned persistence instead of remaining in the host out of inertia.
 
-The initial implementation should keep `IngressBinding` as the host-owned binding resource and should only retain `ChannelConnector`, `ChannelSession`, `ChannelInboundMessage`, and `ChannelDelivery` as host models when their semantics remain genuinely generic after the plugin split. If a structure is mostly platform-owned after extraction, it should move into plugin-owned persistence instead of staying in the host out of inertia.
+## Migration Strategy
 
-## Migration Rules
+This redesign should use destructive migration rewriting rather than compatibility migrations.
 
-Plugins may ship migrations, but only through host-controlled loading.
+Specifically:
 
-Rules:
+- rewrite the current host ingress/channel migrations in place
+- regenerate `db/schema.rb` from scratch
+- keep plugin-owned migrations inside plugin packages
 
-- each plugin declares its migration path
-- host migration loading composes plugin migrations into the application migration flow
-- plugin migrations create or modify only plugin-owned tables and indexes by default
-- plugin migrations must use plugin-prefixed table/index/document/event names
-- plugin migrations must not silently change host core semantics
-- any required host schema evolution must be promoted into explicit host-owned migrations
+For `core_matrix`, the rebuild flow must follow the repo rule in `AGENTS.md`:
+
+`rails db:drop && rm db/schema.rb && rails db:create && rails db:migrate && rails db:reset`
+
+This is appropriate here because the user explicitly does not want compatibility preserved and because the old schema encodes the wrong host abstractions.
 
 ## Gem Dependency Model
 
-Plugins may declare gem dependencies, but gem installation is not dynamic at runtime.
+Plugin packages may declare gem dependencies, but gem installation is not dynamic at runtime.
 
 Rules:
 
-- plugin packages can ship `gems.rb` or equivalent bundle fragments
-- the root `Gemfile` evaluates plugin dependency fragments into one bundle
-- there is still one `Gemfile.lock` for the application
-- plugin-owned dependencies should default to `require: false`
-- loader validation checks that required gems are present and loadable before activating definitions
+- packages may ship declarative `gems.rb` fragments, but those fragments should register dependency metadata through a host helper DSL rather than calling Bundler's `gem` DSL directly
+- the root `Gemfile` loads package fragments into a host-owned dependency registry, normalizes declarations, groups them by gem name, and emits one final Bundler declaration per resolved gem
+- the app still has one `Gemfile.lock`
+- package-owned dependencies default to `require: false`
+- if two packages declare the same gem with identical normalized requirements and options, the host collapses the duplicate and records both owning packages for diagnostics
+- if two packages declare the same gem with compatible source and loader options, the host merges the unique version requirement strings into one final Bundler declaration and leaves satisfiability to Bundler
+- if two packages declare the same gem with conflicting source or non-version loader options, bundle setup fails with an explicit host error before Bundler resolution continues
+- package fragments must stay data-oriented and deterministic; arbitrary imperative Gemfile logic inside package fragments is forbidden
+- boot validation checks that required gems are present before activating definitions
 - per-tenant or runtime gem installation is forbidden
 
-Cross-plugin infrastructure gems stay in the host bundle. Capability-specific gems move into plugin dependency fragments.
+This is one place where CoreMatrix should be stricter than a naive `eval_gemfile` design. A direct multi-fragment `eval_gemfile` setup would surface duplicate dependency warnings and make ownership harder to reason about. The host should own deduplication and conflict reporting so package-local dependency declarations stay readable without increasing bundle noise. To keep overhead low, the first implementation should not try to compute semver intersections across package fragments. It should only normalize declarations, merge unique version requirements for the same gem, and let Bundler decide whether the combined constraints are solvable.
+
+Because `Gemfile` executes before Rails autoloading exists, the package gem DSL must live in a plain Ruby helper that `Gemfile` can `require_relative` directly. It should not depend on `app/extensions/*` code.
 
 ## Lifecycle Model
 
-Plugins have four lifecycle layers:
+Packages have four lifecycle layers:
 
 1. `discovered`
 2. `loaded`
 3. `enabled_for_host`
 4. `active_for_installation_or_resource`
 
-That separation prevents bundle presence from implying tenant availability and prevents plugin loading from implying that a given ingress binding or workspace mount is active.
+Activation units are:
 
-Initial implementation note:
+- `SurfaceBinding` for conversation-surface behavior
+- invocation target plus policy/runtime context for capability behavior
 
-- all discovered in-repo core plugins are `enabled_for_host` by default after successful boot-time validation
-- the explicit `enabled_for_host` lifecycle stage still remains part of the contract so host-level plugin policy can be added later without reshaping the system
+Initially, all discovered in-repo core packages are `enabled_for_host` by default after successful boot-time validation.
 
-For this redesign the activation units are:
+## Generic Webhook Package
 
-- ingress plugin behavior: an `IngressBinding`
-- embedded agent behavior: an agent definition and its workspace mount or invocation target
-- embedded feature behavior: workspace policy plus runtime/agent capability
+The first implementation should include a core package such as `webhook_inbox`.
 
-## Performance and Complexity Controls
+Why:
 
-To keep the system maintainable:
+- it validates the new conversation-surface architecture without IM-specific assumptions
+- it is easier to exercise from tests and local scripts than Telegram or Weixin
+- it gives the host a normal SaaS-style webhook surface immediately
 
-- all file scanning and manifest compilation happen only at boot
-- runtime dispatch is pure registry lookup
-- definition registries are immutable after load
-- plugin requests and actions must pass schema validation
-- host authorization, auditing, idempotency, and public-id policies remain centralized
-- platform-specific branching must not reappear in controllers, jobs, or dispatchers
-- plugins may not use monkey patching as their primary integration method
+Recommended first-phase behavior:
 
-If a proposed extension requires arbitrary pages, arbitrary controllers, or host-core schema ownership changes to function, it should be reconsidered as a first-class CoreMatrix product module rather than forced through the plugin framework.
+- secret-authenticated inbound webhook endpoint
+- canonical JSON payload contract containing external event id, subject, thread, message payload, attachments, and metadata
+- asynchronous outbound delivery through a configured callback URL
+- management actions for `configure`, `status`, and `rotate_secret`
+
+This package should be treated as the architecture probe for the new surface kernel.
+
+## Performance and Overhead Controls
+
+The redesign should not make the hot path meaningfully heavier than today.
+
+Rules:
+
+- all package scanning and manifest compilation happen only at boot
+- compiled registries are immutable after boot
+- runtime dispatch is one registry lookup plus one handler call
+- schema validation happens at package boundaries, not repeatedly through the full call chain
+- conversation resolution is one deterministic `scope_key` derivation plus indexed lookup/upsert
+- no request-time filesystem scanning or string-based constant guessing
+- no platform branching in controllers, jobs, or dispatchers
+
+This design should be lighter than the previous three-family plan because:
+
+- one capability invoke path replaces the current overlapping `embedded_agents` and `runtime_features` systems
+- `channel_*` host history is deleted rather than rewrapped
+- a generic webhook package prevents the host kernel from overfitting to IM-specific shapes
+
+## Legacy Terminology Boundary
+
+The old architecture vocabulary:
+
+- `ingress`
+- `IngressBinding`
+- `ChannelConnector`
+- `ChannelSession`
+- `ChannelPairingRequest`
+- `ChannelInboundMessage`
+- `ChannelDelivery`
+- `embedded_agents`
+- `embedded_features`
+- `runtime_features`
+
+should be treated as migration-only terminology.
+
+After the refactor is complete:
+
+- active code should use `conversation_surfaces`, `surface_bindings`, and `capabilities`
+- active operator and contributor docs should use the new vocabulary
+- CLI help and README examples should expose a `surface` command family rather than an `ingress` command family
+- the old terms may survive only inside archived/historical material such as old plans, archived docs, or explicit migration commentary
 
 ## Refactor Mapping From Current Code
 
-### Ingress
+### Conversation Surfaces
 
 Current:
 
 - `app/services/ingress_api/*`
-- hard-coded Telegram webhook controller
-- platform branching inside management controller, poller job, and delivery dispatcher
+- `IngressBinding`
+- `ChannelConnector`
+- `ChannelSession`
+- `ChannelInboundMessage`
+- `ChannelDelivery`
+- platform-specific routes, controllers, jobs, and dispatchers
 
 Target:
 
-- host pipeline and contracts move into `app/ingresses`
-- host generic controllers move into `app/controllers/ingress_api/public_endpoints_controller.rb` and `app/controllers/app_api/workspace_agents/ingress_binding_actions_controller.rb`
-- Telegram and Weixin become plugin packages under `app/plugins/core/*`
-- legacy `telegram` and `telegram_webhook` platform split collapses into one Telegram plugin-backed ingress definition with transport mode selected by binding configuration and management actions
-- host-managed endpoint and action dispatch replace platform `case` logic
+- host conversation-surface kernel under `app/extensions/conversation_surfaces`
+- generic host endpoints and management RPC
+- `SurfaceBinding`, `ConversationScopeBinding`, `SurfaceEventReceipt`, and optionally `SurfaceDeliveryAttempt`
+- concrete Telegram, Weixin, and webhook behavior packaged under `app/plugins/core/*`
 
-### Embedded Agents
+### Capabilities
 
 Current:
 
 - `app/services/embedded_agents/*`
-- hard-coded registry
-
-Target:
-
-- host agent contract and registry move into `app/embedded_agents`
-- concrete built-in agents become plugin packages
-- legacy `app/services/embedded_agents/*` should be deleted or reduced to temporary transition shims during implementation only
-
-### Embedded Features
-
-Current:
-
 - `app/services/runtime_features/*`
 - `app/services/embedded_features/*`
-- split registry model between runtime and embedded behavior
 
 Target:
 
-- unified host feature system under `app/embedded_features`
-- concrete built-in features become plugin packages
-- runtime delegation becomes a feature behavior, not a separate architecture silo
-- legacy `app/services/runtime_features/*` and `app/services/embedded_features/*` should not survive as permanent ownership centers
+- unified host capability kernel under `app/extensions/capabilities`
+- concrete built-in capabilities packaged under `app/plugins/core/*`
+- current agent-like and feature-like behavior represented as capability definitions with backend strategies
 
-### Bundled Agent Provisioning
+### Bundled Provisioning
 
 Current:
 
-- installation bootstrap uses large configuration hashes to describe a bundled agent runtime
+- large host configuration hash for bundled runtime and feature contracts
 
 Target:
 
-- provisioning resolves plugin definitions and composes definition packages from explicit plugin metadata
+- provisioning composes from package definitions and capability metadata
 
 ## Documentation Deliverables
 
-Implementation should add:
+Implementation should add or refresh:
 
 - `core_matrix/AGENTS.md`
 - `core_matrix/docs/architecture/extensions.md`
-- `core_matrix/docs/extensions/authoring.md`
-- `core_matrix/docs/extensions/ingress.md`
-- `core_matrix/docs/extensions/embedded-agents.md`
-- `core_matrix/docs/extensions/embedded-features.md`
+- `core_matrix/docs/extensions/packages.md`
+- `core_matrix/docs/extensions/conversation-surfaces.md`
+- `core_matrix/docs/extensions/capabilities.md`
 - `core_matrix/docs/extensions/migrations-and-dependencies.md`
-- refreshed `core_matrix_cli/README.md` so the CLI continues to document itself as a consumer of host-owned ingress RPC
-- refreshed operator-facing docs such as `core_matrix/docs/INTEGRATIONS.md`, `core_matrix/docs/INSTALL.md`, and `core_matrix/docs/ADMIN-QUICK-START-GUIDE.md` so `cmctl` guidance matches the new host-owned RPC surfaces
+- `core_matrix/docs/INTEGRATIONS.md`
+- `core_matrix/docs/INSTALL.md`
+- `core_matrix/docs/ADMIN-QUICK-START-GUIDE.md`
+- `core_matrix_cli/README.md`
 
-The root monorepo `AGENTS.md` should only point contributors to `core_matrix/AGENTS.md` for CoreMatrix-specific extension rules.
-
-## Verification And Acceptance
-
-Because this refactor touches ingress, conversation bootstrap, turn entry, and bundled capability provisioning, it must be treated as verification-critical work under `AGENTS.md:32-40`.
-
-Acceptance requires:
-
-- focused contract and regression tests for the new extension framework and migrated plugins
-- full `core_matrix` verification commands from `AGENTS.md:72-81`
-- the required active verification suite from `AGENTS.md:120-126`
-- inspection of produced verification artifacts and relevant database state for business-shape correctness
-- confirmation that the targeted host files no longer branch on Telegram/Weixin platform names or hard-coded embedded agent/feature registries
+The root monorepo `AGENTS.md` should only point contributors to `core_matrix/AGENTS.md` for CoreMatrix-specific package and surface rules.
 
 ## Explicit Non-Goals
 
 This redesign does not attempt to:
 
+- preserve the old ingress/channel schema
+- preserve old App API or CLI route names
 - support runtime gem installation
-- preserve the current internal directory layout
-- make plugins free to inject arbitrary controllers or pages
-- freeze a third-party external gem/engine contract immediately
-- preserve every existing generic channel model unchanged if the plugin split shows some of them should become plugin-owned
+- open arbitrary plugin pages or arbitrary plugin controllers
+- claim synchronous or streaming response transport before the host implements it
+- keep prompt-heavy business semantics in CoreMatrix forever if they belong in the Agent layer
 
 ## Success Criteria
 
 The redesign is successful when:
 
-- new ingress, embedded-agent, and embedded-feature work starts from plugin packages and definitions, not `app/services`
-- host code no longer branches on Telegram/Weixin platform names in controllers/jobs/dispatchers
-- built-in extensions are discoverable through plugin manifests
-- public RPC/UI management is generated from host-governed schemas and actions
-- plugin-specific data and gems are declared near the plugin package that owns them
-- `core_matrix_cli` remains a working consumer of the host-managed ingress RPC surface without needing its own extension system
-- future extraction of a plugin into a gem or engine is evolutionary rather than a second full rewrite
+- new external interaction work starts from a conversation-surface package, not from `app/services/ingress_api`
+- new agent/feature work starts from a capability package, not from `embedded_agents` or `runtime_features`
+- `conversation` remains a working-memory container, not a disguised user record
+- host code no longer branches on Telegram/Weixin platform names in controllers, jobs, or dispatchers
+- the generic webhook package works as the simplest first-class conversation surface
+- plugin-specific data and gems are declared near the package that owns them
+- `core_matrix_cli` remains a working consumer of generic host-managed surface RPC without gaining its own extension system
+- active code, active docs, and CLI help no longer present the legacy ingress/channel/embedded/runtime vocabulary as the live architecture
+- boot-time complexity increases, but hot-path overhead stays flat or improves
