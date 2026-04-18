@@ -253,6 +253,157 @@ class MailboxControlLoopTest < Minitest::Test
     store&.close
   end
 
+  def test_skips_duplicate_websocket_delivery_after_reconnect
+    store = CybrosNexus::State::Store.open(path: tmp_path("state.sqlite3"))
+    handled = []
+
+    loop = lambda do |result:|
+      CybrosNexus::Mailbox::ControlLoop.new(
+        store: store,
+        session_client: FakeSessionClient.new(
+          mailbox_payloads: [
+            {
+              "method_id" => "execution_runtime_mailbox_pull",
+              "mailbox_items" => [],
+            },
+          ],
+        ),
+        action_cable_client: FakeActionCableClient.new(
+          result: result,
+          yielded_items: [mailbox_item("ws-item", delivery_no: 1)],
+        ),
+        outbox: CybrosNexus::Events::Outbox.new(store: store),
+        mailbox_handler: lambda do |item|
+          handled << item.fetch("item_id")
+          { "handled_item_id" => item.fetch("item_id") }
+        end
+      )
+    end
+
+    loop.call(
+      result: CybrosNexus::Transport::ActionCableClient::Result.new(
+        status: "disconnected",
+        processed_count: 1,
+        subscription_confirmed: true,
+        mailbox_results: [{ "handled_item_id" => "ws-item" }],
+        disconnect_reason: nil,
+        reconnect: true,
+        error_message: nil
+      )
+    ).run_once
+
+    result = loop.call(
+      result: CybrosNexus::Transport::ActionCableClient::Result.new(
+        status: "timed_out",
+        processed_count: 1,
+        subscription_confirmed: true,
+        mailbox_results: [],
+        disconnect_reason: nil,
+        reconnect: nil,
+        error_message: nil
+      )
+    ).run_once
+
+    assert_equal ["ws-item"], handled
+    assert_equal [], result.mailbox_results
+    assert_equal 1, store.database.get_first_value("SELECT COUNT(*) FROM mailbox_receipts")
+  ensure
+    store&.close
+  end
+
+  def test_reconnect_replays_pending_outbox_without_reexecuting_duplicate_delivery_after_flush_failure
+    store = CybrosNexus::State::Store.open(path: tmp_path("state.sqlite3"))
+    handled = []
+    failure = Class.new(StandardError)
+
+    first_session_client = FlakySessionClient.new(
+      mailbox_payloads: [],
+      submit_events_failures: [failure.new("transient event delivery failure")]
+    )
+
+    first_loop = CybrosNexus::Mailbox::ControlLoop.new(
+      store: store,
+      session_client: first_session_client,
+      action_cable_client: FakeActionCableClient.new(
+        result: CybrosNexus::Transport::ActionCableClient::Result.new(
+          status: "disconnected",
+          processed_count: 1,
+          subscription_confirmed: true,
+          mailbox_results: [{ "handled_item_id" => "ws-item" }],
+          disconnect_reason: "socket_closed",
+          reconnect: true,
+          error_message: nil
+        ),
+        yielded_items: [mailbox_item("ws-item", delivery_no: 1)]
+      ),
+      outbox: CybrosNexus::Events::Outbox.new(store: store),
+      mailbox_handler: lambda do |item|
+        handled << item.fetch("item_id")
+        {
+          "handled_item_id" => item.fetch("item_id"),
+          "events" => [
+            {
+              "event_key" => "event-#{item.fetch("item_id")}",
+              "event_type" => "execution_complete",
+              "payload" => {
+                "method_id" => "execution_complete",
+                "protocol_message_id" => "msg-#{item.fetch("item_id")}",
+              },
+            },
+          ],
+        }
+      end
+    )
+
+    error = assert_raises(failure) { first_loop.run_once }
+    assert_equal "transient event delivery failure", error.message
+    assert_equal ["ws-item"], handled
+    assert_equal "processed", store.database.get_first_value("SELECT state FROM mailbox_receipts WHERE item_id = 'ws-item'")
+    assert_equal 1, store.database.get_first_value("SELECT COUNT(*) FROM event_outbox WHERE delivered_at IS NULL")
+
+    calls = []
+    second_loop = CybrosNexus::Mailbox::ControlLoop.new(
+      store: store,
+      session_client: FakeSessionClient.new(
+        mailbox_payloads: [
+          {
+            "method_id" => "execution_runtime_mailbox_pull",
+            "mailbox_items" => [mailbox_item("ws-item", delivery_no: 1)],
+          },
+        ],
+        calls: calls
+      ),
+      action_cable_client: FakeActionCableClient.new(
+        result: CybrosNexus::Transport::ActionCableClient::Result.new(
+          status: "disconnected",
+          processed_count: 1,
+          subscription_confirmed: true,
+          mailbox_results: [],
+          disconnect_reason: nil,
+          reconnect: false,
+          error_message: nil
+        ),
+        yielded_items: [mailbox_item("ws-item", delivery_no: 1)],
+        calls: calls
+      ),
+      outbox: CybrosNexus::Events::Outbox.new(store: store),
+      mailbox_handler: lambda do |item|
+        handled << item.fetch("item_id")
+        { "handled_item_id" => item.fetch("item_id") }
+      end
+    )
+
+    result = second_loop.run_once
+
+    assert_equal [:submit_events, :websocket, :pull_mailbox], calls
+    assert_equal ["ws-item"], handled
+    assert_equal [], result.mailbox_results
+    assert_equal 1, store.database.get_first_value("SELECT COUNT(*) FROM event_outbox WHERE delivered_at IS NOT NULL")
+    assert_equal 0, store.database.get_first_value("SELECT COUNT(*) FROM event_outbox WHERE delivered_at IS NULL")
+  ensure
+    store&.close
+  end
+
   private
 
   def mailbox_item(item_id, delivery_no:)
@@ -285,6 +436,20 @@ class MailboxControlLoopTest < Minitest::Test
         "method_id" => "execution_runtime_events_batch",
         "results" => Array.new(events.length) { |index| { "event_index" => index, "result" => "accepted" } },
       }
+    end
+  end
+
+  class FlakySessionClient < FakeSessionClient
+    def initialize(mailbox_payloads:, event_results: [], calls: nil, submit_events_failures: [])
+      super(mailbox_payloads: mailbox_payloads, event_results: event_results, calls: calls)
+      @submit_events_failures = submit_events_failures.dup
+    end
+
+    def submit_events(events:)
+      failure = @submit_events_failures.shift
+      raise failure if failure
+
+      super
     end
   end
 

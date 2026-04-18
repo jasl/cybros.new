@@ -32,11 +32,13 @@ module Verification
       "test/suites/proof/host_validation_test.rb",
       "test/support/process_manager_test.rb",
       "test/support/cli_support_test.rb",
+      "test/support/phase_logger_test.rb",
       "test/test_helper_smoke_test.rb",
     ].freeze
 
     CORE_MATRIX_HOSTED_TEST_FILES = [
       "test/core_matrix_hosted/active_suite_governed_validation_support_test.rb",
+      "test/core_matrix_hosted/capstone_terminal_state_test.rb",
       "test/core_matrix_hosted/manual_support_hosted_test.rb",
       "test/core_matrix_hosted/perf_workload_driver_connection_test.rb",
       "test/core_matrix_hosted/provider_catalog_override_hosted_test.rb",

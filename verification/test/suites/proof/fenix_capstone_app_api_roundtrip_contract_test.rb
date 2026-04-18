@@ -55,6 +55,10 @@ class VerificationCapstoneAppApiRoundtripContractTest < ActiveSupport::TestCase
 
     assert_includes scenario, 'ENV.fetch("CAPSTONE_SELECTOR", "role:main")'
     assert_includes scenario, 'ENV.fetch("CAPSTONE_HOST_PREVIEW_PORT", "4274")'
+    assert_includes scenario, "Verification::PhaseLogger.build"
+    assert_match(/phase_logger\.call\(\s*"turn completed"/m, scenario)
+    assert_includes scenario, 'phase_logger.call("host validation started"'
+    assert_includes scenario, 'phase_logger.call("conversation export started"'
     assert_includes scenario, 'label: "init-bootstrap"'
     assert_includes scenario, 'label: "init-refresh"'
     assert_includes scenario, 'label: "workspace-create"'
@@ -84,6 +88,7 @@ class VerificationCapstoneAppApiRoundtripContractTest < ActiveSupport::TestCase
     scenario = Verification.repo_root.join("verification", "scenarios", "proof", "fenix_capstone_app_api_roundtrip_validation.rb").read
 
     assert_includes scenario, "execution_runtime_publish_output_attachment!"
+    assert_includes scenario, "Verification::CapstoneTerminalState.inspect!"
     assert_includes scenario, 'publication_role: "primary_deliverable"'
     assert_includes scenario, '"source_kind") == "runtime_generated"'
     assert_includes scenario, "app_api_conversation_attachment_show!"

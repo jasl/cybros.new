@@ -18,11 +18,19 @@ module Verification
       version
     end.freeze
 
-    def run!(generated_app_dir:, artifact_dir:, preview_port:, runtime_validation:, persist_artifacts: true)
+    def run!(generated_app_dir:, artifact_dir:, preview_port:, runtime_validation:, persist_artifacts: true, phase_logger: nil)
       host_validation = {}
       playwright_validation = {}
       preview_http = nil
       host_playability_skip_reason = nil
+      phase_logger ||= Verification::PhaseLogger.build(log_path: artifact_dir.join("logs", "phase.log"))
+
+      phase_logger.call(
+        "host validation started",
+        generated_app_dir: generated_app_dir.to_s,
+        artifact_dir: artifact_dir.to_s,
+        preview_port: preview_port
+      )
 
       if generated_app_dir.exist?
         dist_dir = generated_app_dir.join("dist")
@@ -32,7 +40,8 @@ module Verification
               dist_dir: dist_dir,
               artifact_dir: artifact_dir,
               generated_app_dir: generated_app_dir,
-              preview_port: preview_port
+              preview_port: preview_port,
+              phase_logger: phase_logger
             )
             preview_http = verification.fetch("preview_http")
             playwright_validation = verification.fetch("playwright_validation")
@@ -49,8 +58,11 @@ module Verification
         FileUtils.rm_rf(generated_app_dir.join("dist"))
         FileUtils.rm_rf(generated_app_dir.join("coverage"))
 
+        phase_logger.call("host npm install started", generated_app_dir: generated_app_dir.to_s)
         npm_install = capture_command("npm", "install", chdir: generated_app_dir)
+        phase_logger.call("host npm test started", generated_app_dir: generated_app_dir.to_s)
         npm_test = capture_command("npm", "test", chdir: generated_app_dir)
+        phase_logger.call("host npm build started", generated_app_dir: generated_app_dir.to_s)
         npm_build = capture_command("npm", "run", "build", chdir: generated_app_dir)
 
         host_validation = {
@@ -292,7 +304,7 @@ module Verification
     end
     private_class_method :build_host_preview_failure_message
 
-    def run_host_preview_and_verification!(dist_dir:, artifact_dir:, generated_app_dir:, preview_port:, attempts: 2)
+    def run_host_preview_and_verification!(dist_dir:, artifact_dir:, generated_app_dir:, preview_port:, attempts: 2, phase_logger: nil)
       preview_log = artifact_dir.join("logs", "host-preview.log")
       FileUtils.mkdir_p(preview_log.dirname)
       last_error = nil
@@ -302,6 +314,12 @@ module Verification
         preview_out = nil
 
         begin
+          phase_logger&.call(
+            "host preview verification started",
+            attempt_no: index + 1,
+            dist_dir: dist_dir.to_s,
+            preview_port: preview_port
+          )
           preview_out = File.open(preview_log, index.zero? ? "w" : "a")
           preview_out.sync = true
           preview_pid = Process.spawn(
@@ -314,11 +332,17 @@ module Verification
 
           response, body = http_get_response("http://127.0.0.1:#{preview_port}")
           raise "host preview failed: HTTP #{response.code}" unless response.code.to_i.between?(200, 299)
+          phase_logger&.call(
+            "host preview reachable",
+            attempt_no: index + 1,
+            status: response.code.to_i
+          )
 
           playwright_validation = run_host_playwright_verification!(
             artifact_dir: artifact_dir,
             base_url: "http://127.0.0.1:#{preview_port}/",
-            generated_app_dir: generated_app_dir
+            generated_app_dir: generated_app_dir,
+            phase_logger: phase_logger
           )
 
           preview_http = {
@@ -338,6 +362,11 @@ module Verification
             preview_pid: preview_pid,
             preview_log: preview_log,
             preview_port: preview_port
+          )
+          phase_logger&.call(
+            "host preview verification failed",
+            attempt_no: index + 1,
+            error: error.message
           )
         ensure
           if preview_pid
@@ -599,7 +628,7 @@ module Verification
     end
     private_class_method :build_playwright_script
 
-    def run_host_playwright_verification!(artifact_dir:, base_url:, generated_app_dir:)
+    def run_host_playwright_verification!(artifact_dir:, base_url:, generated_app_dir:, phase_logger: nil)
       artifact_spec_path = artifact_dir.join("tmp", "host-playability.spec.cjs")
       runner_spec_path = generated_app_dir.join("host-playability.spec.cjs")
       output_json_path = artifact_dir.join("playable", "host-playwright-verification.json")
@@ -614,16 +643,19 @@ module Verification
       test_result = nil
 
       begin
+        phase_logger&.call("playwright dependency install started", generated_app_dir: generated_app_dir.to_s)
         dependency_install = capture_command!(
           "npm", "install", "--no-save", "@playwright/test@#{DEFAULT_PLAYWRIGHT_VERSION}",
           chdir: generated_app_dir,
           failure_label: "install Playwright host test dependency"
         )
+        phase_logger&.call("playwright browser install started", generated_app_dir: generated_app_dir.to_s)
         browser_install = capture_command!(
           "npx", "playwright", "install", "chromium",
           chdir: generated_app_dir,
           failure_label: "install Playwright chromium"
         )
+        phase_logger&.call("playwright verification started", base_url: base_url)
         test_result = capture_command(
           "npx", "playwright", "test", runner_spec_path.basename.to_s, "--workers=1", "--reporter=line",
           chdir: generated_app_dir,

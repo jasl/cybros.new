@@ -8,7 +8,9 @@ require "pathname"
 $LOAD_PATH.unshift(File.expand_path("../../lib", __dir__))
 require "verification/hosted/core_matrix"
 require "verification/suites/proof/capstone_app_api_roundtrip"
+require "verification/support/capstone_terminal_state"
 require "verification/support/host_validation"
+require "verification/support/phase_logger"
 
 agent_base_url = ENV.fetch("FENIX_RUNTIME_BASE_URL", "http://127.0.0.1:3101")
 runtime_base_url = ENV.fetch("NEXUS_RUNTIME_BASE_URL", "http://127.0.0.1:3301")
@@ -25,6 +27,7 @@ workspace_root = Pathname.new(ENV.fetch("CAPSTONE_WORKSPACE_ROOT", repo_root.joi
 generated_app_dir = workspace_root.join("game-2048")
 conversation_export_path = artifact_dir.join("exports", "conversation-export.zip")
 conversation_debug_export_path = artifact_dir.join("exports", "conversation-debug-export.zip")
+phase_log_path = artifact_dir.join("logs", "phase.log")
 published_attachment_upload_path = artifact_dir.join("uploads", "game-2048-dist.zip")
 published_attachment_download_path = artifact_dir.join("downloads", "published-primary-deliverable.zip")
 published_attachment_extract_dir = artifact_dir.join("downloads", "published-primary-deliverable")
@@ -132,6 +135,8 @@ end
 
 FileUtils.rm_rf(artifact_dir)
 FileUtils.mkdir_p(artifact_dir)
+phase_logger = Verification::PhaseLogger.build(log_path: phase_log_path)
+phase_logger.call("capstone scenario started", artifact_dir: artifact_dir.to_s, selector: selector)
 FileUtils.rm_rf(generated_app_dir)
 
 cli_init_bootstrap = Verification::CliSupport.run!(
@@ -260,6 +265,7 @@ published_attachment_upload_byte_size = nil
 published_attachment_export_bytes = nil
 published_export_payload = nil
 published_export_entry_names = []
+database_terminal_state = nil
 probe_questions = [
   "Please tell me what the 2048 work is doing right now and what changed most recently, if known.",
   "Please tell me what the 2048 work is doing right now and what part is currently in progress.",
@@ -293,6 +299,7 @@ Verification::ManualSupport.with_fenix_control_worker!(
     )
     conversation_id = created.dig("conversation", "conversation_id")
     turn_id = created.fetch("turn_id")
+    phase_logger.call("turn created", conversation_id: conversation_id, turn_id: turn_id)
     live_activity = Verification::ManualSupport.wait_for_app_api_turn_live_activity!(
       conversation_id: conversation_id,
       turn_id: turn_id,
@@ -392,6 +399,12 @@ Verification::ManualSupport.with_fenix_control_worker!(
       turn_id: turn_id,
       session_token: app_api_session_token
     )
+    phase_logger.call(
+      "turn completed",
+      conversation_id: conversation_id,
+      turn_id: turn_id,
+      lifecycle_state: terminal.fetch("turn").fetch("lifecycle_state")
+    )
     turn_runtime_events = Verification::ManualSupport.app_api_conversation_turn_runtime_events!(
       conversation_id: conversation_id,
       turn_id: turn_id,
@@ -443,15 +456,18 @@ runtime_validation = Verification::ConversationRuntimeValidation.build(
   tool_invocations: debug_payload.fetch("tool_invocations")
 )
 runtime_mentions_2048 = runtime_validation.fetch("runtime_browser_content_excerpt").match?(/\b2048\b/i)
+phase_logger.call("host validation started", generated_app_dir: generated_app_dir.to_s, preview_port: preview_port)
 host_validation_bundle = Verification::HostValidation.run!(
   generated_app_dir: generated_app_dir,
   artifact_dir: artifact_dir,
   preview_port: preview_port,
   runtime_validation: runtime_validation,
-  persist_artifacts: true
+  persist_artifacts: true,
+  phase_logger: phase_logger
 )
 host_validation = host_validation_bundle.fetch("host_validation")
 playwright_validation = host_validation_bundle.fetch("playwright_validation")
+phase_logger.call("conversation export started", conversation_id: conversation_id, destination_path: conversation_export_path.to_s)
 export_download = Verification::ManualSupport.app_api_export_conversation!(
   conversation_id: conversation_id,
   session_token: app_api_session_token,
@@ -582,6 +598,23 @@ if exported_attachment.present?
   published_attachment_export_bytes = read_zip_entry(conversation_export_path, exported_attachment.fetch("relative_path"))
   published_attachment_export_sha256 = sha256_for_bytes(published_attachment_export_bytes)
 end
+database_terminal_state = Verification::CapstoneTerminalState.inspect!(
+  conversation_id: conversation_id,
+  turn_id: turn_id,
+  workflow_run_id: workflow_run.fetch("workflow_run_id"),
+  selected_output_message_id: output_message.public_id,
+  selected_output_content: output_message.content,
+  published_attachment_id: published_attachment.fetch("attachment_id"),
+  published_attachment_upload_sha256: published_attachment_upload_sha256,
+  published_attachment_download_sha256: published_attachment_download_sha256,
+  published_attachment_export_sha256: published_attachment_export_sha256,
+  exported_attachment: exported_attachment
+)
+phase_logger.call(
+  "database terminal state verified",
+  passed: database_terminal_state.fetch("passed"),
+  attachment_id: published_attachment.fetch("attachment_id")
+)
 
 write_json(
   artifact_dir.join("evidence", "published-attachment-inspection.json"),
@@ -599,6 +632,7 @@ write_json(
     "entry_names" => published_attachment_entry_names,
   }
 )
+write_json(artifact_dir.join("evidence", "database-terminal-state.json"), database_terminal_state)
 
 passed = dag_shape_passed &&
   expected_conversation_state.all? { |key, value| observed_conversation_state[key] == value } &&
@@ -650,6 +684,7 @@ passed = dag_shape_passed &&
   exported_attachment.fetch("sha256") == published_attachment_download_sha256 &&
   published_attachment_export_bytes.bytesize == exported_attachment.fetch("byte_size") &&
   published_attachment_export_sha256 == exported_attachment.fetch("sha256") &&
+  database_terminal_state.fetch("passed") &&
   published_export_entry_names.include?(exported_attachment.fetch("relative_path")) &&
   published_export_payload.fetch("delegation_summary") == [] &&
   workflow_mermaid_review_path.exist? &&
@@ -674,8 +709,10 @@ write_text(
     - runtime validation passed: `#{Verification::HostValidation.runtime_validation_passed?(runtime_validation)}`
     - runtime browser mentioned 2048: `#{runtime_mentions_2048}`
     - host validation passed: `#{Verification::HostValidation.host_validation_passed?(host_validation: host_validation, playwright_validation: playwright_validation)}`
+    - database terminal state passed: `#{database_terminal_state.fetch("passed")}`
     - conversation export path: `#{conversation_export_path}`
     - conversation debug export path: `#{conversation_debug_export_path}`
+    - phase log path: `#{phase_log_path}`
     - generated app dir: `#{generated_app_dir}`
     - published attachment upload path: `#{published_attachment_upload_path}`
     - published attachment id: `#{published_attachment.fetch("attachment_id")}`
@@ -726,8 +763,10 @@ result = Verification::ManualSupport.scenario_result(
     "runtime_browser_mentions_2048" => runtime_mentions_2048,
     "host_validation" => host_validation,
     "playwright_validation" => playwright_validation,
+    "database_terminal_state" => database_terminal_state,
     "conversation_export_path" => conversation_export_path.to_s,
     "conversation_debug_export_path" => conversation_debug_export_path.to_s,
+    "phase_log_path" => phase_log_path.to_s,
     "workflow_mermaid_review_path" => workflow_mermaid_review_path.to_s,
     "selected_output_message_id" => output_message.public_id,
     "selected_output_content" => output_message.content,
